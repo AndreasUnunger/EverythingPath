@@ -102,7 +102,7 @@ The project's reviewed record of each source book's copyright notice, copied wor
 _Avoid_: OGL list, credits
 
 **Character Sheet Entry**:
-One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, or notes. Two potions of the same kind are two Character Sheet Entries.
+One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, an item's enhancement and Item Abilities, or notes. Two potions of the same kind are two Character Sheet Entries.
 
 **Accepted Warning**:
 A rules warning on a Character Sheet that someone marked as intended, so it shows as accepted instead of as a warning. It needs no reason, unlike a Rules Exception. It reopens when the facts that raised it change, and anyone who can edit the sheet can reopen it.
@@ -133,6 +133,14 @@ _Avoid_: attack set, action
 **Routine Option**:
 A feat or class feature an Attack Routine can switch on, such as Power Attack or flurry of blows, changing only that routine's attacks. Its effects on anything else, such as Combat Expertise's bonus to AC, count as a Situation named after it.
 _Avoid_: toggle, attack mode
+
+**Item Ability**:
+A magic weapon, armor or shield ability, such as flaming, keen or fortification, that an item on a Character Sheet carries alongside its enhancement bonus. It counts toward the item's bonus equivalent.
+_Avoid_: enchantment, quality, property, special ability (alone)
+
+**Base Item**:
+The mundane item a specific magic item is built on, such as the longsword under a flame tongue, which supplies its weapon or armor statistics.
+_Avoid_: base type (the weapon name Weapon Focus picks), parent item
 
 **Class Level**:
 One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.

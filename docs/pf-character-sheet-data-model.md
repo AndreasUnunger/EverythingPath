@@ -16,7 +16,7 @@ Only official Paizo text decides a rule: the Core Rulebook, plus the official FA
 
 1. **Stat totals are never stored.** They are derived from Modifiers every time by a pure resolver. The sheet UI and the server's Militia Character Facts calculation share that resolver.
 2. **Everything on the sheet is a Character Sheet Entry.** This covers gear, spells, features, base scores, Class Levels and ability damage.
-3. **Modifiers live on Catalog Entries.** A one-off item, a manual adjustment and the base scores are Catalog Entries scoped to one Character. The exceptions are Class Levels, ability damage and ability drain. They hold only Character state, and the resolver turns that state into built-in Modifiers.
+3. **Modifiers live on Catalog Entries.** A one-off item, a manual adjustment and the base scores are Catalog Entries scoped to one Character. The exceptions are Class Levels, ability damage and ability drain, which hold only Character state, and an item's armor bonus, enhancement, masterwork and material, from its detail and state (see "Weapons and armor"). The resolver turns these into built-in Modifiers.
 4. **Rule facts belong on the Catalog Entry, state on the Character Sheet Entry.** Kind-specific shape is a discriminated union keyed by `kind` on both.
 5. **Everything stays editable at any time,** including choices the rules say can't change later. Such rules, like every rules check, become advisory warnings and never block (AGENTS.md "Validation Philosophy").
 6. **No caches** and no "active effects" table. Pools (current HP, spell slots, daily uses) are not entries, and play-time status tracking is out of scope.
@@ -95,10 +95,11 @@ The old `spell` and `characterSpell` tables retire in the builder release (see "
 ```ts
 // Catalog-backed: the sheet entry points at a Catalog Entry of the same kind.
 type CatalogKind = 'base' | 'race' | 'racialTrait' | 'class' | 'archetype' | 'classFeature' | 'feat' | 'trait'
-                 | 'item' | 'spell' | 'spellEffect' | 'condition' | 'manual';
+                 | 'item' | 'itemAbility' | 'spell' | 'spellEffect' | 'condition' | 'manual';
 // State-only: no Catalog Entry; the resolver emits built-in Modifiers from state.
 type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain' | 'attackRoutine';
-type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;   // a class is reached through Class Levels
+type EntryKind = Exclude<CatalogKind, 'class' | 'itemAbility'> | StateKind; // a class is reached through Class Levels,
+                                                              // an Item Ability through the item listing it
 
 type CatalogEntryDetail =
   | { kind: 'base' }
@@ -141,13 +142,30 @@ type CatalogEntryDetail =
         group: WeaponGroup;                                      // Foundry `weaponGroups`
         handedness: 'light' | 'oneHanded' | 'twoHanded' | 'ranged';
         dice: string;                                            // "1d12", from `sizeRoll(1, 12, @size)`
+        damageTypes: Array<'bludgeoning' | 'piercing' | 'slashing'>; // the damage part's types: keen, alchemical silver
         threat: number; mult: number;                            // lowest threat roll (20, 19, 18) and multiplier
         rangeIncrement?: number; strRating?: number;             // feet; composite bows
         reload?: 'free' | 'move' | 'fullRound';                  // crossbows
         finesse: boolean;                                        // Foundry `system.properties.fin`: Weapon Finesse applies
         thrown: boolean;                                         // has a thrown attack (a `twak` action): dagger, spear, javelin
         otherEnd?: { dice: string; threat: number; mult: number }; // a double weapon's second end
-        natural?: 'primary' | 'secondary' } }                    // a natural weapon; the type is written from the rules
+        natural?: 'primary' | 'secondary' };                     // a natural weapon; the type is written from the rules
+      armor?: { slot: 'armor' | 'shield';                        // see "Armor and shields"
+        category: 'light' | 'medium' | 'heavy' | 'buckler' | 'lightShield' | 'heavyShield' | 'tower';
+        bonus: number; maxDex: number | null;                    // null = no cap
+        acp: number; asf: number };                              // armor check penalty; spell failure, in %
+      baseItem?: Id<'catalogEntry'>;                             // a specific magic item's Base Item
+      magic?: ItemEnchantment & { otherEnd?: ItemEnchantment };  // its defaults, copied into the sheet entry
+      material?: MaterialKey }                                   // a specific item's, display only; see "Special materials"
+  | { kind: 'itemAbility';                                       // see "Item Abilities"
+      appliesTo: 'melee' | 'ranged' | 'weapon' | 'armor' | 'shield' | 'armorOrShield'; // from the pf1-content tag
+      bonusEquivalent: number;                                   // +0 for flat-priced; a tiered ability is one entry per tier
+      damageDice?: Array<{ dice: string; damageType?: string;
+        on: 'hit' | 'crit';                                      // crit: burst, thundering; ×3 → 2 dice, ×4 → 3
+        situation?: Situation }>;                                // holy "vs. evil", bane "vs. the chosen foe"
+      doublesThreat?: true;                                      // keen
+      weaponDamageTypes?: Array<'bludgeoning' | 'piercing' | 'slashing'>; // keen: piercing or slashing; Curation Overlay
+      choice?: 'creatureType' }                                  // bane's designated foe, kept on the ItemAbilityRef
   | { kind: 'spell';                                           // the Spell itself; grants no Modifiers
       levels: Record<ClassTag, number>;                          // Foundry `learnedAt.class`; the record's own `level` is ignored
       grantedLevels: Partial<Record<'domain' | 'subDomain' | 'bloodline', Record<string, number>>>; // the rest of `learnedAt`
@@ -176,14 +194,22 @@ type SheetEntryState =
       slot: 'general' | { grantedBy: Id<'characterSheetEntry'> } }   // the entry whose `grantsSlots` it fills
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
-  | { kind: 'item'; quantity: number }                                // later: charges
+  | { kind: 'item'; quantity: number;                                 // later: charges
+      masterwork: boolean; enhancement: number;                       // 0 = none; see "Weapons and armor"
+      abilities: ItemAbilityRef[];
+      material: MaterialKey | null;
+      otherEnd?: ItemEnchantment & { material: MaterialKey | null };  // a double weapon's second end
+      bash?: ItemEnchantment }                                        // a shield's bash, apart from its AC enhancement
   | { kind: 'spell'; castingClassId: Id<'catalogEntry'>;              // the Spellcasting it is recorded for
       level: number | null }                                          // null = the class's level for it; set for off-list Spells
-  | { kind: 'spellEffect'; casterLevel: number }                      // pre-filled, see "Spell Effects"
+  | { kind: 'spellEffect'; casterLevel: number;                       // pre-filled, see "Spell Effects"
+      onItem?: { entry: Id<'characterSheetEntry'> | 'unarmed';        // the weapon or armor it enhances, see "Spells on an item"
+        end?: 'otherEnd' | 'bash' } }
   | { kind: 'classFeature'; oppositionSchools: SchoolKey[];          // arcane schools only; empty otherwise
       weaponGroup: WeaponGroup | null }                               // Weapon Training's chosen group
   | { kind: 'attackRoutine'; name: string;
-      main?: { weapon: RoutineWeapon; hands: 'two' | 'one'; thrown: boolean }; // absent = natural attacks only
+      main?: { weapon: RoutineWeapon; hands: 'two' | 'one'; thrown: boolean; // absent = natural attacks only
+        ammo?: Id<'characterSheetEntry'> };                           // a ranged weapon's ammunition, see "Ammunition"
       off?: { weapon: RoutineWeapon | 'otherEnd'; thrown: boolean }; // two-weapon fighting; 'otherEnd' = the main double weapon's
       natural: Id<'characterSheetEntry'>[];                           // natural weapons attacking too
       options: Id<'catalogEntry'>[] }                                 // switched-on Routine Options, see "Attacks"
@@ -191,6 +217,9 @@ type SheetEntryState =
                      | 'spell' | 'spellEffect' | 'classFeature'> };
 
 type RoutineWeapon = Id<'characterSheetEntry'> | 'unarmed';         // an item entry, or the built-in unarmed strike
+type ItemEnchantment = { masterwork: boolean; enhancement: number; abilities: ItemAbilityRef[] };
+type ItemAbilityRef = { id: Id<'catalogEntry'>; choice: string | null }; // choice: bane's designated foe
+type MaterialKey = 'adamantine' | 'mithral' | 'darkwood' | 'dragonhide' | 'coldIron' | 'alchemicalSilver';
 ```
 
 ## Class Levels and Hit Dice
@@ -388,7 +417,7 @@ The casting ability modifier for DCs and concentration is the current one, Tempo
 ### Spell Effects
 
 - A Spell Effect is a `spellEffect` Catalog Entry: the Modifiers a running spell grants, imported from the Foundry buffs. `spellKey` names its Spell. A Spell may have several, such as *Fire Shield*'s warm and cold shields.
-- Its sheet entry records `casterLevel`, a plain number the player can change ("cast by Brother Ardo at CL 7"). Nothing links it to the caster's sheet.
+- Its sheet entry records `casterLevel`, a plain number the player can change ("cast by Brother Ardo at CL 7"). Nothing links it to the caster's sheet. A Spell Effect on one weapon or armor also records `onItem` (see "Spells on an item").
 - **Pre-fill.** `casterLevel` is pre-filled with the lowest caster level at which any class can cast the Spell. For each class in the Spell's `levels`, that is the caster level at the first class level whose table has an entry ("0" included) at the Spell's level for that class. *Haste* pre-fills 4, from the summoner's 2nd-level spells at summoner 4. A paladin spell of 1st level pre-fills 1. A Spell Effect without a Spell uses `defaultCasterLevel`.
 - Its formulas may read `@casterLevel` (see "Formulas"). Casting a Spell from a sheet is play-time and out of scope.
 
@@ -402,8 +431,9 @@ type Modifier = { target: Target; bonusType: BonusType; value: number | { formul
 type ModifierCondition = {                       // every part present must hold
   situation?: Situation;                         // "vs. traps": never in a total (see "Conditional Modifiers")
   whileActive?: Id<'catalogEntry'>;              // "while raging": applies while an active entry of that Catalog Entry exists
-  weapon?: '$self' | '$choice' | '$group';       // only attacks with this item, the entry's chosen weapon (Weapon Focus),
-                                                 // or a weapon of the entry's chosen group (Weapon Training)
+  weapon?: '$self' | '$choice' | '$group'        // only attacks with this item, the entry's chosen weapon (Weapon Focus),
+    | '$target' | '$unarmedOrNatural';           // a weapon of the entry's chosen group (Weapon Training), the Spell
+                                                 // Effect's `onItem` weapon, or the unarmed strike and natural attacks
   option?: true;                                 // only inside a routine that has this entry switched on (see "Attacks")
   castingClass?: '$choice' | ClassTag;           // only this Spellcasting (Magical Knack)
   school?: '$choice' | SchoolKey;                // only Spells of this school (Spell Focus)
@@ -449,7 +479,7 @@ A formula may read only stages earlier than its target's stage (see "Resolution 
 
 Decided by [Prototype attacks and conditional modifiers on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/216) (variant 3, tag `prototype-approved/attacks-conditionals`).
 
-- **Weapon conditions** apply only inside the attacks of the matching weapon: `$self` for a weapon's own enhancement, `$choice` for Weapon Focus's chosen weapon, matched on `baseType`, and `$group` for fighter Weapon Training, matched on the weapon's `group` against the entry's `weaponGroup`. They never reach the sheet-level attack statistics.
+- **Weapon conditions** apply only inside the attacks of the matching weapon: `$self` for a weapon's own enhancement, `$choice` for Weapon Focus's chosen weapon, matched on `baseType`, and `$group` for fighter Weapon Training, matched on the weapon's `group` against the entry's `weaponGroup`. `$target` and `$unarmedOrNatural` are in "Spells on an item". They never reach the sheet-level attack statistics.
 - **Option conditions** apply only inside the routines that switch the entry on (see "Routine Options").
 - **While-active conditions** apply automatically while an active entry of the named Catalog Entry is on the sheet, such as Superstition while Raging. Otherwise the Modifier waits and adds nothing.
 - **Situational Modifiers** never enter a total. A Situation is a key from a reviewed vocabulary, such as `traps`, `fear`, `spells`, `giants` or `orcsGoblinoids`, with display text such as "vs. traps", or a local Situation that only its own entry names (see "Situational notes"). `resolveSheet(…, { situations: [situation] })` resolves the sheet as if the Situation held. Its Modifiers then apply and stack like any other, so raging Will vs. spells is +6, not +8: Superstition's +3 morale suppresses Raging's +2 morale.
@@ -469,12 +499,12 @@ Decided by [Decide how the Curation Overlay structures every situational note](h
   - A record holds a list of outputs: Situational Modifiers, situational notes, and while-active or weapon Modifiers where the text says so. So one note can split (Duergar's "+4 vs bull rush and trip while on ground" is two Modifiers) or produce nothing when another record covers it.
   - Targets come from the text. `allSavingThrows` maps to `saves`, `skills` to `skills`, `meleeWeapon` to `attack.melee`, `cl` to `casterLevel`, `conChecks` to `concentration` and `spellEffect` to `spellDC`. The 39 notes with an empty target are mapped the same way.
   - Formulas are rewritten into the closed grammar: `@class.level` becomes `@classLevel.<the granting class>`, and `if(gte(…))` becomes `min` and `floor`. Formulas reading `@resources.*` or `@item.level` stay unsupported.
-- **Action conditionals.** Foundry's structured action `conditionals` on 14 weapon and ability records (the double-barrelled firearms, Grab) get records the same way, as Situational Modifiers with `weapon: '$self'`. The two library records of UI helpers (`*Common Conditional Modifiers` and `*Weapon Enchant Conditional Modifiers`) are not imported, because the CRB attack rules are written by hand.
+- **Action conditionals.** Foundry's structured action `conditionals` on 14 weapon and ability records (the double-barrelled firearms, Grab) get records the same way, as Situational Modifiers with `weapon: '$self'`. The two library records of UI helpers (`*Common Conditional Modifiers` and `*Weapon Enchant Conditional Modifiers`) are not imported, because the CRB attack rules are written by hand. The second's 19 conditionals seed the Item Ability drafts (see "Item Abilities").
 - **Drafting and review.** A drafter script writes the records. A parser drafts notes that lead with a value and a bonus type (about 2,200), and an agent drafts the rest from the note and the entry's description.
   - Each record is `drafted` or `checked`, and both apply. The status isn't shown on the sheet.
   - A record is checked against the entry's imported description, which is Paizo's text, not against the printed book.
 - **Prose-only bonuses.** Situational bonuses with no Foundry note (Superstition, a feat's "+2 vs. bull rush") are ordinary overlay Modifier records for prose-only entries, outside the note gate. A one-off drafter pass over every description looks for "vs.", "against" and "when" wordings and drafts what it finds.
-- **Note gate.** The import fails if any note or action conditional lacks a record of either status. A record whose note text changed upstream no longer applies, so its note counts as missing. A pin bump runs the drafter for the gaps and commits the new records with its import report.
+- **Note gate.** The import fails if any note, action conditional or `itemAbility` entry lacks a record of either status. A record whose note text changed upstream no longer applies, so its note counts as missing. A pin bump runs the drafter for the gaps and commits the new records with its import report.
 
 ## Stacking
 
@@ -520,9 +550,9 @@ Each stage groups and stacks. There is no priority field.
    - BAB and base saves are computed per class from its progression, floored, and summed across classes. A race's `racialProgression` is one more source, computed from `racialHitDice`.
    - Hit Dice are computed here.
 4. **Dependent statistics:**
-   - **AC leaves:** with Dex as a built-in Modifier on `ac.other`.
+   - **AC leaves:** with Dex as a built-in Modifier on `ac.other`, capped by the lowest max Dex among active armor and shields, and their bonuses on `ac.armor` and `ac.shield` (see "Armor and shields").
    - **Saves, skills and initiative:**
-     - Skills combine ranks (`base`), the class-skill +3, the ability modifier and armor check penalty.
+     - Skills combine ranks (`base`), the class-skill +3, the ability modifier and armor check penalty, the sum over active armor and shields.
    - **Hit points:**
      - `hpGained` per Class Level, and the race's `racialHpGained`;
      - the favored class bonus;
@@ -530,7 +560,7 @@ Each stage groups and stacks. There is no priority field.
    - **Attack, CMB and CMD.**
    - **Spellcastings:** caster level, spells per day, spells known, DCs and concentration (see "Spellcasting").
 
-BAB, base saves, HP per level, ranks, the class-skill +3, Dex to AC, ability increases, favored class bonuses and ability damage are all built-in Modifiers. That way they appear in the same breakdown as item bonuses.
+BAB, base saves, HP per level, ranks, the class-skill +3, Dex to AC, ability increases, favored class bonuses, ability damage, and an item's armor bonus, enhancement and masterwork are all built-in Modifiers. That way they appear in the same breakdown as item bonuses.
 
 ### Derived statistics
 
@@ -554,13 +584,13 @@ Decided by [Prototype attacks and conditional modifiers on the living sheet](htt
 - **Coverage.** The builder writes by hand every CRB feat, class feature and combat action that changes a routine line's bonus, damage, critical or number of attacks. Other books are catalog content: computed when a plain Modifier with its condition expresses it, and text otherwise. Feats that change no line's numbers stay text: Cleave, Great Cleave, Spring Attack, Whirlwind Attack, Shot on the Run, Ride-By Attack, Stunning Fist, Spirited Charge (a multiplier) and the maneuver feats.
 - **Attack Routines.**
   - A Character attacks through Attack Routines, state-only sheet entries. Each names the main weapon and whether it is held in two hands or one, an optional off-hand weapon, its natural attacks, and the Routine Options switched on.
-  - Adding a weapon to Gear also adds a routine for it, held its natural way. The player renames, edits, deletes and adds routines.
+  - Adding a weapon to Gear also adds a routine for it, held its natural way. A shield doesn't: its bash is picked into a routine by hand. The player renames, edits, deletes and adds routines.
   - A routine whose weapon has left Gear stays, with an advisory warning.
 - **Weapons.**
   - **Unarmed strike** is a built-in weapon every sheet can put in a routine, with no Gear item. It is imported from Foundry's `monster-abilities` unarmed strike (1d3 nonlethal). Its lines say "nonlethal", or "lethal or nonlethal" with Improved Unarmed Strike. The −4 penalty for dealing the other kind of damage stays text. A monk's unarmed damage scales with monk level.
   - **Natural attacks:** primary at full BAB with Str, ×1.5 if it is the only natural attack; secondary at −5 with ½ Str. They get no iterative attacks, and all are secondary alongside weapon attacks. Foundry's 12 generic natural attack items (Bite, Claw… in `monster-abilities`, `attack` items with `subType: natural`) import as natural weapons. Their primary or secondary type is written from the rules, because Foundry marks it on only 5. Nothing grants them, because racial natural-weapon traits are prose in Foundry: the player adds a natural attack entry. Grants can come later without a model change.
   - **Thrown weapons:** a weapon with a thrown attack has a melee or thrown mode in a routine. Foundry stores separate `mwak` and `twak` actions on one item (dagger, spear, javelin). Thrown takes Dex to attack and Str ×1 to damage.
-  - **Double weapons:** the off hand may be the other end of the main weapon, light for two-weapon penalties. Foundry models only one end for 16 of 17 double weapons, so the Curation Overlay supplies the second end's dice and critical.
+  - **Double weapons:** the off hand may be the other end of the main weapon, light for two-weapon penalties. Foundry models only one end for 16 of 17 double weapons, so the Curation Overlay supplies the second end's dice and critical. Each end has its own enchantment (see "Weapons and armor").
 - **Single and full attack.**
   - Each routine resolves to its single attack (a standard action: the main weapon, no two-weapon penalty, no extra attacks) and its full attack in order.
   - **Iterative attacks:** one more at −5 cumulative at BAB +6, +11 and +16.
@@ -570,20 +600,21 @@ Decided by [Prototype attacks and conditional modifiers on the living sheet](htt
 - **Attack bonus:**
   - BAB, plus Str for melee or Dex for ranged;
   - the `attack.*` Modifiers and the weapon's own conditional Modifiers;
+  - the item's enhancement and masterwork, built-in Modifiers with `weapon: '$self'` (see "Weapons and armor");
   - two-weapon penalties (CRB Table 8-7): −6/−10, −4/−8 with a light off-hand weapon, −4/−4 with Two-Weapon Fighting, −2/−2 with both;
   - the switched-on Routine Options;
   - −2 with a composite bow whose Strength rating exceeds the Str bonus.
 - **Damage:**
   - the weapon's dice;
   - Str ×1.5 in two hands, ×1 in one, ×0.5 off hand (a Str penalty applies in full); Str up to its rating for a composite bow, no Str for a crossbow, a Str penalty only for other bows;
-  - the `damage.*` and weapon Modifiers.
+  - the `damage.*` and weapon Modifiers, the item's enhancement included (masterwork adds nothing to damage).
   - **Sneak attack:** +1d6 per entry, as conditional damage in its own Situation (flanking or the target denied its Dex bonus).
-  - **Special-ability dice:** always-on dice are an extra damage part ("1d8+4 plus 1d6 fire"). Target-dependent ones (*holy*, *bane*) are Situational damage, like sneak attack. How abilities, enhancement and masterwork attach to a weapon is open in [Decide how enhancement and special abilities attach to weapons and armor](https://github.com/AndreasUnunger/EverythingPath/issues/236).
+  - **Special-ability dice:** always-on dice are an extra damage part ("1d8+4 plus 1d6 fire"). Target-dependent ones (*holy*, *bane*) are Situational damage, like sneak attack. They come from Item Abilities (see "Item Abilities").
 - **Critical:** the weapon's threat range and multiplier, shown as "×3", "19–20/×2" or "18–20/×2".
 - **Automatic feats** apply with no toggle while on the sheet:
   - Improved and Greater Two-Weapon Fighting: a second and third off-hand attack, at −5 and −10;
   - Double Slice: full Str on the off hand;
-  - Improved Critical and *keen*: the threat range doubles once and never stacks. This is a hand-written rule, as no Modifier target is a threat range;
+  - Improved Critical and *keen* (`doublesThreat`): the threat range doubles once and never stacks. This is a hand-written rule, as no Modifier target is a threat range;
   - Rapid Reload: a light crossbow's reload becomes free and a heavy crossbow's a move action;
   - Weapon Finesse: the higher of Str and Dex to attack with a `finesse` weapon. The breakdown names the ability used, and a shield's armor check penalty applies.
 - **Combat actions** are built-in Situations: fighting defensively, total defense and charging. They don't trigger the situational marker. Each breakdown lists them in a collapsed "Combat actions" group below the Character's own "Only when…" groups.
@@ -605,6 +636,103 @@ Decided by [Prototype attacks and conditional modifiers on the living sheet](htt
   - **Vital Strike:** the weapon's dice ×2, ×3 with Improved and ×4 with Greater, on the single attack only.
   - **Lunge:** +5 ft reach.
 - **Flurry of blows** is a Routine Option for monks, written separately for the core monk and the unchained monk.
+
+## Weapons and armor
+
+Decided by [Decide how enhancement and special abilities attach to weapons and armor](https://github.com/AndreasUnunger/EverythingPath/issues/236).
+
+- **State on the item.** An item's enhancement, masterwork, material and Item Abilities are state on its sheet entry, never separate entries or a Catalog Copy. Two longswords are two sheet entries, each with its own enchantment.
+- **Always on.** Command-word abilities such as *flaming* count as always on. Switching them during play is out of scope.
+- **Per end and per bash.** A double weapon's `otherEnd` ("the double weapon is treated as two separate weapons", FAQ) applies when a routine's off hand is `'otherEnd'`. A shield's `bash` is its own enchantment (see "Armor and shields"). Everything below holds for each end and each bash.
+- **Not modelled.** Class features that enchant a weapon for a while (paladin divine bond, magus arcane pool, warpriest sacred weapon) are play-time state. Their text stays on the class feature. Gold-piece prices are never computed.
+- **Editing.** There is no prototype. The item editor follows the routine side panel (a bottom sheet on phone): an enhancement stepper, a masterwork toggle, a material select, an Item Ability picker filtered by `appliesTo`, and the construction warnings inline.
+
+### Enhancement and masterwork
+
+- **Enhancement.** A weapon's is a built-in `enhancement` Modifier on `attack` and `damage` with `weapon: '$self'`. Armor's and a shield's are in "Armor and shields".
+- **Masterwork.** The `masterwork` flag is kept, but an item with enhancement +1 or more, or of a masterwork material, counts as masterwork whatever the flag. Nothing warns about magic that isn't masterwork.
+  - A masterwork weapon has a built-in +1 `enhancement` Modifier on `attack` only, with `weapon: '$self'`. Highest-only stacking suppresses it under any enhancement bonus, so no special rule is needed.
+  - Masterwork armor or a masterwork shield has −1 armor check penalty, kept when it is magic.
+  - Masterwork armor or shields never add to a shield bash or to armor used as a weapon.
+
+### Armor and shields
+
+- **Base.** An active armor item is a built-in `armor` Modifier of its `bonus` on `ac.armor`, and a shield a `shield` Modifier on `ac.shield`. Its enhancement is an `enhancement` Modifier on the same leaf, so touch AC drops it. "Worn" is the sheet entry's `active` flag, and highest-only stacking settles two active suits.
+- **Max Dex.** Dex to AC is capped by the lowest `maxDex` among active armor and shields.
+- **Armor check penalty.** The sum of active armor's and shields' `acp`, after masterwork and material.
+- **Spell failure** is shown, not computed.
+- **Tower shield.** Its −2 on attacks is a Curation Overlay Modifier on the tower shield entry.
+- **Shield bash.** Foundry gives each shield a "Bash" melee action (heavy steel shield: 1d4 bludgeoning), and the shield's `weapon` detail is mapped from it. So a shield can be a routine weapon, usually off hand: a light shield's bash is light, a heavy shield's one-handed.
+  - A bash uses the `bash` enchantment. The shield's own enhancement stays on `ac.shield` ("An enhancement bonus on a shield does not improve the effectiveness of a shield bash made with it, but the shield can be made into a magic weapon in its own right", CRB).
+  - *Bashing* is a shield Item Ability. Its +1 on attack and damage are Modifiers with `weapon: '$self'`, and its dice two sizes larger are a hand-written CRB rule.
+  - Losing the shield's AC bonus after a bash stays text. Shield Master is decided in [Decide how the builder treats the remaining CRB attack feats and open attack rulings](https://github.com/AndreasUnunger/EverythingPath/issues/237).
+- **Spikes.** Armor spikes and shield spikes are separate weapon items in Gear, as in Foundry.
+
+### Item Abilities
+
+- **Entries.** Each weapon, armor or shield ability, such as *flaming*, *keen* or *fortification*, is an `itemAbility` Catalog Entry. They come from pf1-content's `pf-special-qualities` pack, 333 prose-only records, because Foundry has no way to attach an ability to an item. An item lists them as `ItemAbilityRef`s.
+- **Modifiers.** An ability's Modifiers bind to the item listing it.
+  - Weapon Modifiers carry `weapon: '$self'`: *bane*'s +2 enhancement on attack and damage in its Situation.
+  - A Modifier with no weapon condition applies while the item is active: *shadow*'s +5 competence on Stealth.
+  - Situational ones work as anywhere else: *arrow catching*'s +1 deflection vs. ranged attacks.
+  - *Speed* has `sourceKey: 'haste'`, so its extra attack comes from the haste rule and doesn't stack with *haste*.
+- **Choice.** *Bane*'s designated foe is the `ItemAbilityRef`'s `choice`. Until it is chosen, its Modifiers and dice contribute nothing and the field shows a blue outline.
+- **Dice.** `hit` dice are an extra damage part, or Situational damage with a `situation` (see "Attacks"). `crit` dice (*flaming burst*, *thundering*) apply only on a critical hit, one more die per multiplier step above ×2. Extra dice are never multiplied on a critical (CRB).
+- **Keen.** `doublesThreat` feeds the Improved Critical rule in "Attacks".
+- **No sheet statistic.** *Fortification*, damage reduction, spell resistance, energy resistance, *defending*, *brilliant energy* and *ghost touch* are Situational Notes on the ability. Overcoming damage reduction (+3 as cold iron and silver, *holy* as good) isn't computed.
+- **Tiers.** A tiered ability is one entry per tier (*fortification* light, moderate and heavy), as pf1-content already splits *spell resistance* 13, 15, 17 and 19.
+- **Import.** The importer reads `appliesTo` from the pack's tag (Melee, Ranged, Universal Weapon, Armor, Shield, Universal Armor & Shield Qualities) and `bonusEquivalent` from the price prose: 241 plain +1 to +5, 72 flat gold prices as +0, and a few tiered.
+- **Drafting.** The situational-notes drafter (parser plus agent) drafts each ability's dice, Modifiers and notes from its description, seeded by the 19 conditionals of Foundry's `*Weapon Enchant Conditional Modifiers` helper (see "Situational notes"). Each record is `drafted` or `checked`, and the note gate covers every `itemAbility`. CRB abilities are checked before launch, the coverage bar of [Decide which attack options an Attack Routine supports](https://github.com/AndreasUnunger/EverythingPath/issues/229). The rest ship `drafted`.
+
+### Specific magic items
+
+- **Upstream.** pf1-content has 387 magic weapons and 228 magic armors and shields as standalone records.
+  - Their weapon data is broken: a placeholder `sizeRoll(1, 4, @size)` melee action with no critical, even on bows.
+  - The only link to a base is free-text `baseTypes`.
+  - Enhancement and abilities are prose ("This is a +1 flaming burst longsword").
+- **Base Item.** A specific item is an `item` Catalog Entry with `baseItem`.
+  - Its `weapon` detail always comes from the Base Item, never from Foundry's placeholder.
+  - Its `armor` detail comes from the record's own numbers when it has them (the *mithral shirt* and *celestial armor* bake theirs in), else from the Base Item (*dwarven plate* has no armor block).
+  - The importer matches `baseTypes` to a mundane item's name, ignoring case: 348 of 380 weapons match, and 25 mundane `baseTypes` strings are shared by several items. The Curation Overlay settles the unmatched and ambiguous ones.
+- **Defaults.** `magic` holds the default masterwork, enhancement, abilities and other end, drafted from the prose and checked in the Curation Overlay. Adding the item to a sheet copies them into the sheet entry's state, which is then the truth and stays editable, like a Spell Effect's pre-filled caster level.
+- **On the entry.** The description, price, unique powers (*flame tongue*'s ray) and the item's own Modifiers stay on the Catalog Entry.
+- **Conditional enhancement.** *Sun blade* (+4 vs. evil), *mace of smiting* (+5 vs. constructs), *oathbow* (vs. a sworn enemy), *holy avenger* (+5 *holy* in a paladin's hands), *dwarven thrower* (in a dwarf's hands) and *sword of the planes* get Situational `enhancement` Modifiers on attack and damage with `weapon: '$self'`, written by the Curation Overlay.
+  - Target conditions use shared or local Situations. Wielder conditions use a local Situation too, not a new condition kind.
+  - A player who wants the bonus on the face of the sheet sets the state's enhancement.
+
+### Spells on an item
+
+- **Target.** A Spell Effect that enhances one weapon or armor records `onItem`: a sheet entry or the unarmed strike, and optionally the other end or the bash. This covers *magic weapon*, *greater magic weapon*, *magic vestment* and *magic fang*.
+  - `weapon: '$target'` limits a Modifier to attacks with that weapon or end.
+  - A `$target` Modifier on an AC target lands on that item's leaf, `ac.armor` or `ac.shield` (*magic vestment*).
+  - Highest-only `enhancement` stacking settles *magic weapon* against the weapon's own +1.
+  - Until `onItem` is filled, its `$target` Modifiers contribute nothing and the field shows a blue outline.
+- **Unarmed and natural.** `weapon: '$unarmedOrNatural'` limits a Modifier to the unarmed strike and natural attacks (*amulet of mighty fists*). A monk's unarmed strike counts as both a manufactured and a natural weapon for these (CRB monk).
+
+### Ammunition
+
+- A routine's ranged main weapon may name `ammo`, an ammunition item. Its enhancement and Item Abilities apply to that routine's lines.
+  - Its enhancement competes with the launcher's by highest-only ("Only the higher of the two enhancement bonuses applies", CRB).
+  - The launcher's abilities still apply, since bows pass them to their ammunition (CRB).
+  - Without `ammo` nothing changes.
+- Ammunition items have the same state, `quantity` included. Foundry's 120 ammunition records carry no enhancement. Some magic ammunition is a weapon record (*screaming bolt*, +2) and imports as an item like any other.
+
+### Special materials
+
+- **Table.** Item state's `material` is applied by a hand-written CRB table. Other books' materials are text.
+
+  | Material | Effect |
+  |---|---|
+  | Mithral | armor: −3 armor check penalty (minimum 0), +2 max Dex, −10% spell failure; masterwork |
+  | Darkwood | shield: −2 armor check penalty; masterwork |
+  | Adamantine | masterwork; armor: damage reduction 1, 2 or 3 for light, medium or heavy, as a Situational Note |
+  | Dragonhide | masterwork |
+  | Alchemical silver | −1 damage (minimum 1) on slashing and piercing weapons |
+  | Cold iron | nothing on the sheet |
+
+- **Mithral.** Its −3 doesn't stack with masterwork's −1. The CRB is silent, and *elven chain* and the *mithral shirt* only fit no stacking. "One category lighter" stays text: per the FAQ it doesn't change the actual category.
+- **One material.** Only the most prevalent material applies, so an item has one. A double weapon's other end has its own.
+- **Specific items.** A specific item's material (Foundry `material.normal`) is display-only in its catalog detail, because its numbers already include it. The table applies only when state sets a material on an item whose Catalog Entry has none.
 
 ## Rules checks
 
@@ -635,6 +763,7 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 - The favored classes, on the race sheet entry.
 - Proficiencies and region are never recorded.
 - Racial Traits, as sheet entries (see "Racial traits").
+- Each item's enhancement, masterwork, material and Item Abilities (see "Weapons and armor").
 
 **Clauses that can't be checked show nothing.** A prerequisite clause the sheet has no fact for, or that the importer couldn't parse, shows no warning and no "not checked" line. This covers proficiency, region, senses such as darkvision, a clause forbidding a racial trait, and a cleric's alignment relative to the deity. The entry's prerequisite prose stays readable in its description.
 
@@ -666,9 +795,16 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Orphaned Spell:** a recorded Spell whose casting class the Character has no Class Levels in | recorded Spells, Class Levels | sheet |
 | **Prestige advance:** an `arcane` or `divine` advance on a Spellcasting of another kind; an advance to a class first taken after the prestige class ("belonged to before"). An empty choice is a blue outline, not a warning | Class Levels | `castingAdvances`, `casting.spellKind` |
 | **Opposition schools:** the specialist school chosen as an opposition school, or fewer than two opposition schools | arcane school entry | `spellcasting.school` |
+| **Enhancement over +5** (`item.enhancement`): an item's state enhancement above +5. Only state counts, because *bane* and conditional items may exceed +5 in a Situation | item state | sheet |
+| **Ability without enhancement** (`item.abilityWithoutEnhancement`): an Item Ability on an item with no +1 enhancement | item state | sheet |
+| **Bonus equivalent over +10** (`item.bonusEquivalent`): the item's highest enhancement, active Spell Effects with `onItem` on it included, plus each Item Ability's `bonusEquivalent` ("including those from character abilities and spells", CRB; "a hard cap for all weapons", FAQ) | item state, Spell Effects | `bonusEquivalent` |
+| **Duplicate Item Ability** (`item.duplicateAbility`): the same Item Ability twice on one item | item state | sheet |
+| **Wrong item** (`item.appliesTo`): an Item Ability whose `appliesTo` excludes the item (a weapon ability on armor, a melee ability on a bow), or a weapon outside its `weaponDamageTypes` (*keen*) | item state | `appliesTo`, Curation Overlay |
 | **Unsupported formula** (see "Formulas") | Modifiers | importer |
 
 **Skill ranks follow Intelligence retroactively.** The CRB glossary says a permanent ability increase means you "modify all skills and statistics related to that ability. This might cause you to gain skill points", and drain "might cause you to lose skill points". So every Class Level's budget uses the current permanent Int modifier. The headband's fixed skill ranks are *Ultimate Equipment* rules and aren't admitted, so a headband counts as ordinary permanent Int.
+
+**Item construction.** Decided by [Decide how enhancement and special abilities attach to weapons and armor](https://github.com/AndreasUnunger/EverythingPath/issues/236). The five item checks run per end of a double weapon and per shield bash. Flat-priced abilities (*shadow*, *glamered*) count as +0.
 
 **Favored class.** It is chosen on the race sheet entry, once a race is set. The count comes from Racial Traits (see "Racial traits"). Unchained Class levels count as the original's. Favored class options stay a free-text note and are not checked against race and class pairs. A change of favored class after creation can't be detected and isn't checked.
 
@@ -786,7 +922,8 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Content.** These packs are imported:
   - races, classes and class abilities;
   - feats, traits and racial traits, without the 240 *Advanced Race Guide* race builder records (see "Racial traits"; `racePoints` is unmapped);
-  - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
+  - every item pack: mundane, magic, wondrous, artifacts, armor and weapons, with specific magic weapons and armor built on a Base Item (see "Specific magic items");
+  - pf1-content's `pf-special-qualities`, as `itemAbility` entries, without its one template item (see "Item Abilities");
   - buffs;
   - spells, as `spell` entries keyed `pf1/<_id>`;
   - the 13 `racial-hd` records, as the creature-type seed table rather than as Catalog Entries;
@@ -808,10 +945,12 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - turn every situational note (Foundry `contextNotes`) and action conditional into Situational Modifiers and situational notes, with a gate that fails the import on any note without a record (see "Situational notes");
   - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
   - mark Routine Options, and set natural attack types and a double weapon's second end (see "Attacks");
+  - draft and check each Item Ability's dice, Modifiers, notes and `weaponDamageTypes`, under the note gate (see "Item Abilities");
+  - settle a specific item's Base Item, check its `magic` defaults, and write its conditional enhancement (see "Specific magic items");
   - exclude an entry, giving the reason (see "Notice gate").
 
   Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
-- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. A weapon's `weapon` detail comes from its `baseTypes`, `weaponGroups`, `weaponSubtype` and `held`, and from the first action's `damage.parts` (the dice inside `sizeRoll(n, s, @size)`), `ability.critRange`/`critMult` and `range`. `finesse` comes from `properties.fin`, and `thrown` from a `twak` action. Omitted defaults are filled in. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
+- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. A weapon's `weapon` detail comes from its `baseTypes`, `weaponGroups`, `weaponSubtype` and `held`, and from the first action's `damage.parts` (the dice inside `sizeRoll(n, s, @size)`, and the damage types), `ability.critRange`/`critMult` and `range`. `finesse` comes from `properties.fin`, and `thrown` from a `twak` action. A shield's `weapon` detail comes from its Bash action. The `armor` detail comes from `system.armor.value`, `armor.dex`, `armor.acp`, `system.spellFailure` and `system.equipmentSubtype`. A magic armor's enhancement is read from `armor.enh`, falling back to `system.enh`, where 159 of the 228 keep it and Foundry's own AC code ignores it. Omitted defaults are filled in. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
 - **Pipeline.**
   - The repo pins a release tag of each upstream repo, never an unreleased commit ([Decide which Foundry pf1 release the catalog import pins](https://github.com/AndreasUnunger/EverythingPath/issues/223)). The pins are system `v11.11` and pf1-content `11.4.0`. Both repos must share a major version, and the import fails if they don't.
   - The importer maps one upstream shape, the v11 one, in which class skills are a boolean map, class features are listed in `links.classAssociations`, skill targets use three-letter keys such as `skill.per`, and `system.changes` is an array. Pack files are read recursively from a checkout of the tag, so Foundry itself never runs.
@@ -846,7 +985,7 @@ The resolver lives in `src/lib`, is pure, and is shared by the client and Convex
 ```ts
 type SourcedModifier = Modifier & { sheetEntryId: string; entryName: string; source: string; builtIn: boolean };
 
-collectModifiers(character, entries, catalog): SourcedModifier[]   // active entries + built-ins from state
+collectModifiers(character, entries, catalog): SourcedModifier[]   // active entries, their Item Abilities + built-ins from state
 resolveSheet(modifiers, { permanentOnly?: boolean; situations?: Situation[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }; plus one resolved Spellcasting per casting class
 resolveRoutine(character, sheet, routine, { situations? }): { single, attacks }   // see "Attacks"
 militiaCharacterFacts(character, entries, catalog): MilitiaCharacterFacts // permanentOnly; the one function the militia uses
@@ -901,7 +1040,15 @@ Resolver tests (pure) must cover:
 - natural attacks alone and alongside weapons, unarmed strike with monk scaling, thrown mode, a double weapon's other end as a light off hand, and special-ability dice as a damage part or Situational damage;
 - the `$group` weapon condition, `@casterLevel.<classKey>` and `@casterLevel.arcane`, and combat actions staying out of the marker;
 - Racial Traits: choosing and changing a race, an alternate removing and restoring what it replaces, an unchosen `ability.$choice`, `countsAsRaces` and `oneOf`, and the favored class count following Multitalented;
-- `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, and an Accepted Warning reopening when its fingerprint changes.
+- a masterwork weapon's +1 on attack only, suppressed by any enhancement;
+- armor and shield bonuses with their enhancement on their own leaves and off touch AC, two suits highest-only, the lowest max Dex capping Dex to AC but not CMD, and armor check penalties summing into skills;
+- a specific weapon taking its `weapon` detail from its Base Item, and its `magic` defaults copied into the sheet entry;
+- Item Ability dice on a hit, crit-only dice scaling with the multiplier, and *bane* contributing nothing until its `choice` is set;
+- *magic weapon* through `onItem` competing highest-only with the weapon's own enhancement, and contributing nothing without `onItem`;
+- ammunition's enhancement competing highest-only with the launcher's, with both items' abilities applying;
+- each end of a double weapon with its own enchantment, and a shield bash using `bash`, not the shield's AC enhancement;
+- the special materials table, mithral's −3 not stacking with masterwork's −1, and a specific item's material changing nothing;
+- `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, the item construction checks per end and per bash, and an Accepted Warning reopening when its fingerprint changes.
 
 Integration tests (convex-test) must cover:
 
