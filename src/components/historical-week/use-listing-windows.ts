@@ -1,6 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { convexQuery } from '@convex-dev/react-query';
+import {
+  useQueries,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import {
@@ -11,18 +17,13 @@ import {
   type ListWindow,
   type WeekIndexItem,
 } from './finished-week-index';
-import {
-  useWatchedQueries,
-  useWatchedQuery,
-  type Watched,
-} from './use-watched-queries';
 
 /** An older window's control: not requested, loading, or failed. */
 export type WindowStatus = 'idle' | 'loading' | 'failed';
 
 export type ListingWindows = {
   /** The newest page, which also decides empty, failed and loading states. */
-  newest: Watched<FinishedWeekListing>;
+  newest: UseQueryResult<FinishedWeekListing> | undefined;
   latestRow: FinishedWeek | null;
   items: WeekIndexItem[];
   /** The listing row for a week, from any loaded window or its own read. */
@@ -34,8 +35,6 @@ export type ListingWindows = {
   /** Called when the latest row is chosen: drops every older window. */
   restoreNewest: () => void;
 };
-
-const windowName = (beforeWeek: number | null) => `${beforeWeek ?? 'newest'}`;
 
 /**
  * The bounded listing windows behind the Finished weeks index: the newest page
@@ -52,7 +51,6 @@ export function useListingWindows({
   explicitWeek: number | undefined;
 }): ListingWindows {
   const [anchors, setAnchors] = useState<number[]>([]);
-  const [attempts, setAttempts] = useState<Record<string, number>>({});
   // The latest row's link navigates asynchronously; windows are dropped once
   // the address actually shows that week, so the old deep link can't re-add
   // its window in between.
@@ -62,30 +60,25 @@ export function useListingWindows({
   } | null>(null);
 
   const allAnchors = [null, ...anchors];
-  const keyFor = (beforeWeek: number | null) =>
-    `list:${windowName(beforeWeek)}:${attempts[windowName(beforeWeek)] ?? 0}`;
-  const results = useWatchedQueries(
-    api.canonicalHistory.list,
-    isEnabled
-      ? allAnchors.map((beforeWeek) => ({
-          key: keyFor(beforeWeek),
-          args:
+  const results = useQueries({
+    queries: isEnabled
+      ? allAnchors.map((beforeWeek) =>
+          convexQuery(
+            api.canonicalHistory.list,
             beforeWeek === null ? { campaignId } : { campaignId, beforeWeek },
-        }))
+          ),
+        )
       : [],
-  );
-  const resultFor = (beforeWeek: number | null): Watched<FinishedWeekListing> =>
-    results[keyFor(beforeWeek)] ?? { status: 'loading' };
+  });
+  const resultFor = (beforeWeek: number | null) =>
+    results[allAnchors.indexOf(beforeWeek)];
   const newest = resultFor(null);
   const windows: ListWindow[] = allAnchors.flatMap((beforeWeek) => {
     const result = resultFor(beforeWeek);
-    return result.status === 'ready'
-      ? [{ beforeWeek, listing: result.data }]
-      : [];
+    return result?.isSuccess ? [{ beforeWeek, listing: result.data }] : [];
   });
   const loadedRows = windows.flatMap(({ listing }) => listing.weeks);
-  const latestRow =
-    newest.status === 'ready' ? (newest.data.weeks[0] ?? null) : null;
+  const latestRow = newest?.isSuccess ? (newest.data.weeks[0] ?? null) : null;
 
   if (restoring && explicitWeek !== restoring.from) {
     setRestoring(null);
@@ -94,13 +87,13 @@ export function useListingWindows({
     if (explicitWeek === restoring.week) setAnchors([]);
   }
   const isSettled = allAnchors.every(
-    (beforeWeek) => resultFor(beforeWeek).status !== 'loading',
+    (beforeWeek) => !resultFor(beforeWeek)?.isPending,
   );
   const needsDeepWindow =
     isEnabled &&
     restoring === null &&
     explicitWeek !== undefined &&
-    newest.status === 'ready' &&
+    newest?.isSuccess &&
     isSettled &&
     !isWeekCovered(windows, explicitWeek) &&
     !anchors.includes(explicitWeek + 1);
@@ -109,25 +102,22 @@ export function useListingWindows({
   // A linked week outside every loaded window is shown at once from its own
   // one-row read while its window loads.
   const isListed = loadedRows.some((row) => row.week === explicitWeek);
-  const selected = useWatchedQuery(
-    api.canonicalHistory.list,
-    `selected:${explicitWeek}:${attempts[windowName(null)] ?? 0}`,
-    isEnabled && explicitWeek !== undefined && !isListed
-      ? { campaignId, selectedWeek: explicitWeek, limit: 1 }
-      : null,
+  const selected = useQuery(
+    convexQuery(
+      api.canonicalHistory.list,
+      isEnabled && explicitWeek !== undefined && !isListed
+        ? { campaignId, selectedWeek: explicitWeek, limit: 1 }
+        : 'skip',
+    ),
   );
-  const pinned = selected.status === 'ready' ? selected.data.selected : null;
+  const pinned = selected.isSuccess ? selected.data.selected : null;
 
-  const retry = () =>
-    setAttempts((current) => {
-      const next = { ...current };
-      for (const beforeWeek of allAnchors) {
-        if (resultFor(beforeWeek).status !== 'failed') continue;
-        const name = windowName(beforeWeek);
-        next[name] = (next[name] ?? 0) + 1;
-      }
-      return next;
-    });
+  const retry = () => {
+    for (const result of results) {
+      if (result.isError) void result.refetch();
+    }
+    if (selected.isError) void selected.refetch();
+  };
 
   return {
     newest,
@@ -138,8 +128,12 @@ export function useListingWindows({
       (pinned?.week === week ? pinned : null),
     windowStatus: (beforeWeek) => {
       if (!anchors.includes(beforeWeek)) return 'idle';
-      const { status } = resultFor(beforeWeek);
-      return status === 'ready' ? 'idle' : status;
+      const result = resultFor(beforeWeek);
+      return result?.isSuccess
+        ? 'idle'
+        : result?.isError
+          ? 'failed'
+          : 'loading';
     },
     loadEarlier: (beforeWeek) =>
       anchors.includes(beforeWeek)

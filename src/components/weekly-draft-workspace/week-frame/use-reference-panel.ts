@@ -2,6 +2,7 @@
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Id } from '@convex/_generated/dataModel';
+import { useBreakpoint } from '~/components/use-breakpoint';
 import {
   useRecentHistory,
   type RecentHistory,
@@ -55,27 +56,6 @@ export function useReferencePanelPreference() {
   return [open, setOpen] as const;
 }
 
-// Whether the docked panel (from 768px) or the phone sheet is the surface in
-// use; decides which one's History tab may read.
-const wide = '(min-width: 768px)';
-function mediaQuery() {
-  return typeof window.matchMedia === 'function'
-    ? window.matchMedia(wide)
-    : null;
-}
-function subscribeWidth(listener: () => void) {
-  const query = mediaQuery();
-  query?.addEventListener('change', listener);
-  return () => query?.removeEventListener('change', listener);
-}
-function useWideLayout() {
-  return useSyncExternalStore(
-    subscribeWidth,
-    () => mediaQuery()?.matches ?? true,
-    () => true,
-  );
-}
-
 export type ReferencePanel = {
   /** Docked panel preference (tablet/desktop). */
   open: boolean;
@@ -101,7 +81,7 @@ export function useReferencePanel(campaignId: string | null): ReferencePanel {
   const [tab, setTab] = useState<ReferenceTab>('militia');
   const parsed = zid('campaign').safeParse(campaignId);
   const verified = parsed.success ? parsed.data : null;
-  const shown = useWideLayout() ? open : sheetOpen;
+  const shown = useBreakpoint('wide') ? open : sheetOpen;
   const history = useRecentHistory(
     verified ?? ('' as Id<'campaign'>),
     verified !== null && shown && tab === 'history',

@@ -31,6 +31,9 @@ vi.mock('convex/react', () => ({
   useConvex: () => ({}),
   useConvexAuth: () => ({ isLoading: false, isAuthenticated: true }),
 }));
+vi.mock('~/components/historical-week/use-recent-history', () => ({
+  useRecentHistory: () => ({ status: 'idle', weeks: [], retry: vi.fn() }),
+}));
 vi.mock('next/link', () => ({
   default: ({
     href,

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Hash runtime, tests, configuration, lockfile and normative rules/decisions.
@@ -25,7 +25,9 @@ export function sourceFingerprint(root: string) {
         file !== 'CLAUDE.md' &&
         !file.startsWith('agent/') &&
         (!file.startsWith('docs/') ||
-          file.startsWith('docs/ai/ironfang-militia/')),
+          file.startsWith('docs/ai/ironfang-militia/')) &&
+        // The index retains tracked files deleted from the working tree.
+        existsSync(join(root, file)),
     );
   const hash = createHash('sha256');
   for (const file of [...new Set(files)].sort()) {

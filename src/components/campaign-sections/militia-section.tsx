@@ -1,5 +1,6 @@
 'use client';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
@@ -35,8 +36,11 @@ export function MilitiaSection({
   /** The entry the address selects, e.g. Teams. */
   initialEntry?: MilitiaEntryKey;
 }) {
-  const source = useQuery(api.canonicalDraftPersistence.workspace, {
-    campaignId,
+  const { data: source } = useQuery({
+    ...convexQuery(api.canonicalDraftPersistence.workspace, {
+      campaignId,
+    }),
+    throwOnError: true,
   });
   if (source === undefined) return <MilitiaSkeleton />;
   if (source)

@@ -72,34 +72,3 @@ export function getOrganizationCheckBonusesForMilitia({
 export function getMinimumTreasuryForRank(rank: number) {
   return rank * 10;
 }
-
-export function getMilitiaNotoriety(notoriety?: number) {
-  return notoriety ?? 0;
-}
-
-export function getTreasuryShortageReferenceBalance({
-  currentTreasury,
-  upkeepTreasurySnapshot,
-}: {
-  currentTreasury: number;
-  upkeepTreasurySnapshot?: number;
-}) {
-  return upkeepTreasurySnapshot ?? currentTreasury;
-}
-
-export function shouldApplyTreasuryShortagePenalty({
-  rank,
-  currentTreasury,
-  upkeepTreasurySnapshot,
-}: {
-  rank: number;
-  currentTreasury: number;
-  upkeepTreasurySnapshot?: number;
-}) {
-  return (
-    getTreasuryShortageReferenceBalance({
-      currentTreasury,
-      upkeepTreasurySnapshot,
-    }) < getMinimumTreasuryForRank(rank)
-  );
-}

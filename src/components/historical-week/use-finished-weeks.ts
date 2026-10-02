@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { convexQuery } from '@convex-dev/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { ConvexError } from 'convex/values';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { CampaignWeek } from '~/components/campaign-home/use-campaign-week';
@@ -17,7 +19,6 @@ import type {
 import type { HistoryRead } from './history-read';
 import { useAuditTrail } from './use-audit-trail';
 import { useListingWindows, type ListingWindows } from './use-listing-windows';
-import { useWatchedQuery, type Watched } from './use-watched-queries';
 
 type HrefFor = (selection: HistorySelection) => string;
 
@@ -27,8 +28,8 @@ function toIndexView(
   hrefFor: HrefFor,
 ): IndexView {
   const { newest } = windows;
-  if (newest.status !== 'ready')
-    return newest.status === 'failed'
+  if (!newest?.isSuccess)
+    return newest?.isError
       ? { status: 'failed', retry: windows.retry }
       : { status: 'loading' };
   return {
@@ -59,20 +60,20 @@ function toIndexView(
 
 // The pane when there is no record to show.
 function toMissingPane(
-  detail: Watched<HistoryRead | null>,
+  detail: UseQueryResult<HistoryRead | null>,
   selection: HistorySelection,
   hrefFor: HrefFor,
   retry: () => void,
 ): PaneView | null {
-  if (detail.status === 'loading') return { status: 'loading' };
-  if (detail.status === 'failed') {
+  if (detail.isPending) return { status: 'loading' };
+  if (detail.isError) {
     const effective = {
       label: 'Show the effective record',
       href: hrefFor({ week: selection.week }),
     };
     // The server refuses a linked entry from another week or campaign; it is
     // never replaced by another entry.
-    if (detail.isRejected && selection.recordId !== undefined)
+    if (detail.error instanceof ConvexError && selection.recordId !== undefined)
       return {
         status: 'unavailable',
         message: "This entry isn't available.",
@@ -114,7 +115,6 @@ export function useFinishedWeeks({
 }): FinishedWeeksView {
   // A campaign without a militia has no history; its reads would only fail.
   const isEnabled = campaignWeek.kind !== 'not_set_up';
-  const [readAttempt, setReadAttempt] = useState(0);
   const windows = useListingWindows({
     campaignId,
     isEnabled,
@@ -126,13 +126,10 @@ export function useFinishedWeeks({
     week: selection.week,
     recordId: selection.recordId,
   };
-  const detail = useWatchedQuery(
-    api.canonicalHistory.read,
-    `read:${JSON.stringify(detailArgs)}:${readAttempt}`,
-    isEnabled ? detailArgs : null,
+  const detail = useQuery(
+    convexQuery(api.canonicalHistory.read, isEnabled ? detailArgs : 'skip'),
   );
-  const read =
-    detail.status === 'ready' ? (detail.data ?? undefined) : undefined;
+  const read = detail.isSuccess ? (detail.data ?? undefined) : undefined;
   const shownWeek =
     selection.week ?? read?.week ?? windows.latestRow?.week ?? null;
   const { audit, earlierEntry } = useAuditTrail({
@@ -148,8 +145,10 @@ export function useFinishedWeeks({
   if (!isEnabled)
     return { status: 'no-militia', setupHref: campaignHref.setup };
   const { newest } = windows;
-  const retryRead = () => setReadAttempt((value) => value + 1);
-  if (detail.status === 'failed' && newest.status === 'failed')
+  const retryRead = () => {
+    void detail.refetch();
+  };
+  if (detail.isError && newest?.isError)
     // Until the open week is known, a failure may only mean "no militia yet".
     return campaignWeek.kind === 'loading'
       ? { status: 'loading' }
@@ -160,11 +159,10 @@ export function useFinishedWeeks({
             retryRead();
           },
         };
-  if (detail.status === 'loading' && newest.status === 'loading')
-    return { status: 'loading' };
+  if (detail.isPending && newest?.isPending) return { status: 'loading' };
   const hasNoWeeks =
-    (newest.status === 'ready' && newest.data.weeks.length === 0) ||
-    (detail.status === 'ready' && !read && selection.week === undefined);
+    (newest?.isSuccess === true && newest.data.weeks.length === 0) ||
+    (detail.isSuccess && !read && selection.week === undefined);
   const openWeek = campaignWeek.kind === 'week' ? campaignWeek.week : null;
   if (hasNoWeeks)
     return { status: 'empty', openWeek, weekHref: campaignHref.week };

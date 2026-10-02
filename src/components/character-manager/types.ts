@@ -1,4 +1,4 @@
-import type { Doc, Id } from '@convex/_generated/dataModel';
+import type { Doc } from '@convex/_generated/dataModel';
 import { ConvexError } from 'convex/values';
 import { z } from 'zod';
 import { characterKindSchema } from '~/lib/character-kind';
@@ -96,4 +96,3 @@ export function getCharacterErrorMessage(error: unknown, fallback: string) {
 }
 
 export type CharacterRecord = Doc<'character'>;
-export type CharacterId = Id<'character'>;

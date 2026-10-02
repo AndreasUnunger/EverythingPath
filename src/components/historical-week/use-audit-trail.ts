@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { convexQuery } from '@convex-dev/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { HistorySelection } from '~/lib/campaign-routes';
@@ -17,13 +19,6 @@ import type {
 } from './finished-weeks-types';
 import type { AuditRow, HistoryRead } from './history-read';
 import { useAuditOrdinal } from './use-audit-ordinal';
-import {
-  useWatchedQueries,
-  useWatchedQuery,
-  type Watched,
-} from './use-watched-queries';
-
-type AuditPage = { audit: AuditRow[]; earlierSequence: number | null };
 
 /**
  * The shown week's audit entries: an "N entries" disclosure that pages five
@@ -55,10 +50,6 @@ export function useAuditTrail({
     week: shownWeek,
     isOpen: isPaged,
   });
-  const [pageAttempt, setPageAttempt] = useState(0);
-  const [rulesetAttempts, setRulesetAttempts] = useState<
-    Record<string, number>
-  >({});
   // Adjusted during render: a different week starts closed, unless its
   // address names an audit page.
   if (disclosure.week !== shownWeek)
@@ -73,19 +64,11 @@ export function useAuditTrail({
           week: read.week,
           beforeSequence: selection.beforeSequence,
         }
-      : null;
-  const pagedRead = useWatchedQuery(
-    api.canonicalHistory.read,
-    `page:${JSON.stringify(pageArgs)}:${pageAttempt}`,
-    pageArgs,
-  );
-  const page: Watched<AuditPage | null> = isPaged
-    ? pagedRead
-    : read
-      ? { status: 'ready', data: read }
-      : { status: 'loading' };
-  const visibleRows =
-    isOpen && page.status === 'ready' ? (page.data?.audit ?? []) : [];
+      : 'skip';
+  const pagedRead = useQuery(convexQuery(api.canonicalHistory.read, pageArgs));
+  const page = isPaged ? pagedRead.data : read;
+  const pageFailed = isPaged && pagedRead.isError;
+  const visibleRows = isOpen && !pageFailed ? (page?.audit ?? []) : [];
 
   const knownRuleset = (recordId: string) => {
     if (recordId === read?.record.recordId) return read.record.rulesetVersion;
@@ -93,24 +76,26 @@ export function useAuditTrail({
       return effectiveRow.rulesetVersion;
     return undefined;
   };
-  const rulesetKey = (recordId: string) =>
-    `ruleset:${read?.week}:${recordId}:${rulesetAttempts[recordId] ?? 0}`;
-  const rulesets = useWatchedQueries(
-    api.canonicalHistory.read,
-    isEnabled && read
-      ? visibleRows
-          .filter((entry) => knownRuleset(entry.recordId) === undefined)
-          .map((entry) => ({
-            key: rulesetKey(entry.recordId),
-            args: { campaignId, week: read.week, recordId: entry.recordId },
-          }))
-      : [],
+  const unknownRulesets = visibleRows.filter(
+    (entry) => knownRuleset(entry.recordId) === undefined,
   );
+  const rulesets = useQueries({
+    queries:
+      isEnabled && read
+        ? unknownRulesets.map((entry) =>
+            convexQuery(api.canonicalHistory.read, {
+              campaignId,
+              week: read.week,
+              recordId: entry.recordId,
+            }),
+          )
+        : [],
+  });
 
   const ordinal = useAuditOrdinal({
     campaignId,
     read,
-    pageRows: pagedRead.status === 'ready' ? (pagedRead.data?.audit ?? []) : [],
+    pageRows: pagedRead.isSuccess ? (pagedRead.data?.audit ?? []) : [],
   });
 
   if (!read) return { audit: null, earlierEntry: null };
@@ -130,17 +115,18 @@ export function useAuditTrail({
   const rulesetFor = (recordId: string): RulesetView => {
     const known = knownRuleset(recordId);
     if (known !== undefined) return { status: 'ready', version: known };
-    const result = rulesets[rulesetKey(recordId)];
-    if (result?.status === 'loading') return { status: 'loading' };
-    if (result?.status === 'ready' && result.data)
+    const result =
+      rulesets[
+        unknownRulesets.findIndex((entry) => entry.recordId === recordId)
+      ];
+    if (!result || result.isPending) return { status: 'loading' };
+    if (result.isSuccess && result.data)
       return { status: 'ready', version: result.data.record.rulesetVersion };
     return {
       status: 'failed',
-      retry: () =>
-        setRulesetAttempts((current) => ({
-          ...current,
-          [recordId]: (current[recordId] ?? 0) + 1,
-        })),
+      retry: () => {
+        void result.refetch();
+      },
     };
   };
   const choose = (entry: AuditRow) => {
@@ -153,13 +139,15 @@ export function useAuditTrail({
     });
   };
   const pageView = ((): AuditPageView => {
-    if (page.status === 'loading') return { status: 'loading' };
-    if (page.status === 'failed' || page.data === null)
+    if (pageFailed || page === null)
       return {
         status: 'failed',
-        retry: () => setPageAttempt((value) => value + 1),
+        retry: () => {
+          void pagedRead.refetch();
+        },
       };
-    const { audit, earlierSequence } = page.data;
+    if (page === undefined) return { status: 'loading' };
+    const { audit, earlierSequence } = page;
     return {
       status: 'ready',
       entries: audit.map((entry) => ({

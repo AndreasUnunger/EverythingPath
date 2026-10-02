@@ -3,39 +3,27 @@ import { api as db } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useQuery } from '@tanstack/react-query';
 
-function isCampaignScopedQueryEnabled({
-  campaignId,
-  orgId,
-  enabled = true,
-}: {
-  campaignId: Id<'campaign'> | undefined;
-  orgId: string | undefined;
-  enabled?: boolean;
-}) {
-  return enabled && Boolean(campaignId) && Boolean(orgId);
+export function useCampaignQuery(orgId: string | undefined, enabled = true) {
+  return useQuery(
+    convexQuery(
+      db.campaign.getCampaigns,
+      enabled ? { organizationId: orgId } : 'skip',
+    ),
+  );
 }
 
-export function campaignQuery(orgId: string | undefined, enabled = true) {
-  return useQuery({
-    ...convexQuery(db.campaign.getCampaigns, {
-      organizationId: orgId,
-    }),
-    enabled,
-  });
-}
-
-export function characterLedgerQuery(
+export function useCharacterLedgerQuery(
   campaignId: Id<'campaign'> | undefined,
   orgId: string | undefined,
   enabled = true,
   includeInactive = false,
 ) {
-  return useQuery({
-    ...convexQuery(db.character.listByCampaign, {
-      campaignId,
-      organizationId: orgId,
-      includeInactive,
-    }),
-    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
-  });
+  return useQuery(
+    convexQuery(
+      db.character.listByCampaign,
+      enabled && campaignId && orgId
+        ? { campaignId, organizationId: orgId, includeInactive }
+        : 'skip',
+    ),
+  );
 }

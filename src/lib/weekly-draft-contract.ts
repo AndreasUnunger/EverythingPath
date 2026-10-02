@@ -16,10 +16,7 @@ import {
   rulesExceptionSchema,
   tableAdjustmentSchema,
 } from './weekly-draft-facts';
-export {
-  stagedActionChoiceSchema,
-  eventTreeSchema,
-} from './weekly-draft-facts';
+export { stagedActionChoiceSchema } from './weekly-draft-facts';
 
 // Freezing is recursive: callers cannot mutate historical context through an alias.
 type Immutable<T> = T extends object

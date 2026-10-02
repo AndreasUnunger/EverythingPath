@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { convexQuery } from '@convex-dev/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import {
-  useCanonicalHistory,
-  type CanonicalHistory,
-} from './use-canonical-history';
+import type { HistoryRead } from './history-read';
 
 export type RecentHistory = {
   status: 'idle' | 'loading' | 'failed' | 'ready';
-  weeks: CanonicalHistory[];
+  weeks: HistoryRead[];
   retry: () => void;
 };
 
@@ -17,45 +16,41 @@ export function useRecentHistory(
   campaignId: Id<'campaign'>,
   enabled: boolean,
 ): RecentHistory {
-  const [attempt, setAttempt] = useState(0);
-  const latest = useCanonicalHistory(campaignId, {}, attempt, { enabled });
-  const previousWeek = latest?.data?.previousWeek;
-  const scope = JSON.stringify([
-    latest?.data?.week,
-    latest?.data?.effectiveRecordId,
-  ]);
-  const previous = useCanonicalHistory(
-    campaignId,
-    { week: previousWeek ?? undefined },
-    attempt,
-    { enabled: enabled && previousWeek != null, scope },
+  const latest = useQuery(
+    convexQuery(api.canonicalHistory.read, enabled ? { campaignId } : 'skip'),
   );
-  const oldestWeek = previous?.data?.previousWeek;
-  const oldest = useCanonicalHistory(
-    campaignId,
-    { week: oldestWeek ?? undefined },
-    attempt,
-    {
-      enabled: enabled && oldestWeek != null,
-      scope: JSON.stringify([
-        scope,
-        previous?.data?.week,
-        previous?.data?.effectiveRecordId,
-      ]),
-    },
+  const previousWeek = latest.isSuccess ? latest.data?.previousWeek : null;
+  const previous = useQuery(
+    convexQuery(
+      api.canonicalHistory.read,
+      enabled && previousWeek != null
+        ? { campaignId, week: previousWeek }
+        : 'skip',
+    ),
   );
-  const retry = () => setAttempt((value) => value + 1);
-  if (!enabled) return { status: 'idle', weeks: [], retry };
+  const oldestWeek = previous.isSuccess ? previous.data?.previousWeek : null;
+  const oldest = useQuery(
+    convexQuery(
+      api.canonicalHistory.read,
+      enabled && oldestWeek != null ? { campaignId, week: oldestWeek } : 'skip',
+    ),
+  );
   const results = [latest];
   if (previousWeek != null) results.push(previous);
   if (oldestWeek != null) results.push(oldest);
-  if (results.some((result) => result?.failed))
+  const retry = () => {
+    for (const result of results) {
+      if (result.isError) void result.refetch();
+    }
+  };
+  if (!enabled) return { status: 'idle', weeks: [], retry };
+  if (results.some((result) => result.isError))
     return { status: 'failed', weeks: [], retry };
-  if (results.some((result) => result?.data === undefined))
+  if (results.some((result) => result.isPending))
     return { status: 'loading', weeks: [], retry };
   return {
     status: 'ready',
-    weeks: results.flatMap((result) => (result?.data ? [result.data] : [])),
+    weeks: results.flatMap((result) => (result.data ? [result.data] : [])),
     retry,
   };
 }

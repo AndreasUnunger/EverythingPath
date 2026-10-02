@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { campaignPath, weekPath } from '~/lib/campaign-routes';
@@ -60,7 +62,7 @@ type FormEntry = SetupProgress & {
   submitted: MilitiaSetup | null;
 };
 type Entry = { kind: 'started' } | FormEntry;
-type Attempt = 'idle' | 'pending' | 'succeeded' | 'failed';
+type Attempt = 'idle' | 'pending' | 'recovering' | 'succeeded' | 'failed';
 
 // Setup's entry, browser resume and start. The first authoritative options
 // result decides the entry: an already-started militia shows the started
@@ -82,13 +84,19 @@ export function useSetupSession({
   const [storage] = useState(() =>
     givenStorage === undefined ? browserSetupStorage() : givenStorage,
   );
-  const options = useQuery(api.canonicalSetup.options, { campaignId });
+  const { data: options } = useQuery({
+    ...convexQuery(api.canonicalSetup.options, { campaignId }),
+    throwOnError: true,
+  });
   // Options carry no kind; the authorized character read supplies each
   // record's kind, composed here rather than added to the options result.
-  const records = useQuery(api.character.listByCampaign, {
-    campaignId,
-    organizationId,
-    includeInactive: true,
+  const { data: records } = useQuery({
+    ...convexQuery(api.character.listByCampaign, {
+      campaignId,
+      organizationId,
+      includeInactive: true,
+    }),
+    throwOnError: true,
   });
   const characters = useMemo(
     () =>
@@ -106,10 +114,13 @@ export function useSetupSession({
   if (entry === undefined && options?.started) setEntry({ kind: 'started' });
   else if (entry === undefined && options && characters)
     setEntry(formEntry(readSetupEnvelope(storage, scope), characters));
-  const workspace = useQuery(
-    api.canonicalDraftPersistence.workspace,
-    entry?.kind === 'started' ? { campaignId } : 'skip',
-  );
+  const { data: workspace } = useQuery({
+    ...convexQuery(
+      api.canonicalDraftPersistence.workspace,
+      entry?.kind === 'started' ? { campaignId } : 'skip',
+    ),
+    throwOnError: true,
+  });
 
   const [attempt, setAttempt] = useState<Attempt>('idle');
   const [unkept, setUnkept] = useState(false);
@@ -156,12 +167,8 @@ export function useSetupSession({
     });
     if (!kept) setUnkept(true);
   }
-  async function save(setup: MilitiaSetup) {
-    if (!form || inFlight.current) return;
-    inFlight.current = true;
-    setAttempt('pending');
-    // Kept before sending, so a reload before the result retries this source.
-    persist(undefined, setup);
+  async function sendSetup(setup: MilitiaSetup) {
+    if (!form) return;
     try {
       // Every attempt, including one after a reload, reuses this identity, so
       // a start retried with the same source is idempotent and a different
@@ -183,19 +190,35 @@ export function useSetupSession({
     // A player who has left this page, or switched campaign, stays put.
     if (mounted.current) router.push(weekPath(scope.campaignId, setup.phase));
   }
+  function save(setup: MilitiaSetup) {
+    if (!form || inFlight.current) return Promise.resolve();
+    inFlight.current = true;
+    setAttempt('pending');
+    // Kept before sending, so a reload before the result retries this source.
+    persist(undefined, setup);
+    return sendSetup(setup);
+  }
 
   // A start sent before a reload may be the one that just started the
   // militia: resending its source under the same identity finds out.
-  const unacknowledged = form && attempt === 'idle' ? form.submitted : null;
+  const recovering = attempt === 'recovering';
+  const unacknowledged =
+    form && (attempt === 'idle' || recovering) ? form.submitted : null;
   // Otherwise another player's completion wins unless this player's own
   // start is in flight or has succeeded; a failed start yields to it too.
   const startedElsewhere =
     form !== null &&
     options?.started === true &&
-    (attempt === 'idle' || attempt === 'failed');
+    (attempt === 'idle' || attempt === 'failed' || recovering);
+  // The recovery status belongs to this observation. The effect sends the
+  // already-kept source and reports only the eventual request outcome.
+  if (startedElsewhere && unacknowledged && attempt === 'idle')
+    setAttempt('recovering');
   const followStarted = useEffectEvent(() => {
     if (unacknowledged) {
-      save(unacknowledged).catch(() => undefined);
+      if (inFlight.current) return;
+      inFlight.current = true;
+      sendSetup(unacknowledged).catch(() => undefined);
       return;
     }
     retired.current = true;
@@ -204,7 +227,7 @@ export function useSetupSession({
   });
   useEffect(() => {
     if (startedElsewhere) followStarted();
-  }, [startedElsewhere]);
+  }, [startedElsewhere, recovering]);
 
   if (options === undefined || (options && entry === undefined))
     return { kind: 'loading' };
@@ -233,6 +256,7 @@ export function useSetupSession({
       // Start stays disabled while a start is out or its week is opening.
       starting:
         attempt === 'pending' ||
+        recovering ||
         attempt === 'succeeded' ||
         (startedElsewhere && unacknowledged !== null),
     },

@@ -64,20 +64,6 @@ export function overseerSupportHolders(
   return holders;
 }
 
-/** Whether this event has a record that can hold support now. */
-export function canHoldOverseerSupport(
-  source: OverseerSupportSource,
-  eventId: string,
-) {
-  return (
-    source.occurrences.some((event) => event.eventId === eventId) ||
-    source.decisions.some(
-      (decision) =>
-        decision.eventId === eventId && decision.kind === 'mitigate',
-    )
-  );
-}
-
 /**
  * The one ordinary edit removing the support recorded for this event,
  * keeping everything else in its record; null when it has none.
@@ -205,25 +191,4 @@ export async function moveOverseerSupport({
   if (edit === 'unavailable' || (await send(edit)) !== 'accepted')
     return { status: 'failed', stage: 'assign', eventId: to, cleared };
   return { status: 'done', cleared };
-}
-
-type Mitigation = Extract<Decision, { kind: 'mitigate' }>;
-/**
- * A carried event's mitigation decision as its check form edits it: the
- * support selection belongs to the shared toggle, not the form.
- */
-export function withoutOverseerSupport(decision: Mitigation) {
-  const { overseerCharacterId: _support, ...rest } = decision;
-  return rest;
-}
-/** A saved check form keeps whatever support the decision records now. */
-export function keepOverseerSupport(
-  next: Decision,
-  current: Decision | null,
-): Decision {
-  return next.kind === 'mitigate' &&
-    current?.kind === 'mitigate' &&
-    current.overseerCharacterId
-    ? { ...next, overseerCharacterId: current.overseerCharacterId }
-    : next;
 }

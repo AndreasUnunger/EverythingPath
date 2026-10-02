@@ -5,6 +5,7 @@ import convexPlugin from '@convex-dev/eslint-plugin';
 import nextPlugin from '@next/eslint-plugin-next';
 import tseslint from 'typescript-eslint';
 import react from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default defineConfig([
   globalIgnores([
@@ -41,7 +42,7 @@ export default defineConfig([
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
       '@typescript-eslint/no-unused-vars': [
-        'warn',
+        'error',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
@@ -62,6 +63,18 @@ export default defineConfig([
       parserOptions: {
         projectService: true,
       },
+    },
+  },
+  {
+    name: 'react-hooks',
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
+      'react-hooks/set-state-in-effect': 'error',
     },
   },
   {

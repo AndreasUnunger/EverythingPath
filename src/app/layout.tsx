@@ -4,7 +4,6 @@ import { type Metadata, type Viewport } from 'next';
 import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
-import ConvexQueryCacheProviderClientComponent from 'ConvexQueryCacheProvider';
 import { BrowserHistoryAdapter } from '~/components/campaign-shell/browser-history-adapter';
 import type React from 'react';
 import localFont from 'next/font/local';
@@ -116,10 +115,8 @@ export default function RootLayout({
           }}
         >
           <ConvexClientProvider>
-            <ConvexQueryCacheProviderClientComponent>
-              <BrowserHistoryAdapter />
-              {children}
-            </ConvexQueryCacheProviderClientComponent>
+            <BrowserHistoryAdapter />
+            {children}
           </ConvexClientProvider>
         </ClerkProvider>
       </body>

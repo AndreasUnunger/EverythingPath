@@ -9,7 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { Doc } from '@convex/_generated/dataModel';
-import { campaignQuery } from '~/lib/sharedQueries';
+import { useCampaignQuery } from '~/lib/sharedQueries';
 import { campaignPath, type CampaignSection } from '~/lib/campaign-routes';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -68,7 +68,7 @@ type Access =
       organizationId: string;
     };
 type CampaignListQuery = Pick<
-  ReturnType<typeof campaignQuery>,
+  ReturnType<typeof useCampaignQuery>,
   'data' | 'error' | 'refetch'
 >;
 
@@ -104,7 +104,7 @@ function useCampaignAccess(campaignId: string): Access {
   const session = useSession();
   const organization =
     session.kind === 'member' ? session.organization : undefined;
-  const query = campaignQuery(organization?.id, organization !== undefined);
+  const query = useCampaignQuery(organization?.id, organization !== undefined);
   return organization
     ? classifyCampaign(campaignId, organization, query)
     : (session as Exclude<Session, { kind: 'member' }>);

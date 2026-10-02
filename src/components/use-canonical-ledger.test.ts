@@ -8,10 +8,12 @@ vi.mock('@convex/_generated/api', () => ({
   api: { canonicalLedger: { read: 'read', save: 'save' } },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: (_name: string, args: { militiaId: string }) =>
-    results[args.militiaId],
   useMutation: () => vi.fn(),
 }));
+vi.mock('@tanstack/react-query', async () => {
+  const { queryDataMock } = await import('../../tests/query-data');
+  return queryDataMock((_name, args) => results[String(args.militiaId)]);
+});
 
 const campaignId = 'campaign' as Id<'campaign'>;
 const first = { revision: 1, state: 'first' };

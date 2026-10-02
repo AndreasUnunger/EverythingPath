@@ -1,6 +1,15 @@
-import type { ITeam } from './types';
+type Team = {
+  id: string;
+  name: string;
+  type: string;
+  tier: number;
+  size: number;
+  recruitment?: { check: string; dc: number };
+  grantedActions: string[];
+  upgrade?: { to: string[]; cost: number };
+};
 
-const teams: ITeam[] = [
+const teams: Team[] = [
   {
     id: 'moles',
     name: 'Moles',

@@ -1,5 +1,6 @@
 'use client';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { Wrench } from 'lucide-react';
 import { api } from '@convex/_generated/api';
 import { cn } from '~/lib/utils';
@@ -7,7 +8,10 @@ import { cn } from '~/lib/utils';
 // Non-blocking: pages stay readable and edit controls stay enabled. A write
 // during the pause fails through the ordinary save feedback.
 export function MaintenanceBanner({ className }: { className?: string }) {
-  const mode = useQuery(api.cutover.status, {});
+  const { data: mode } = useQuery({
+    ...convexQuery(api.cutover.status, {}),
+    throwOnError: true,
+  });
   if (mode === undefined || mode === 'canonical') return null;
   return (
     <div

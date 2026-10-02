@@ -6,7 +6,6 @@ import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { campaignPath } from '~/lib/campaign-routes';
-import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import {
   useWeeklyDraftWorkspace,
   useWorkspaceController,
@@ -303,30 +302,5 @@ export function WeeklyWorkspaceBoard({
         ) : null}
       </WeekFrame>
     </div>
-  );
-}
-// Standalone host: the environment owner plus the board. The campaign shell
-// mounts the owner itself so the Week route only renders the board.
-export function CanonicalWorkspaceScreen({
-  campaign,
-  phase,
-  onPhaseChange,
-}: {
-  campaign: string | null;
-  phase?: Phase;
-  onPhaseChange?: (phase: Phase) => void;
-}) {
-  return (
-    <CampaignWorkspaceProvider
-      campaignId={campaign}
-      active
-      openingPhase={phase}
-    >
-      <WeeklyWorkspaceBoard
-        campaignId={campaign}
-        phase={phase}
-        onPhaseChange={onPhaseChange}
-      />
-    </CampaignWorkspaceProvider>
   );
 }
