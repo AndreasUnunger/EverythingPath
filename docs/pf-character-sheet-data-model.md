@@ -170,7 +170,7 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
   - Every record keeps its book, page and AoN URL. Its catalog key is `everythingpath/<id>`, never the URL. Entries whose source is not a Paizo product are dropped and listed in the scraper's report.
   - The scraper extracts what it can, including matching "replaces X" against the base class's features. Every record it cannot match or classify goes to a hand-review list. Each book also gets a sampled spot-check.
   - Corrections, including Modifiers for archetype and prestige features, are made in the dataset itself. A reviewed record is marked and cites its book and page. The Curation Overlay is only for upstream data.
-  - Every scraped record's book needs a Section 15 line, or the import fails. Where that text comes from is decided by [Find the Section 15 text for every imported source book](https://github.com/AndreasUnunger/EverythingPath/issues/224).
+  - Every scraped record's book is in the import's book set, so it needs a Section 15 Registry record or the import fails (see "Legal page" under "Global catalog import").
 
 ## Unchained Classes
 
@@ -380,7 +380,8 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
   - set `sourceKey` and `stacksWithItself`;
-  - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack.
+  - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
+  - exclude an entry, giving the reason (see "Notice gate").
 
   Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
 - **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
@@ -397,12 +398,17 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - The Curation Overlay holds a reviewed remap list for the cases that would otherwise break the key: records that move between the two repos, upstream merges, and the rare record re-created with a new `_id`.
   - Upstream's own redirect tables are not trusted.
 - **Batches.** An import runs in idempotent, resumable batches, and the run is recorded. The catalog's recorded version flips only when the run completes. Militia Character Facts are recalculated once at the end, for Characters whose sheets use changed entries. The militia copy is written only when those facts differ, like any sheet edit, and no Ruleset Version changes.
-- **Legal page.** The import generates an in-app legal page, linked from every page's footer. It holds:
+- **Legal page.** Decided by [Find the Section 15 text for every imported source book](https://github.com/AndreasUnunger/EverythingPath/issues/224) and [Decide how the import keeps its Section 15 notices complete](https://github.com/AndreasUnunger/EverythingPath/issues/227). The import generates an in-app legal page, linked from every page's footer. Its parts, in order:
   - the OGL 1.0a text;
-  - a Section 15 built from the imported entries' `sources` plus `pf1-content`'s Section 15 list;
+  - a Section 15 of the OGL and SRD lines, both upstream `OGL.txt` notices verbatim, the Section 15 Registry notice for every book in the import's book set, and an EverythingPath line for our original Open Game Content;
+  - a Section 8 statement;
   - the Paizo Community Use notice.
 
-  The import fails if an imported pack has neither per-entry sources nor a Section 15 list.
+  The Section 15 Registry is a reviewed file in the repo beside the Curation Overlay, keyed by product code. Each record holds `title`, `notice` (the book's own Section 15 lines verbatim, inherited third-party lines included, the OGL and SRD lines left out), `checkedAgainst` (`printed`, `prd`, `aon` or `pf1-content`), `checkedOn` and optional `aliases` for broken upstream codes.
+- **Book set.** It is every code cited by an imported entry, every book in the AoN-scraped dataset, and every book found by a one-off attribution pass run when the registry is built. The pass matches unsourced records by name against Archives of Nethys and follows links. Its matches are committed as evidence and never become entry `sources`. Records it cannot match are listed in the import report and stay imported.
+- **Notice gate.** The import fails if any book in the book set lacks a registry record. An entry whose book has no confirmed notice is not imported: a Curation Overlay exclusion record gives the reason, and the import report lists the entry, so it can return once someone checks the printed book. Excluded now: the Dynamite comics, *Pathfinder Online: Thornkeep*, *PFS Scenario #4-12*, *Horror Realms* and *Shattered Star #4*.
+- **Sources.** `sources` serve the licence only. An entry shows its source where it has one, there is no book filtering, and unsourced records stay unsourced.
+- **Notice review.** Before launch, every book in the set has a registry record and every disagreement between seed sources is settled against the book. The known errors are fixed: *Ultimate Combat*'s authors and AoN's *Occult Mysteries* block. The free-PDF gaps and the owner's copies of *Goblins of Golarion*, *Faiths of Purity* and *Bestiary 6* are transcribed. All other records ship checked against `prd`, `aon` or `pf1-content`, and printed checks continue after launch, most-cited first.
 
 The base scores are one character-scoped `base` entry with six `base` Modifiers. Every Character has exactly one sheet entry for it, which cannot be removed or deactivated.
 

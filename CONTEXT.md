@@ -94,8 +94,12 @@ A campaign or Character Catalog Entry cloned from another entry so it can be cha
 _Avoid_: override, fork
 
 **Curation Overlay**:
-The project's reviewed corrections to the imported content, each citing the official text it relies on. It supplies what the dataset lacks, such as the Modifiers of prose-only feats, shared Sources and the conditions, and it is reapplied whenever the content is imported again.
+The project's reviewed corrections to the imported content, each citing the official text it relies on. It supplies what the dataset lacks, such as the Modifiers of prose-only feats, shared Sources and the conditions, can exclude an imported entry, and is reapplied whenever the content is imported again.
 _Avoid_: patches, homebrew (homebrew belongs to one campaign)
+
+**Section 15 Registry**:
+The project's reviewed record of each source book's copyright notice, copied word for word, from which the legal page is built. It covers every book the imported content draws on.
+_Avoid_: OGL list, credits
 
 **Character Sheet Entry**:
 One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, or notes. Two potions of the same kind are two Character Sheet Entries.
