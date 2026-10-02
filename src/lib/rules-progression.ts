@@ -44,9 +44,6 @@ const xpAwards: Record<number, number> = {
   15: 6400,
   20: 25600,
 };
-export function roundWholeCount(value: number) {
-  return Math.floor(value);
-}
 function boon(rank: number, characterIds: string[]) {
   const common = { rank, characterIds };
   if ([2, 7, 12, 17].includes(rank))
@@ -69,7 +66,7 @@ function boon(rank: number, characterIds: string[]) {
       kind: 'xp' as const,
       xp,
       xpPerPc: characterIds.length
-        ? roundWholeCount(xp / characterIds.length)
+        ? Math.floor(xp / characterIds.length)
         : null,
     };
   return null;

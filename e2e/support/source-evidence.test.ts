@@ -12,6 +12,24 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { sourceFingerprint } from './source-evidence';
 
+test('unstaged and staged deletions fingerprint the same working source', () => {
+  const root = mkdtempSync(join(tmpdir(), 'source-evidence-'));
+  try {
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    writeFileSync(join(root, 'app.ts'), 'export const value = 1;');
+    writeFileSync(join(root, 'removed.ts'), 'export const unused = 2;');
+    execFileSync('git', ['add', '.'], { cwd: root });
+    const initial = sourceFingerprint(root);
+    rmSync(join(root, 'removed.ts'));
+    const deleted = sourceFingerprint(root);
+    expect(deleted).not.toBe(initial);
+    execFileSync('git', ['add', '-u'], { cwd: root });
+    expect(sourceFingerprint(root)).toBe(deleted);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('evidence follows working source, new tests, rules and configuration while ignoring private credentials and reports', () => {
   const root = mkdtempSync(join(tmpdir(), 'source-evidence-'));
   try {

@@ -23,7 +23,7 @@ vi.mock('convex/react', () => ({
 vi.mock('~/components/campaign-shell/navigation-guard', () => ({
   useNavigationGuard: () => ({ navigate }),
 }));
-vi.mock('~/lib/sharedQueries', () => ({ campaignQuery: vi.fn() }));
+vi.mock('~/lib/sharedQueries', () => ({ useCampaignQuery: vi.fn() }));
 vi.mock('~/components/campaign-shell/session', () => ({ useSession: vi.fn() }));
 
 const organization = { id: 'org', name: 'Thursday table' };

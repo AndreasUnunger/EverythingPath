@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import type { Doc } from '@convex/_generated/dataModel';
-import { campaignQuery } from '~/lib/sharedQueries';
+import { useCampaignQuery } from '~/lib/sharedQueries';
 import { campaignPath } from '~/lib/campaign-routes';
 import { useNavigationGuard } from '~/components/campaign-shell/navigation-guard';
 import { useSession } from '~/components/campaign-shell/session';
@@ -22,7 +22,7 @@ export function useCampaignHomeList(): CampaignHomeList {
   const session = useSession();
   const organization =
     session.kind === 'member' ? session.organization : undefined;
-  const query = campaignQuery(organization?.id, organization !== undefined);
+  const query = useCampaignQuery(organization?.id, organization !== undefined);
   return {
     list: classifyList(session, query),
     retry: () => {

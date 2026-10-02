@@ -2,7 +2,8 @@
 import { useMemo, useReducer, useRef, useState } from 'react';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useCanonicalLedger } from '~/components/use-canonical-ledger';
@@ -253,10 +254,13 @@ export function useMilitiaCorrections({
     militiaId,
     organizationId,
   });
-  const observation = useQuery(api.canonicalDraftPersistence.observe, {
-    campaignId,
-    militiaId,
-    draftId,
+  const { data: observation } = useQuery({
+    ...convexQuery(api.canonicalDraftPersistence.observe, {
+      campaignId,
+      militiaId,
+      draftId,
+    }),
+    throwOnError: true,
   });
   const [correction, dispatch] = useReducer(
     correctionReducer,

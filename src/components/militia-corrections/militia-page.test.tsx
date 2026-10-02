@@ -31,15 +31,17 @@ vi.mock('@convex/_generated/api', () => ({
   },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: (name: string, args: unknown) =>
-    args === 'skip' ? undefined : queries[name],
   useMutation: () => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ args, resolve, reject });
     }),
 }));
+vi.mock('@tanstack/react-query', async () => {
+  const { queryDataMock } = await import('../../../tests/query-data');
+  return queryDataMock((name) => queries[name]);
+});
 vi.mock('~/lib/sharedQueries', () => ({
-  characterLedgerQuery: () => ({
+  useCharacterLedgerQuery: () => ({
     data: [
       {
         _id: 'officer',

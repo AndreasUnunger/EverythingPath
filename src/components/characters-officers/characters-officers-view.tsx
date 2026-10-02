@@ -3,7 +3,7 @@ import { ArrowRight, Pencil, Plus } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { useShellSlotHost } from '~/components/campaign-shell/shell-slots';
-import { useWideLayout } from '~/components/militia-corrections/use-wide-layout';
+import { useBreakpoint } from '~/components/use-breakpoint';
 import { Button } from '~/components/ui/button';
 import {
   BOARD_ROLES,
@@ -22,7 +22,6 @@ import type {
   CorrectionMode,
   OpenCorrection,
 } from './use-character-corrections';
-import { useDesktopLayout } from './use-desktop-layout';
 import type { CharactersPage as Page } from './use-characters-page';
 
 type Corrections = Extract<CharacterCorrections, { status: 'ready' }>;
@@ -95,8 +94,8 @@ function Officers({
   children?: ReactNode;
 }) {
   const headingId = useId();
-  const wide = useWideLayout();
-  const desktop = useDesktopLayout();
+  const wide = useBreakpoint('wide');
+  const desktop = useBreakpoint('desktop');
   const { officers } = page;
   const correction =
     corrections?.correction?.mode === 'officers'
@@ -198,7 +197,7 @@ function Characters({
 }) {
   const headingId = useId();
   const showArchivedId = useId();
-  const wide = useWideLayout();
+  const wide = useBreakpoint('wide');
   const correction =
     corrections?.correction?.mode === 'roster' ? corrections.correction : null;
   const canOpen =
@@ -299,7 +298,7 @@ export function CharactersOfficersView({
   /** The two corrections; null before Setup or while loading. */
   corrections: Corrections | null;
 }) {
-  const wide = useWideLayout();
+  const wide = useBreakpoint('wide');
   const strip = useShellSlotHost('phone-status-strip');
   // Set when a correction opens: its save point's heading takes focus once.
   // A resize across 768px moves the save point and mounts it again (a

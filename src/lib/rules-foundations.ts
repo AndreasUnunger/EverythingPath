@@ -1,4 +1,4 @@
-import { projectProgression, roundWholeCount } from './rules-progression';
+import { projectProgression } from './rules-progression';
 import {
   projectSettlements,
   projectPurchases,
@@ -134,7 +134,7 @@ export function projectRulesFoundations(input: FoundationInput) {
         : (operating?.eventChanceModifier ?? null),
     purchases,
     minimumTreasuryCopper: getMinimumTreasuryForRank(input.rank) * 100,
-    strikeTeamRounds: roundWholeCount(input.rank / 2),
+    strikeTeamRounds: Math.floor(input.rank / 2),
     teams: teamProjection.teams,
     warnings,
     checks: checkProjection.checks,

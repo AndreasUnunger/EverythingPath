@@ -14,7 +14,7 @@ import type { WorkspaceGateway } from './gateway';
 import type { Phase } from './types';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { useWeeklyDraftWorkspace } from './use-weekly-draft-workspace';
-import { CanonicalWorkspaceScreen, WeeklyWorkspaceBoard } from './board';
+import { WeeklyWorkspaceBoard } from './board';
 import {
   pinnedConfirm,
   expectSameConfirm,
@@ -37,6 +37,9 @@ const convex = {};
 vi.mock('convex/react', () => ({
   useConvex: () => convex,
   useConvexAuth: () => ({ isLoading: false, isAuthenticated: true }),
+}));
+vi.mock('~/components/historical-week/use-recent-history', () => ({
+  useRecentHistory: () => ({ status: 'idle', weeks: [], retry: vi.fn() }),
 }));
 vi.mock('next/link', () => ({
   default: ({
@@ -226,30 +229,6 @@ test('[shell.phase] address phase changes move this player without rebuilding th
   ).toHaveAttribute('href', '/campaigns/campaign/history');
   view.unmount();
   expect(factory).toHaveBeenCalledTimes(1);
-});
-
-test('[shell.standalone] the standalone screen hosts one owner with the same links', async () => {
-  const gateway = fixture();
-  factory.mockImplementation(() => gateway);
-  render(<CanonicalWorkspaceScreen campaign="campaign" phase="upkeep" />);
-  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
-  expect(factory).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('link', { name: 'Open militia' })).toHaveAttribute(
-    'href',
-    '/campaigns/campaign/militia',
-  );
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Officers' }));
-  expect(
-    screen.getByRole('link', { name: 'Characters & officers' }),
-  ).toHaveAttribute('href', '/campaigns/campaign/characters');
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'History' }));
-  expect(
-    screen.getByRole('link', { name: 'All finished weeks' }),
-  ).toHaveAttribute('href', '/campaigns/campaign/history');
-  // No setup notes were recorded, so there is no notes button.
-  expect(
-    screen.queryByRole('button', { name: 'Setup notes' }),
-  ).not.toBeInTheDocument();
 });
 
 test('[shell.failed] a failed week offers a page-local retry that rebuilds the Workspace', async () => {

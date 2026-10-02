@@ -53,13 +53,15 @@ vi.mock('@convex/_generated/api', () => ({
   },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: (name: string, args: unknown) =>
-    args === 'skip' ? undefined : queries[name],
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });
     }),
 }));
+vi.mock('@tanstack/react-query', async () => {
+  const { queryDataMock } = await import('../../../tests/query-data');
+  return queryDataMock((name) => queries[name]);
+});
 vi.mock('~/components/campaign-shell/navigation-guard', () => ({
   GuardedLink: ({
     href,

@@ -1,5 +1,6 @@
 'use client';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useMemo, useState } from 'react';
@@ -72,18 +73,27 @@ export function useCharactersPage({
   campaignId: Id<'campaign'>;
   organizationId: string;
 }): CharactersPageView {
-  const records = useQuery(api.character.listByCampaign, {
-    campaignId,
-    organizationId,
-    includeInactive: true,
+  const { data: records } = useQuery({
+    ...convexQuery(api.character.listByCampaign, {
+      campaignId,
+      organizationId,
+      includeInactive: true,
+    }),
+    throwOnError: true,
   });
-  const source = useQuery(api.canonicalDraftPersistence.workspace, {
-    campaignId,
+  const { data: source } = useQuery({
+    ...convexQuery(api.canonicalDraftPersistence.workspace, {
+      campaignId,
+    }),
+    throwOnError: true,
   });
-  const observation = useQuery(
-    api.canonicalDraftPersistence.observe,
-    source ? source.key : 'skip',
-  );
+  const { data: observation } = useQuery({
+    ...convexQuery(
+      api.canonicalDraftPersistence.observe,
+      source ? source.key : 'skip',
+    ),
+    throwOnError: true,
+  });
   const [showArchived, setShowArchived] = useState(false);
   // The campaign and organization the page has loaded for, with its open
   // record dialog: a scope change closes the dialog and loads again.

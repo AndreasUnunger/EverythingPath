@@ -112,15 +112,6 @@ export type RosterWarning = {
   /** The roster person a per-person warning concerns. */
   characterId?: string;
 };
-export function rosterWarnings(
-  roster: CanonicalRoster,
-  characters: RosterCharacter[],
-  maxTeams: number,
-) {
-  return rosterWarningDescriptors(roster, characters, maxTeams).map(
-    (warning) => warning.message,
-  );
-}
 export function rosterWarningDescriptors(
   roster: CanonicalRoster,
   characters: RosterCharacter[],

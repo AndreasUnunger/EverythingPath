@@ -1,10 +1,12 @@
 'use client';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { useState } from 'react';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
-import { characterLedgerQuery } from '~/lib/sharedQueries';
+import { useCharacterLedgerQuery } from '~/lib/sharedQueries';
 import { mirrorRosterKinds } from '~/lib/character-kind';
 import type { SetupCharacter } from '~/lib/setup-characters';
 
@@ -26,7 +28,10 @@ export function useLedgerCorrection({
   campaignId: Id<'campaign'>;
   militiaId: Id<'militia'>;
 }) {
-  const result = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
+  const { data: result } = useQuery({
+    ...convexQuery(api.canonicalLedger.read, { campaignId, militiaId }),
+    throwOnError: true,
+  });
   const [kept, keep] = useState<{
     campaignId: Id<'campaign'>;
     militiaId: Id<'militia'>;
@@ -61,7 +66,7 @@ export function useCanonicalLedger({
   organizationId: string;
 }) {
   const { ledger, write } = useLedgerCorrection({ campaignId, militiaId });
-  const { data: records = [] } = characterLedgerQuery(
+  const { data: records = [] } = useCharacterLedgerQuery(
     campaignId,
     organizationId,
     true,

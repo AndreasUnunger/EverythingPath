@@ -1,15 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-export async function select(
-  page: Page,
-  within: Locator,
-  label: string,
-  option: string,
-) {
-  await within.getByRole('combobox', { name: label, exact: true }).click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
-
 // The campaign list/home selects a row (its address changes to the
 // campaign's home); campaign pages use the top-bar campaign switcher, which
 // opens the chosen campaign's home (CAMP-01). Either way the helper ends on
@@ -97,49 +87,5 @@ export async function openCampaignSection(
   await link.click();
   await expect(page).toHaveURL(
     new RegExp(`/campaigns/[^/]+/${section}(?:\\?|$)`),
-  );
-}
-
-export function actionSlot(page: Page, number: number) {
-  return page.getByRole('group', {
-    name: `Activity Slot ${number}`,
-    exact: true,
-  });
-}
-
-export async function visiblePlace(
-  page: Page,
-  action: string,
-  slot: number,
-  input: 'keyboard' | 'tap' = 'keyboard',
-) {
-  const card = page.getByRole('group', {
-    name: `Action Choice: ${action}`,
-    exact: true,
-  });
-  const button = card.getByRole('button', {
-    name: `Stage ${action} in Activity Slot ${slot}`,
-    exact: true,
-  });
-  if (input === 'tap') await button.tap();
-  else {
-    await button.focus();
-    await button.press('Enter');
-  }
-  await expect(actionSlot(page, slot)).toContainText(action);
-}
-
-export async function expectSharedState(
-  observers: { player: string; state: Locator }[],
-  expected: string | RegExp,
-  domainObject: string,
-) {
-  await Promise.all(
-    observers.map(async ({ player, state }) => {
-      await expect(
-        state,
-        `${player}: ${domainObject} should show ${String(expected)}`,
-      ).toHaveText(expected);
-    }),
   );
 }

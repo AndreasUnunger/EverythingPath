@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest';
 import {
   canonicalRosterSchema,
-  rosterWarnings,
   rosterWarningDescriptors,
 } from './canonical-roster';
 
@@ -41,11 +40,11 @@ test('[roster.identities] repeated teams keep independent conditions, exemptions
     ['second', 'missing', true],
   ]);
   expect(
-    rosterWarnings(
+    rosterWarningDescriptors(
       roster,
       [{ characterId: 'alice', name: 'Alice', charisma: 10, isActive: true }],
       1,
-    ),
+    ).map((warning) => warning.message),
   ).toEqual(['Alice manages 2 teams; the normal limit is 1.']);
 });
 
@@ -99,17 +98,27 @@ test('[roster.limits] reward exemptions and held roles affect warnings without d
   const characters = [
     { characterId: 'a', name: 'A', charisma: 18, isActive: true },
   ];
-  expect(rosterWarnings(roster, characters, 2)).toEqual([
+  expect(
+    rosterWarningDescriptors(roster, characters, 2).map(
+      (warning) => warning.message,
+    ),
+  ).toEqual([
     '3 teams count toward the normal limit of 2.',
     'A manages 3 teams; the normal limit is 1.',
   ]);
   roster.teams[0]!.rewardCapExempt = true;
   // An NPC's kind never makes an Officer; holding a role does.
-  expect(rosterWarnings(roster, characters, 2)).toEqual([
-    'A manages 3 teams; the normal limit is 1.',
-  ]);
+  expect(
+    rosterWarningDescriptors(roster, characters, 2).map(
+      (warning) => warning.message,
+    ),
+  ).toEqual(['A manages 3 teams; the normal limit is 1.']);
   roster.officers = [{ role: 'marshal', characterId: 'a' }];
-  expect(rosterWarnings(roster, characters, 2)).toEqual([]);
+  expect(
+    rosterWarningDescriptors(roster, characters, 2).map(
+      (warning) => warning.message,
+    ),
+  ).toEqual([]);
   expect(roster.teams).toHaveLength(3);
 });
 
@@ -138,9 +147,9 @@ test('[roster.role-limits] adding or removing an NPC’s last role raises or low
     { characterId: 'b', name: 'B', charisma: 17, isActive: true },
   ];
   const limits = () =>
-    rosterWarnings(roster, characters, 5).filter((warning) =>
-      warning.includes('normal limit'),
-    );
+    rosterWarningDescriptors(roster, characters, 5)
+      .map((warning) => warning.message)
+      .filter((warning) => warning.includes('normal limit'));
   expect(limits()).toEqual([]);
   roster.officers = [{ role: 'marshal', characterId: 'a' }];
   expect(limits()).toEqual([]);
@@ -198,7 +207,4 @@ test('[roster.warning-targets] structured warnings name their roster list and th
       characterId: 'b',
     },
   ]);
-  expect(rosterWarnings(roster, characters, 3)).toEqual(
-    warnings.map((warning) => warning.message),
-  );
 });

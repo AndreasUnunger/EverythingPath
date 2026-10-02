@@ -71,7 +71,6 @@ const convex = {};
 vi.mock('convex/react', () => ({
   useConvex: () => convex,
   useConvexAuth: () => convexAuth(),
-  useQuery: () => cutover(),
   Authenticated: ({ children }: { children: ReactNode }) =>
     convexAuth().isAuthenticated ? children : null,
   Unauthenticated: ({ children }: { children: ReactNode }) =>
@@ -79,11 +78,14 @@ vi.mock('convex/react', () => ({
   AuthLoading: ({ children }: { children: ReactNode }) =>
     convexAuth().isLoading ? children : null,
 }));
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: cutover() }),
+}));
 vi.mock('~/components/weekly-draft-workspace/gateway', () => ({
   createConvexWorkspaceGateway: (...args: unknown[]) => gateway(...args),
 }));
 vi.mock('~/lib/sharedQueries', () => ({
-  campaignQuery: (...args: unknown[]) => campaigns(...args),
+  useCampaignQuery: (...args: unknown[]) => campaigns(...args),
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn() }),

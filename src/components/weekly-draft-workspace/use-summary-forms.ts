@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useStableByKey } from '~/components/use-stable-by-key';
 import {
   useForm,
   type FieldValues,
@@ -263,10 +264,11 @@ export function useAdjustmentForm({
 }) {
   const isNew = accepted === null;
   const acceptedKey = accepted ? JSON.stringify(accepted) : null;
+  // The accepted adjustment is a fresh copy on every publication.
+  const stableAccepted = useStableByKey(accepted, acceptedKey);
   const acceptedValues = useMemo(
-    () => (accepted ? adjustmentFormValues(accepted) : null),
-    // The accepted adjustment is a fresh copy on every publication.
-    [acceptedKey],
+    () => (stableAccepted ? adjustmentFormValues(stableAccepted) : null),
+    [stableAccepted],
   );
   const [initial] = useState(
     () => acceptedValues ?? initialValues ?? adjustmentFormValues({ kind }),
@@ -568,4 +570,3 @@ export function useExceptionReasonForm({
     hasRemoteChange: acceptedState.hasRemoteChange,
   };
 }
-export type ExceptionReasonForm = ReturnType<typeof useExceptionReasonForm>;

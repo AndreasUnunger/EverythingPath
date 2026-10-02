@@ -8,10 +8,11 @@ import {
   within,
 } from '@testing-library/react';
 import { useState, type ComponentProps } from 'react';
-import { getFunctionName } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CanonicalHistoryScreen } from './screen';
+import { queryCacheFixture } from '../../../tests/convex-query-cache';
+import type * as ConvexReact from 'convex/react';
 import type { CampaignWeek } from '~/components/campaign-home/use-campaign-week';
 import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import {
@@ -44,15 +45,7 @@ const backend = {
   failing: (() => false) as Failure,
   pending: (() => false) as Failure,
 };
-type Subscription = {
-  name: string;
-  args: Record<string, unknown>;
-  listener?: () => void;
-};
-const live = new Set<Subscription>();
-const opened: Subscription[] = [];
-const oneShot: { name: string; args: Record<string, unknown> }[] = [];
-
+let cache: ReturnType<typeof queryCacheFixture>;
 function context(startDay: number) {
   return {
     firstMilitiaWeek: false,
@@ -194,45 +187,24 @@ function resolve(name: string, args: Record<string, unknown>) {
   return name === 'canonicalHistory:list' ? list(args) : read(args);
 }
 
-const convex = {
-  watchQuery: (query: never, args: Record<string, unknown>) => {
-    const subscription: Subscription = { name: getFunctionName(query), args };
-    return {
-      onUpdate: (listener: () => void) => {
-        opened.push(subscription);
-        subscription.listener = listener;
-        live.add(subscription);
-        return () => live.delete(subscription);
-      },
-      localQueryResult: () => resolve(subscription.name, args),
-    };
-  },
-  query: async (query: never, args: Record<string, unknown>) => {
-    oneShot.push({ name: getFunctionName(query), args });
-    return resolve(getFunctionName(query), args);
-  },
-};
-
 /** Tell every live subscription that the backend changed. */
 function push() {
-  act(() => {
-    for (const subscription of [...live]) subscription.listener?.();
-  });
+  act(() => cache.push());
 }
-
 const reads = (predicate: (args: Record<string, unknown>) => boolean) =>
-  [...live].filter(
-    (subscription) =>
-      subscription.name === 'canonicalHistory:read' &&
-      predicate(subscription.args),
-  );
+  cache
+    .observed()
+    .filter(
+      (read) => read.name === 'canonicalHistory:read' && predicate(read.args),
+    );
 const lists = () =>
-  [...live]
-    .filter((subscription) => subscription.name === 'canonicalHistory:list')
-    .map((subscription) => subscription.args);
-
-vi.mock('convex/react', () => ({
-  useConvex: () => convex,
+  cache
+    .observed()
+    .filter((read) => read.name === 'canonicalHistory:list')
+    .map((read) => read.args);
+vi.mock('convex/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof ConvexReact>()),
+  useConvex: () => cache.convex,
   useConvexAuth: () => ({ isLoading: false, isAuthenticated: true }),
 }));
 
@@ -282,10 +254,10 @@ beforeEach(() => {
   backend.campaigns.clear();
   backend.failing = () => false;
   backend.pending = () => false;
-  live.clear();
-  opened.length = 0;
-  oneShot.length = 0;
+  cache = queryCacheFixture(resolve);
 });
+
+afterEach(() => cache.client.clear());
 
 const openWeek: CampaignWeek = { kind: 'week', week: 70 };
 
@@ -333,7 +305,7 @@ function Harness({
   );
 }
 const show = (props: ComponentProps<typeof Harness> = {}) =>
-  render(<Harness {...props} />);
+  render(<Harness {...props} />, { wrapper: cache.wrapper });
 const address = () => screen.getByTestId('address').textContent;
 const weekRows = () =>
   within(screen.getByRole('navigation', { name: 'Finished weeks' }))
@@ -499,13 +471,13 @@ test('pages a chain of more than ten entries five at a time without reloading th
   await waitFor(() =>
     expect(screen.getByText('Ruleset 18')).toBeInTheDocument(),
   );
-  const readsOpened = opened.length;
+  const readsOpened = cache.opened.length;
 
   fireEvent.click(screen.getByRole('button', { name: 'Earlier entries' }));
   expect(address()).toBe('/campaigns/campaign/history?week=7&beforeSequence=8');
   await waitFor(() => expect(entries(7)).toEqual(['8', '7', '6', '5', '4']));
   expect(finalOutcome()).toContain('1712');
-  // Only the visible page is read: the first page's readers are gone.
+  // Only the visible page is observed; prior pages stay warm in the cache.
   expect(
     metadata()
       .map((read) => read.args.recordId)
@@ -513,7 +485,7 @@ test('pages a chain of more than ten entries five at a time without reloading th
   ).toEqual(['w7-e3', 'w7-e4', 'w7-e5', 'w7-e6', 'w7-e7']);
   // Paging opened the older page and its Ruleset reads, never the record again.
   expect(
-    opened
+    cache.opened
       .slice(readsOpened)
       .filter((read) => read.args.beforeSequence === undefined)
       .every((read) => read.args.recordId !== undefined),
@@ -554,10 +526,14 @@ test('a direct link to an early entry shows its own record at once and finds its
   expect(screen.getByText('Earlier entry')).toBeInTheDocument();
   backend.pending = () => false;
   cleanup();
-  oneShot.length = 0;
+  cache.reads.length = 0;
   show({ initial: { week: 7, recordId: 'w7-e1' } });
   await screen.findByText('Earlier entry 2 of 13');
-  expect(oneShot.map(({ args }) => args.beforeSequence)).toEqual([8, 3]);
+  expect(
+    cache.reads
+      .filter(({ args }) => args.beforeSequence !== undefined)
+      .map(({ args }) => args.beforeSequence),
+  ).toEqual([8, 3]);
 });
 
 test('a linked record that does not belong to the week is unavailable, never replaced by another entry', async () => {
@@ -648,7 +624,7 @@ test('a failed Ruleset read stays with its entry and retries alone', async () =>
   expect(screen.getByText('Ruleset 1')).toBeInTheDocument();
   expect(screen.getByText('Ruleset 3')).toBeInTheDocument();
   expect(finalOutcome()).toContain('1703');
-  const others = opened.filter((read) => read.args.recordId === 'w7-e0');
+  const others = cache.opened.filter((read) => read.args.recordId === 'w7-e0');
   backend.failing = () => false;
   fireEvent.click(
     screen.getByRole('button', {
@@ -656,7 +632,7 @@ test('a failed Ruleset read stays with its entry and retries alone', async () =>
     }),
   );
   await screen.findByText('Ruleset 2');
-  expect(opened.filter((read) => read.args.recordId === 'w7-e0')).toEqual(
+  expect(cache.opened.filter((read) => read.args.recordId === 'w7-e0')).toEqual(
     others,
   );
 });
@@ -704,14 +680,14 @@ test('no finished weeks offers the open week; without a militia nothing is read 
     '/campaigns/campaign/week',
   );
   cleanup();
-  opened.length = 0;
+  cache.opened.length = 0;
   show({ campaignWeek: { kind: 'not_set_up' } });
   expect(screen.getByText('No finished weeks yet.')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Set up militia' })).toHaveAttribute(
     'href',
     '/campaigns/campaign/setup',
   );
-  expect(opened).toEqual([]);
+  expect(cache.opened).toEqual([]);
 });
 
 test('a week without a record is unavailable while the index stays reachable', async () => {

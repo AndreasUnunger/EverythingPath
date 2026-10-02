@@ -48,7 +48,7 @@ vi.mock('~/components/campaign-shell/session', () => ({
   useSession: () => session(),
 }));
 vi.mock('~/lib/sharedQueries', () => ({
-  campaignQuery: (orgId: string | undefined, enabled: boolean) =>
+  useCampaignQuery: (orgId: string | undefined, enabled: boolean) =>
     list(orgId, enabled),
 }));
 vi.mock('./use-campaign-week', () => ({

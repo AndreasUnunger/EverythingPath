@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "project": [
+    "*.{js,mjs,ts,tsx}",
+    "src/**/*.{js,ts,tsx,css}",
+    "convex/**/*.{js,ts}",
+    "scripts/**/*.{mjs,ts}",
+    "tests/**/*.ts",
+    "e2e/**/*.ts",
+  ],
+  "ignoreExportsUsedInFile": true,
+  // The config requires a provisioned preview. These are its runner entry points.
+  "playwright": {
+    "config": [],
+    "entry": [
+      "e2e/**/*.spec.ts",
+      "e2e/auth.setup.ts",
+      "e2e/start-server.ts",
+      "e2e/support/reporter.ts",
+    ],
+  },
+  "entry": [
+    "playwright.config.ts",
+    "e2e/bind-preview.ts",
+    "e2e/support/testing/runner-probe.ts",
+  ],
+  // The current version deliberately aliases the latest named rules milestone.
+  "ignoreIssues": { "src/lib/ruleset-versions.ts": ["duplicates"] },
+}

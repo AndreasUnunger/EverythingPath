@@ -29,7 +29,7 @@ import type {
   MilitiaCorrections,
   MilitiaEntryView,
 } from './use-militia-corrections';
-import { useWideLayout } from './use-wide-layout';
+import { useBreakpoint } from '~/components/use-breakpoint';
 
 type Page = Extract<MilitiaCorrections, { status: 'ready' }>;
 
@@ -319,7 +319,7 @@ function NarrowLayout({ page }: { page: Page }) {
 // place. Exactly one layout is mounted, so an open correction has one set of
 // controls at any width.
 export function MilitiaPage({ page }: { page: Page }) {
-  const wide = useWideLayout();
+  const wide = useBreakpoint('wide');
   const correctButton = useRef<HTMLButtonElement>(null);
   // Focus returns to Correct when a correction closes (saved, cancelled or
   // reconciled), never on the first render.

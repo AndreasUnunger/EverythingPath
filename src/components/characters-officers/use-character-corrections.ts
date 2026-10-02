@@ -3,11 +3,13 @@ import { useMemo, useReducer, useRef, useState } from 'react';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQuery } from 'convex/react';
+import { useQuery } from '@tanstack/react-query';
+import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { CharacterRecord } from '~/components/character-manager/types';
 import { useLedgerCorrection } from '~/components/use-canonical-ledger';
+import { useStableByKey } from '~/components/use-stable-by-key';
 import type { AffectedChoice } from '~/components/militia-corrections/affected-choice-copy';
 import {
   closedCorrection,
@@ -277,10 +279,13 @@ export function useCharacterCorrections({
   records: CharacterRecord[];
 }): CharacterCorrections {
   const { ledger, write } = useLedgerCorrection({ campaignId, militiaId });
-  const observation = useQuery(api.canonicalDraftPersistence.observe, {
-    campaignId,
-    militiaId,
-    draftId,
+  const { data: observation } = useQuery({
+    ...convexQuery(api.canonicalDraftPersistence.observe, {
+      campaignId,
+      militiaId,
+      draftId,
+    }),
+    throwOnError: true,
   });
   const [correction, dispatch] = useReducer(
     correctionReducer,
@@ -333,16 +338,29 @@ export function useCharacterCorrections({
 
   // The open week over the accepted and the corrected militia. The rules
   // projection is recomputed only when their content changes.
-  const latestKey = latest ? weeklySourceKey(latest) : '';
-  const candidateKey = candidate ? weeklySourceKey(candidate) : '';
-  const draftKey = draft ? weeklySourceKey(draft) : '';
+  const stableLatest = useStableByKey(
+    latest,
+    latest ? weeklySourceKey(latest) : null,
+  );
+  const stableCandidate = useStableByKey(
+    candidate,
+    candidate ? weeklySourceKey(candidate) : null,
+  );
+  const stableDraft = useStableByKey(
+    draft,
+    draft ? weeklySourceKey(draft) : null,
+  );
   const before = useMemo<RosterWeek | null>(
-    () => (latest && mode ? projectRosterWeek(latest, draft) : null),
-    [latestKey, draftKey, mode],
+    () =>
+      stableLatest && mode
+        ? projectRosterWeek(stableLatest, stableDraft)
+        : null,
+    [stableLatest, stableDraft, mode],
   );
   const after = useMemo<RosterWeek | null>(
-    () => (candidate ? projectRosterWeek(candidate, draft) : null),
-    [candidateKey, draftKey],
+    () =>
+      stableCandidate ? projectRosterWeek(stableCandidate, stableDraft) : null,
+    [stableCandidate, stableDraft],
   );
 
   if (!ledger || !latest) return { status: 'loading' };

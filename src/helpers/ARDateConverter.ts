@@ -54,29 +54,6 @@ function isGregorianLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-/**
- * Convert a JS Date into a formatted string using the provided
- * fantasy month and weekday names, with leap years handled by adding
- * the extra day to Calistril (month index 1).
- *
- * Output format: "Weekday, <day> <MonthName> <year>"
- */
-export function formatFantasyDate(date: Date): string {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    throw new TypeError('Invalid Date provided');
-  }
-
-  const parts = getFantasyDateParts(date);
-  const weekdayIndex =
-    date.getUTCDay() % fantasyCalendar.weekdaySet.weekdays.length;
-  const weekdayDef = fantasyCalendar.weekdaySet.weekdays[weekdayIndex];
-  if (!weekdayDef) {
-    throw new RangeError('Invalid weekday');
-  }
-
-  return `${weekdayDef.name}, ${parts.day} ${parts.month.name} ${parts.year}`;
-}
-
 export function getFantasyMonthsForGregorianYear(year: number): MonthDef[] {
   const months: MonthDef[] = fantasyCalendar.monthSet.months.map((month) => ({
     name: month.name,
@@ -158,7 +135,9 @@ export function createDateFromFantasyParts({
   }
 
   const dayOfYear =
-    months.slice(0, monthIndex).reduce((sum, current) => sum + current.days, 0) + day;
+    months
+      .slice(0, monthIndex)
+      .reduce((sum, current) => sum + current.days, 0) + day;
   return new Date(Date.UTC(gregorianYear, 0, dayOfYear));
 }
 

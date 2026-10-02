@@ -8,10 +8,10 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type FocusEvent,
 } from 'react';
 import { useForm } from 'react-hook-form';
+import { useBreakpoint } from '~/components/use-breakpoint';
 import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
 import {
   setupSchemaForCharacters,
@@ -35,24 +35,6 @@ import type { SetupCharacter } from './roster';
 // Below 768px the steps are one list of rows; from 768px an index and one
 // detail pane. Only one layout is mounted at a time.
 export type SetupLayout = 'phone' | 'wide';
-const wide = '(min-width: 768px)';
-function mediaQuery() {
-  return typeof window.matchMedia === 'function'
-    ? window.matchMedia(wide)
-    : null;
-}
-function subscribeWidth(listener: () => void) {
-  const query = mediaQuery();
-  query?.addEventListener('change', listener);
-  return () => query?.removeEventListener('change', listener);
-}
-export function useSetupLayout(): SetupLayout {
-  return useSyncExternalStore(
-    subscribeWidth,
-    () => ((mediaQuery()?.matches ?? true) ? 'wide' : 'phone'),
-    () => 'wide',
-  );
-}
 
 // A problem from the error summary or a warning list: its step, and the field
 // or entry to focus when there is one.
@@ -164,7 +146,7 @@ export function useGuidedSetup({
     mode: 'onChange',
     shouldFocusError: false,
   });
-  const layout = useSetupLayout();
+  const layout: SetupLayout = useBreakpoint('wide') ? 'wide' : 'phone';
   const prefix = useId();
   const ids = {
     header: (key: SetupStepKey) => `${prefix}-${key}-step`,

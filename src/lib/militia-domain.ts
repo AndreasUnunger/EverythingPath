@@ -24,9 +24,6 @@ export const MILITIA_ACTIVITY_ACTION_IDS = [
   'lie_low',
 ] as const;
 
-export type MilitiaActivityActionId =
-  (typeof MILITIA_ACTIVITY_ACTION_IDS)[number];
-
 export const TEAM_IDS = [
   'moles',
   'propagandists',
@@ -45,8 +42,6 @@ export const TEAM_IDS = [
   'blackMarketeers',
   'fixers',
 ] as const;
-
-export type TeamId = (typeof TEAM_IDS)[number];
 
 export const EVENT_TYPES = [
   'all_is_calm',
@@ -85,13 +80,9 @@ export const REPUTATION_LEVELS = [
   'Helpful',
 ] as const;
 
-export type ReputationLevel = (typeof REPUTATION_LEVELS)[number];
-
 export const TEAM_STATUSES = [
   'active',
   'disabled',
   'missing',
   'blocked',
 ] as const;
-
-export type TeamStatus = (typeof TEAM_STATUSES)[number];

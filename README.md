@@ -77,6 +77,22 @@ Press Ctrl+C to stop both services. To run either service separately, use
 preview or production builds do not override your local `CONVEX_DEPLOYMENT`.
 Development uses your Convex CLI login; run `pnpm exec convex login` if needed.
 
+`pnpm check` runs TypeScript and lint checks. `pnpm lint` runs ESLint (unused
+local variables are errors) and [Knip](https://knip.dev), which fails on unused
+files, exports, types, and dependencies. ESLint also enforces React's Rules
+of Hooks, exhaustive hook dependencies, and `set-state-in-effect` as errors
+throughout `src`, including its tests. Run `pnpm lint:unused` for Knip alone.
+Knip includes tests and recognizes Next.js and Convex entry points. Playwright
+entry points are declared in `knip.jsonc` because loading its config requires
+a provisioned E2E run; keep those entries aligned with the runner. Test-only
+exports still count as used, so periodically review whether tests exercise
+interfaces that gameplay actually uses.
+
+`pnpm install` applies the patch in `patches/` to `@convex-dev/react-query@0.1.0`.
+It lets a successful live update recover a query that failed before receiving
+its first result. Keep the patch until an upstream release passes the recovery
+tests in `src/lib/convex-query-client.test.tsx` without it.
+
 ## Build and deployment
 
 `pnpm build` and `pnpm build:web` build only the Next.js application. They use

@@ -1,74 +1,64 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { campaignQuery, characterLedgerQuery } from './sharedQueries';
+import { afterEach, beforeEach, expect, test } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { zid } from 'convex-helpers/server/zod4';
+import { queryCacheFixture } from '../../tests/convex-query-cache';
+import { useCampaignQuery, useCharacterLedgerQuery } from './sharedQueries';
 
-const mockUseQuery = vi.fn((options) => options);
-const mockConvexQuery = vi.fn((_fnRef, args) => ({
-  queryKey: ['mock-query'],
-  queryFn: vi.fn(),
-  meta: { args },
-}));
+const campaignId = zid('campaign').parse('campaign');
+let cache: ReturnType<typeof queryCacheFixture>;
+beforeEach(() => {
+  cache = queryCacheFixture(() => []);
+});
+afterEach(() => cache.client.clear());
 
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: (options: unknown) => mockUseQuery(options),
-}));
+test('campaigns can load without an organization', async () => {
+  const { result } = renderHook(() => useCampaignQuery(undefined), {
+    wrapper: cache.wrapper,
+  });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(cache.opened.map(({ args }) => args)).toEqual([
+    { organizationId: undefined },
+  ]);
+});
 
-vi.mock('@convex-dev/react-query', () => ({
-  convexQuery: (fnRef: unknown, args: unknown) => mockConvexQuery(fnRef, args),
-}));
+test('a disabled campaign query creates no subscription and enabling it starts one', async () => {
+  const view = renderHook(({ enabled }) => useCampaignQuery('org', enabled), {
+    initialProps: { enabled: false },
+    wrapper: cache.wrapper,
+  });
+  expect(cache.opened).toHaveLength(0);
+  view.rerender({ enabled: true });
+  await waitFor(() => expect(view.result.current.isSuccess).toBe(true));
+  expect(cache.opened.map(({ args }) => args)).toEqual([
+    { organizationId: 'org' },
+  ]);
+});
 
-vi.mock('@convex/_generated/api', () => ({
-  api: {
-    campaign: { getCampaigns: 'getCampaigns' },
-    character: { listByCampaign: 'listByCampaign' },
-    militia: {
-      getMilitia: 'getMilitia',
-      getMilitiaStateSetup: 'getMilitiaStateSetup',
-      listMarketplaces: 'listMarketplaces',
-      listSettlements: 'listSettlements',
-    },
-    weekBoard: {
-      getWeekBoardLiveState: 'getWeekBoardLiveState',
-      getWeekBoardReferenceData: 'getWeekBoardReferenceData',
-      getWeekBoardTrackedState: 'getWeekBoardTrackedState',
-      getWeekBoardState: 'getWeekBoardState',
-    },
+test.each([
+  { campaign: undefined, org: 'org', enabled: true },
+  { campaign: campaignId, org: undefined, enabled: true },
+  { campaign: campaignId, org: 'org', enabled: false },
+])(
+  'a guarded ledger query starts no subscription: %j',
+  ({ campaign, org, enabled }) => {
+    renderHook(() => useCharacterLedgerQuery(campaign, org, enabled), {
+      wrapper: cache.wrapper,
+    });
+    expect(cache.opened).toHaveLength(0);
   },
-}));
+);
 
-describe('sharedQueries', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('keeps campaign query enabled even when organization is undefined', () => {
-    campaignQuery(undefined, true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('getCampaigns', {
-      organizationId: undefined,
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('disables campaign query when enabled is false', () => {
-    campaignQuery('org_1', false);
-
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: false }),
-    );
-  });
-
-  it('wires character ledger query with includeInactive and enabled guard', () => {
-    characterLedgerQuery('camp_1' as never, 'org_1', true, true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('listByCampaign', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
+test('character ledger queries keep organization scope and inactive selection', async () => {
+  const { result } = renderHook(
+    () => useCharacterLedgerQuery(campaignId, 'org', true, true),
+    { wrapper: cache.wrapper },
+  );
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(cache.opened.map(({ args }) => args)).toEqual([
+    {
+      campaignId,
+      organizationId: 'org',
       includeInactive: true,
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
+    },
+  ]);
 });

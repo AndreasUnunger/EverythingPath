@@ -45,21 +45,23 @@ vi.mock('@convex/_generated/api', () => ({
   },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: (ref: string, args: unknown) =>
-    args === 'skip'
-      ? undefined
-      : ref === 'options'
-        ? backend.options
-        : ref === 'records'
-          ? backend.records === 'loading'
-            ? undefined
-            : (backend.records ?? recordsOf(backend.options))
-          : backend.workspace,
   useMutation: (ref: string) =>
     ref === 'initialize'
       ? (args: unknown) => backend.initialize(args)
       : (args: unknown) => backend.createCharacter(args),
 }));
+vi.mock('@tanstack/react-query', async () => {
+  const { queryDataMock } = await import('../../../tests/query-data');
+  return queryDataMock((ref) =>
+    ref === 'options'
+      ? backend.options
+      : ref === 'records'
+        ? backend.records === 'loading'
+          ? undefined
+          : (backend.records ?? recordsOf(backend.options))
+        : backend.workspace,
+  );
+});
 vi.mock('next/navigation', () => ({ useRouter: () => backend.router }));
 function recordsOf(options: unknown) {
   return (options as Options | undefined)?.characters.map((character) => ({
@@ -540,6 +542,47 @@ test('[setup.race.unacknowledged-other] when another player won instead, the res
   expect(initialize).toHaveBeenLastCalledWith(sent);
   expect(push).not.toHaveBeenCalled();
   expect(stored()).toEqual({ kind: 'fresh' });
+});
+
+test('a recovering start stays disabled and sends once through repeated observations', async () => {
+  const sent = await reloadDuringStart();
+  const recovered = deferred<typeof key>();
+  initialize.mockReturnValueOnce(recovered.promise);
+  const { rerender } = render(screenFor());
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  const starting = screen.getByRole('button', { name: 'Starting militia…' });
+  expect(starting).toBeDisabled();
+  expect(initialize).toHaveBeenCalledTimes(2);
+  expect(initialize).toHaveBeenLastCalledWith(sent);
+
+  fireEvent.click(starting);
+  // A refresh of the live options must not resend the same recovery.
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  expect(initialize).toHaveBeenCalledTimes(2);
+  expect(replace).not.toHaveBeenCalled();
+  expect(push).not.toHaveBeenCalled();
+  await act(async () => recovered.resolve(key));
+  expect(push).toHaveBeenCalledExactlyOnceWith(
+    '/campaigns/campaign_a/week?phase=event',
+  );
+});
+
+test('leaving during reload recovery never navigates the next campaign', async () => {
+  await reloadDuringStart();
+  const recovered = deferred<typeof key>();
+  initialize.mockReturnValueOnce(recovered.promise);
+  const { rerender } = render(screenFor());
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  expect(initialize).toHaveBeenCalledTimes(2);
+  setOptions({ name: 'Other campaign', started: false, characters: [] });
+  rerender(screenFor({ campaignId: 'campaign_b' as Id<'campaign'> }));
+  await act(async () => recovered.resolve(key));
+  expect(push).not.toHaveBeenCalled();
+  expect(replace).not.toHaveBeenCalled();
+  expect(textbox('Rank')).toHaveValue('1');
 });
 
 test('[setup.start.changed-source] a changed retry after an unacknowledged start keeps the identity, and its refusal follows the accepted week', async () => {
