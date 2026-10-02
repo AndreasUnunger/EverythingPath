@@ -129,6 +129,7 @@ draft is at revision 0, production also holds no accepted
 | B3    | Old-client kind submissions                                                      | #180             | B      | ~15 / ~100                       |
 | B4    | Pre-canonical character fields and `dataMigration` table                         | #16, #17         | B      | ~30 / —                          |
 | B5    | #91 rejection endpoint names                                                     | #91              | B      | ~290 / ~30                       |
+| B6    | Planned Character Sheet release cleanup                                         | #240             | B      | not yet sized                    |
 | C1–C7 | Look-alikes and deliberate compatibility                                         | various          | C      | —                                |
 
 Sizes are rough, from reading the code, not from a trial removal. Test figures
@@ -830,6 +831,19 @@ on these names.
     fingerprinted case inventory need a reviewed update, and the e2e cutover
     journey's retired-path checks change too.
 - **Size:** about 290 source lines and about 30 test lines.
+
+### B6. Planned Character Sheet release cleanup (#240)
+
+Planned by [Decide how the character builder release migrates safely](https://github.com/AndreasUnunger/EverythingPath/issues/240#issuecomment-5954578153); see [Migration and release](pf-character-sheet-data-model.md#migration-and-release). This is future cleanup, not a completed migration or a new production observation. The existing flat Character fields remain live until sheet authority is activated.
+
+**Condition: sheet authority has been activated, forward recovery has been verified, and every kept deployment is ready for narrowing.** Retain flat values and old spell rows through preparation and activation. Remove them in a separate behavior-preserving change, never inside the initial backfill.
+
+- **Future old shape:** Character `level` and six flat ability scores; `spell` and `characterSpell` rows; spell aggregate entries; legacy write contracts.
+- **Where:** `convex/schema.ts`, `convex/spell.ts`, `convex/data/spells.js` and its declaration, plus Character readers/writers and retained compatibility endpoints identified by the release's coverage inventory.
+- **Order:** stop all spell writers first, including public writes, imports and aggregate maintenance. After verifying active readers use sheets and the Catalog Release, clear flat values, legacy spell rows and their aggregate entries before removing the corresponding columns/tables and obsolete code/data. Preserve Character IDs and frozen history; never restore stale flat authority to recover accepted sheet edits.
+- **Keep:** reload-required rejection stubs while old tabs or delayed commands still need an explicit response. Remove them only in a separately reviewed change that accounts for those callers.
+- **Evidence:** rehearsal and current deployment checks must show facts/history unchanged by cleanup, no spell repopulation, rejected legacy writes and forward repair preserving post-activation edits. The 2026-09-28 observations above do not authorize this future removal.
+- **Size:** not yet sized; implementation and cleanup are still pending.
 
 ---
 
