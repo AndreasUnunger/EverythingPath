@@ -45,6 +45,7 @@ catalogEntry: {
   sourceKey?: string,                  // shared Source, see "Same Source"; absent = the entry itself
   stacksWithItself: boolean,           // official text says duplicates stack
   modifiers: Modifier[],               // bounded; empty is fine (a rope)
+  situationalNotes?: SituationalNote[], // situational text with no number, see "Situational notes"
   detail: CatalogEntryDetail,          // discriminated on `kind`
   description?: string,                // sanitized rules text
   sources: Array<{ book: string; pages?: string }>, // feeds OGL Section 15
@@ -340,12 +341,15 @@ type Modifier = { target: Target; bonusType: BonusType; value: number | { formul
                   condition?: ModifierCondition };
 
 type ModifierCondition = {                       // every part present must hold
-  situation?: SituationKey;                      // "vs. traps": never in a total (see "Conditional Modifiers")
+  situation?: Situation;                         // "vs. traps": never in a total (see "Conditional Modifiers")
   whileActive?: Id<'catalogEntry'>;              // "while raging": applies while an active entry of that Catalog Entry exists
   weapon?: '$self' | '$choice';                  // only attacks with this item, or with the entry's chosen weapon (Weapon Focus)
   castingClass?: '$choice' | ClassTag;           // only this Spellcasting (Magical Knack)
   school?: '$choice' | SchoolKey;                // only Spells of this school (Spell Focus)
 };
+
+type Situation = SituationKey | { local: string };  // see "Situational notes"
+type SituationalNote = { target?: Target; situation?: Situation; text: string };  // no target = shown with its entry
 ```
 
 ### Targets
@@ -362,7 +366,7 @@ Targets form a closed list of statistics. Any bonus type may go on any target, b
 - **Hit points:** `hp`
 - **Spellcasting:** `casterLevel`, `spellDC`, `concentration`. Each applies to every Spellcasting unless a `castingClass` condition narrows it.
 
-The parent targets `ac`, `saves`, `attack` and `damage` exist because rules text uses them. They expand into their leaves before stacking: `ac` expands to `ac.other`. Touch AC and flat-footed AC are never targets. They are derived from the AC leaves (see "Derived statistics").
+The parent targets `ac`, `saves`, `skills`, `attack` and `damage` exist because rules text uses them. They expand into their leaves before stacking: `ac` expands to `ac.other`. Touch AC and flat-footed AC are never targets. They are derived from the AC leaves (see "Derived statistics").
 
 ### Bonus types
 
@@ -384,9 +388,29 @@ Decided by [Prototype attacks and conditional modifiers on the living sheet](htt
 
 - **Weapon conditions** apply only inside the attacks of the matching weapon: `$self` for a weapon's own enhancement, `$choice` for Weapon Focus's chosen weapon, matched on `baseType`. They never reach the sheet-level attack statistics.
 - **While-active conditions** apply automatically while an active entry of the named Catalog Entry is on the sheet, such as Superstition while Raging. Otherwise the Modifier waits and adds nothing.
-- **Situational Modifiers** never enter a total. A Situation is a key from a reviewed vocabulary, such as `traps`, `fear`, `spells`, `giants` or `orcsGoblinoids`, with display text such as "vs. traps". `resolveSheet(…, { situations: [key] })` resolves the sheet as if the Situation held. Its Modifiers then apply and stack like any other, so raging Will vs. spells is +6, not +8: Superstition's +3 morale suppresses Raging's +2 morale.
+- **Situational Modifiers** never enter a total. A Situation is a key from a reviewed vocabulary, such as `traps`, `fear`, `spells`, `giants` or `orcsGoblinoids`, with display text such as "vs. traps", or a local Situation that only its own entry names (see "Situational notes"). `resolveSheet(…, { situations: [situation] })` resolves the sheet as if the Situation held. Its Modifiers then apply and stack like any other, so raging Will vs. spells is +6, not +8: Superstition's +3 morale suppresses Raging's +2 morale.
 - Every statistic reports `conditional`, the contributions left out of its total, each with its condition text and Situation, or with the while-active wording it waits on. Derived statistics carry the conditional contributions their composition would take: a conditional dodge bonus reaches touch AC and CMD, but not flat-footed AC.
-- **Every situational note in the imported content becomes a structured Situational Modifier.** Foundry has only text notes on a statistic, so the Curation Overlay writes one record per note. How is [Decide how the Curation Overlay structures every situational note](https://github.com/AndreasUnunger/EverythingPath/issues/228).
+- **Every situational note in the imported content becomes structured.** Foundry has only text notes on a statistic, so the Curation Overlay writes one record per note (see "Situational notes").
+
+### Situational notes
+
+Decided by [Decide how the Curation Overlay structures every situational note](https://github.com/AndreasUnunger/EverythingPath/issues/228). Foundry stores situational bonuses only as text notes on a statistic (`contextNotes`): 278 in the system packs and 3,367 in pf1-content at the pins. The ticket's resolution records the survey of them.
+
+- **Situations.** There are two tiers:
+  - A **shared Situation** is a key in the reviewed vocabulary, for a circumstance more than one entry names: fear, poison, mind-affecting, traps, creature types and subtypes, combat maneuvers, schools and descriptors. Notes that word it differently ("vs. fear", "vs fear effects") get one key once a reviewer confirms the match.
+  - A **local Situation** is free text owned by one entry ("vs male creatures of your race") and matches nothing else. About 80% of the notes' circumstances occur only once. A local Situation is promoted to a key when a second entry names the same circumstance.
+  - Keys are flat, and none implies another. "vs. charm" doesn't include "vs. enchantment", and "vs. spells" doesn't include spell-like abilities, because the rules don't settle either. Asking for several Situations at once combines them.
+- **Situational notes.** About 24% of notes carry no number: immunities, rerolls, "can always take 10". Each becomes a `SituationalNote`, a text line with a target and a Situation. It shows in that Situation's group in the breakdown and never changes a number. A note naming a statistic the sheet doesn't have (critical confirmation, ability checks, speed, stabilizing), or naming none, has no target and shows with its entry.
+- **Note records.** The Curation Overlay holds one record per note, bound to `externalKey`, Foundry target and exact note text. A note repeated on many entries still gets a record per entry, because formulas depend on the entry's class.
+  - A record holds a list of outputs: Situational Modifiers, situational notes, and while-active or weapon Modifiers where the text says so. So one note can split (Duergar's "+4 vs bull rush and trip while on ground" is two Modifiers) or produce nothing when another record covers it.
+  - Targets come from the text. `allSavingThrows` maps to `saves`, `skills` to `skills`, `meleeWeapon` to `attack.melee`, `cl` to `casterLevel`, `conChecks` to `concentration` and `spellEffect` to `spellDC`. The 39 notes with an empty target are mapped the same way.
+  - Formulas are rewritten into the closed grammar: `@class.level` becomes `@classLevel.<the granting class>`, and `if(gte(…))` becomes `min` and `floor`. Formulas reading `@resources.*` or `@item.level` stay unsupported.
+- **Action conditionals.** Foundry's structured action `conditionals` on 14 weapon and ability records (the double-barrelled firearms, Grab) get records the same way, as Situational Modifiers with `weapon: '$self'`. The two library records of UI helpers (`*Common Conditional Modifiers` and `*Weapon Enchant Conditional Modifiers`) are not imported, because the CRB attack rules are written by hand.
+- **Drafting and review.** A drafter script writes the records. A parser drafts notes that lead with a value and a bonus type (about 2,200), and an agent drafts the rest from the note and the entry's description.
+  - Each record is `drafted` or `checked`, and both apply. The status isn't shown on the sheet.
+  - A record is checked against the entry's imported description, which is Paizo's text, not against the printed book.
+- **Prose-only bonuses.** Situational bonuses with no Foundry note (Superstition, a feat's "+2 vs. bull rush") are ordinary overlay Modifier records for prose-only entries, outside the note gate. A one-off drafter pass over every description looks for "vs.", "against" and "when" wordings and drafts what it finds.
+- **Note gate.** The import fails if any note or action conditional lacks a record of either status. A record whose note text changed upstream no longer applies, so its note counts as missing. A pin bump runs the drafter for the gaps and commits the new records with its import report.
 
 ## Stacking
 
@@ -682,7 +706,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
   - set `sourceKey` and `stacksWithItself`;
-  - turn every situational note (Foundry `contextNotes`) into structured Situational Modifiers ([Decide how the Curation Overlay structures every situational note](https://github.com/AndreasUnunger/EverythingPath/issues/228));
+  - turn every situational note (Foundry `contextNotes`) and action conditional into Situational Modifiers and situational notes, with a gate that fails the import on any note without a record (see "Situational notes");
   - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
   - exclude an entry, giving the reason (see "Notice gate").
 
@@ -694,7 +718,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - The owner bumps a pin by hand within the major. The next major waits until both repos have released it, and then moves both together as a separate effort that replaces the mapper.
   - Fixes on upstream master that aren't released yet are not backported. A Curation Overlay correction is written only for a mistake that matters, and a bump's import report flags it once upstream has the fix.
   - At deploy, the build imports only when the pin differs from the catalog's recorded version.
-  - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, and what changed since the last pin.
+  - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, note records by status, and what changed since the last pin.
 - **Updates.** An import upserts by `externalKey`, so sheets follow updates. An entry removed upstream is marked `retired` and never deleted.
 - **Keys.**
   - Upstream keeps a record's `_id` through edits, renames and pack moves, while pack names change ([Check whether Foundry pf1 record IDs stay stable across releases](https://github.com/AndreasUnunger/EverythingPath/issues/211), `research/pf1-foundry-id-stability`). That is why the key leaves out the pack.
@@ -723,7 +747,7 @@ The resolver lives in `src/lib`, is pure, and is shared by the client and Convex
 type SourcedModifier = Modifier & { sheetEntryId: string; entryName: string; source: string; builtIn: boolean };
 
 collectModifiers(character, entries, catalog): SourcedModifier[]   // active entries + built-ins from state
-resolveSheet(modifiers, { permanentOnly?: boolean; situations?: SituationKey[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }; plus one resolved Spellcasting per casting class
+resolveSheet(modifiers, { permanentOnly?: boolean; situations?: Situation[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }; plus one resolved Spellcasting per casting class
 resolveRoutine(character, sheet, routine, { situations? }): { single, attacks }   // see "Attacks"
 militiaCharacterFacts(character, entries, catalog): MilitiaCharacterFacts // permanentOnly; the one function the militia uses
 sheetWarnings(character, entries, catalog, accepted): SheetWarning[]   // see "Rules checks"; client only, never stored
@@ -764,6 +788,7 @@ Resolver tests (pure) must cover:
 - an unsupported formula contributing nothing;
 - moving and deleting Class Levels;
 - a situational Modifier staying out of the total and stacking like any other once its Situation is asked for (raging Will vs. spells);
+- a local Situation matching only itself, and two Situations asked for together combining;
 - while-active and weapon conditions;
 - a multiclass caster's separate Spellcastings, caster level offsets, and prestige advances split across classes;
 - bonus spells only at levels with a table entry, from permanent scores, never adding to spells known;
