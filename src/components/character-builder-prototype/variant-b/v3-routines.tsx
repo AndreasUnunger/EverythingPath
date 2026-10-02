@@ -758,16 +758,52 @@ function sheetGroups(
   return [...groups, ...otherGroups(stat)];
 }
 
+/**
+ * PROTOTYPE (#233): any other Stat opened with `openStat` (a Spellcasting's
+ * concentration): one group per situation of its waiting contributions, the
+ * total being the Stat's plus theirs (they are untyped in the data so far).
+ */
+function plainGroups(stat: Stat, signed: boolean): Group[] {
+  const fmt = (n: number) => (signed ? formatBonus(n) : String(n));
+  const keys = [
+    ...new Set(
+      stat.conditional.flatMap((c) =>
+        c.situationKey && !c.waitingOn ? [c.situationKey] : [],
+      ),
+    ),
+  ];
+  return keys.map((key) => {
+    const list = stat.conditional.filter(
+      (c) => c.situationKey === key && !c.waitingOn,
+    );
+    const text = list[0]!.conditionText;
+    return {
+      key,
+      text,
+      total: fmt(stat.total + list.reduce((a, c) => a + c.value, 0)),
+      lines: list.map((c, i) => ({
+        key: `${c.label}|${i}`,
+        label: c.label,
+        bonusType: c.bonusType,
+        value: formatBonus(c.value),
+      })),
+      suppressed: [],
+      waiting: waitingOf(stat, key),
+    };
+  });
+}
+
 /** An attack's bonus or damage: the routine resolved in each situation that changes attacks, matched by attack key. */
 function attackGroups(
   character: Character,
   sheet: ResolvedSheet,
   openKey: string,
   stat: Stat,
+  signed: boolean,
 ): Group[] {
   const m = /^(.+):(single|main-\d+|haste|off):(bonus|damage)$/.exec(openKey);
   const setup = m && routineSetups(character).find((s) => s.id === m[1]);
-  if (!m || !setup) return otherGroups(stat);
+  if (!m || !setup) return [...plainGroups(stat, signed), ...otherGroups(stat)];
   const attackKey = `${m[1]}:${m[2]}`;
   const which = m[3] as 'bonus' | 'damage';
   const groups = sheet.situations
@@ -877,7 +913,7 @@ function BreakdownExtra({
   const ui = useSheetUi();
   const groups = path
     ? sheetGroups(character, ui.baseSheet, path, stat, ui.open?.signed ?? true)
-    : attackGroups(character, sheet, openKey, stat);
+    : attackGroups(character, sheet, openKey, stat, ui.open?.signed ?? true);
   if (groups.length === 0) return null;
   return (
     <div className="border-foreground/15 mt-2 border-t pt-2">

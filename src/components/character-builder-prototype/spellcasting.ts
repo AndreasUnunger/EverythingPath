@@ -760,9 +760,11 @@ export type SpellChoice = {
 };
 
 /**
- * What a picker can offer for one Spellcasting: its class list (and, with
- * `offList`, every other Spell), each with whether it is recorded, granted,
- * too high or of an opposition school. Sorted by level then name.
+ * What a picker can offer for one Spellcasting: its class list plus any
+ * recorded or granted Spell off it (and, with `offList`, every other
+ * Spell), each with whether it is recorded, granted, too high or of an
+ * opposition school. A granted off-list Spell carries its granted level.
+ * Sorted: on the list first, then by level and name.
  */
 export function spellChoices(
   character: Character,
@@ -775,20 +777,20 @@ export function spellChoices(
   return SPELL_CATALOG.flatMap((catalog) => {
     const listLevel = catalog.detail.levels[casting.classTag];
     const onList = listLevel !== undefined;
-    if (!onList && !opts.offList) return [];
     const rec = sc?.recorded.find((r) => r.catalog.key === catalog.key);
+    const granted = sc?.granted.find((g) => g.catalog.key === catalog.key);
+    // Recorded and granted Spells are always offered, on the list or not.
+    if (!onList && !opts.offList && !rec && !granted) return [];
     const level = onList
       ? listLevel
-      : (rec?.level ?? lowestLevel(catalog.detail));
+      : (granted?.level ?? rec?.level ?? lowestLevel(catalog.detail));
     return [
       {
         catalog,
         level,
         onList,
         recordedEntryId: rec?.entry.id ?? null,
-        granted: Boolean(
-          sc?.granted.some((g) => g.catalog.key === catalog.key),
-        ),
+        granted: Boolean(granted),
         tooHigh:
           level !== null &&
           (sc?.highestLevel == null || level > sc.highestLevel),
