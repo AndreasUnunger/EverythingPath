@@ -620,6 +620,7 @@ type SheetVariantSlots = {
   Defenses: ComponentType<SheetSlotProps>;
   Offense: ComponentType<SheetSlotProps>;
   BreakdownExtra?: ComponentType<SheetSlotProps & { path: StatPath | null; openKey: string; title: string; stat: Stat }>;
+  replacesConditionalSection?: boolean;   // BreakdownExtra renders its own "Only when…" section
   SkillExtra?: ComponentType<SheetSlotProps & { skill: SkillKey; stat: SkillStat }>;
   VitalExtra?: ComponentType<SheetSlotProps & { path: StatPath; stat: Stat }>;
   AboveSheet?: ComponentType<SheetSlotProps>;
@@ -642,6 +643,10 @@ Where each slot renders:
   number.
 - **`BreakdownExtra`.** The last thing in the breakdown popover. `path` is
   null for a Stat opened with `openStat`; then `openKey` identifies it.
+- **`replacesConditionalSection`.** A flag, not a component. Set it to
+  `true` when `BreakdownExtra` renders its own section for
+  `stat.conditional`; the popover then skips its default "Only when…"
+  list. Variant 3 sets it; variants 1 and 2 keep the default.
 
 **Context.** `useSheetUi()` (from `shared.tsx`) returns:
 
@@ -675,7 +680,8 @@ from your own element, call
 **Breakdown popover.** Applied lines show `conditionText` after the label.
 Under "Not applied", a neutral **"Only when…"** section lists
 `stat.conditional`: label, type and value, with the condition text under
-each line, plus "(not active now)" when `waitingOn` is set. Then comes
+each line, plus "(not active now)" when `waitingOn` is set. It is left
+out when the variant sets `replacesConditionalSection`. Then comes
 `BreakdownExtra`.
 
 **Situation lens.** `ui.situation` is view state only: never saved, and

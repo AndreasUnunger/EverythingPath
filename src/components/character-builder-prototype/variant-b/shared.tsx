@@ -395,7 +395,7 @@ export function BreakdownPopover() {
           </ul>
         </>
       )}
-      {stat.conditional.length > 0 && (
+      {!ui.slots.replacesConditionalSection && stat.conditional.length > 0 && (
         <>
           <p className="text-muted-foreground mt-2 font-mono text-[11px] tracking-wide uppercase">
             Only when…

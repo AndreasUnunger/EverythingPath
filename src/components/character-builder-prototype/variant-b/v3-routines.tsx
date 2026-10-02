@@ -830,8 +830,8 @@ function TypeTag({ bonusType, dim }: { bonusType?: BonusType; dim?: boolean }) {
 /**
  * The popover's conditional part, this variant's way: one group per
  * condition, each with its lines, anything it suppresses, and what the
- * number becomes then. The default "Only when…" list above it comes from
- * shared.tsx and cannot be switched off from a slot (see the report).
+ * number becomes then. It replaces the popover's default "Only when…" list
+ * (`replacesConditionalSection` below).
  */
 function BreakdownExtra({
   path,
@@ -927,6 +927,7 @@ export const v3Slots: SheetVariantSlots = {
   Defenses,
   Offense,
   BreakdownExtra,
+  replacesConditionalSection: true,
   SkillExtra,
   VitalExtra,
 };

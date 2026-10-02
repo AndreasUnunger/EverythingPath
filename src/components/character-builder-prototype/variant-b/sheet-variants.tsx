@@ -42,6 +42,12 @@ export type SheetVariantSlots = {
       stat: Stat;
     }
   >;
+  /**
+   * True when `BreakdownExtra` renders its own section for the Stat's
+   * `conditional` contributions: the popover then skips its default
+   * "Only when…" list. Default false.
+   */
+  replacesConditionalSection?: boolean;
   /** Rendered beside a skill's total in the skills table. */
   SkillExtra?: ComponentType<
     SheetSlotProps & { skill: SkillKey; stat: SkillStat }
