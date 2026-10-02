@@ -17,12 +17,11 @@ import type {
   StatPath,
 } from '../types';
 import type { Warning } from '../warnings';
-import { s1Slots } from './s1-spell-cards';
-import { s2Slots } from './s2-spell-ladder';
 import { s3Slots } from './s3-spells-page';
 import { v3Slots } from './v3-routines';
 
-export type SheetVariantKey = '1' | '2' | '3';
+/** Round 4 round 2 (#233): only the approved spells-page variant remains. */
+export type SheetVariantKey = '3';
 
 /** Props every sheet-wide slot gets: the Character and the sheet on screen (the lens sheet when a situation is set). */
 export type SheetSlotProps = { character: Character; sheet: ResolvedSheet };
@@ -88,12 +87,10 @@ export const SHEET_VARIANTS: {
   name: string;
   slots: SheetVariantSlots;
 }[] = [
-  { key: '1', name: 'Spell cards', slots: { ...v3Slots, ...s1Slots } },
-  { key: '2', name: 'Spell-level ladder', slots: { ...v3Slots, ...s2Slots } },
   { key: '3', name: 'Spells page', slots: { ...v3Slots, ...s3Slots } },
 ];
 
-/** The variant in `?variant=`; anything else (an old `B`, nothing) is variant 1. */
+/** The variant in `?variant=`; anything else (an old `B`, 1, 2, nothing) is the spells-page variant. */
 export function useSheetVariant(): {
   key: SheetVariantKey;
   slots: SheetVariantSlots;

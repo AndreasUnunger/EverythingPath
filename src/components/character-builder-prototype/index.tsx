@@ -9,9 +9,9 @@
 // 3 "Attack routines"; every page is the same, only the living sheet's slots
 // differ (variant-b/sheet-variants.tsx).
 // Round 4 (#233 'Prototype the spellcasting section on the living sheet'):
-// attack routines (round 3's variant 3) are the fixed base; `?variant=`
-// now picks one of three spellcasting variants, 1 "Spell cards",
-// 2 "Spell-level ladder", 3 "Spells page" (which adds `?page=spells`).
+// attack routines (round 3's variant 3) are the fixed base. The owner picked
+// spellcasting variant 3, "Spells page" (`?page=spells`); variants 1 and 2
+// are gone (history: commit fc5c5e7). Any `?variant=` shows it.
 //
 // URL: ?variant=1|2|3&page=<page>&campaign=<id>&character=<id>&from=<page>
 //   campaigns            the homepage: pick a campaign            (shell placeholder)

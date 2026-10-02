@@ -169,8 +169,8 @@ export function useProtoNav() {
   return useMemo(
     () => ({
       page,
-      /** `?variant=` as given; sheet-variants.tsx maps anything unknown to '1'. */
-      variant: search.get('variant') ?? '1',
+      /** `?variant=` as given; sheet-variants.tsx maps anything unknown to '3'. */
+      variant: search.get('variant') ?? '3',
       /** The campaign this page is in, or undefined (top-level areas, a Character in no campaign). */
       campaignId,
       campaign,
