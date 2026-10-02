@@ -110,6 +110,18 @@ A bonus or penalty that a Catalog Entry grants to one statistic. Its bonus type 
 **Source**:
 What a Modifier counts as coming from for stacking: its Catalog Entry, unless official text makes several entries one effect, as with every haste effect. Of the active entries with one Source, only the strongest applies.
 
+**Conditional Modifier**:
+A Modifier that applies only under a condition: while another entry is active ("while raging"), only to attacks with one weapon (Weapon Focus), or only in a Situation. The first two apply by themselves; a situational one never enters a total.
+_Avoid_: context note, rider
+
+**Situation**:
+A circumstance a Conditional Modifier names, such as "vs. traps" or "vs. spells and spell-like abilities". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied.
+_Avoid_: context
+
+**Attack Routine**:
+A named way a Character attacks, kept on its sheet: the weapon and whether it is held in two hands or one, an optional off-hand weapon, and options such as Power Attack. It shows the single attack and the full attack in order. Each weapon added to Gear brings one.
+_Avoid_: attack set, action
+
 **Class Level**:
 One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
 

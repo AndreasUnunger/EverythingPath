@@ -76,7 +76,7 @@ The `spell` and `characterSpell` tables are untouched. Spellcasting is still in 
 type CatalogKind = 'base' | 'race' | 'class' | 'archetype' | 'classFeature' | 'feat' | 'trait'
                  | 'item' | 'spell' | 'condition' | 'manual';
 // State-only: no Catalog Entry; the resolver emits built-in Modifiers from state.
-type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain';
+type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain' | 'attackRoutine';
 type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;   // a class is reached through Class Levels
 
 type CatalogEntryDetail =
@@ -98,7 +98,14 @@ type CatalogEntryDetail =
       classSkillsAdded: SkillKey[]; classSkillsRemoved: SkillKey[];
       skillRanksPerLevel?: number }                             // absent = the class's own
   | { kind: 'classFeature' } | { kind: 'feat' } | { kind: 'trait' }
-  | { kind: 'item'; consumable: boolean }                       // later: slot, weight, price
+  | { kind: 'item'; consumable: boolean;                        // later: slot, weight, price
+      weapon?: { baseType: string;                               // Foundry `baseTypes`: what Weapon Focus names
+        group: WeaponGroup;                                      // Foundry `weaponGroups`
+        handedness: 'light' | 'oneHanded' | 'twoHanded' | 'ranged';
+        dice: string;                                            // "1d12", from `sizeRoll(1, 12, @size)`
+        threat: number; mult: number;                            // lowest threat roll (20, 19, 18) and multiplier
+        rangeIncrement?: number; strRating?: number;             // feet; composite bows
+        reload?: 'free' | 'move' | 'fullRound' } }               // crossbows
   | { kind: 'spell'; lastsOverOneDay: boolean }                 // later: level, school, duration text
   | { kind: 'condition' } | { kind: 'manual' };
 
@@ -114,7 +121,11 @@ type SheetEntryState =
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
   | { kind: 'item'; quantity: number }                                // later: charges
-  | { kind: Exclude<EntryKind, 'classLevel' | 'race' | 'abilityDamage' | 'abilityDrain' | 'item'> };
+  | { kind: 'attackRoutine'; name: string;
+      main: { itemEntryId: Id<'characterSheetEntry'>; hands: 'two' | 'one' };
+      off?: { itemEntryId: Id<'characterSheetEntry'> };              // two-weapon fighting
+      options: { powerAttack: boolean } }                            // more options: see "Attacks"
+  | { kind: Exclude<EntryKind, 'classLevel' | 'race' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'> };
 ```
 
 ## Class Levels and Hit Dice
@@ -192,7 +203,14 @@ Decided by [Decide which Pathfinder Unchained rules the builder supports](https:
 ## Modifiers
 
 ```ts
-type Modifier = { target: Target; bonusType: BonusType; value: number | { formula: string } };  // negative = penalty
+type Modifier = { target: Target; bonusType: BonusType; value: number | { formula: string };  // negative = penalty
+                  condition?: ModifierCondition };
+
+type ModifierCondition = {                       // every part present must hold
+  situation?: SituationKey;                      // "vs. traps": never in a total (see "Conditional Modifiers")
+  whileActive?: Id<'catalogEntry'>;              // "while raging": applies while an active entry of that Catalog Entry exists
+  weapon?: '$self' | '$choice';                  // only attacks with this item, or with the entry's chosen weapon (Weapon Focus)
+};
 ```
 
 ### Targets
@@ -205,10 +223,10 @@ Targets form a closed list of statistics. Any bonus type may go on any target, b
   - `ac.other` covers every other AC bonus.
 - **Saves:** `save.fort`, `save.ref`, `save.will`
 - **Skills:** `skill.<key>`
-- **Combat:** `bab`, `attack.melee`, `attack.ranged`, `cmb`, `cmd`, `init`
+- **Combat:** `bab`, `attack.melee`, `attack.ranged`, `damage.melee`, `damage.ranged`, `cmb`, `cmd`, `init`
 - **Hit points:** `hp`
 
-The parent targets `ac`, `saves` and `attack` exist because rules text uses them. They expand into their leaves before stacking: `ac` expands to `ac.other`. Touch AC and flat-footed AC are never targets. They are derived from the AC leaves (see "Derived statistics").
+The parent targets `ac`, `saves`, `attack` and `damage` exist because rules text uses them. They expand into their leaves before stacking: `ac` expands to `ac.other`. Touch AC and flat-footed AC are never targets. They are derived from the AC leaves (see "Derived statistics").
 
 ### Bonus types
 
@@ -222,6 +240,16 @@ A formula uses a closed grammar:
 - **Variables:** `@level`, `@classLevel.<classKey>`, `@hitDice`, `@ability.<key>.mod` and `@bab`.
 
 A formula may read only stages earlier than its target's stage (see "Resolution stages"). A formula outside the grammar is stored and flagged as unsupported. It contributes nothing and shows a warning. About 22% of the dataset's changes are formulas, so the importer parses them ([Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207)).
+
+### Conditional Modifiers
+
+Decided by [Prototype attacks and conditional modifiers on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/216) (variant 3, tag `prototype-approved/attacks-conditionals`).
+
+- **Weapon conditions** apply only inside the attacks of the matching weapon: `$self` for a weapon's own enhancement, `$choice` for Weapon Focus's chosen weapon, matched on `baseType`. They never reach the sheet-level attack statistics.
+- **While-active conditions** apply automatically while an active entry of the named Catalog Entry is on the sheet, such as Superstition while Raging. Otherwise the Modifier waits and adds nothing.
+- **Situational Modifiers** never enter a total. A Situation is a key from a reviewed vocabulary, such as `traps`, `fear`, `spells`, `giants` or `orcsGoblinoids`, with display text such as "vs. traps". `resolveSheet(…, { situations: [key] })` resolves the sheet as if the Situation held. Its Modifiers then apply and stack like any other, so raging Will vs. spells is +6, not +8: Superstition's +3 morale suppresses Raging's +2 morale.
+- Every statistic reports `conditional`, the contributions left out of its total, each with its condition text and Situation, or with the while-active wording it waits on. Derived statistics carry the conditional contributions their composition would take: a conditional dodge bonus reaches touch AC and CMD, but not flat-footed AC.
+- **Every situational note in the imported content becomes a structured Situational Modifier.** Foundry has only text notes on a statistic, so the Curation Overlay writes one record per note. How is [Decide how the Curation Overlay structures every situational note](https://github.com/AndreasUnunger/EverythingPath/issues/228).
 
 ## Stacking
 
@@ -242,7 +270,7 @@ Modifiers are grouped by (leaf target, bonus type).
 - Entries share a key only where official text makes them one effect: *haste*, *boots of speed* and the *speed* property share `haste`, and a spell-like ability shares the key of the spell it names. Where the rules are silent, entries stay separate, and bonus type decides.
 - Among active entries of one Source, per target, only the entry with the largest net contribution applies. The others are listed as suppressed by it.
 - `stacksWithItself` lifts this rule for text that says duplicates stack, such as sneak attack, trap sense, and the myrmidarch's "as the fighter ability".
-- Within one entry, two Modifiers of the same type and target don't stack.
+- Within one entry, two Modifiers of the same type and target don't stack. Only Modifiers that apply count, so two Situations of one entry never suppress each other. Text that says two bonuses of one entry stack (halfling *fearless* with halfling luck) is open in [Decide how bonuses on one entry stack when their text says so](https://github.com/AndreasUnunger/EverythingPath/issues/230).
 - The built-in Modifiers use fixed Sources where the FAQ names them. The class-skill +3 applies once per skill, however many classes grant it.
 
 **Duplicated class features.** A feature taken from two classes that the rules upgrade, such as Uncanny Dodge becoming Improved Uncanny Dodge, gets an advisory prompt to add the upgraded feature. It is never changed automatically.
@@ -288,6 +316,39 @@ These follow the literal text:
 | Flat-footed CMD | CMD without the Dex bonus; dodge bonuses stay |
 
 Untyped AC bonuses don't reach CMD. Armor's max Dex doesn't cap the Dex in CMD, and the AC size modifier doesn't reach CMD.
+
+## Attacks
+
+Decided by [Prototype attacks and conditional modifiers on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/216) (variant 3, tag `prototype-approved/attacks-conditionals`). Its rules follow the CRB. Foundry stores none of them as data, so they are written from the text.
+
+- **Attack Routines.**
+  - A Character attacks through Attack Routines, state-only sheet entries. Each names the main weapon and whether it is held in two hands or one, an optional off-hand weapon, and options. Power Attack is the only option so far; the rest are open in [Decide which attack options an Attack Routine supports](https://github.com/AndreasUnunger/EverythingPath/issues/229).
+  - Adding a weapon to Gear also adds a routine for it, held its natural way. The player renames, edits, deletes and adds routines.
+  - A routine whose weapon has left Gear stays, with an advisory warning.
+- **Single and full attack.**
+  - Each routine resolves to its single attack (a standard action: the main weapon, no two-weapon penalty, no extra attacks) and its full attack in order.
+  - **Iterative attacks:** one more at −5 cumulative at BAB +6, +11 and +16.
+  - **Off hand:** one off-hand attack.
+  - **Haste:** an active `haste` Source adds one attack at the highest bonus.
+  - **Reload:** a crossbow gets no iterative or haste attacks unless reloading is a free action.
+- **Attack bonus:**
+  - BAB, plus Str for melee or Dex for ranged;
+  - the `attack.*` Modifiers and the weapon's own conditional Modifiers;
+  - two-weapon penalties (CRB Table 8-7): −6/−10, −4/−8 with a light off-hand weapon, −4/−4 with Two-Weapon Fighting, −2/−2 with both;
+  - Power Attack when on;
+  - −2 with a composite bow whose Strength rating exceeds the Str bonus.
+- **Damage:**
+  - the weapon's dice;
+  - Str ×1.5 in two hands, ×1 in one, ×0.5 off hand (a Str penalty applies in full); Str up to its rating for a composite bow, no Str for a crossbow, a Str penalty only for other bows;
+  - the `damage.*` and weapon Modifiers.
+  - **Power Attack:** −1 attack and +2 damage, plus −1 and +2 more per 4 BAB from +4. The damage is ×1.5 two-handed and ×0.5 off hand, and it applies to melee only.
+  - **Sneak attack:** +1d6 per entry, as conditional damage in its own Situation (flanking or the target denied its Dex bonus).
+- **Critical:** the weapon's threat range and multiplier, shown as "×3", "19–20/×2" or "18–20/×2".
+- **On the sheet:**
+  - The Offense block keeps BAB, CMB and Initiative. A separate Attacks block lists the routines as cards: the single attack, then the numbered full attack. Each line shows the weapon, its bonus, damage, critical and range, plus options as chips and penalties in one line.
+  - Routines are edited in a side panel, or a bottom sheet on phone. Changes apply at once, and a delete can be undone.
+  - **Situational bonuses never appear on the face of the sheet.** A small marker flags any number that has them: in the pinned stats, the Defenses, the skills and the attacks.
+  - The number's breakdown has an "Only when…" section grouped by Situation. Each group shows its lines and what the total becomes then, with suppressed lines struck through. A while-active line that is waiting is dimmed ("only while raging").
 
 ## Temporary Effects
 
@@ -380,11 +441,12 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
   - set `sourceKey` and `stacksWithItself`;
+  - turn every situational note (Foundry `contextNotes`) into structured Situational Modifiers ([Decide how the Curation Overlay structures every situational note](https://github.com/AndreasUnunger/EverythingPath/issues/228));
   - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
   - exclude an entry, giving the reason (see "Notice gate").
 
   Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
-- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
+- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. A weapon's `weapon` detail comes from its `baseTypes`, `weaponGroups`, `weaponSubtype` and `held`, and from the first action's `damage.parts` (the dice inside `sizeRoll(n, s, @size)`), `ability.critRange`/`critMult` and `range`. Omitted defaults are filled in. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
 - **Pipeline.**
   - The repo pins a release tag of each upstream repo, never an unreleased commit ([Decide which Foundry pf1 release the catalog import pins](https://github.com/AndreasUnunger/EverythingPath/issues/223)). The pins are system `v11.11` and pf1-content `11.4.0`. Both repos must share a major version, and the import fails if they don't.
   - The importer maps one upstream shape, the v11 one, in which class skills are a boolean map, class features are listed in `links.classAssociations`, skill targets use three-letter keys such as `skill.per`, and `system.changes` is an array. Pack files are read recursively from a checkout of the tag, so Foundry itself never runs.
@@ -420,7 +482,8 @@ The resolver lives in `src/lib`, is pure, and is shared by the client and Convex
 type SourcedModifier = Modifier & { sheetEntryId: string; entryName: string; source: string; builtIn: boolean };
 
 collectModifiers(character, entries, catalog): SourcedModifier[]   // active entries + built-ins from state
-resolveSheet(modifiers, { permanentOnly?: boolean }): ResolvedSheet // staged; each statistic → { total, applied, suppressed }
+resolveSheet(modifiers, { permanentOnly?: boolean; situations?: SituationKey[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }
+resolveRoutine(character, sheet, routine, { situations? }): { single, attacks }   // see "Attacks"
 militiaCharacterFacts(character, entries, catalog): MilitiaCharacterFacts // permanentOnly; the one function the militia uses
 ```
 
@@ -455,7 +518,10 @@ Resolver tests (pure) must cover:
 - `permanentOnly` excluding short spells, conditions, consumables and damage;
 - formulas reading only earlier stages;
 - an unsupported formula contributing nothing;
-- moving and deleting Class Levels.
+- moving and deleting Class Levels;
+- a situational Modifier staying out of the total and stacking like any other once its Situation is asked for (raging Will vs. spells);
+- while-active and weapon conditions;
+- attack bonus, iterative attacks, two-weapon penalties, Str multipliers, composite bows, crossbows, Power Attack and haste, and the single attack taking no two-weapon penalty.
 
 Integration tests (convex-test) must cover:
 
