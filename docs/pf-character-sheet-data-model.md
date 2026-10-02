@@ -355,7 +355,10 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
 - **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
 - **Pipeline.**
-  - The repo pins one commit of each upstream repo.
+  - The repo pins a release tag of each upstream repo, never an unreleased commit ([Decide which Foundry pf1 release the catalog import pins](https://github.com/AndreasUnunger/EverythingPath/issues/223)). The pins are system `v11.11` and pf1-content `11.4.0`. Both repos must share a major version, and the import fails if they don't.
+  - The importer maps one upstream shape, the v11 one, in which class skills are a boolean map, class features are listed in `links.classAssociations`, skill targets use three-letter keys such as `skill.per`, and `system.changes` is an array. Pack files are read recursively from a checkout of the tag, so Foundry itself never runs.
+  - The owner bumps a pin by hand within the major. The next major waits until both repos have released it, and then moves both together as a separate effort that replaces the mapper.
+  - Fixes on upstream master that aren't released yet are not backported. A Curation Overlay correction is written only for a mistake that matters, and a bump's import report flags it once upstream has the fix.
   - At deploy, the build imports only when the pin differs from the catalog's recorded version.
   - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, and what changed since the last pin.
 - **Updates.** An import upserts by `externalKey`, so sheets follow updates. An entry removed upstream is marked `retired` and never deleted.
