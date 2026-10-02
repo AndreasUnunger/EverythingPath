@@ -89,8 +89,11 @@ _Avoid_: Character record (for the stats), stat block
 The definition of something a Character can have, such as an item, spell, feat, class, race, class feature, condition or a one-off adjustment. It holds the thing's rule facts and the Modifiers it grants, and is shared globally, across one campaign, or kept for one Character.
 _Avoid_: item definition, effect
 
+**Catalog Release**:
+A manually numbered set of global Catalog Entry definitions and supporting resources made available together. One release is current for everyone.
+
 **Catalog Copy**:
-A campaign or Character Catalog Entry cloned from another entry so it can be changed locally. It never follows later changes to its original, and it warns when the original has changed since it was copied.
+A campaign or Character Catalog Entry cloned from another entry so its own fields can be changed locally without following later changes to the original; it warns when that original has changed since copying. Its references to global Catalog Entries follow the current Catalog Release, so their changes can still affect what the copy grants.
 _Avoid_: override, fork
 
 **Curation Overlay**:

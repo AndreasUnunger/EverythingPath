@@ -36,7 +36,8 @@ character: {
 }
 // indexes: by_campaignId, by_ownerId
 
-// The only place authored Modifiers are stored. Scope decides who sees it.
+// Logical loaded shape; global identities have immutable definition bodies per Catalog Release.
+// Campaign and Character definitions remain editable. Scope decides who sees an entry.
 catalogEntry: {
   scope: 'global' | 'campaign' | 'character',
   campaignId?: Id<'campaign'>,         // campaign scope only; character-scope entries follow their Character
@@ -49,9 +50,10 @@ catalogEntry: {
   detail: CatalogEntryDetail,          // discriminated on `kind`
   description?: string,                // sanitized rules text
   sources: Array<{ book: string; pages?: string }>, // feeds OGL Section 15
-  externalKey?: string,                // global scope: `<repo>/<_id>`, the upsert key; the pack is an ordinary field
-  retired?: boolean,                   // global scope: removed upstream; hidden from pickers, kept for sheets
+  externalKey?: string,                // global scope: `<repo>/<_id>`, finds the stable identity; pack is an ordinary field
+  retired?: boolean,                   // global scope: absent from current content; hidden from pickers, kept for sheets
   copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
+  copiedFromFingerprint?: string,     // original definition at copy time; advisory compares against its current body
   unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
   prerequisites?: Prerequisite[],      // feats, traits, prestige classes, archetypes; all must hold, see "Rules checks"
   countsAsRaces?: Id<'catalogEntry'>[] // "count as both elves and humans"; set by the Curation Overlay, see "Racial traits"
@@ -1021,7 +1023,9 @@ Decided in [Decide how Characters exist outside a campaign, and the app's home](
 
 Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry. "Customize for campaign" clones a global entry into campaign scope, repoints every sheet entry in that campaign, and makes the picker show the copy in place of the original for that campaign.
 
-Both clones record `copiedFrom`. A copy never updates automatically. When its original changes after the copy was made, the copy shows an advisory that upstream has changed.
+Both clones record `copiedFrom` and the original definition's fingerprint. A copy's own fields never follow later changes to its original. Its retained references to global Catalog Entries follow the active Catalog Release: a copied magic weapon can still change when its global Base Item or Item Ability changes. Copying does not recursively freeze its dependencies, and references to local entries keep their existing behavior.
+
+The upstream-change advisory compares the active original's definition fingerprint with the one recorded at copy time. An unrelated release does not warn. `copiedFrom` alone is provenance, not a calculation dependency; retained references are calculation dependencies. Campaign-departure copying and access rules remain with [Decide how campaign homebrew moves with a Character](https://github.com/AndreasUnunger/EverythingPath/issues/244).
 
 ## Global catalog import
 
@@ -1045,7 +1049,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - The 186 class and level pairs where the retired spell sheet disagrees with Foundry go to the import report. A Curation Overlay correction is written only where a mistake matters.
   - A class's `casting` comes from its `system.casting`, renaming `spells` to `spellKind` and `offset` to `casterLevelOffset`, completed by the casting tables file (see "Spellcasting").
   - Spells join the book set, so their sources need Section 15 Registry records like any entry.
-- **Rows.** Global entries are ordinary `catalogEntry` rows, so the resolver loads every scope the same way. Each imported entry carries its description text and its `sources`.
+- **Rows.** Global entries keep stable `catalogEntry` identities and immutable definition bodies for each Catalog Release. Readers assemble the logical shape above for the active release, including description and `sources`, so the resolver receives the same shape for every scope. Staged bodies never overwrite live ones.
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
   - set `sourceKey` and `stacksWithItself`, and mark Modifiers `stacksWithinEntry`;
@@ -1066,14 +1070,14 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - The importer maps one upstream shape, the v11 one, in which class skills are a boolean map, class features are listed in `links.classAssociations`, skill targets use three-letter keys such as `skill.per`, and `system.changes` is an array. Pack files are read recursively from a checkout of the tag, so Foundry itself never runs.
   - The owner bumps a pin by hand within the major. The next major waits until both repos have released it, and then moves both together as a separate effort that replaces the mapper.
   - Fixes on upstream master that aren't released yet are not backported. A Curation Overlay correction is written only for a mistake that matters, and a bump's import report flags it once upstream has the fix.
-  - At deploy, the build imports only when the pin differs from the catalog's recorded version.
-  - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, note records by status, and what changed since the last pin.
-- **Updates.** An import upserts by `externalKey`, so sheets follow updates. An entry removed upstream is marked `retired` and never deleted.
+  - The owner manually increments the Catalog Release number to trigger an import. Input fingerprints guard against a forgotten bump; neither a pin change nor another input change releases content automatically. See "Catalog releases" below.
+  - Every release PR carries a committed import report: counts per pack, additions, edits, retirements and remaps, affected resources, unsupported changes, overlay records that no longer apply, note records by status, and gate results.
+- **Updates.** An import finds stable identities by `externalKey` and reviewed remaps, then prepares release-specific bodies. Sheet references and stacking identity stay stable. A removed entry retains a usable definition and becomes `retired`, hidden from ordinary pickers and never deleted.
 - **Keys.**
   - Upstream keeps a record's `_id` through edits, renames and pack moves, while pack names change ([Check whether Foundry pf1 record IDs stay stable across releases](https://github.com/AndreasUnunger/EverythingPath/issues/211), `research/pf1-foundry-id-stability`). That is why the key leaves out the pack.
   - The Curation Overlay holds a reviewed remap list for the cases that would otherwise break the key: records that move between the two repos, upstream merges, and the rare record re-created with a new `_id`.
   - Upstream's own redirect tables are not trusted.
-- **Batches.** An import runs in idempotent, resumable batches, and the run is recorded. The catalog's recorded version flips only when the run completes. Militia Character Facts are recalculated once at the end, for Characters whose sheets use changed entries. The militia copy is written only when those facts differ, like any sheet edit, and no Ruleset Version changes.
+- **Batches.** The recorded import prepares a private candidate in idempotent, resumable batches. Definitions, references, remaps, supporting resources, legal output and affected Militia Character Facts become current together through the publication protocol below; completing import batches alone does not publish anything.
 - **Legal page.** Decided by [Find the Section 15 text for every imported source book](https://github.com/AndreasUnunger/EverythingPath/issues/224) and [Decide how the import keeps its Section 15 notices complete](https://github.com/AndreasUnunger/EverythingPath/issues/227). The import generates an in-app legal page, linked from every page's footer. Its parts, in order:
   - the OGL 1.0a text;
   - a Section 15 of the OGL and SRD lines, both upstream `OGL.txt` notices verbatim, the Section 15 Registry notice for every book in the import's book set, and an EverythingPath line for our original Open Game Content;
@@ -1087,6 +1091,20 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Notice review.** Before launch, every book in the set has a registry record and every disagreement between seed sources is settled against the book. The known errors are fixed: *Ultimate Combat*'s authors and AoN's *Occult Mysteries* block. The free-PDF gaps and the owner's copies of *Goblins of Golarion*, *Faiths of Purity* and *Bestiary 6* are transcribed. All other records ship checked against `prd`, `aon` or `pf1-content`, and printed checks continue after launch, most-cited first.
 
 The base scores are one character-scoped `base` entry with six `base` Modifiers. Every Character has exactly one sheet entry for it, which cannot be removed or deactivated.
+
+### Catalog releases
+
+Decided by [Decide how catalog revisions are detected and activated](https://github.com/AndreasUnunger/EverythingPath/issues/239). This replaces pin-only detection, in-place global updates and the end-of-import facts recalculation from [Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207).
+
+- **Release identity.** Each manually incremented number binds an immutable manifest and generated artifact. The release check fails if declared inputs change without a bump, or a number is reused for different inputs or output. Unchanged inputs and number are a no-op or resume that unfinished run. The manifest fingerprints the upstream tags and their resolved content; the Curation Overlay, remaps, exclusions and note records; local content; output-affecting mapping, parsing, sanitizing and configuration; casting, creature-type and other rule resources; attribution evidence, the Section 15 Registry and legal-page resources. Unrelated application code is excluded. Compare deterministic normalized output to identify actual definition and resource changes; a notice-only release need not affect any Character.
+- **Private preparation.** Prepare one candidate against the active release, keeping all ordinary reads and edits available. Candidate entries never appear in pickers, and candidate remaps cannot redirect active references. All references, including sheet entries, catalog references and `copiedFrom`, keep pointing to stable identities rather than staging rows. Existing content and notice gates still apply. Preparation never changes live definitions or invalidates a reviewed week.
+- **Impact.** Find potentially affected Characters through the reverse dependency closure of both old and new definitions and resources. Include references in sheet state (Class Levels, Item Abilities, Routine Options and Spellcasting), Base Items, catalog-to-catalog references, key-based joins, derived grants and built-in resources. Added and removed relationships count. Catalog Copies participate through their retained global references. Recalculate only potentially affected Characters with the existing `militiaCharacterFacts` function and permanent-effect rules; a resource shared by all Characters can affect them all. Store no general sheet-stat cache, and change the militia's effective review revision only when the resulting facts differ.
+- **Capture concurrent edits.** Register the candidate before enumerating affected Characters. Every relevant write updates active state normally and transactionally marks candidate work dirty: sheet and local-definition edits, new Characters or dependencies, detach/customize, campaign and roster moves, archive/delete and related changes. Active Militia Character Facts still update in the ordinary write's transaction when their values change. A candidate calculation error cannot reject an otherwise-valid active edit. Candidate workers tag results with their sheet, local-definition, relationship and membership inputs, and clear dirty work only if those inputs still match. Enumeration must include work discovered while it runs.
+- **One publication boundary.** The militia's character-facts portion is a versioned projection selected with the same active-release boundary as definitions. Other militia state remains live; never stage and later restore a whole campaign snapshot. Every canonical-state reader and writer, including mutation preconditions, Setup, `requireReviewedCharacters`, Confirmation, Militia Correction and History Rewrite, uses this boundary. Publishing definitions and patching embedded facts afterward is insufficient. The effective review revision includes the ordinary mutation revision and the selected facts generation for that campaign. Reuse the generation when facts are equal; publication changes it once for each campaign whose current facts differ, making only those earlier reviews stale. Subsequent ordinary edits maintain the selected live facts normally.
+- **Atomic activation.** One bounded transaction verifies that the candidate's base release is still active, import/reference/gate checks passed, discovery finished and no dirty or pending facts work remains. It then switches the active release and facts selection together, without looping through Characters. Concurrent writes participate in this readiness protocol: they commit before activation and must be reconciled, or retry/read after it and use the new release. There is no maintenance window or gameplay write freeze. Each query and derived view uses one coherent release and input snapshot; clients keep a complete prior view until the next complete view arrives. They preserve entered draft fields. Gameplay commands use current server state and existing stale-review checks, without a new catalog-version permission prompt.
+- **Runtime compatibility.** The manifest records required schema and calculation compatibility. Compatible readers, writers and calculation behavior must be available before activation, including support for already-open clients. A code deployment cannot reinterpret the active catalog before matching facts are ready. A resolver change that affects facts with identical catalog rows follows this same protocol, including its calculation behavior in the manifest and impact analysis. Catalog publication alone does not change Ruleset Version; changes to Weekly Resolution behavior follow the existing policy. The initial schema/backfill and incompatible application rollout remain with [Decide how the character builder release migrates safely](https://github.com/AndreasUnunger/EverythingPath/issues/240); they must establish this access boundary before ordinary Catalog Releases use it.
+- **Failure and retry.** Incomplete or failed preparation leaves the active release and its live facts serving everyone. Retry resumes the same immutable artifact; changed inputs require a new number. Failed activation publishes nothing. If its response is lost, inspect the authoritative active release/run before retrying. Obsolete workers cannot write into a different or activated run. Competing activations are serialized; a changed base requires a fresh comparison and reconciliation.
+- **Rollback.** Publish another manually numbered release using earlier definitions and the same protocol against current sheets and local definitions. Never restore player or militia snapshots. Entries introduced since the target remain addressable with their last usable definitions but become retired; retain the dependencies needed to resolve them. Reviewed remaps cannot destroy existing identities or change their kinds incompatibly; an incompatible kind change gets a new identity. Keep legal notices as the existing permanent superset. Preserve selected entries, quantities, choices, customizations and copied defaults, including item magic state, Spell Effect caster levels and editable racial progression. Import and rollback never reapply defaults or replace sheet choices. Finished weeks and their frozen Resolution Records stay unchanged.
 
 ## Resolver
 
@@ -1181,3 +1199,16 @@ Integration tests (convex-test) must cover:
 - leaving a campaign removes the Character from the roster, its roles and team management as one Militia Correction, detaches campaign catalog entries without changing the resolved sheet, and leaves past Resolution Records untouched;
 - deleting is refused for a Character in a campaign.
 - an Accepted Warning follows its Character between campaigns and is deleted with its subject.
+
+Catalog-release handoff checks must demonstrate:
+
+- an overlay-only input change needs a manual release bump; changed inputs or output under an existing number fail, and unrelated application changes do not import;
+- halfway batch failure, activation failure and a lost activation response leave one coherent authoritative release and recover idempotently;
+- concurrent edits, newly added dependencies and campaign moves appear in candidate facts without freezing gameplay or losing intervening militia changes;
+- indirect users, including Catalog Copies with global references, update while unrelated Characters and unchanged facts leave militia reviews untouched;
+- notice-only releases leave facts and reviews unchanged, while changed facts make affected reviews stale at publication;
+- copies keep their own fields, follow retained global references and warn only when the original definition differs from its copied fingerprint;
+- rollback preserves later player edits and a newly selected entry with its required dependencies, without reapplying defaults;
+- current views never mix releases, already-open clients remain usable, and finished-week snapshots stay unchanged.
+
+These are acceptance cases for the implementation, not claims of runtime behavior already implemented or tested.
