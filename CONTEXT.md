@@ -111,6 +111,18 @@ _Avoid_: Source (a Modifier's stacking origin), attribution pass
 **Character Sheet Entry**:
 One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, an item's enhancement and Item Abilities, or notes. Two potions of the same kind are two Character Sheet Entries.
 
+**Grant**:
+An entry a Character has because something on its sheet gives it, such as a class feature from a Class Level, a standard Racial Trait from its race or a feature an Archetype adds. Whether it exists is worked out from its source each time; editing it only records the Character's state on it and never makes it the player's own. Each source gives its own Grant, so Evasion from rogue and from monk are two.
+_Avoid_: automatic entry, edited grant
+
+**Selection**:
+An entry the player chose to add to a Character Sheet, such as a feat, trait, alternate Racial Trait, Archetype, prompt pick, item or recorded Spell. A source change never removes it, though one that fills a slot, prompt, race or class the Character no longer has goes dormant.
+_Avoid_: choice (a feat's `choice` or a Class Level's choices), manual entry, pick
+
+**Dormant entry**:
+An entry the sheet still remembers, with all its state, but that counts for nothing because what it depends on is gone: a Grant its source no longer gives, or a player's entry filling a slot, prompt, race or class the Character no longer has. It comes back unchanged when that returns. The player can keep it, which makes it count anyway with an advisory warning.
+_Avoid_: removed entry, retained entry, suppressed entry (suppression is a stacking outcome)
+
 **Accepted Warning**:
 A rules warning on a Character Sheet that someone marked as intended, so it shows as accepted instead of as a warning. It needs no reason, unlike a Rules Exception. It reopens when the facts that raised it change, and anyone who can edit the sheet can reopen it.
 _Avoid_: override, waiver, dismissed warning

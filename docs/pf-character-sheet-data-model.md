@@ -15,7 +15,7 @@ Only official Paizo text decides a rule: the Core Rulebook, plus the official FA
 ## Principles
 
 1. **Stat totals are never stored.** They are derived from Modifiers every time by a pure resolver. The sheet UI and the server's Militia Character Facts calculation share that resolver.
-2. **Everything on the sheet is a Character Sheet Entry.** This covers gear, spells, features, base scores, Class Levels and ability damage.
+2. **Everything on the sheet is a Character Sheet Entry.** This covers gear, spells, features, base scores, Class Levels and ability damage. Grants are worked out from their sources, like Granted Spells, and stored only to hold their state (see "Grants and dormant entries").
 3. **Modifiers live on Catalog Entries.** A one-off item, a manual adjustment and the base scores are Catalog Entries scoped to one Character. The exceptions are Class Levels, ability damage and ability drain, which hold only Character state, and an item's armor bonus, enhancement, masterwork and material, from its detail and state (see "Weapons and armor"). The resolver turns these into built-in Modifiers.
 4. **Rule facts belong on the Catalog Entry, state on the Character Sheet Entry.** Kind-specific shape is a discriminated union keyed by `kind` on both.
 5. **Everything stays editable at any time,** including choices the rules say can't change later. Such rules, like every rules check, become advisory warnings and never block (AGENTS.md "Validation Philosophy").
@@ -67,13 +67,16 @@ catalogEntry: {
 }
 // indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey, by_externalKey, by_copiedFrom
 
-// One row per thing a Character has.
+// One row per thing a Character has, except Grants with no recorded state (see "Grants and dormant entries").
 characterSheetEntry: {
   characterId: Id<'character'>,        // access follows the Character; no campaignId, because Characters move
   kind: EntryKind,                     // immutable, indexed
   catalogEntryId?: Id<'catalogEntry'>, // required for catalog-backed kinds, absent for state-only kinds
   active: boolean,                     // off drops its Modifiers and keeps the row
-  gainedAtClassLevel?: Id<'characterSheetEntry'>, // feats, traits and class features: the Class Level that granted them
+  grantKey?: GrantKey,                 // present = a Grant's stored state; absent = a Selection or state-only entry
+  kept?: true,                         // counts even while dormant, with a warning; see "Grants and dormant entries"
+  gainedAtClassLevel?: Id<'characterSheetEntry'>, // Selections (feats, traits, prompt picks): the Class Level that dates them;
+                                       // a Grant's position comes from its Grant Key
   choiceOrder?: number,                // order among choices at that Class Level; set in order added, editable
   notes?: string,
   state: SheetEntryState,              // discriminated on `kind`
@@ -201,7 +204,8 @@ type SheetEntryState =
       favoredClassIds: Id<'catalogEntry'>[] }
   | { kind: 'racialTrait'; choice: string | null }                  // the ability of "+2 to one ability score", Dragon Soul's race
   | { kind: 'feat'; choice: string | null;                          // Weapon Focus's weapon (a `baseType`, Bite or Claw included), Skill Focus's skill…
-      slot: 'general' | { grantedBy: Id<'characterSheetEntry'> } }   // the entry whose `grantsSlots` it fills
+      slot: 'general' | { grantedBy: GrantKey | Id<'characterSheetEntry'> } } // whose `grantsSlots` it fills: a Grant by
+                                                                      // its Grant Key, a Selection by its id
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
   | { kind: 'item'; quantity: number;                                 // later: charges
@@ -227,6 +231,9 @@ type SheetEntryState =
                      | 'spell' | 'spellEffect' | 'classFeature'> };
 
 type RoutineWeapon = Id<'characterSheetEntry'> | 'unarmed';         // an item entry, or the built-in unarmed strike
+type GrantKey = { source: Id<'catalogEntry'>;                        // the race, class or Archetype giving it
+  classLevel?: number;                                                // level within the class; class and Archetype features
+  entry: Id<'catalogEntry'> };                                        // the granted entry; a Catalog Copy counts as its original in both
 type ItemEnchantment = { masterwork: boolean; enhancement: number; abilities: ItemAbilityRef[] };
 type ItemAbilityRef = { id: Id<'catalogEntry'>; choice: string | null }; // choice: bane's designated foe
 type MaterialKey = 'adamantine' | 'mithral' | 'darkwood' | 'dragonhide' | 'coldIron' | 'alchemicalSilver';
@@ -240,6 +247,37 @@ type MaterialKey = 'adamantine' | 'mithral' | 'darkwood' | 'dragonhide' | 'coldI
 - The ability increase and favored class bonus fields exist on every Class Level. A favored class bonus on a level of a class that isn't favored shows a warning. So does an increase on a Class Level where neither its character level nor its Hit Dice count is 4, 8, 12, 16 or 20 (see "Racial Hit Dice").
 - `hpGained` holds the recorded number. The builder takes it as a plain number and never pre-fills it: there is no roll, average or maximum button ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)).
 - **Hit Dice** = Class Levels + racial Hit Dice. They are computed and never recorded. The militia's roster Hit Dice override stays as the militia's own ruling.
+
+## Grants and dormant entries
+
+Decided by [Decide how granted entries survive edits and replacement](https://github.com/AndreasUnunger/EverythingPath/issues/243). It amends [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) and [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232), where adding or removing an Archetype or alternate deleted and restored rows, and [Reconcile the sheet data model with one Character identity](https://github.com/AndreasUnunger/EverythingPath/issues/206): Grants are calculated, not stored as rows.
+
+- **Two kinds of entry.**
+  - A **Grant** is an entry the Character has because something on its sheet gives it: a class feature from its class at a level within the class, a feature an Archetype adds, a standard Racial Trait from its race. Editing it (a choice, notes, turning it off, detaching it) records state on it and never makes it the player's own.
+  - A **Selection** is an entry the player chose to add: feats, traits, alternate Racial Traits, Archetypes, picks for `picksByLevel` prompts, items and recorded Spells.
+- **Grants are calculated.**
+  - They are worked out each time from the race, Class Levels, Archetypes and alternate Racial Traits, like Granted Spells and Proficiencies. A Catalog Release change to a source reaches every sheet without rewriting rows.
+  - Each Grant has a stable Grant Key: its source, the level within the class for class and Archetype features, and the granted entry. A row is stored for a Grant only when the player records state on it or keeps it, keyed by `grantKey`. References to a Grant, such as a feat slot's `grantedBy`, use the Grant Key.
+  - A Catalog Copy counts as its original in a Grant Key, as the source and as the granted entry. So "Customize for campaign", detaching a race and detaching a granted feature keep recorded state.
+  - Changing a Class Level between an original class and its Unchained Class matches features and prompts by name, ignoring "(UC)" (see "Unchained Classes"). Features with no match go dormant.
+  - Each source gives its own Grant with its own state: Evasion from rogue 2 and from monk 2 are two Grants. Same-Source stacking stops them counting twice, and the sheet may show them as one line. Removing one source leaves the other's Grant untouched. A Selection that duplicates a Grant stays a separate entry, under the same rule and the duplicate feat warning.
+  - A Grant can't be deleted, because it would be worked out again. Turning it off is the way to switch it off.
+- **Dormant entries.** Dormancy is worked out, never stored.
+  - A Grant goes dormant when its source no longer gives it: an Archetype or alternate replaces it, the race is swapped, or the class loses that level.
+  - A Selection goes dormant when it fills a slot, prompt, race or class the Character no longer has: a feat in a Bonus Feat slot, a talent in a "Rogue Talent" prompt, an alternate Racial Trait of another race, an Archetype of a class with no Class Levels. Other Selections, such as general feats, traits and items, only raise warnings. Recorded Spells keep the orphaned treatment (see "Recorded Spells").
+  - A dormant entry keeps all its state but counts for nothing: no Modifiers, prerequisites met, slots, proficiencies, Granted Spells or Grants of its own. Every rules check ignores it. When its source returns, it comes back as the same entry with its state.
+  - An inactive source counts as absent. An Archetype or alternate that is turned off gives and replaces nothing, so its Grants and the Selections inside it go dormant and what it replaced comes back. Turning it on reverses this.
+- **Keep.** `kept` makes a dormant entry count anyway. If its source returns, it is an ordinary Grant or Selection again, with no duplicate. While it would be dormant it raises an advisory warning ("Armor Training 1: kept, although Weapon Master replaces it"), which can be accepted like any other. Un-keeping makes it dormant again.
+- **Display.** The exact visuals are left to the implementation, inside the approved living-sheet design.
+  - A replaced Grant shows as a muted "replaced by …" line under what replaces it, with Keep, whether or not it has state.
+  - Other dormant entries with state go in a collapsed "Not counting now (n)" group at the end of their section, with Keep and Discard. A dormant Grant without state isn't listed.
+  - A source change never deletes anything. Dormant entries stay until discarded.
+- **Accepted Warnings** stay with a dormant entry and apply again when it returns, unless their facts changed. Discarding deletes them.
+- **Class Levels.**
+  - Class features follow the level within the class. Deleting any one of five fighter Class Levels makes the fighter-5 Grants dormant.
+  - A deleted row's own data (hit points, skill ranks, ability increase, favored class bonus, proficiency choice, casting advances) is deleted with it. Reordering moves that data with the row.
+  - Changing a Class Level's class keeps the row's own data. The old class's Grants at that level within the class go dormant, and the new class's appear.
+  - A general feat whose `gainedAtClassLevel` points at a deleted row keeps counting, unplaced, with only the current prerequisite check (see "Prerequisites"). Nothing guesses a new position for it.
 
 ## Racial Hit Dice
 
@@ -268,10 +306,9 @@ Decided by [Decide how a Character Sheet models racial Hit Dice beyond the count
 Decided by [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232).
 
 - **Rules sources.** The *Advanced Player's Guide* and *Advanced Race Guide* rules for alternate racial traits and subraces are admitted. An alternate racial trait is exchanged for one or more standard racial traits, and "you cannot exchange the same racial trait more than once" (APG). Neither book defines "alters". The *Advanced Race Guide* race builder (race points) is out of scope. A custom race is a campaign or character Catalog Copy of a race.
-- **Sheet entries.** Racial Traits are `racialTrait` sheet entries, granted like class features.
-  - The race's `racialTraits` lists its standard traits. Choosing a race adds them, and changing the race swaps them for the new race's.
-  - An alternate's `replaces` names standard traits. Adding it removes them, and removing it restores them.
-  - Entries added or edited by hand stay, as with Archetypes.
+- **Sheet entries.** Racial Traits are `racialTrait` sheet entries (see "Grants and dormant entries").
+  - The race's `racialTraits` lists its standard traits, which are Grants of the race, like class features. Changing the race makes the old race's Grants and its alternates dormant, and the new race's traits appear.
+  - An alternate is a Selection. The standard traits its `replaces` names go dormant with their state, and come back when it is removed or turned off.
   - Racial Traits are permanent entries, so the ability score trait counts for Militia Character Facts as the race's adjustments did.
 - **Modifiers sit on the traits.** A Modifier lives on exactly one entry, so nothing counts twice. A race entry keeps its racial Hit Dice, progression, size and creature type; its Modifiers come from its Racial Traits. The importer:
   - moves each race record's ability changes (152, found only on race records) onto that race's ability score trait;
@@ -280,7 +317,7 @@ Decided by [Decide how racial traits live on a Character Sheet](https://github.c
 
   So Orc Atavism, which "replaces the usual ability modifiers", and subrace stat blocks work by replacement alone.
 - **Ability of choice.** A "+2 to one ability score of your choice" trait (human, half-elf, half-orc and others; Orc Atavism's −2 to one mental score) has an `ability.$choice` Modifier. The sheet entry's `choice` names the ability. Until it is chosen, the Modifier contributes nothing and the field shows a blue outline. Restrictions such as "a mental ability score" stay prose.
-- **Facts the traits carry.** Each fact sits on the trait, so an alternate that replaces the trait removes it.
+- **Facts the traits carry.** Each fact sits on the trait, so an alternate that replaces the trait makes it dormant, and the fact with it.
   - Bonus Feat (human): `grantsSlots`, from Foundry's `bonusFeats` change.
   - Adaptability (half-elf): a slot whose `feats` is Skill Focus.
   - Skilled (human): `bonusSkillRanksPerLevel`, from Foundry's `bonusSkillRanks` change.
@@ -292,7 +329,7 @@ Decided by [Decide how racial traits live on a Character Sheet](https://github.c
   - Every record with a header is an alternate.
 - **Replacement links.** The importer builds `replaces` from the "Replaced Trait(s)" header. It matches names and `@UUID` links against the same race's standard traits, ignoring a "(Race)" suffix, which fully matches 82% of the 770 headers.
   - Unmatched names go to the import report: subrace "Base Statistics", category words such as "Speed", and typos. A one-off Curation Overlay pass resolves them before launch, and no gate fails the import.
-  - An unresolved alternate imports with an empty `replaces`, so adding it removes nothing and the player removes the replaced entry by hand.
+  - An unresolved alternate imports with an empty `replaces`, so adding it replaces nothing and the player turns the replaced trait off by hand.
   - "Alters X" reads like an Archetype's "alters": it replaces X, and the alternate's own text takes over.
 - **Subraces.** A subrace is an alternate Racial Trait, not a race of its own.
   - A Subraces-folder record replaces "Base Statistics". The Curation Overlay pass resolves that to the parent's ability score trait plus whatever else its stat block replaces.
@@ -313,8 +350,8 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
 - **Coverage.** Every official Paizo prestige class and archetype, from any Paizo product: rulebooks, Campaign Setting, Player Companion and Adventure Path books. That is the intended scope. What a release offers leaves out content held for attribution or notices and its dependent omissions, which are reported by identity and reason, never counted as complete ([Decide how unproven content attribution affects import](https://github.com/AndreasUnunger/EverythingPath/issues/241); see "Notice gate" under "Global catalog import").
 - **Archetypes.**
   - An Archetype is a Catalog Entry tied to one base class, or to both versions of one (see "Unchained Classes"). A Character takes it as a sheet entry, and it applies to every level of that class. The levels stay levels of the base class.
-  - `replaces` names rows of the class's `featuresByLevel`, a feature at one class level, so "replaces armor training 1" removes only that row. An archetype feature that alters a class feature replaces that row and adds its own feature at the same level.
-  - Adding an Archetype removes the class feature entries it replaces from the sheet and adds its own features at their levels, with `gainedAtClassLevel` set. Removing it reverses this. Entries added or edited by hand stay.
+  - `replaces` names rows of the class's `featuresByLevel`, a feature at one class level, so "replaces armor training 1" replaces only that row. An archetype feature that alters a class feature replaces that row and adds its own feature at the same level.
+  - An Archetype is a Selection. The Grants of the rows it replaces go dormant with their state, and its own features are Grants at their levels within the class. Removing it or turning it off reverses this. Selections stay, except those filling a prompt or slot that goes with it, which go dormant (see "Grants and dormant entries").
   - Class skills added or removed and skill ranks per level are structured. Proficiency changes and spellcasting changes stay in the description. The player records a proficiency change by hand (see "Proficiencies").
   - Two Archetypes on one class that replace or alter the same row (one feature at one class level) show an advisory warning (see "Rules checks").
 - **Base class schedules.** Foundry links many multi-level features only at their first level; the Fighter links six features. The Curation Overlay completes each base class's `featuresByLevel` from its class table, so archetypes can replace any row and the sheet shows every feature gained.
@@ -341,7 +378,7 @@ Decided by [Decide which Pathfinder Unchained rules the builder supports](https:
   - Levels of an Unchained Class count as levels of the original wherever something counts levels in that class: `@classLevel.<classKey>`, requirements, and the favored class with its favored class options. The two never coexist, so nothing double-counts.
   - A prerequisite naming a class feature is met by the same-named feature of either version, ignoring Foundry's `(UC)` suffix: Extra Rage accepts *Rage (UC)*. See "Rules checks".
 - **Archetypes.**
-  - An archetype for the original barbarian, rogue or summoner applies to the Unchained Class ("as long as the classes still have the appropriate class features to replace"). Its `replaces` rows match the Unchained Class's `featuresByLevel` by feature name and class level, ignoring `(UC)`. A row with no match shows an advisory warning and removes nothing.
+  - An archetype for the original barbarian, rogue or summoner applies to the Unchained Class ("as long as the classes still have the appropriate class features to replace"). Its `replaces` rows match the Unchained Class's `featuresByLevel` by feature name and class level, ignoring `(UC)`. A row with no match shows an advisory warning and replaces nothing.
   - An archetype for the original monk on the unchained monk shows an advisory warning ("with the exception of the monk").
   - Archetypes written for an Unchained Class name it directly. One whose source names both versions lists both in `classEntryIds`.
   - The Pathfinder Society restrictions (no barbarian archetype that changes rage, no summoner archetype that changes the eidolon's base form) are campaign policy, not rules text, and are not adopted.
@@ -388,7 +425,7 @@ The casting tables file sets `record` for every casting class, because Foundry d
   - **Schedule-style** grants follow the class's own Class Levels, never advances (FAQ). Each spell level arrives at the class level the feature's text names. `grants.atClassLevel` holds that schedule: a sorcerer bloodline grants spell level N at sorcerer 2N + 1, a bloodrager bloodline at 7, 10, 13 and 16. The Curation Overlay writes it, because Foundry doesn't carry it. Sorcerer and bloodrager bloodlines are separate class features, so the schedule lives on the feature, not on the list. Oracle mysteries and witch patrons are schedule-style too, once added.
   - **"Domain slot only."** A granted domain Spell that isn't on the class's own list, at any level, is tagged "domain slot only" (CRB: "If a domain spell is not on the cleric spell list, a cleric can prepare it only in her domain spell slot"). Bloodline and mystery Spells join the class list (FAQ), so they never get it. The tag is derived, never stored.
   - Mystery, patron and spirit spells stay prose until the Curation Overlay adds them as `grants` lists. So do the oracle's and hunter's automatic cure and *summon nature's ally* spells.
-- A class feature's Spellcasting is that of its `gainedAtClassLevel`'s class. Without one, it applies to the Character's only Spellcasting, and shows nothing when there are several.
+- A class feature's Spellcasting is that of the class granting it, or for a Selection, of its `gainedAtClassLevel`'s class. Without one, it applies to the Character's only Spellcasting, and shows nothing when there are several.
 
 ### Casting tables
 
@@ -842,7 +879,7 @@ type ManualProficiency = Exclude<ProficiencyGrant, { choice: true }>;
 
 ## Rules checks
 
-Decided by [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215), with proficiencies revised by [Decide how the builder treats the remaining CRB attack feats and open attack rulings](https://github.com/AndreasUnunger/EverythingPath/issues/237) (see "Proficiencies"), and with Prerequisites at recorded level revised by [Decide what as-taken prerequisite checks reconstruct](https://github.com/AndreasUnunger/EverythingPath/issues/242) (see "Prerequisites"). Every check is advisory (Principle 5). The approved prototype fixed the presentation ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)): warnings show inline next to their field, and blue outlines mark only what Class Levels leave unfilled.
+Decided by [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215), with proficiencies revised by [Decide how the builder treats the remaining CRB attack feats and open attack rulings](https://github.com/AndreasUnunger/EverythingPath/issues/237) (see "Proficiencies"), with Prerequisites at recorded level revised by [Decide what as-taken prerequisite checks reconstruct](https://github.com/AndreasUnunger/EverythingPath/issues/242) (see "Prerequisites"), and with dormant and kept entries from [Decide how granted entries survive edits and replacement](https://github.com/AndreasUnunger/EverythingPath/issues/243) (see "Grants and dormant entries"). Every check is advisory (Principle 5). The approved prototype fixed the presentation ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)): warnings show inline next to their field, and blue outlines mark only what Class Levels leave unfilled.
 
 **Where checks run.**
 - `sheetWarnings` is a pure function beside the resolver. Its warnings are computed on the client and never stored.
@@ -896,9 +933,10 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Favored class:** more favored classes than the favored class count (2 if an active Racial Trait sets `favoredClassCount`, else 1); a prestige class as a favored class; a favored class bonus on a level of a class that isn't favored, or on a prestige level | race entry state, Racial Traits, Class Levels | racial trait (Curation Overlay), `classKind` |
 | **Traits:** more than `traitCount`, +1 for a drawback (only one drawback counts), +2 per Additional Traits; two from one `traitType` list; a race trait for a race the Character neither is nor counts as (`countsAsRaces`); no campaign trait when required; an NPC with traits but no Additional Traits | trait entries | `traitType`, `prerequisites` |
 | **Class alignment:** a Class Level whose class's `alignments` exclude the current alignment | alignment | Curation Overlay, for the 9 Foundry classes; scraped prestige classes carry it as a clause |
-| **Racial traits:** two alternates replacing the same standard trait (APG); an alternate for a race the Character neither is nor counts as, except a half-orc taking orc alternates (*Advanced Race Guide*, at the GM's discretion); a standard trait neither on the sheet nor replaced prompts "Add" | Racial Trait entries, race | `racialTraits`, `replaces` |
+| **Racial traits:** two alternates replacing the same standard trait (APG); an alternate for a race the Character neither is nor counts as, except a half-orc taking orc alternates (*Advanced Race Guide*, at the GM's discretion) | Racial Trait entries, race | `racialTraits`, `replaces` |
 | **Archetypes:** two on one class replacing or altering the same row (one feature at one class level); an Archetype on a class the Character has no levels in; the Unchained warnings (see "Unchained Classes") | archetype entries | `replaces` |
-| **Class features:** a feature in `featuresByLevel` missing from the sheet prompts "Add"; a due selection in `picksByLevel` prompts "choose a rage power"; a duplicated feature with an upgrade prompts adding it (see "Stacking") | Class Levels | Curation Overlay, scraped dataset |
+| **Class features:** a due selection in `picksByLevel` prompts "choose a rage power"; a duplicated feature with an upgrade prompts adding it (see "Stacking") | Class Levels | Curation Overlay, scraped dataset |
+| **Kept dormant entry** (`grant.kept`): a kept entry that would otherwise be dormant: its source no longer gives it, something replaces it, or its slot, prompt, race or class is gone | kept entries | sheet |
 | **Spells known over the table:** more Spells recorded at a level than the Spellcasting's spells known; `known` casters only | recorded Spells, casting level | casting tables |
 | **Spell too high:** a recorded Spell above the highest castable spell level of its Spellcasting (see "Derived per Spellcasting") | recorded Spells, casting level | casting tables |
 | **Off-list Spell:** a recorded Spell that isn't on its class's list and isn't granted | recorded Spells | Spell `levels`, `grantedLevels` |
@@ -966,6 +1004,7 @@ Clauses follow the CRB FAQ:
 - **A feat need only be possessed.** An earlier feat meets a feat clause even when its own prerequisites fail, and its failure doesn't disqualify the choices depending on it. With feats A and B each requiring the other, the first may warn and the second sees it. Accepting a warning changes no calculation.
 - **Prestige classes** are checked before any benefit of their first level. Later prestige levels have no entry check.
 - **No usable position.** A choice without a gained level, or whose Class Level was deleted or is unavailable, gets no recorded-level check, only the current one. Original history is never inferred. Moving or deleting Class Levels and reordering choices use the edited order, and surviving entries keep their links. An Unspecified Class Level, backfilled ones included, adds only a level and a Hit Die, never guessed class features. Clauses that can't be checked still show nothing.
+- **Granted entries.** Dormant entries are invisible to both checks, and kept entries count (see "Grants and dormant entries").
 
 The two checks have their own copy, for example "Power Attack: BAB +1 not met at level 1 as recorded" and "Power Attack: Str 13 not met now; it can't be used."
 
@@ -1039,7 +1078,7 @@ Decided in [Decide how Characters exist outside a campaign, and the app's home](
 - **Campaign:** homebrew that anyone in the campaign can use and edit.
 - **Character:** one-offs on a single Character, such as base scores, manual adjustments and tweaks.
 
-Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry. "Customize for campaign" clones a global entry into campaign scope, repoints every sheet entry in that campaign, and makes the picker show the copy in place of the original for that campaign.
+Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry. "Customize for campaign" clones a global entry into campaign scope, repoints every sheet entry in that campaign, and makes the picker show the copy in place of the original for that campaign. A Grant keeps its Grant Key through either clone, so its recorded state stays (see "Grants and dormant entries").
 
 Both clones record `copiedFrom` and the original definition's fingerprint. A copy's own fields never follow later changes to its original. Its retained references to global Catalog Entries follow the active Catalog Release: a copied magic weapon can still change when its global Base Item or Item Ability changes. Copying does not recursively freeze its dependencies, and references to local entries keep their existing behavior.
 
