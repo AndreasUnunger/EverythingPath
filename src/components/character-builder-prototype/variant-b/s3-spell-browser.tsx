@@ -1,17 +1,16 @@
 'use client';
 // PROTOTYPE (throwaway, #233) — spellcasting variant 3, "Spells page": the
-// class-list browser. Picker and list are one thing: every Spell on the class
-// list is a row with a record switch; recorded (and granted) Spells are
-// pinned in a group at the top, the rest of the list follows, both grouped
-// by level. Filters live in the URL (`level`, `school`, `q`, `recorded`,
-// `other`, `high`). A `none` Spellcasting gets the same browser read-only.
-// Contract: CONTRACT.md, "Round 4".
+// class-list browser, one spell level at a time. It is the page's add mode
+// (`add=1`: every row has the record toggle) and a `none` caster's whole
+// page (read-only). Level tabs, a search (across every level), a school
+// filter and "Include other lists" live in the URL (`level`, `school`, `q`,
+// `other`). Contract: CONTRACT.md, "The spells page, second pass".
 
 import { Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import { useProtoNav } from '../nav';
-import { useBuilderStore } from '../store';
 import {
   SCHOOL_LABEL,
   levelText,
@@ -22,73 +21,35 @@ import {
 } from '../spellcasting';
 import { SCHOOLS, type Character, type SchoolKey } from '../types';
 import type { Warning } from '../warnings';
-import { levelLabel } from './s3-bits';
-import { FieldWarnings, NumField, PickField, TextField, chip } from './shared';
-
-// ---------------------------------------------------------------- switch
-
-/** The record switch: a 44px target on phone, 36px from tablet width. */
-function RecordSwitch({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  label: string;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      title={label}
-      onClick={() => onChange(!checked)}
-      className="group inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-9 md:min-w-9"
-    >
-      <span
-        className={cn(
-          'relative inline-flex h-5 w-9 items-center border transition-colors',
-          checked
-            ? 'border-primary bg-primary'
-            : 'border-foreground/40 bg-foreground/5 group-hover:border-foreground/80',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-[3px] size-3 transition-transform',
-            checked
-              ? 'bg-primary-foreground translate-x-[19px]'
-              : 'bg-foreground/70 translate-x-[3px]',
-          )}
-        />
-      </span>
-    </button>
-  );
-}
-
-// ------------------------------------------------------------------ chips
+import { GroupRows, SpellRow, groupByLevel } from './s3-spell-rows';
+import { PickField, TextField, chip } from './shared';
 
 function FilterChip({
   pressed,
   onClick,
   children,
   className,
+  title,
+  role,
 }: {
   pressed: boolean;
   onClick: () => void;
   children: ReactNode;
   className?: string;
+  title?: string;
+  role?: 'tab';
 }) {
   return (
     <button
       type="button"
-      aria-pressed={pressed}
+      role={role}
+      aria-pressed={role ? undefined : pressed}
+      aria-selected={role ? pressed : undefined}
+      title={title}
       onClick={onClick}
       className={cn(
         chip,
-        'hover:bg-foreground/10 min-h-9 shrink-0 px-2 md:min-h-7',
+        'hover:bg-foreground/10 min-h-11 shrink-0 px-2.5 md:min-h-8',
         pressed
           ? 'border-primary bg-primary/15 text-primary'
           : 'text-muted-foreground',
@@ -100,235 +61,59 @@ function FilterChip({
   );
 }
 
-const flagChip = cn(chip, 'px-1 py-0 text-[11px]');
-
-// ------------------------------------------------------------------- rows
-
-type RowProps = {
-  choice: SpellChoice;
-  sc: ResolvedSpellcasting;
-  character: Character;
-  warnings: Warning[];
-  readOnly: boolean;
+/** The params the browser owns; cleared when the mode is left. */
+export const BROWSER_PARAMS = {
+  add: null,
+  level: null,
+  school: null,
+  q: null,
+  other: null,
 };
 
-function SpellRow({ choice, sc, character, warnings, readOnly }: RowProps) {
-  const store = useBuilderStore();
-  const { catalog } = choice;
-  const recorded = choice.recordedEntryId
-    ? sc.recorded.find((r) => r.entry.id === choice.recordedEntryId)
-    : undefined;
-  const granted = sc.granted.find((g) => g.catalog.key === catalog.key);
-  const level = recorded ? recorded.level : (granted?.level ?? choice.level);
-  const offList = recorded?.offList ?? false;
-  const tooHigh = recorded ? recorded.tooHigh : choice.tooHigh;
-  const dim = tooHigh && !recorded && (readOnly || !choice.onList);
-  const showSwitch = !readOnly && (!granted || recorded);
-
-  const toggle = (next: boolean) => {
-    if (next) store.addSpell(character.id, sc.classKey, catalog.key);
-    else if (choice.recordedEntryId)
-      store.removeEntry(character.id, choice.recordedEntryId);
-  };
-
-  return (
-    <li
-      id={recorded ? `s3-entry-${recorded.entry.id}` : undefined}
-      className={cn(
-        'border-foreground/10 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-b py-1.5 last:border-b-0 md:grid-cols-[2.5rem_minmax(0,15rem)_6.5rem_minmax(0,1fr)_auto] md:py-1',
-        dim && 'opacity-50',
-      )}
-    >
-      {/* level */}
-      <span className="flex items-center justify-center">
-        {offList && recorded ? (
-          <NumField
-            ariaLabel={`${catalog.name} level`}
-            value={recorded.entry.state.level}
-            todo={recorded.entry.state.level === null}
-            width="w-10"
-            className="h-7 text-sm"
-            onChange={(v) =>
-              store.setSpellLevel(character.id, recorded.entry.id, v)
-            }
-          />
-        ) : (
-          <span
-            className={cn(
-              'font-mono text-base',
-              level === null && 'text-muted-foreground',
-            )}
-          >
-            {levelLabel(level)}
-          </span>
-        )}
-      </span>
-
-      {/* name + flags */}
-      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-        <span className="font-sans text-base leading-tight">
-          {catalog.name}
-        </span>
-        {choice.opposition && (
-          <span
-            className={cn(flagChip, 'border-amber-500/60 text-amber-300')}
-            title="Opposition school: takes two slots to prepare"
-          >
-            2 slots
-          </span>
-        )}
-        {granted && (
-          <span
-            className={cn(flagChip, 'border-sky-400/60 text-sky-300')}
-            title={`Granted by ${granted.from.join(' and ')}: always available, never recorded`}
-          >
-            granted · {granted.from.join(', ')}
-          </span>
-        )}
-        {tooHigh && level !== null && (
-          <span
-            className={cn(
-              flagChip,
-              recorded
-                ? 'border-amber-500/60 text-amber-300'
-                : 'text-muted-foreground',
-            )}
-            title={
-              sc.highestLevel === null
-                ? `${sc.className} can’t cast spells yet`
-                : `${sc.className} casts up to ${ordinal(sc.highestLevel)} level now`
-            }
-          >
-            too high
-          </span>
-        )}
-        {!choice.onList && !granted && (
-          <span
-            className={cn(
-              flagChip,
-              recorded ? 'border-amber-500/60 text-amber-300' : undefined,
-            )}
-            title={`Not on the ${sc.className.toLowerCase()} list`}
-          >
-            off-list
-          </span>
-        )}
-      </span>
-
-      {/* school (tablet+) */}
-      <span className="text-muted-foreground hidden truncate text-sm md:inline">
-        {SCHOOL_LABEL[catalog.detail.school]}
-      </span>
-
-      {/* summary */}
-      <span className="text-muted-foreground col-start-2 text-xs md:col-start-auto md:text-sm">
-        <span className="md:hidden">
-          {SCHOOL_LABEL[catalog.detail.school]}
-          {catalog.summary && ' · '}
-        </span>
-        {catalog.summary ?? (
-          <span className="opacity-60">
-            {catalog.detail.subschools.length > 0
-              ? catalog.detail.subschools.join(', ')
-              : ''}
-          </span>
-        )}
-      </span>
-
-      {/* switch */}
-      <span className="col-start-3 row-start-1 flex justify-end md:col-start-5">
-        {showSwitch && (
-          <RecordSwitch
-            checked={Boolean(choice.recordedEntryId)}
-            label={`Record ${catalog.name}`}
-            onChange={toggle}
-          />
-        )}
-      </span>
-
-      {recorded && (
-        <FieldWarnings
-          warnings={warnings}
-          where={`entry:${recorded.entry.id}`}
-          characterId={character.id}
-          className="col-span-full md:col-start-2"
-        />
-      )}
-    </li>
-  );
-}
-
-// ----------------------------------------------------------------- groups
-
-type Group = { level: number | null; rows: SpellChoice[] };
-
-function groupByLevel(
-  rows: SpellChoice[],
-  levelOf: (c: SpellChoice) => number | null,
-): Group[] {
-  const map = new Map<number | null, SpellChoice[]>();
-  for (const c of rows) {
-    const l = levelOf(c);
-    map.set(l, [...(map.get(l) ?? []), c]);
+/**
+ * The level the browser opens on: for a recording caster the lowest castable
+ * level with Spells still to record, for a `none` caster its highest
+ * castable level; else 1st (or the first level the list has).
+ */
+function defaultLevel(
+  sc: ResolvedSpellcasting,
+  choices: SpellChoice[],
+  levels: number[],
+) {
+  const castable = (l: number) =>
+    sc.highestLevel !== null && l <= sc.highestLevel;
+  if (sc.casting.record === 'none') {
+    if (sc.highestLevel !== null && levels.includes(sc.highestLevel))
+      return sc.highestLevel;
+  } else {
+    const open = levels.find(
+      (l) =>
+        castable(l) &&
+        choices.some(
+          (c) => c.level === l && c.onList && !c.recordedEntryId && !c.granted,
+        ),
+    );
+    if (open !== undefined) return open;
   }
-  return [...map.entries()]
-    .sort(([a], [b]) => (a ?? 99) - (b ?? 99))
-    .map(([level, rows]) => ({ level, rows }));
+  return levels.includes(1) ? 1 : (levels[0] ?? 1);
 }
-
-function LevelHeading({
-  level,
-  sc,
-  mine,
-  count,
-}: {
-  level: number | null;
-  sc: ResolvedSpellcasting;
-  /** The pinned group: shows known x/y for `known` casters. */
-  mine: boolean;
-  count: number;
-}) {
-  const row =
-    level === null ? undefined : sc.rows.find((r) => r.level === level);
-  const over = row && row.known !== null && row.recorded > row.known;
-  return (
-    <li className="text-muted-foreground flex items-baseline gap-x-2 pt-2 pb-0.5 font-mono text-xs tracking-wide uppercase first:pt-0">
-      <span>{level === null ? 'Level not set' : levelText(level)}</span>
-      {mine && row && row.known !== null ? (
-        <span className={cn(over && 'text-amber-300')}>
-          {row.recorded}/{row.known} known
-          {row.granted > 0 && ` · ${row.granted} granted`}
-        </span>
-      ) : (
-        <span>{count}</span>
-      )}
-      {mine && row?.prepared !== null && row?.prepared !== undefined && (
-        <span>{row.prepared} prepared</span>
-      )}
-    </li>
-  );
-}
-
-// --------------------------------------------------------------- browser
 
 export function SpellBrowser({
   character,
   sc,
   warnings,
+  onDone,
 }: {
   character: Character;
   sc: ResolvedSpellcasting;
   warnings: Warning[];
+  /** Leaves add mode (a recording caster). */
+  onDone?: () => void;
 }) {
   const nav = useProtoNav();
   const readOnly = sc.casting.record === 'none';
-  const levelParam = nav.param('level');
-  const level =
-    levelParam === null || levelParam === '' ? null : Number(levelParam);
   const school = (nav.param('school') ?? null) as SchoolKey | null;
-  const recordedOnly = nav.param('recorded') === '1';
-  const other = nav.param('other') === '1';
-  const showHigh = nav.param('high') === '1';
+  const other = !readOnly && nav.param('other') === '1';
   const urlQ = nav.param('q') ?? '';
   const [q, setQ] = useState(urlQ);
 
@@ -339,251 +124,179 @@ export function SpellBrowser({
     return () => window.clearTimeout(t);
   }, [q, urlQ, nav]);
 
-  const isMine = (c: SpellChoice) => c.recordedEntryId !== null || c.granted;
-  // Every Spell, so recorded and granted off-list ones are always in; the
-  // rest of the other lists only with "Include other lists".
+  // The class list, plus recorded and granted Spells off it; with "Include
+  // other lists", every Spell.
   const choices = useMemo(
-    () =>
-      spellChoices(character, sc.classKey, { offList: true }).filter(
-        (c) => c.onList || other || isMine(c),
-      ),
+    () => spellChoices(character, sc.classKey, { offList: other }),
     [character, sc.classKey, other],
   );
-  const levelOf = (c: SpellChoice) =>
-    c.recordedEntryId
-      ? (sc.recorded.find((r) => r.entry.id === c.recordedEntryId)?.level ??
-        null)
-      : c.granted
-        ? (sc.granted.find((g) => g.catalog.key === c.catalog.key)?.level ??
-          c.level)
-        : c.level;
-
-  const levels = [
-    ...new Set(choices.map(levelOf).filter((l): l is number => l !== null)),
-  ].sort((a, b) => a - b);
+  const levels = useMemo(
+    () =>
+      [
+        ...new Set(
+          choices.map((c) => c.level).filter((l): l is number => l !== null),
+        ),
+      ].sort((a, b) => a - b),
+    [choices],
+  );
+  const levelParam = nav.param('level');
+  const level =
+    levelParam !== null && levelParam !== '' && levels.includes(+levelParam)
+      ? Number(levelParam)
+      : defaultLevel(sc, choices, levels);
 
   const needle = q.trim().toLowerCase();
-  const matches = (c: SpellChoice) => {
-    const l = levelOf(c);
-    if (level !== null && l !== level) return false;
+  const searching = needle.length > 0;
+  const visible = choices.filter((c) => {
     if (school && c.catalog.detail.school !== school) return false;
-    if (recordedOnly && !isMine(c)) return false;
-    if (readOnly && !showHigh && level === null && c.tooHigh && !c.granted)
-      return false;
-    if (needle && !c.catalog.name.toLowerCase().includes(needle)) return false;
-    return true;
-  };
-
-  const visible = choices.filter(matches);
-  const mine = groupByLevel(visible.filter(isMine), levelOf);
-  const rest = groupByLevel(
-    visible.filter((c) => !isMine(c)),
-    levelOf,
-  );
-  const mineCount = sc.recorded.length + sc.granted.length;
-  const hiddenHigh =
-    readOnly && !showHigh && level === null
-      ? choices.filter((c) => c.tooHigh && !c.granted && !recordedOnly).length
-      : 0;
-
-  const mineTitle = readOnly
-    ? `Granted (${sc.granted.length})`
-    : `${sc.heading ?? 'Recorded'} (${sc.recorded.length}${
-        sc.granted.length > 0 ? ` + ${sc.granted.length} granted` : ''
-      })`;
-
+    if (searching) return c.catalog.name.toLowerCase().includes(needle);
+    return c.level === level;
+  });
   const rowProps = { sc, character, warnings, readOnly };
+  const recordedHere = visible.filter((c) => c.recordedEntryId).length;
+  const grantedHere = visible.filter((c) => c.granted).length;
+  const castsUpTo =
+    sc.highestLevel === null
+      ? `${sc.className} can’t cast spells yet`
+      : `${sc.className} casts up to ${ordinal(sc.highestLevel)} level now`;
 
   return (
-    <div className="space-y-3">
-      {readOnly && (
-        <p className="text-muted-foreground text-sm">
-          A {sc.className.toLowerCase()} prepares from the whole list; nothing
-          to record. Granted Spells are marked. Levels it can’t cast yet are
-          hidden until you show them.
-        </p>
-      )}
-
+    <div className="space-y-2">
       {/* filters */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative flex min-w-0 flex-1 basis-full items-center md:flex-none md:basis-64">
-            <Search
-              aria-hidden
-              className="text-muted-foreground pointer-events-none absolute left-2 size-4"
-            />
-            <TextField
-              ariaLabel={`Search the ${sc.className.toLowerCase()} list`}
-              value={q}
-              placeholder="Search spells"
-              onChange={setQ}
-              className="min-h-11 w-full pl-8 md:min-h-9"
-            />
-            {q && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => setQ('')}
-                className="text-muted-foreground hover:text-foreground absolute right-1 flex size-9 items-center justify-center"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </label>
-          <PickField<SchoolKey>
-            ariaLabel="School"
-            value={school}
-            placeholder="All schools"
-            options={SCHOOLS.map((s) => ({ value: s, label: SCHOOL_LABEL[s] }))}
-            onChange={(v) => nav.set({ school: v })}
-            className="min-h-11 flex-1 md:min-h-9 md:w-44 md:flex-none [&>select]:h-full"
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative flex min-w-0 flex-1 basis-full items-center md:flex-none md:basis-64">
+          <Search
+            aria-hidden
+            className="text-muted-foreground pointer-events-none absolute left-2 size-4"
           />
-          {!readOnly && (
-            <FilterChip
-              pressed={recordedOnly}
-              onClick={() => nav.set({ recorded: recordedOnly ? null : '1' })}
+          <TextField
+            ariaLabel={`Search the ${sc.className.toLowerCase()} list`}
+            value={q}
+            placeholder="Search all levels"
+            onChange={setQ}
+            className="min-h-11 w-full pl-8 md:min-h-9"
+          />
+          {q && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setQ('')}
+              className="text-muted-foreground hover:text-foreground absolute right-1 flex size-9 items-center justify-center"
             >
-              Recorded only
-            </FilterChip>
+              <X className="size-4" />
+            </button>
           )}
-          {!readOnly && (
-            <FilterChip
-              pressed={other}
-              onClick={() => nav.set({ other: other ? null : '1' })}
-            >
-              Include other lists
-            </FilterChip>
-          )}
-          {readOnly && (
-            <FilterChip
-              pressed={showHigh}
-              onClick={() => nav.set({ high: showHigh ? null : '1' })}
-            >
-              Show higher levels
-            </FilterChip>
-          )}
-        </div>
-        <div
-          role="group"
-          aria-label="Spell level"
-          className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-wrap md:px-0 md:pb-0"
-        >
+        </label>
+        <PickField<SchoolKey>
+          ariaLabel="School"
+          value={school}
+          placeholder="All schools"
+          options={SCHOOLS.map((s) => ({ value: s, label: SCHOOL_LABEL[s] }))}
+          onChange={(v) => nav.set({ school: v })}
+          className="min-h-11 flex-1 md:min-h-9 md:w-44 md:flex-none [&>select]:h-full"
+        />
+        {!readOnly && (
           <FilterChip
-            pressed={level === null}
-            onClick={() => nav.set({ level: null })}
+            pressed={other}
+            onClick={() => nav.set({ other: other ? null : '1' })}
+            title="Also show Spells from other classes’ lists (recorded off-list)"
           >
-            All levels
+            Include other lists
           </FilterChip>
-          {levels.map((l) => (
+        )}
+      </div>
+
+      {/* level tabs */}
+      <div
+        role="tablist"
+        aria-label="Spell level"
+        className={cn(
+          '-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-wrap md:px-0 md:pb-0',
+          searching && 'opacity-50',
+        )}
+      >
+        {levels.map((l) => {
+          const high = sc.highestLevel === null || l > sc.highestLevel;
+          return (
             <FilterChip
               key={l}
-              pressed={level === l}
-              onClick={() => nav.set({ level: level === l ? null : String(l) })}
-              className={cn(
-                sc.highestLevel !== null && l > sc.highestLevel && 'opacity-70',
-              )}
+              role="tab"
+              pressed={!searching && level === l}
+              onClick={() => {
+                setQ('');
+                nav.set({ level: String(l), q: null });
+              }}
+              className={cn('min-w-11 justify-center', high && 'opacity-70')}
+              title={high ? castsUpTo : undefined}
             >
               {ordinal(l)}
             </FilterChip>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* pinned: recorded + granted */}
-      <section aria-label={mineTitle}>
-        <h3 className="text-muted-foreground mb-1 flex items-baseline gap-x-2 font-sans text-xs tracking-[0.15em] uppercase">
-          <span className="text-foreground">{mineTitle}</span>
-          {visible.filter(isMine).length !== mineCount && (
-            <span>· {visible.filter(isMine).length} shown</span>
+      {/* the rows */}
+      <section aria-label={searching ? 'Search results' : levelText(level)}>
+        <h3 className="text-muted-foreground mb-0.5 flex flex-wrap items-baseline gap-x-2 pt-1 font-mono text-xs tracking-wide uppercase">
+          {searching ? (
+            <span className="text-foreground">
+              {visible.length} match{visible.length === 1 ? '' : 'es'} for “
+              {q.trim()}”
+            </span>
+          ) : (
+            <>
+              <span className="text-foreground">{levelText(level)}</span>
+              <span>
+                {visible.length} on the {sc.className.toLowerCase()} list
+                {other && ' and others'}
+              </span>
+              {recordedHere > 0 && <span>· {recordedHere} recorded</span>}
+              {grantedHere > 0 && <span>· {grantedHere} granted</span>}
+              {sc.highestLevel !== null && level > sc.highestLevel && (
+                <span className="text-amber-300 normal-case">
+                  · {castsUpTo}
+                </span>
+              )}
+            </>
           )}
         </h3>
-        {mineCount === 0 ? (
+        {visible.length === 0 ? (
           <p className="text-muted-foreground border-foreground/20 border border-dashed p-3 text-sm">
-            {readOnly
-              ? 'No granted Spells.'
-              : `Nothing recorded yet. Switch Spells on below to build the ${(sc.heading ?? 'list').toLowerCase()}.`}
+            {searching
+              ? `Nothing on ${other ? 'any list' : `the ${sc.className.toLowerCase()} list`} matches “${q.trim()}”${school ? ` in ${SCHOOL_LABEL[school]}` : ''}.`
+              : `No ${levelText(level)} ${school ? `${SCHOOL_LABEL[school].toLowerCase()} ` : ''}Spells on the list.`}
           </p>
-        ) : mine.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            None match these filters.
-          </p>
-        ) : (
-          <ul className="border-foreground/20 bg-background/40 border px-2 py-1">
-            {mine.map((g) => (
+        ) : searching ? (
+          <ul>
+            {groupByLevel(visible).map((g) => (
               <GroupRows
                 key={g.level ?? 'unset'}
                 group={g}
-                mine
+                counts={false}
                 rowProps={rowProps}
               />
+            ))}
+          </ul>
+        ) : (
+          <ul>
+            {visible.map((c) => (
+              <SpellRow key={c.catalog.key} choice={c} {...rowProps} />
             ))}
           </ul>
         )}
       </section>
 
-      {/* the rest of the class list */}
-      {!recordedOnly && (
-        <section aria-label={`${sc.className} list`}>
-          <h3 className="text-muted-foreground mb-1 flex flex-wrap items-baseline gap-x-2 font-sans text-xs tracking-[0.15em] uppercase">
-            <span className="text-foreground">
-              {sc.className} list
-              {other && ' and other lists'}
-            </span>
-            <span>· {rest.reduce((n, g) => n + g.rows.length, 0)} more</span>
-            {hiddenHigh > 0 && (
-              <button
-                type="button"
-                onClick={() => nav.set({ high: '1' })}
-                className="hover:text-foreground tracking-normal normal-case underline decoration-dotted underline-offset-2"
-              >
-                {hiddenHigh} higher-level hidden
-              </button>
-            )}
-          </h3>
-          {rest.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              {visible.length === 0 && choices.length > 0
-                ? 'Nothing matches these filters.'
-                : 'Everything on the list is recorded.'}
-            </p>
-          ) : (
-            <ul className="px-2">
-              {rest.map((g) => (
-                <GroupRows
-                  key={g.level ?? 'unset'}
-                  group={g}
-                  mine={false}
-                  rowProps={rowProps}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
+      {onDone && (
+        <div className="flex justify-end pt-1">
+          <Button
+            variant="outline"
+            onClick={onDone}
+            className="min-h-11 md:min-h-9"
+          >
+            Done
+          </Button>
+        </div>
       )}
     </div>
-  );
-}
-
-function GroupRows({
-  group,
-  mine,
-  rowProps,
-}: {
-  group: Group;
-  mine: boolean;
-  rowProps: Omit<RowProps, 'choice'>;
-}) {
-  return (
-    <>
-      <LevelHeading
-        level={group.level}
-        sc={rowProps.sc}
-        mine={mine}
-        count={group.rows.length}
-      />
-      {group.rows.map((c) => (
-        <SpellRow key={c.catalog.key} choice={c} {...rowProps} />
-      ))}
-    </>
   );
 }

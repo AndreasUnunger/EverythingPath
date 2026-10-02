@@ -12,7 +12,7 @@ import {
   type ResolvedSpellcasting,
   type SlotRow,
 } from '../spellcasting';
-import type { ProtoPage } from '../types';
+import type { ProtoPage, SchoolKey } from '../types';
 import type { Warning } from '../warnings';
 
 /** An in-prototype link: a real `href` (linkable), navigating in place on a plain click. */
@@ -47,6 +47,19 @@ export function ProtoLink({
     </a>
   );
 }
+
+/** The contract's school abbreviations; the full name goes in a `title`. */
+export const SCHOOL_ABBR: Record<SchoolKey, string> = {
+  abjuration: 'Abj',
+  conjuration: 'Conj',
+  divination: 'Div',
+  enchantment: 'Ench',
+  evocation: 'Evoc',
+  illusion: 'Illus',
+  necromancy: 'Necro',
+  transmutation: 'Trans',
+  universal: 'Univ',
+};
 
 /** "3 + 2 bonus + 1 school" — how a per-day number is made; null for a bare table number. */
 export function perDayDetail(
@@ -105,6 +118,20 @@ export function recordedCount(sc: ResolvedSpellcasting) {
     return `${n} in ${(sc.casting.bookName ?? 'spellbook').toLowerCase()}`;
   if (sc.casting.record === 'known') return `${n} known`;
   return `prepares from the whole ${sc.className.toLowerCase()} list`;
+}
+
+/**
+ * The prestige share of a casting level in words: "+2 from Mystic theurge"
+ * (advances grouped by class; a label is "Mystic theurge 1"). Null without.
+ */
+export function prestigeShare(sc: ResolvedSpellcasting): string | null {
+  if (sc.advances.length === 0) return null;
+  const by = new Map<string, number>();
+  for (const a of sc.advances) {
+    const name = a.label.replace(/\s+\d+$/, '');
+    by.set(name, (by.get(name) ?? 0) + 1);
+  }
+  return [...by].map(([name, n]) => `+${n} from ${name}`).join(', ');
 }
 
 /** Warnings about one Spellcasting (its numbers and its recorded Spells). */

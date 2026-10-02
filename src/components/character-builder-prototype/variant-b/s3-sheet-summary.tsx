@@ -2,12 +2,12 @@
 // PROTOTYPE (throwaway, #233) — spellcasting variant 3, "Spells page": the
 // Spellcasting section on the living sheet is one summary line per
 // Spellcasting (class, caster level, concentration, per day, how many Spells,
-// open warnings) linking to `?page=spells`. The sheet stays lean; the
-// list lives on its own page. Contract: CONTRACT.md, "Round 4".
+// open warnings) linking to `?page=spells`; on phone the line wraps into a
+// compact card. Orphaned Spells get the same group as on the page
+// (s3-orphans.tsx). Contract: CONTRACT.md, "Round 4".
 
 import { ArrowRight, TriangleAlert } from 'lucide-react';
 import { cn } from '~/lib/utils';
-import { className as classNameOf } from '../sheet';
 import {
   ordinal,
   orphanedSpells,
@@ -18,9 +18,11 @@ import type { Warning } from '../warnings';
 import {
   PerDay,
   ProtoLink,
+  prestigeShare,
   recordedCount,
   useOpenWarningCount,
 } from './s3-bits';
+import { Orphans } from './s3-orphans';
 import type { SpellSlotProps } from './sheet-variants';
 import { Block, StatButton } from './shared';
 
@@ -38,16 +40,23 @@ function SummaryLine({
 }) {
   const open = useOpenWarningCount(characterId, sc, warnings);
   const none = sc.casting.record === 'none';
+  const share = prestigeShare(sc);
   const linkText = none
     ? `Browse the ${sc.className.toLowerCase()} list`
     : 'Open spells';
+  const counts = none
+    ? sc.granted.length > 0
+      ? `${sc.granted.length} granted`
+      : 'no granted Spells'
+    : recordedCount(sc) +
+      (sc.granted.length > 0 ? ` · ${sc.granted.length} granted` : '');
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2">
-      <span className="flex min-w-0 items-baseline gap-x-2">
+      <span className="flex min-w-0 basis-full flex-wrap items-baseline gap-x-2 md:basis-auto">
         <span className="font-sans text-base">{sc.className}</span>
-        <span className="text-muted-foreground truncate text-xs">
+        <span className="text-muted-foreground text-xs">
           {sc.heading ?? 'whole list'}
-          {sc.advances.length > 0 && ` · +${sc.advances.length} prestige`}
+          {share && ` · ${share}`}
         </span>
       </span>
 
@@ -83,7 +92,7 @@ function SummaryLine({
 
       {sc.rows.length > 0 ? (
         <span
-          className="flex flex-wrap items-baseline gap-x-2 font-mono text-base"
+          className="flex min-w-0 flex-wrap items-baseline gap-x-2 font-mono text-base"
           aria-label={`${sc.className} spells per day`}
         >
           <span className={label}>Per day</span>
@@ -109,14 +118,7 @@ function SummaryLine({
         <span className="text-muted-foreground text-sm">No spells yet</span>
       )}
 
-      <span className="text-muted-foreground text-sm">
-        {none
-          ? sc.granted.length > 0
-            ? `${sc.granted.length} granted`
-            : 'no granted Spells'
-          : recordedCount(sc) +
-            (sc.granted.length > 0 ? ` · ${sc.granted.length} granted` : '')}
-      </span>
+      <span className="text-muted-foreground text-sm">{counts}</span>
 
       {open > 0 && (
         <ProtoLink
@@ -133,7 +135,7 @@ function SummaryLine({
       <ProtoLink
         to="spells"
         opts={{ params: { spellcasting: sc.classKey } }}
-        className="text-primary ml-auto flex min-h-11 items-center gap-1 text-sm hover:underline md:min-h-8"
+        className="text-primary flex min-h-11 basis-full items-center gap-1 text-sm hover:underline md:ml-auto md:min-h-8 md:basis-auto"
       >
         {linkText}
         <ArrowRight aria-hidden className="size-3.5" />
@@ -145,49 +147,29 @@ function SummaryLine({
 /** The Spellcasting section: a lean line per Spellcasting; everything else is on the spells page. */
 export function S3SpellcastingSummary({ character, warnings }: SpellSlotProps) {
   const all = spellcastingsOf(character);
-  const orphans = orphanedSpells(character);
-  if (all.length === 0 && orphans.length === 0) return null;
-  const firstName = character.name.split(' ')[0] ?? character.name;
+  const orphans = orphanedSpells(character).length;
+  if (all.length === 0 && orphans === 0) return null;
   return (
     <Block id="b-spellcasting" title="Spellcasting">
-      <ul className="divide-foreground/10 -my-2 divide-y">
-        {all.map((sc) => (
-          <SummaryLine
-            key={sc.classKey}
-            sc={sc}
-            characterId={character.id}
-            warnings={warnings}
-          />
-        ))}
-      </ul>
-      {orphans.length > 0 && (
-        <p
-          className={cn(
-            'mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-300',
-            all.length > 0 && 'border-foreground/10 border-t pt-2',
-          )}
-        >
-          <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1">
-            {orphans.map((o) => o.catalog.name).join(', ')}{' '}
-            {orphans.length === 1 ? 'is' : 'are'} recorded for{' '}
-            {[...new Set(orphans.map((o) => classNameOf(o.castingClass)))].join(
-              ' and ',
-            )}
-            , which {firstName} has no levels in.
-          </span>
-          <ProtoLink
-            to="spells"
-            opts={
-              all[0] ? { params: { spellcasting: all[0].classKey } } : undefined
-            }
-            className="text-primary flex min-h-11 items-center gap-1 hover:underline md:min-h-6"
-          >
-            Sort it out
-            <ArrowRight aria-hidden className="size-3" />
-          </ProtoLink>
-        </p>
+      {all.length > 0 && (
+        <ul className="divide-foreground/10 -my-2 divide-y">
+          {all.map((sc) => (
+            <SummaryLine
+              key={sc.classKey}
+              sc={sc}
+              characterId={character.id}
+              warnings={warnings}
+            />
+          ))}
+        </ul>
       )}
+      <Orphans
+        character={character}
+        warnings={warnings}
+        className={cn(
+          all.length > 0 && 'border-foreground/10 mt-4 border-t pt-2',
+        )}
+      />
     </Block>
   );
 }

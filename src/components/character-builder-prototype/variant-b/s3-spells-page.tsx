@@ -2,34 +2,43 @@
 // PROTOTYPE (throwaway, #233) — spellcasting variant 3, "Spells page". The
 // sheet keeps one summary line per Spellcasting (s3-sheet-summary.tsx); this
 // is `?page=spells`: the Character's Spellcastings as tabs, the selected
-// one's full numbers (caster level, concentration, ability, school, per
-// level), then the class-list browser (s3-spell-browser.tsx) where picker
-// and list are one thing. Contract: CONTRACT.md, "Round 4".
+// one's numbers (caster level, concentration, ability, school, per level),
+// then the record (recorded and granted Spells by level). "Add Spells"
+// (`add=1`) swaps the record for the class-list browser
+// (s3-spell-browser.tsx); a `none` caster gets the browser read-only.
+// Orphaned Spells sit in their own group (s3-orphans.tsx). Contract:
+// CONTRACT.md, "Round 4" and "The spells page, second pass".
 
-import { ArrowLeft, TriangleAlert, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import { ABILITY_LABEL, ABILITY_SHORT } from '../catalog';
 import { useProtoNav } from '../nav';
-import { className as classNameOf } from '../sheet';
-import { useBuilderStore } from '../store';
 import {
   SCHOOL_LABEL,
   ordinal,
-  orphanedSpells,
+  spellChoices,
   spellcastingsOf,
   type ResolvedSpellcasting,
 } from '../spellcasting';
-import { SCHOOLS, type Character, type SchoolKey } from '../types';
+import type { Character } from '../types';
 import { formatBonus } from '../ui-helpers';
 import type { Warning } from '../warnings';
-import { PerDay, ProtoLink, perDayDetail, recordedCount } from './s3-bits';
+import {
+  PerDay,
+  SCHOOL_ABBR,
+  perDayDetail,
+  prestigeShare,
+  recordedCount,
+} from './s3-bits';
+import { Orphans } from './s3-orphans';
 import { S3SpellcastingSummary } from './s3-sheet-summary';
-import { SpellBrowser } from './s3-spell-browser';
+import { BROWSER_PARAMS, SpellBrowser } from './s3-spell-browser';
+import { GroupRows, groupByLevel } from './s3-spell-rows';
 import type { SpellSlotProps, SpellVariantSlots } from './sheet-variants';
 import {
   Block,
   FieldWarnings,
-  PickField,
   StatButton,
   chip,
   th,
@@ -51,17 +60,13 @@ function CastingNumbers({
   sc: ResolvedSpellcasting;
   warnings: Warning[];
 }) {
-  const store = useBuilderStore();
   const ui = useSheetUi();
   const schools = [
     ...new Set(sc.rows.flatMap((r) => r.dcBySchool.map((d) => d.school))),
   ];
   const showPrepared = sc.rows.some((r) => r.prepared !== null);
   const showKnown = sc.rows.some((r) => r.known !== null);
-  const castingSum = [
-    `${sc.className} ${sc.classLevels}`,
-    ...sc.advances.map((a) => a.label),
-  ].join(' + ');
+  const share = prestigeShare(sc);
   const conditional = sc.concentration?.conditional ?? [];
 
   return (
@@ -90,7 +95,7 @@ function CastingNumbers({
             )}
             <span className="text-muted-foreground text-xs">
               casting level {sc.castingLevel}
-              {sc.advances.length > 0 && ` = ${castingSum}`}
+              {share && ` = ${sc.className} ${sc.classLevels} ${share}`}
               {sc.casting.casterLevelOffset !== 0 &&
                 ` · caster level ${formatBonus(sc.casting.casterLevelOffset)}`}
             </span>
@@ -142,34 +147,19 @@ function CastingNumbers({
           {sc.school && (
             <>
               <dt className={dt}>School</dt>
-              <dd className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <dd
+                className="flex flex-wrap items-baseline gap-x-2"
+                title="Opposition schools are set on the Arcane school class feature"
+              >
                 <span>{SCHOOL_LABEL[sc.school.school]}</span>
                 <span className="text-muted-foreground text-xs">
-                  opposition
+                  opposition{' '}
+                  {sc.school.opposition.length > 0
+                    ? sc.school.opposition
+                        .map((s) => SCHOOL_LABEL[s])
+                        .join(', ')
+                    : 'not chosen yet'}
                 </span>
-                {[0, 1].map((i) => (
-                  <PickField<SchoolKey>
-                    key={i}
-                    ariaLabel={`Opposition school ${i + 1}`}
-                    value={sc.school!.opposition[i] ?? null}
-                    placeholder="—"
-                    options={SCHOOLS.filter(
-                      (s) => s !== sc.school!.school && s !== 'universal',
-                    ).map((s) => ({ value: s, label: SCHOOL_LABEL[s] }))}
-                    todo={sc.school!.opposition[i] === undefined}
-                    className="w-36"
-                    onChange={(v) => {
-                      const next = [...sc.school!.opposition];
-                      if (v === null) next.splice(i, 1);
-                      else next[i] = v;
-                      store.setOppositionSchools(
-                        character.id,
-                        sc.school!.entryId,
-                        next.filter((s): s is SchoolKey => Boolean(s)),
-                      );
-                    }}
-                  />
-                ))}
               </dd>
             </>
           )}
@@ -205,14 +195,15 @@ function CastingNumbers({
                   {showKnown && <th className={cn(th, 'text-right')}>Known</th>}
                   <th className={cn(th, 'text-right')}>DC</th>
                   {schools.map((s) => (
-                    <th key={s} className={cn(th, 'text-right')}>
+                    <th
+                      key={s}
+                      className={cn(th, 'text-right')}
+                      title={`${SCHOOL_LABEL[s]} DC`}
+                    >
                       <span className="hidden md:inline">
                         {SCHOOL_LABEL[s]}
                       </span>
-                      <span className="md:hidden">
-                        {SCHOOL_LABEL[s].slice(0, 4)}
-                      </span>{' '}
-                      DC
+                      <span className="md:hidden">{SCHOOL_ABBR[s]}</span> DC
                     </th>
                   ))}
                 </tr>
@@ -306,64 +297,48 @@ function CastingNumbers({
   );
 }
 
-// -------------------------------------------------------------- orphans
+// -------------------------------------------------------------- record
 
-/** Spells recorded for a class the Character has no levels in. */
-function OrphansBlock({
+/** The default view of a `known` or `book` caster: recorded and granted Spells by level. */
+function RecordView({
   character,
+  sc,
   warnings,
+  onAdd,
 }: {
   character: Character;
+  sc: ResolvedSpellcasting;
   warnings: Warning[];
+  onAdd: () => void;
 }) {
-  const store = useBuilderStore();
-  const orphans = orphanedSpells(character);
-  if (orphans.length === 0) return null;
-  const firstName = character.name.split(' ')[0] ?? character.name;
+  const mine = spellChoices(character, sc.classKey).filter(
+    (c) => c.recordedEntryId !== null || c.granted,
+  );
+  if (mine.length === 0)
+    return (
+      <div className="text-muted-foreground border-foreground/20 flex flex-wrap items-center justify-between gap-2 border border-dashed p-3 text-sm">
+        Nothing recorded yet.
+        <Button
+          variant="outline"
+          onClick={onAdd}
+          className="min-h-11 md:min-h-9"
+        >
+          <Plus aria-hidden className="size-4" />
+          Add Spells
+        </Button>
+      </div>
+    );
   return (
-    <Block
-      id="s3-orphans"
-      title={
-        <span className="flex items-center gap-1.5 text-amber-300">
-          <TriangleAlert aria-hidden className="size-3.5" />
-          Recorded for a class without levels
-        </span>
-      }
-      className="border-amber-500/60"
-    >
-      <ul className="divide-foreground/10 divide-y">
-        {orphans.map((o) => (
-          <li
-            key={o.entry.id}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5"
-          >
-            <span className="font-sans text-base">{o.catalog.name}</span>
-            <span className="text-muted-foreground min-w-0 flex-1 text-sm">
-              Recorded for {classNameOf(o.castingClass)}, which {firstName} has
-              no levels in. It stays here until {firstName} takes a{' '}
-              {classNameOf(o.castingClass)} level, or you remove it.
-            </span>
-            <button
-              type="button"
-              onClick={() => store.removeEntry(character.id, o.entry.id)}
-              className={cn(
-                chip,
-                'hover:bg-foreground/10 min-h-11 gap-1 md:min-h-7',
-              )}
-            >
-              <X className="size-3" />
-              Remove
-            </button>
-            <FieldWarnings
-              warnings={warnings}
-              where={`entry:${o.entry.id}`}
-              characterId={character.id}
-              className="basis-full"
-            />
-          </li>
-        ))}
-      </ul>
-    </Block>
+    <ul>
+      {groupByLevel(mine).map((g) => (
+        <GroupRows
+          key={g.level ?? 'unset'}
+          group={g}
+          counts
+          rowProps={{ sc, character, warnings, readOnly: false }}
+        />
+      ))}
+    </ul>
   );
 }
 
@@ -374,18 +349,16 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
   const all = spellcastingsOf(character);
   const wanted = nav.param('spellcasting');
   const sc = all.find((s) => s.classKey === wanted) ?? all[0];
+  const none = sc?.casting.record === 'none';
+  const adding = !none && nav.param('add') === '1';
+  const leave = () => nav.set(BROWSER_PARAMS);
+  const enter = () => nav.set({ ...BROWSER_PARAMS, add: '1' });
+  const heading = sc?.heading ?? '';
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="font-sans text-2xl">Spells</h2>
-        <ProtoLink
-          to="sheet"
-          className="text-muted-foreground hover:text-foreground flex min-h-11 items-center gap-1 text-sm md:min-h-8"
-        >
-          <ArrowLeft aria-hidden className="size-3.5" />
-          Sheet
-        </ProtoLink>
         {all.length > 1 && (
           <div
             role="tablist"
@@ -401,15 +374,7 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
                   role="tab"
                   aria-selected={selected}
                   onClick={() =>
-                    nav.set({
-                      spellcasting: s.classKey,
-                      level: null,
-                      school: null,
-                      q: null,
-                      recorded: null,
-                      other: null,
-                      high: null,
-                    })
+                    nav.set({ ...BROWSER_PARAMS, spellcasting: s.classKey })
                   }
                   className={cn(
                     'flex min-h-11 flex-1 flex-col items-start justify-center border px-3 py-1 text-left md:min-h-9 md:flex-none md:flex-row md:items-baseline md:gap-x-2',
@@ -434,26 +399,81 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
       {sc ? (
         <>
           <CastingNumbers character={character} sc={sc} warnings={warnings} />
-          <OrphansBlock character={character} warnings={warnings} />
-          <Block
-            id="s3-browser"
-            title={
-              sc.casting.record === 'none'
-                ? `The ${sc.className.toLowerCase()} list`
-                : `${sc.heading} and the ${sc.className.toLowerCase()} list`
-            }
-          >
-            <SpellBrowser
-              key={sc.classKey}
-              character={character}
-              sc={sc}
-              warnings={warnings}
-            />
-          </Block>
+          {none ? (
+            <Block
+              id="s3-list"
+              title={`The ${sc.className.toLowerCase()} list`}
+              aside={
+                <span className="text-muted-foreground text-xs">
+                  Prepares from the whole list; nothing to record.
+                  {sc.granted.length > 0 && ' Granted Spells are marked.'}
+                </span>
+              }
+            >
+              <SpellBrowser
+                key={sc.classKey}
+                character={character}
+                sc={sc}
+                warnings={warnings}
+              />
+            </Block>
+          ) : adding ? (
+            <Block
+              id="s3-add"
+              title={`Add to the ${heading.toLowerCase()}`}
+              aside={
+                <Button
+                  size="sm"
+                  onClick={leave}
+                  className="min-h-11 md:min-h-8"
+                >
+                  Done
+                </Button>
+              }
+            >
+              <SpellBrowser
+                key={sc.classKey}
+                character={character}
+                sc={sc}
+                warnings={warnings}
+                onDone={leave}
+              />
+            </Block>
+          ) : (
+            <Block
+              id="s3-record"
+              title={heading}
+              aside={
+                <span className="flex items-center gap-x-3">
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {sc.recorded.length}
+                    {sc.granted.length > 0 && ` + ${sc.granted.length} granted`}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={enter}
+                    className={cn(chip, 'min-h-11 gap-1 px-2.5 md:min-h-8')}
+                  >
+                    <Plus aria-hidden className="size-3.5" />
+                    Add Spells
+                  </Button>
+                </span>
+              }
+            >
+              <RecordView
+                character={character}
+                sc={sc}
+                warnings={warnings}
+                onAdd={enter}
+              />
+            </Block>
+          )}
+          <Orphans character={character} warnings={warnings} framed />
         </>
       ) : (
         <>
-          <OrphansBlock character={character} warnings={warnings} />
+          <Orphans character={character} warnings={warnings} framed />
           <p className="text-muted-foreground text-sm">
             {character.name} has no Spellcasting: no class with Class Levels
             here casts spells.
