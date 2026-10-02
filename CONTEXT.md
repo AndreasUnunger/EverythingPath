@@ -75,7 +75,7 @@ The uncommitted militia action occupying an Action Slot, including its assigned 
 A character holding a militia officer role: a roster person with at least one role. An NPC is an Officer exactly while holding a role, independent of its NPC kind, which decides their team-manager limit; a stored character kind never makes one. Removing the last role changes that status, not the character's kind.
 
 **Character**:
-One person, PC or NPC, whether they serve the militia, are fully built, or both. There is exactly one Character per person; the militia roster and the character builder refer to the same Character. A Character is in at most one campaign at a time, and may be in none; adding it to a campaign moves that same Character rather than copying it, and leaving a campaign takes it off that campaign's militia roster.
+One person or creature, PC or NPC, whether they serve the militia, are fully built, or both. There is exactly one Character per person or creature; the militia roster and the character builder refer to the same Character. A Character is in at most one campaign at a time, and may be in none; adding it to a campaign moves that same Character rather than copying it, and leaving a campaign takes it off that campaign's militia roster.
 _Avoid_: pfCharacter, ledger record (as a separate thing)
 
 **Character Owner**:
@@ -85,6 +85,23 @@ The user who currently owns a Character, initially its creator: only they can ta
 Everything a Character has (base ability scores, race, class levels, feats, gear, effects), from which their current statistics are derived. Every Character has one; a minimal sheet holds only base scores and level, and building it out is optional.
 _Avoid_: Character record (for the stats), stat block
 
+**Companion**:
+A Character linked to an associated Character as an animal companion, familiar, cohort, eidolon or unchained eidolon, with its own Character Sheet and a Character Owner who need not own the associated Character. Replacement or loss of the rules support for the relationship makes it inactive while preserving the companion's sheet and recorded choices; losing one contributing source does not erase surviving contributions.
+
+**Companion Relationship**:
+The link between a Companion and its associated Character, either active or retained as inactive. A Companion has at most one active associated Character; an associated Character can have multiple active Companions.
+
+**Companion Progression**:
+The advancement a Companion receives through its granting rules, supplying actual Hit Dice and benefits without Class Levels. Those rules determine whether it replaces the creature's baseline Hit Dice; a familiar's effective Hit Dice are a separate rules value.
+_Avoid_: companion Class Levels, racial levels
+
+**Combined Form**:
+A view of the statistics produced by combining Characters under a rule such as the Synthesist's fusion, while retaining their separate builds. Viewing it does not mean the form is currently active.
+
+**Cohort Equivalence**:
+The level at which a creature counts as a cohort under the monster cohort rules, distinct from its actual Hit Dice and Class Levels. It comes from a published mapping or an explicitly entered equivalence for an unlisted creature.
+_Avoid_: monster level, Challenge Rating (as cohort equivalence)
+
 **Catalog Entry**:
 The definition of something a Character can have, such as an item, spell, feat, class, race, class feature, condition or a one-off adjustment. It holds the thing's rule facts and the Modifiers it grants, and is shared globally, across one campaign, or kept for one Character.
 _Avoid_: item definition, effect
@@ -93,7 +110,7 @@ _Avoid_: item definition, effect
 A manually numbered set of global Catalog Entry definitions and supporting resources made available together. One release is current for everyone.
 
 **Catalog Copy**:
-A campaign or Character Catalog Entry cloned from another entry so its own fields can be changed locally without following later changes to the original; it warns when that original has changed since copying. Its references to global Catalog Entries follow the current Catalog Release, so their changes can still affect what the copy grants.
+A campaign or Character Catalog Entry cloned from another entry, with independent fields but the original's rule identity for prerequisites and same-Source stacking, even after editing. Its global references follow the current Catalog Release, and original-change advisories require the viewer's access to the original.
 _Avoid_: override, fork
 
 **Curation Overlay**:
@@ -131,7 +148,7 @@ _Avoid_: override, waiver, dismissed warning
 A bonus or penalty that a Catalog Entry grants to one statistic. Its bonus type decides whether it stacks with others. Its value is a number or a formula over the Character's other statistics.
 
 **Source**:
-What a Modifier counts as coming from for stacking: its Catalog Entry, unless official text makes several entries one effect, as with every haste effect. Of the active entries with one Source, only the strongest applies.
+What a Modifier counts as coming from for stacking: its Catalog Entry's rule identity, shared by its Catalog Copies even after editing, unless official text makes several entries one effect, as with every haste effect. Of the active entries with one Source, only the strongest applies.
 
 **Conditional Modifier**:
 A Modifier that applies only under a condition: while another entry is active ("while raging"), only to attacks with one weapon (Weapon Focus), or only in a Situation. The first two apply by themselves; a situational one never enters a total.
@@ -219,11 +236,11 @@ A Character presented and edited through its whole Character Sheet. Its level an
 _Avoid_: built character, pfCharacter
 
 **Militia Character Facts**:
-The values the militia rules read from a Character: character level, racial Hit Dice, ability scores without Temporary Effects (ability drain counts; Spell Effects lasting 1 day or less, conditions, consumables and ability damage don't), and whether the Character is active. Confirmed weeks keep their own frozen copy.
+The values the militia rules read from each Character's ordinary form: character level, actual Hit Dice, ability scores without Temporary Effects (including effects received through linked Characters), and whether the Character is active. Viewing a Combined Form changes none of these facts, and confirmed weeks keep their own frozen copy.
 _Avoid_: mirror stats, live stats
 
 **Hit Dice**:
-A Character's class levels plus racial Hit Dice, always computed and never recorded. A roster person's Hit Dice override, zero included, replaces it for the militia rules.
+A Character's total actual Hit Dice, computed from its Class Levels, race and Companion Progression rather than recorded independently, with the applicable rules determining which contributions replace others rather than add. A roster person's Hit Dice override, zero included, replaces it for the militia rules.
 
 **Racial Hit Dice**:
 Hit Dice a Character has from its race, a number the race fixes and that never advances. Every core race has none. They count toward Hit Dice but never toward character level, and never earn a favored class bonus.

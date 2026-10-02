@@ -10,7 +10,7 @@ Rules sources:
 - [Collect the official rules for racial Hit Dice progression](https://github.com/AndreasUnunger/EverythingPath/issues/220) (`research/pf1-racial-hit-dice`) and its follow-up on FAQ and designer rulings (`research/pf1-racial-hd-level-rulings`)
 - [Collect the official PF1 spellcasting rules](https://github.com/AndreasUnunger/EverythingPath/issues/231) (`research/pf1-spellcasting-rules`) and [Compare the spell data sources for spellcasting](https://github.com/AndreasUnunger/EverythingPath/issues/217) (`research/pf1-spell-data`)
 
-Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218) admits each casting class's own spellcasting section, for that class only. [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232) admits the alternate racial trait and subrace rules of the *Advanced Player's Guide* and the *Advanced Race Guide*. Other Paizo books supply catalog content, not rules.
+Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218) admits each casting class's own spellcasting section, for that class only. [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232) admits the alternate racial trait and subrace rules of the *Advanced Player's Guide* and the *Advanced Race Guide*. Companion rules for in-scope classes and archetypes and the published Bestiary monster cohort equivalence rules are also admitted as described under "Companions", including the explicit witch spell-collection simplification. Other Paizo books supply catalog content, not rules.
 
 ## Principles
 
@@ -38,12 +38,14 @@ character: {
 
 // Logical loaded shape; global identities have immutable definition bodies per Catalog Release.
 // Campaign and Character definitions remain editable. Scope decides who sees an entry.
+type RuleIdentity = string;            // durable equality identity; never dereferenced for an original definition
 catalogEntry: {
   scope: 'global' | 'campaign' | 'character',
   campaignId?: Id<'campaign'>,         // campaign scope only; character-scope entries follow their Character
   characterId?: Id<'character'>,       // character scope
   name: string,
-  sourceKey?: string,                  // shared Source, see "Same Source"; absent = the entry itself
+  ruleIdentity: RuleIdentity,          // new rule = new identity; copies inherit transitively, even after edits
+  sourceKey?: string,                  // inherited shared Source; absent = ruleIdentity, never copiedFrom traversal
   stacksWithItself: boolean,           // official text says duplicates stack
   modifiers: Modifier[],               // bounded; empty is fine (a rope)
   situationalNotes?: SituationalNote[], // situational text with no number, see "Situational notes"
@@ -52,12 +54,12 @@ catalogEntry: {
   sources: Array<{ book: string; pages?: string }>, // feeds OGL Section 15
   externalKey?: string,                // global scope: `<repo>/<_id>`, finds the stable identity; pack is an ordinary field
   retired?: boolean,                   // global scope: absent from current content; hidden from pickers, kept for sheets
-  copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
-  copiedFromFingerprint?: string,     // original definition at copy time; advisory compares against its current body
+  copiedFrom?: Id<'catalogEntry'>,     // immediate copy origin, independent of transitive ruleIdentity; grants no access
+  copiedFromFingerprint?: string,     // immediate origin at copy time; compare only while viewer can access it
   unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
   prerequisites?: Prerequisite[],      // feats, traits, prestige classes, archetypes; all must hold, see "Rules checks"
-  countsAsRaces?: Id<'catalogEntry'>[] // "count as both elves and humans"; set by the Curation Overlay, see "Racial traits"
-    | { oneOf: Id<'catalogEntry'>[] }, // "count as either": the sheet entry's `choice` picks one
+  countsAsRaces?: RuleIdentity[]      // "count as both elves and humans"; equality only, no original payload needed
+    | { oneOf: RuleIdentity[] },      // "count as either": the sheet entry's `choice` picks one
   grantsSlots?: Array<{ kind: 'feat' | 'trait'; count: number;   // bonus feats (fighter, human), Additional Traits
     featTypes?: string[];              // a bonus feat must carry one of these Foundry feat types, such as 'combat'
     feats?: Id<'catalogEntry'>[];      // a bonus feat must be one of these (the half-elf's Skill Focus)
@@ -88,7 +90,7 @@ acceptedWarning: {
   characterId: Id<'character'>,
   check: string,                       // the check's key, such as 'pointBuy' or 'prerequisites.current'
   subject: string,                     // what it is about: a sheet entry id, or 'sheet'
-  fingerprint: string,                 // the facts that raised it; when they change, the warning reopens
+  fingerprint: string,                 // semantic facts; reference remapping alone never reopens the warning
   acceptedBy: string,
   acceptedAt: number,
 }
@@ -185,7 +187,7 @@ type CatalogEntryDetail =
   | { kind: 'condition' } | { kind: 'manual' };
 
 type SheetEntryState =
-  | { kind: 'classLevel'; classEntryId: Id<'catalogEntry'> | null;   // null = Unspecified Class Level
+  | { kind: 'classLevel'; classEntryId: Id<'catalogEntry'> | null;   // one chosen definition per class across its levels; null = Unspecified
       position: number;                                               // character level this row is, 1-based
       castingAdvances: Array<Id<'catalogEntry'> | null>;              // prestige levels: the class each advance goes to
       hpGained: number | null;
@@ -231,9 +233,9 @@ type SheetEntryState =
                      | 'spell' | 'spellEffect' | 'classFeature'> };
 
 type RoutineWeapon = Id<'characterSheetEntry'> | 'unarmed';         // an item entry, or the built-in unarmed strike
-type GrantKey = { source: Id<'catalogEntry'>;                        // the race, class or Archetype giving it
+type GrantKey = { source: RuleIdentity;                             // durable identity of the race, class or Archetype giving it
   classLevel?: number;                                                // level within the class; class and Archetype features
-  entry: Id<'catalogEntry'> };                                        // the granted entry; a Catalog Copy counts as its original in both
+  entry: RuleIdentity };                                             // granted rule's identity; neither field reads copiedFrom
 type ItemEnchantment = { masterwork: boolean; enhancement: number; abilities: ItemAbilityRef[] };
 type ItemAbilityRef = { id: Id<'catalogEntry'>; choice: string | null }; // choice: bane's designated foe
 type MaterialKey = 'adamantine' | 'mithral' | 'darkwood' | 'dragonhide' | 'coldIron' | 'alchemicalSilver';
@@ -241,12 +243,15 @@ type MaterialKey = 'adamantine' | 'mithral' | 'darkwood' | 'dragonhide' | 'coldI
 
 ## Class Levels and Hit Dice
 
+Companion Progression and Hit Dice follow the contract under "Companions"; the general class-and-race rules below apply except where companion rules replace them.
+
 - A Character's level is the number of its Class Levels. It is never stored. Zero is allowed: a PC at level 0 shows an advisory warning.
-- A new Character starts with one Unspecified Class Level. An Unspecified Class Level adds Hit Dice and nothing else.
+- A new Character normally starts with one Unspecified Class Level. Creating a Companion whose rules supply non-class Hit Dice does not add an invented Class Level; linking an existing Character preserves its actual Class Levels. An Unspecified Class Level adds Hit Dice and nothing else.
 - The level within a class is the count of earlier Class Levels of that class. Every field of every Class Level can be edited at any time. That includes its class, its position (a level can move), and deleting it from the middle, in which case later positions close up. The order is the build as recorded, not proof of history (see "Prerequisites").
+- All Class Levels of one class use one chosen Catalog Entry definition, with copies grouped by their durable rule identity. A new level continues that chosen version. Choosing another copy explicitly switches every Class Level of that class together, preserving row IDs, order, HP, skill ranks, choices and casting-advance links; Grants follow the existing dormancy and restoration rules. The original-versus-Unchained policy remains separate and unchanged. See "Campaign homebrew moving with a Character".
 - The ability increase and favored class bonus fields exist on every Class Level. A favored class bonus on a level of a class that isn't favored shows a warning. So does an increase on a Class Level where neither its character level nor its Hit Dice count is 4, 8, 12, 16 or 20 (see "Racial Hit Dice").
 - `hpGained` holds the recorded number. The builder takes it as a plain number and never pre-fills it: there is no roll, average or maximum button ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)).
-- **Hit Dice** = Class Levels + racial Hit Dice. They are computed and never recorded. The militia's roster Hit Dice override stays as the militia's own ruling.
+- **Hit Dice** = Class Levels + racial Hit Dice for a Character without Companion Progression. Companion Progression supplies actual Hit Dice according to its own rules, replacing baseline Hit Dice where prescribed rather than counting both (see "Companions"). Totals are computed and never recorded. The militia reads actual Hit Dice; its roster Hit Dice override, including zero, stays as the militia's own ruling.
 
 ## Grants and dormant entries
 
@@ -258,7 +263,7 @@ Decided by [Decide how granted entries survive edits and replacement](https://gi
 - **Grants are calculated.**
   - They are worked out each time from the race, Class Levels, Archetypes and alternate Racial Traits, like Granted Spells and Proficiencies. A Catalog Release change to a source reaches every sheet without rewriting rows.
   - Each Grant has a stable Grant Key: its source, the level within the class for class and Archetype features, and the granted entry. A row is stored for a Grant only when the player records state on it or keeps it, keyed by `grantKey`. References to a Grant, such as a feat slot's `grantedBy`, use the Grant Key.
-  - A Catalog Copy counts as its original in a Grant Key, as the source and as the granted entry. So "Customize for campaign", detaching a race and detaching a granted feature keep recorded state.
+  - A Catalog Copy counts as its original in a Grant Key, as the source and as the granted entry, using its stored durable rule identity without reading the original definition or traversing `copiedFrom`. So "Customize for campaign", detaching a race and detaching a granted feature keep recorded state.
   - Changing a Class Level between an original class and its Unchained Class matches features and prompts by name, ignoring "(UC)" (see "Unchained Classes"). Features with no match go dormant.
   - Each source gives its own Grant with its own state: Evasion from rogue 2 and from monk 2 are two Grants. Same-Source stacking stops them counting twice, and the sheet may show them as one line. Removing one source leaves the other's Grant untouched. A Selection that duplicates a Grant stays a separate entry, under the same rule and the duplicate feat warning.
   - A Grant can't be deleted, because it would be worked out again. Turning it off is the way to switch it off.
@@ -283,7 +288,7 @@ Decided by [Decide how granted entries survive edits and replacement](https://gi
 
 Decided by [Decide how a Character Sheet models racial Hit Dice beyond the count](https://github.com/AndreasUnunger/EverythingPath/issues/222).
 
-- **Rules sources.** No FAQ or errata covers how racial Hit Dice meet level-keyed rules. The CRB, the CRB FAQ and Paizo's own stat blocks decide what they can. The Bestiary is not admitted as a rules source: its creature-type table arrives only as catalog content. Its rules for adding racial Hit Dice and for Monsters as PCs (CR counted as class levels) are not modelled, and a Monster PC's level-equivalence is the GM's call.
+- **Rules sources.** No FAQ or errata covers how racial Hit Dice meet level-keyed rules. The CRB, the CRB FAQ and Paizo's own stat blocks decide what they can. The Bestiary's creature-type table arrives as catalog content; its monster cohort equivalence rules are narrowly admitted under "Companions". Its general rules for adding racial Hit Dice and for Monsters as PCs (CR counted as class levels) remain out of scope, and a Monster PC's level-equivalence is the GM's call.
 - **On the race.** The race fixes the count, so `racialHitDice` and `racialProgression` live on the race entry, in the class detail's vocabulary. Foundry race records carry no count, so every imported race has 0. A race with racial Hit Dice is a campaign or character Catalog Copy, with the count and progression set by hand.
 - **Seeding.** Choosing a creature type fills `racialProgression` from the creature-type seed table (see "Global catalog import"). Every seeded field stays editable, because type features hold "unless otherwise noted" and humanoid and outsider good saves vary.
 - **Choices on the sheet.** The race sheet entry records `racialHpGained`, one plain number for all racial Hit Dice, never pre-filled. It gets no favored class bonus and no maximized first Hit Die (CRB FAQ). It also records `racialSkillRanks`. Feats from racial Hit Dice are ordinary feat entries.
@@ -292,7 +297,7 @@ Decided by [Decide how a Character Sheet models racial Hit Dice beyond the count
 
   | Rule | Reads | Basis |
   |---|---|---|
-  | Character level: prerequisites such as Leadership, "1/2 your character level", the militia, the level-0 warning | Class Levels only | CRB definition; Paizo keeps character level and Hit Dice apart (familiar rule, monster DCs by Hit Dice) |
+  | Character level: prerequisites such as Leadership, "1/2 your character level", the level-0 warning | Class Levels only | CRB definition; Paizo keeps character level and Hit Dice apart (familiar rule, monster DCs by Hit Dice) |
   | Feat count | Hit Dice | CRB "based off their Hit Dice"; Monster Codex stat blocks |
   | Maximum ranks per skill | Hit Dice | CRB "your total number of Hit Dice" |
   | BAB | per source, summed | CRB FAQ (Monk): racial Hit Dice BAB "adds normally" |
@@ -595,8 +600,8 @@ Modifiers are grouped by (leaf target, bonus type).
 
 **Same Source.**
 
-- A Modifier's Source is its Catalog Entry's `sourceKey`, or the entry itself when the key is absent.
-- Entries share a key only where official text makes them one effect: *haste*, *boots of speed* and the *speed* property share `haste`, and a spell-like ability shares the key of the spell it names. Where the rules are silent, entries stay separate, and bonus type decides.
+- A Modifier's Source is its Catalog Entry's `sourceKey`, or its stored `ruleIdentity` when the key is absent. A Catalog Copy retains its original's effective Source even after edits, without reading an original definition; a distinct Catalog Entry represents a distinct rule.
+- Distinct rules share a key only where official text makes them one effect: *haste*, *boots of speed* and the *speed* property share `haste`, and a spell-like ability shares the key of the spell it names. Where the rules are silent, distinct rules stay separate, and bonus type decides.
 - Among active entries of one Source, per target, only the entry with the largest net contribution applies. The others are listed as suppressed by it.
 - `stacksWithItself` lifts this rule for text that says duplicates stack, such as sneak attack, trap sense, and the myrmidarch's "as the fighter ability".
 - Within one entry, two Modifiers of the same type and target don't stack. Only Modifiers that apply count, so two Situations of one entry never suppress each other. The rule fits the dataset: a note that raises an entry's bonus in a Situation usually gives the new total ("increases to +4"), and one bonus against several Situations (dwarf *hardy*) never counts twice.
@@ -612,7 +617,7 @@ The resolver reports `applied` and `suppressed` for every statistic, and the she
 
 ## Resolution stages
 
-Each stage groups and stacks. There is no priority field.
+Each stage groups and stacks. There is no priority field. These stages describe the ordinary single-sheet calculation. Companion Progression and Combined Forms follow their rule-specific inputs and operation order under "Companions"; ordinary per-Hit-Die formulas do not override explicit companion tables or allocated component budgets.
 
 1. **Ability scores:**
    - the base scores;
@@ -916,6 +921,8 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 
 ### The checks
 
+The class-and-race formulas below describe ordinary advancement. Companion checks use their own progression tables and allocation rules under "Companions", including any separately allocated BAB, saves, feats or skill ranks. A missing calculation input is visible and unresolved; the policy for uncheckable prerequisite clauses does not hide a missing statistic.
+
 | Check | Reads | Data from |
 |---|---|---|
 | **Level 0:** a PC with no Class Levels | Class Levels | sheet |
@@ -924,7 +931,7 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Ability increase:** at a Class Level where neither the character level nor the Hit Dice count is 4, 8, 12, 16 or 20; a prompt where one is due | Class Levels, racial Hit Dice | sheet |
 | **Skill rank budget:** per Class Level, max(1, ranks per level + Int modifier) + each active Racial Trait's `bonusSkillRanksPerLevel` + 1 for a skill-rank favored class bonus; racial skill ranks get `skillRanksPerHitDie` + Int, at least 1, per racial Hit Die; over budget warns | the archetype's or class's ranks per level; current permanent Int | class, archetype, racial trait |
 | **Rank cap:** at each Class Level position, a skill's ranks so far exceed racial Hit Dice + position; racial skill ranks are capped by racial Hit Dice | ranks per Class Level | sheet |
-| **Feat slots:** feats over or under 1 + one per odd Hit Die, plus `grantsSlots` | Hit Dice, active entries | Curation Overlay (`grantsSlots`) |
+| **Feat slots:** feats over or under one at the first Hit Die and one at each later odd Hit Die, plus `grantsSlots` | Hit Dice, active entries | Curation Overlay (`grantsSlots`) |
 | **Bonus feat type:** a feat in a bonus slot whose `featTypes` miss the slot's | feat `slot` | Foundry feat types |
 | **Prerequisites at recorded level** (`prerequisites.recordedLevel`): a feat checked against the recorded build up to its `gainedAtClassLevel` and `choiceOrder`, with current facts; a prestige class before any benefit of its first level; skipped without a usable Class Level link | recorded build up to the position | parsed `prerequisites` |
 | **Prerequisites now:** the same clauses against the current sheet ("can't be used while unmet"). Both prerequisite checks skip a feat in a slot with `ignoresPrerequisites` | current sheet | parsed `prerequisites` |
@@ -967,20 +974,21 @@ type Prerequisite =
   | { anyOf: Prerequisite[] }                                      // "or" clauses
   | { ability: AbilityKey; min: number } | { bab: number }
   | { skillRanks: SkillKey; min: number }
-  | { feat: Id<'catalogEntry'>; choice?: string }                  // `@UUID` first, then exact name
-  | { classFeature: string }                                       // by name, ignoring `(UC)`
-  | { racialTrait: string }                                        // "hardy racial trait": by name, ignoring a "(Race)" suffix
-  | { classLevel: Id<'catalogEntry'>; min: number } | { characterLevel: number }
-  | { race: Id<'catalogEntry'>[] } | { alignment: Alignment[] } | { deity: string }
+  | { feat: RuleIdentity; choice?: string }                       // resolve `@UUID` first, then exact name
+  | { classFeature: RuleIdentity }                                // resolve by name, ignoring `(UC)`
+  | { racialTrait: RuleIdentity }                                 // resolve by name, ignoring a "(Race)" suffix
+  | { classLevel: RuleIdentity; min: number } | { characterLevel: number }
+  | { race: RuleIdentity[] } | { alignment: Alignment[] } | { deity: string }
   | { casterLevel: number }                                        // the highest caster level among the Spellcastings
   | { canCast: { spellLevel: number; kind?: 'arcane' | 'divine' | 'psychic' } } // "able to cast 3rd-level arcane spells"
-  | { castsSpell: Id<'catalogEntry'> }                             // "able to cast dimension door"
+  | { castsSpell: RuleIdentity }                                  // "able to cast dimension door"
   | { proficiency: ProficiencyGrant }                              // "Martial Weapon Proficiency"; { choice: true } = "proficiency with selected weapon"
   | { unchecked: string };                                         // parsed but unmodelled, or unparsed: shows nothing
 ```
 
 Clauses follow the CRB FAQ:
 - Numeric clauses are inclusive.
+- Catalog equality clauses retain the named rule's durable identity and already-held display facts. A Catalog Copy meets clauses naming its original even after editing; matching never loads an inaccessible original definition. The name-resolution rules above select identities when a clause is authored or imported, rather than rematching copies by their edited names.
 - A feat clause needs only the feat, not that feat's own prerequisites.
 - A class feature replaced by an Archetype doesn't count. Nor does a Racial Trait replaced by an alternate.
 - A `race` clause is met by the Character's race or by any active entry's `countsAsRaces`.
@@ -1019,13 +1027,15 @@ An entry is a Temporary Effect according to its kind:
 | `item` with `consumable: true` | |
 | `abilityDamage` | `abilityDrain` |
 
-The derived sheet applies every active entry to every statistic, HP included. Hit points from a temporary Con bonus are not temporary hit points. Three calculations count permanent entries only:
+The derived sheet applies every active entry to every statistic, HP included. Hit points from a temporary Con bonus are not temporary hit points. For ordinary single-sheet calculations, three calculations count permanent entries only:
 
 - Militia Character Facts;
 - the skill-rank budget;
 - bonus spells.
 
 This narrows "running spells" in [Decide what the militia reads from a Character Sheet, and when](https://github.com/AndreasUnunger/EverythingPath/issues/205) to Spell Effects lasting a day or less, which is the official 24-hour rule. A recorded `spell` grants no Modifiers, so it never affects these.
+
+Permanent-only filtering follows every linked dependency: a temporary effect on an associated Character cannot enter Militia Character Facts through a Companion's derived value. Current sheet calculations still use the rule-specific inputs described under "Companions"; filtering changes which effects contribute, not which statistic a rule reads.
 
 ## Two presentations
 
@@ -1054,7 +1064,7 @@ Decided in [Decide how Characters exist outside a campaign, and the app's home](
   - "Add to a campaign" offers the active organization's campaigns.
 - **Leaving a campaign.** The owner can take a Character out, back to no campaign or into another accessible campaign. Every actual departure, including automatic departures below, applies these changes together:
   - It takes the Character off the militia roster, out of its officer roles and out of team management. This is recorded as a Militia Correction with an automatic reason, and Staged Action Choices it affects must be reviewed before Confirmation.
-  - It detaches campaign homebrew while preserving the Character Sheet. Copying, remapping and dependency mechanics remain with [Decide how campaign homebrew moves with a Character](https://github.com/AndreasUnunger/EverythingPath/issues/244).
+  - It detaches campaign homebrew while preserving the Character Sheet, under the contract in "Campaign homebrew moving with a Character" ([decision](https://github.com/AndreasUnunger/EverythingPath/issues/244)).
   - A Militia-only Character becomes Full.
 - **Losing organization access.** If the owner's account survives, all their Characters in that organization's campaigns automatically return to no campaign. No action by the departed owner is required. Revoked campaign access is enforced even while preservation cleanup retries; backend completion must not require the departed user's access.
 - **Deleting an account.** Its owned Characters in campaigns stay there, editable by the remaining members, and visibly need an owner. Any current member can claim them or assign them to another current member under the same reassignment rules. Its owned Characters outside campaigns are deleted. `ownerId` is absent for the retained Characters until reassignment.
@@ -1075,6 +1085,62 @@ Decided in [Decide how Characters exist outside a campaign, and the app's home](
   - Characters & officers (Militia-only);
   - **Add to campaign** on a sheet in no campaign.
 
+## Companions
+
+Identity and lifecycle are decided by [Decide how companions fit the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/246). Progression and cross-sheet behavior are decided by [Decide companion progression and cross-sheet calculations](https://github.com/AndreasUnunger/EverythingPath/issues/249), informed by [companion rules and catalog coverage](https://github.com/AndreasUnunger/EverythingPath/issues/247) and [progression and combined-form research](https://github.com/AndreasUnunger/EverythingPath/issues/248). This section is the behavior contract; detailed table shapes and resolver interfaces remain implementation work.
+
+### Coverage and identity
+
+- Launch calculates build-time statistics for animal companions, familiars, cohorts, eidolons and unchained eidolons, including the companion-specific mechanics of in-scope classes and archetypes and their distinct progression or allocation models. Admit their companion rules as needed without adopting unrelated systems from those books. Inputs stay editable and rules checks advisory.
+- Each Companion is a Character with its own Character Sheet. Linking an existing Character reuses its identity and recorded choices. Its Character Owner follows the existing rules, initially its creator, and may differ from the associated Character's owner; campaign members retain shared editing.
+- Companions appear in the Characters area with their relationship identified and links between the two sheets. The relationship never grants access: do not expose an inaccessible endpoint's name, details or sheet link.
+- Keep one unchanged witch spell collection on the witch's sheet. Familiar replacement neither resets it nor splits it into separate familiar collections. This is a deliberate simplification of the companion rules, not permission to delete or reinitialize recorded spells.
+
+### Progression and cross-sheet foundations
+
+- **Companion Progression.** A distinct advancement model supplies actual Hit Dice and progression benefits without inventing Class Levels or broadening fixed Racial Hit Dice into an advancing model. Each rule determines whether progression replaces the creature's baseline Hit Dice; never count the same Hit Dice twice. A familiar's effective Hit Dice remain distinct from its actual Hit Dice.
+- **Shared budgets and choices.** Shared advancement budgets and allocations belong to the associated Character's granting features, with each contributing source identified. Species, feats, skill ranks and individual evolutions remain choices on the Companion's sheet; group purchases belong with the shared budget. Dividing effective levels and dividing separate component budgets are distinct operations, as prescribed by each rule.
+- **Combined Forms.** A Synthesist's fused statistics appear as a calculated view on the summoner's sheet, linked to the eidolon's build. Preserve separate-form choices and show separate-form results where the rules provide them. Viewing a form neither declares it currently active nor tracks damage, summoning or duration.
+- **Familiar hit points.** Half the associated Character's total hit points means half their calculated maximum HP, rounded down and excluding temporary HP. Ordinary HP gained from a temporary Constitution bonus contributes to the current sheet calculation. Existing plain-number HP inputs remain unchanged.
+- **Monster cohorts.** Admit the published Bestiary monster cohort equivalence rules and the creature inputs needed to use them. Keep Cohort Equivalence, actual Hit Dice and Class Levels separate; use published mappings where available and an explicitly entered equivalence for an unlisted creature. This does not admit the Monsters as PCs subsystem.
+
+### Calculation inputs and conflicting rules
+
+- **Read the named statistic.** Each companion rule identifies its inputs and operation order. Actual Hit Dice, effective progression level, Class Levels, class-derived BAB and base saves, recorded skill ranks, calculated maximum HP and Combined Form outputs are distinct values. A rule borrowing BAB does not import the associated Character's whole sheet or every attack modifier; likewise, borrowing ranks does not borrow a finished skill total. Read only the components its text supplies.
+- **Progression exceptions.** Explicit companion rules override ordinary per-Hit-Die BAB, save, feat and skill-budget derivations. In particular, separately allocated component budgets, such as a Broodmaster's, cannot be reconstructed by applying ordinary formulas to each creature's allocated Hit Dice. Apply replacements, additions, comparisons, caps and rounding in each statistic's prescribed order, without a universal replacement or stacking sequence.
+- **Synthesist examples.** Fused BAB replaces only the BAB from summoner Class Levels, retaining BAB from other sources, and evolution effects use the eidolon's Hit Dice ([official FAQ](https://paizo.com/paizo/faq/v5748nruor1fz#v5748eaic9obc)). The Skilled evolution benefits the Synthesist, while a mental Ability Increase to the eidolon does not increase the summoner's mental score ([official FAQ](https://paizo.com/paizo/faq/v5748nruor1fz#v5748eaic9obb)). These specific rules do not justify importing the eidolon's entire statistics or a blanket compatibility ruling for the unchained summoner.
+- **Current and permanent calculations.** Current sheet statistics use applicable current inputs. Militia Character Facts use the ordinary form and exclude Temporary Effects at every step across linked Characters. The existing retroactive permanent-Int policy remains wherever a skill budget uses Intelligence; it does not invent an Intelligence contribution to a rule-defined fixed or allocated budget. HP inputs remain plain recorded numbers, without automatic rolls, averages, maximization or prefilling.
+- **Competing rules.** Apply published precedence automatically. Where applicable rules prescribe incompatible calculations without precedence, let the player choose and save the interpretation or an explicit fallback for the affected value, while retaining compatible contributions. Never choose by newest entry or discard unrelated contributions. Until the choice or fallback supplies the missing answer, that value is visibly unresolved.
+- **Shrinking budgets and source loss.** Preserve recorded allocations and recalculate from those choices when a shared budget shrinks. An over-budget allocation raises an advisory warning; never trim or redistribute it automatically. Choices exclusively dependent on a vanished Grant follow the existing dormancy and Keep rules. Remove only the lost source's contribution, preserve surviving contributions and choices, and treat truly unavailable inputs as unresolved rather than inventing replacement statistics. Losing one source does not interrupt a relationship that still has rules support.
+
+### Required catalog support
+
+- Catalog definitions and curated resources must carry the source rules, progression tables, species inputs, eidolon subtypes, version-specific evolutions, familiar base-creature inputs and admitted monster cohort mappings needed by the supported builds. Keep original and unchained rules distinct where their mechanics differ. Imported templates or prose alone do not establish working automation.
+- Missing rules structures and calculation inputs must be visible as unresolved values, with the saved fallback behavior below. A fallback keeps the sheet usable but does not satisfy the promised rules coverage: missing curated structures remain required work. Do not silently freeze a previous result, substitute zero or claim a build is calculated from an imported description alone.
+- Existing Attribution Assessments, holds and retained-exception treatment apply to all companion definitions and resources. Admission of companion rules neither bypasses the notice gate nor turns retained held content into permission for new selections or Grants.
+
+### Relationships and restoration
+
+- A Companion has at most one active associated Character. An associated Character may have multiple Companions, and multiple granting features may contribute according to the rules. Former relationships remain inactive.
+- A relationship can be active only when both Characters share a campaign, or both are private with the same Character Owner. Moving apart or losing the rules support for the relationship makes it inactive while preserving the Companion's sheet and choices. Losing one contributing source alone preserves surviving contributions and does not interrupt a still-supported relationship. Replacing a Companion also retains the former relationship and sheet.
+- Automatically resume an interrupted relationship when its rules support or compatible campaign/private arrangement returns. An explicitly replaced relationship requires player reselection; restoration never displaces a newer relationship.
+- Block self-links and active relationship cycles as data-integrity errors, while retaining inactive history. Automatic restoration that would create a cycle stays inactive instead of evicting another relationship.
+
+### Movement and publication
+
+- Moving a Character includes its active Companions with the same Character Owner, recursively: a Character, its cohort and that cohort's familiar move together if those conditions hold throughout. Stop at inactive links or different owners. Moving a Companion alone does not pull its associated Character along. A differently owned Companion may stay behind, with the separated relationship retained inactive.
+- Apply the existing departure, homebrew-preservation and publication contract to the whole moving group. Prepare and publish every included Character's campaign transition, preserved sheet, relationship changes and departure effects together; no partial group move may become visible. Revalidate current owners, links, access and inputs at publication, reconciling concurrent changes instead of overwriting them.
+- These are implementation requirements derived from grouped movement, not new departure authority. Existing automatic access revocation, deletion and recovery policies still apply. Recalculate affected Militia Character Facts coherently with the change; only changed facts invalidate their prior review, alongside the existing roster/departure review rules. Frozen Resolution Records remain unchanged.
+
+### Interrupted calculation and militia participation
+
+- When a relationship becomes inactive, apply any explicit rules for the remaining statistics. Where those rules are silent, associated-Character-dependent values are unresolved until explicitly adjusted; preserve independent statistics and all choices. Never silently freeze prior totals or substitute zero.
+- An explicit fallback contributes while normal calculation is unavailable. Once calculation resumes, the fallback stops contributing automatically but stays saved for another interruption. Deliberate lasting changes use ordinary sheet adjustments separately.
+- Militia participation is opt-in under the existing roster and officer rules. Creating a Companion does not add it to the roster or assign an officer role.
+- Militia Character Facts read each Character's ordinary permanent statistics. Viewing a Synthesist's fused form never changes the summoner's or eidolon's militia contribution; deliberate table rulings use the existing adjustments. Permanent-only filtering applies transitively to linked dependencies.
+- The militia reads actual Hit Dice, including Companion Progression where applicable, never a familiar's effective-HD substitution, an effective progression level or Cohort Equivalence. The roster Hit Dice override still replaces that value, including an override of zero. Applying actual Hit Dice to a familiar serving as an Officer is the product's chosen reading; the militia corpus does not definitively resolve that interaction.
+- An unresolved value actually required to calculate the militia week must be supplied before Weekly Confirmation. Keep the Companion on the roster and allow editing; unrelated unresolved statistics do not block confirmation. Do not omit a required contribution, use zero or reuse stale values.
+
 ## Catalog scopes
 
 - **Global:** the imported catalog, read-only for players. See "Global catalog import".
@@ -1083,9 +1149,36 @@ Decided in [Decide how Characters exist outside a campaign, and the app's home](
 
 Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry. "Customize for campaign" clones a global entry into campaign scope, repoints every sheet entry in that campaign, and makes the picker show the copy in place of the original for that campaign. A Grant keeps its Grant Key through either clone, so its recorded state stays (see "Grants and dormant entries").
 
-Both clones record `copiedFrom` and the original definition's fingerprint. A copy's own fields never follow later changes to its original. Its retained references to global Catalog Entries follow the active Catalog Release: a copied magic weapon can still change when its global Base Item or Item Ability changes. Copying does not recursively freeze its dependencies, and references to local entries keep their existing behavior.
+Both clones record their immediate origin as `copiedFrom` and that definition's fingerprint at copy time, separately from the durable transitive `ruleIdentity` and effective Source they inherit. A copy's own fields never follow later changes to its original. Its retained references to global Catalog Entries follow the active Catalog Release: a copied magic weapon can still change when its global Base Item or Item Ability changes. These editing actions do not recursively freeze dependencies, and references to local entries keep their existing behavior; campaign departure preserves campaign dependencies as described below.
 
-The upstream-change advisory compares the active original's definition fingerprint with the one recorded at copy time. An unrelated release does not warn. `copiedFrom` alone is provenance, not a calculation dependency; retained references are calculation dependencies. Campaign-departure copying and access rules remain with [Decide how campaign homebrew moves with a Character](https://github.com/AndreasUnunger/EverythingPath/issues/244).
+The upstream-change advisory compares the immediate origin's current definition fingerprint with the one recorded at copy time, only while the viewer can access that origin. An unrelated release does not warn. Neither provenance nor equality identity requires the original's current definition; references used to compute, grant or offer content are definition dependencies.
+
+### Campaign homebrew moving with a Character
+
+Decided by [Decide how campaign homebrew moves with a Character](https://github.com/AndreasUnunger/EverythingPath/issues/244). This supplies the homebrew preservation mechanics for "Ownership and campaigns" and amends the retained-exception copying restriction under "Global catalog import"; ownership, departure authority and deletion policy remain unchanged.
+
+- **Departure scope.** Campaign homebrew needed by the Character is copied into character scope. A carried homebrew class preserves its complete progression, future features, available talent choices and full spell list, including options never selected, together with their campaign dependencies. Unrelated campaign content stays behind. References to global Catalog Entries keep following the active Catalog Release; attribution holds still limit which content can be selected or granted.
+- **Arrival and return.** Joining another campaign or returning to the original campaign keeps carried definitions until someone explicitly replaces them, even when that campaign has a different version. The destination's catalog preferences apply to future selections; joining alone never replaces existing choices or adds a militia roster assignment.
+- **One class version.** All Class Levels of one class use one chosen definition. Adding another level continues it, regardless of the destination's catalog preference. Selecting a different copy is an explicit switch of the whole class, preserving all Class Level row IDs, order, HP, skill ranks, choices, favored-class state and casting-advance links. Matching Grants retain their state; removed Grants and displaced choices go dormant, and switching back restores them under "Grants and dormant entries". A switch may change calculated results because the chosen definition changes. The existing original-versus-Unchained policy is unchanged and is not the policy for Catalog Copies.
+- **Rule identity.** A Catalog Copy retains the original rule identity for prerequisites, Grant Keys and same-Source stacking through edits. Creating a distinct Catalog Entry represents a distinct rule. Different copies keep their own definitions and saved state; sharing rule identity does not merge them. Durable identity and effective Source are retained directly, without privileged traversal of original definitions. Immediate copy provenance and its copy-time fingerprint are separate and never confer access.
+- **Original-change advisories.** Check for changes only when the person viewing the Character Sheet can access the immediate origin. Without access, reveal no information about later changes. If access returns, compare its current definition with the definition recorded at copy time. Never update the copy automatically.
+- **Held content.** A necessary departure copy or reference remapping may preserve the same Character's already-retained use of attribution-held content. It carries the hold, retained-exception reporting and notice requirements with it. This grants no new selection or Grant entitlement, admits no held revision and does not make future features or options available while held; the complete future homebrew repertoire remains subject to those holds. The exception permits lifecycle preservation only, not ordinary new copies.
+
+**Dependency and identity invariants.**
+
+- Start from all retained Character state, not only currently active entries: active, off, kept and dormant entries, orphaned Spells, saved Grant state, slots and Accepted Warnings, Class Levels, casting, Attack Routines and item magic state. Also include that Character's existing character-scoped definitions, so unused local customizations remain theirs. Preserve the Character ID, sheet and Class Level row IDs, their ordering and state links. A move neither repairs pre-existing broken Class Level links nor turns Grants into new Selections.
+- Follow definition dependencies transitively, including catalog IDs and key-based joins. Include full class progression, future prompt options and whole-class spell lists even when they have no sheet rows, granted-spell lists, Base Items, Item Abilities, Archetype replacements and Racial Traits. Campaign members of a required keyed list remain dependencies even when the class definition is global. A reference used to compute, grant or offer content is a definition dependency regardless of how it is encoded.
+- Copy required campaign definitions; reuse global identities, which continue following the active Catalog Release. Reuse existing character-scoped definitions only when they belong to this Character, remapping campaign dependencies inside them without overwriting their custom fields. Do not traverse `copiedFrom` or identity-only prerequisite and equality links as content dependencies: preserve their durable equality identity and already-held display facts without loading an inaccessible original payload.
+- Deduplicate only repeated references to the same source definition within the move. Preserve divergent copies and existing customized character copies separately; a shared ancestor, rule identity or name does not justify coalescing definitions. Allocate the mapping before following dependent edges so cycles terminate and shared dependencies get one destination definition.
+- Apply one consistent mapping to typed catalog references and scoped class, list and formula keys, including Grant definition sources, Archetype and Racial Trait replacement targets, and slot links. Durable identities inside Grant Keys remain unchanged. Keep casting-advance and recorded-Spell links attached to the chosen class definition, and sheet-to-sheet links attached to the same rows. Preserve each copy's effective Source and canonical rule identity; remapping must never require access to its ancestors.
+- Copying and remapping alone change no totals, Grants, stacking, prerequisite results, saved state or Accepted Warning acceptance. Warning fingerprints use semantic facts and durable identities, so new storage references do not reopen them. Independent edits, an explicit class-version switch or a Catalog Release can change underlying facts and use the ordinary recalculation and warning rules.
+
+**Preparation and publication.**
+
+- Prepare privately in bounded, resumable work. Staged copies and remaps never appear in pickers or partially redirect the live sheet. Preserve source definitions and dependencies until detachment or retained recovery finishes safely. Retrying the same move reuses its work and creates no duplicate definitions, rows or departure effects; after a lost response, inspect the committed operation before retrying.
+- Track the inputs used for preparation, including the sheet, all source campaign and character definitions, ownership, authoritative account and membership state, relationships and the active Catalog Release. Relevant writes mark pending work dirty under the protocol in "Catalog releases". A move also participates in any pending release's dirty-work tracking. Reconcile intervening edits or release changes against current state; never restore a prepared snapshot over later player changes.
+- At the final bounded transaction, verify current authority, destination access for a requested move, current input revisions and the active release, and that all preparation and reconciliation is complete. Publish the complete sheet-reference selection, campaign transition, Militia-only-to-Full change, departure Militia Correction, roster/officer/team-manager removals and affected Staged Action Choice review flags together. Staged data selected through pointers may keep this bounded, but every reader and writer must observe one complete selection. Militia Character Facts and any release work stay consistent with that same publication boundary.
+- A failed voluntary move leaves the pre-move sheet, roster and campaign relationship unchanged. Automatic access loss revokes access immediately while preservation work retries; trusted system completion does not require the departed user's credentials. Recheck current ownership and authoritative lifecycle state before publishing, so stale work cannot undo reassignment, membership changes or account-deletion policy. Frozen Resolution Records, including superseded records, remain unchanged, and the existing deletion and ownerless-recovery rules still apply.
 
 ## Global catalog import
 
@@ -1159,7 +1252,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Every release.** The attribution check runs on every Catalog Release, local corrections, notice-only releases and rollbacks included, not only on a pin bump. An assessment is reused while its content, identity mapping, evidence and notices are unchanged, and reopens when any of them changes, whether through upstream, the Curation Overlay, the local dataset or the importer. A correction to shared evidence or a notice rechecks every assessment relying on it. New or changed content without valid evidence is held.
 - **Retained exceptions.** When an earlier assessment proves wrong, the affected content stops being offered for new selection, but existing Character Sheets keep their usable definitions, references, choices and edits, and existing Catalog Copies stay intact. Copied fields are never overwritten to repair attribution, and retiring or hiding an entry doesn't make what it still serves covered.
   - Each such definition, retired and copied content included, is a retained exception in the release report until review corrects its evidence or notices. Restoring selection takes a checked Catalog Release.
-  - Retention covers existing uses only: no new selection, copy or grant. A held revision never replaces the definition kept for existing sheets.
+  - Retention covers existing uses only: no new selection, copy or grant, except necessary lifecycle copies and remapping that preserve the same Character's already-retained use on departure ("Campaign homebrew moving with a Character", [decision](https://github.com/AndreasUnunger/EverythingPath/issues/244)). Those copies retain their hold, reporting and notice requirements; they confer no new selection or Grant entitlement. A held revision never replaces the definition kept for existing sheets, and future homebrew features and options remain subject to holds.
   - A release may publish with retained exceptions, but its completeness claim covers only content with accepted assessments and required notices, and names the exceptions as excluded. Nothing on a sheet and no Resolution Record is deleted automatically.
 - **Sources.** `sources` serve the licence only. An entry shows its source where it has one, there is no book filtering, and unsourced records stay unsourced.
 - **Notice review.** Before launch, every book the admitted launch set requires has a registry record and every disagreement between seed sources is settled against the book. The known errors are fixed: *Ultimate Combat*'s authors and AoN's *Occult Mysteries* block. The free-PDF gaps and the owner's copies of *Goblins of Golarion*, *Faiths of Purity* and *Bestiary 6* are transcribed. All other records ship checked against `prd`, `aon` or `pf1-content`, and printed checks continue after launch, most-cited first.
@@ -1285,6 +1378,18 @@ Ownership and access-change handoff checks must demonstrate:
 - failed detachment or recovery retains source data and dependencies, retrying does not duplicate Characters or departure effects, and a normal private Character cannot be ownerless;
 - departure and deletion preserve all frozen and superseded Resolution Records; current surviving-organization members can read but not edit deleted-campaign history, deleted-organization history is inaccessible to users, and historical references cannot open a private sheet.
 
+Homebrew-departure handoff checks must demonstrate:
+
+- complete dependency closure through future class features, prompt options and whole-class spell lists without sheet rows, Base Items, Item Abilities and replacement rules, including cycles and shared dependencies; unrelated campaign definitions stay behind;
+- off, kept and dormant entries, orphaned Spells, saved Grants, slots and Accepted Warnings survive with their links, and dormant entries restore with their saved state when their source returns;
+- remapping preserves totals, stacking, prerequisites and warning acceptance, including edited copies sharing rule identity; global references stay live, existing character customizations survive, and equality-only references need no inaccessible original payload;
+- original-change advisories reveal nothing without the viewer's original access, and restored access resumes comparison with the copy-time fingerprint without updating the copy;
+- repeated A-to-B-to-A moves keep carried versions and identities without accumulating duplicate copies or roster assignments; divergent definitions are not merged by name or ancestry;
+- a new Class Level continues the chosen version; an explicit class-wide switch updates every level while preserving row IDs, order, HP, skill ranks, choices and casting links, with Grant dormancy/restoration and the existing Unchained policy intact;
+- lifecycle copies of already-retained held uses preserve holds, reporting and notice obligations, while new selections, new Grants, ordinary copies and held revisions remain unavailable;
+- failed preparation, failed publication, a lost response and retries produce no partial sheet or duplicated departure effects; voluntary failure leaves the prior relationship and roster intact;
+- sheet/local-definition edits, Catalog Release activation, ownership reassignment, membership loss and account deletion during a move are reconciled against authoritative state, with immediate access revocation where required, no stale overwrite, complete publication, retained source dependencies and unchanged frozen history.
+
 Catalog-release handoff checks must demonstrate:
 
 - an overlay-only input change needs a manual release bump; changed inputs or output under an existing number fail, and unrelated application changes do not import;
@@ -1292,7 +1397,7 @@ Catalog-release handoff checks must demonstrate:
 - concurrent edits, newly added dependencies and campaign moves appear in candidate facts without freezing gameplay or losing intervening militia changes;
 - indirect users, including Catalog Copies with global references, update while unrelated Characters and unchanged facts leave militia reviews untouched;
 - notice-only releases leave facts and reviews unchanged, while changed facts make affected reviews stale at publication;
-- copies keep their own fields, follow retained global references and warn only when the original definition differs from its copied fingerprint;
+- copies keep their own fields, follow retained global references and warn only when the viewer can access the original and its definition differs from the fingerprint recorded at copy time;
 - rollback preserves later player edits and a newly selected entry with its required dependencies, without reapplying defaults;
 - current views never mix releases, already-open clients remain usable, and finished-week snapshots stay unchanged.
 
