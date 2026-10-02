@@ -75,13 +75,15 @@ export type LeafTarget =
   | 'bab'
   | 'attack.melee'
   | 'attack.ranged'
+  | 'damage.melee'
+  | 'damage.ranged'
   | 'cmb'
   | 'cmd'
   | 'init'
   | 'hp';
 
-/** Parent targets expand into leaves before stacking (`ac` → `ac.other`). */
-export type ParentTarget = 'ac' | 'saves' | 'attack';
+/** Parent targets expand into leaves before stacking (`ac` → `ac.other`, `damage` → both damage leaves). */
+export type ParentTarget = 'ac' | 'saves' | 'attack' | 'damage';
 
 /**
  * PROTOTYPE extension: `$choice` targets take the sheet entry's choice
@@ -91,11 +93,48 @@ export type ChoiceTarget = 'skill.$choice' | 'ability.$choice';
 
 export type Target = LeafTarget | ParentTarget | ChoiceTarget;
 
+/**
+ * PROTOTYPE (#216): the closed list of situations a conditional Modifier can
+ * wait on. Display text is `SITUATION_TEXT` in catalog.ts.
+ */
+export const SITUATION_KEYS = [
+  'traps',
+  'fear',
+  'spells',
+  'poison',
+  'enchantment',
+  'giants',
+  'orcsGoblinoids',
+  'bullRushTrip',
+  'sneak',
+] as const;
+export type SituationKey = (typeof SITUATION_KEYS)[number];
+
+/**
+ * PROTOTYPE (#216): a Modifier that applies only under a condition. Every
+ * part present must hold.
+ */
+export type ModifierCondition = {
+  /** Situational: never applied to a total unless the situation is asked for. */
+  situation?: { key: SituationKey; text: string };
+  /** Applies only while an active sheet entry with this catalog key exists ("while raging"). */
+  whileActive?: { catalogKey: string; text: string };
+  /**
+   * Applies only to attacks made with this weapon: '$self' = the item
+   * carrying the modifier; '$choice' = the sheet entry's choice (Weapon
+   * Focus's weapon, matched against the weapon's `base`). Never applies to
+   * sheet-level statistics, only inside attack resolution (attacks.ts).
+   */
+  weapon?: '$self' | '$choice';
+};
+
 /** Negative value = penalty. A formula uses the closed grammar in resolve.ts. */
 export type Modifier = {
   target: Target;
   bonusType: BonusType;
   value: number | { formula: string };
+  /** PROTOTYPE (#216): absent = always applies. */
+  condition?: ModifierCondition;
 };
 
 export type CatalogKind =
@@ -110,7 +149,11 @@ export type CatalogKind =
   | 'condition'
   | 'manual';
 
-export type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain';
+export type StateKind =
+  | 'classLevel'
+  | 'abilityDamage'
+  | 'abilityDrain'
+  | 'attackRoutine';
 export type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;
 
 /** A pick a class level offers (a rage power, a rogue talent, a bonus feat). */
@@ -160,6 +203,16 @@ export type CatalogEntryDetail =
       group?: FeatureGroup;
       /** Rules upgrade when the same feature is gained from two classes. */
       duplicateUpgrade?: { catalogKey: string; rule: string };
+      /**
+       * PROTOTYPE (#216): extra damage dice per entry (sneak attack: one d6
+       * per entry), added to weapon damage only in `situation`.
+       */
+      damageDice?: {
+        die: number;
+        situation: SituationKey;
+        /** Ranged attacks qualify only within this many feet. */
+        rangedWithin?: number;
+      };
     }
   | {
       kind: 'feat';
@@ -183,10 +236,31 @@ export type CatalogEntryDetail =
         | 'feet';
       armorCheckPenalty?: number;
       maxDex?: number;
+      /** PROTOTYPE (#216): present on weapons. */
+      weapon?: Weapon;
     }
   | { kind: 'spell'; lastsOverOneDay: boolean }
   | { kind: 'condition' }
   | { kind: 'manual' };
+
+/** PROTOTYPE (#216): a weapon's CRB statistics. */
+export type Weapon = {
+  /** Base weapon name, lower case ("greataxe"); Weapon Focus's choice matches it. */
+  base: string;
+  /** CRB weapon group ("axes", "light blades", "bows", "crossbows"). */
+  group: string;
+  handedness: 'light' | 'oneHanded' | 'twoHanded' | 'ranged';
+  /** Medium damage dice ("1d12"). */
+  dice: string;
+  /** Lowest number of the threat range: 20, 19, 18. */
+  threat: number;
+  /** Critical multiplier. */
+  mult: number;
+  /** Range increment in feet. */
+  rangeIncrement?: number;
+  /** Composite bows: the highest Str bonus added to damage. */
+  strRating?: number;
+};
 
 export type CatalogEntry = {
   key: string;
@@ -225,6 +299,34 @@ export type ClassLevelState = {
   skillRanks: Partial<Record<SkillKey, number>>;
 };
 
+/**
+ * PROTOTYPE (#216, variant 2): how a weapon is held when it attacks. `null`
+ * or absent = not used to attack.
+ */
+export type Wield = 'twoHands' | 'oneHand' | 'primary' | 'off';
+
+/**
+ * PROTOTYPE (#216): one way to attack. `main.hand` is 'twoHands' for
+ * two-handed and ranged weapons. With `off`, it is two-weapon fighting and
+ * `main` becomes the primary hand.
+ */
+export type AttackSetup = {
+  id: string;
+  name: string;
+  main: { entryId: string; hand: 'twoHands' | 'oneHand' };
+  off?: { entryId: string };
+  options: { powerAttack: boolean };
+};
+
+/** PROTOTYPE (#216, variant 3): a saved Attack Routine (state-only entry). */
+export type AttackRoutineState = {
+  kind: 'attackRoutine';
+  name: string;
+  main: AttackSetup['main'];
+  off?: AttackSetup['off'];
+  options: AttackSetup['options'];
+};
+
 export type SheetEntryState =
   | ClassLevelState
   | {
@@ -232,7 +334,8 @@ export type SheetEntryState =
       ability: AbilityKey;
       points: number;
     }
-  | { kind: 'item'; quantity: number }
+  | AttackRoutineState
+  | { kind: 'item'; quantity: number; wield?: Wield | null }
   | {
       kind: 'race';
       abilityChoice: AbilityKey | null;
@@ -342,6 +445,29 @@ export type Contribution = {
   target: LeafTarget | 'derived';
   /** Sheet entry that produced it (absent for derived built-ins like "Base 10"). */
   entryId?: string;
+  /**
+   * PROTOTYPE (#216): set on a conditional Modifier's contribution whose
+   * condition holds ("vs. traps", "with greataxe"), so applied situational
+   * lines can say why they apply.
+   */
+  conditionText?: string;
+  /** PROTOTYPE (#216): the situation it applies in, if any. */
+  situationKey?: SituationKey;
+};
+
+/**
+ * PROTOTYPE (#216): a contribution left out of a total because its condition
+ * isn't met (a situation not asked for, a `whileActive` entry that is off,
+ * or a weapon condition outside attack resolution).
+ */
+export type ConditionalContribution = Contribution & {
+  /** The whole condition: "vs. spells, supernatural and spell-like abilities, while raging". */
+  conditionText: string;
+  situationKey?: SituationKey;
+  /** The `whileActive` text when that part is unmet ("while raging"). */
+  waitingOn?: string;
+  /** The weapon text when it is weapon-scoped ("with +1 greataxe", "with greataxe"). */
+  weapon?: string;
 };
 
 export type Suppressed = {
@@ -354,6 +480,8 @@ export type Stat = {
   total: number;
   applied: Contribution[];
   suppressed: Suppressed[];
+  /** PROTOTYPE (#216): contributions waiting on a condition; not in `total`. */
+  conditional: ConditionalContribution[];
 };
 
 export type SkillStat = Stat & {
@@ -374,6 +502,60 @@ export type MilitiaCharacterFacts = {
   isActive: boolean;
 };
 
+/**
+ * Every sheet statistic addressable by a dotted path (`getStat` in
+ * resolve.ts reads one).
+ */
+export type StatPath =
+  | 'hp'
+  | 'ac'
+  | 'touchAc'
+  | 'flatFootedAc'
+  | 'bab'
+  | 'cmb'
+  | 'cmd'
+  | 'flatFootedCmd'
+  | 'init'
+  | 'attackMelee'
+  | 'attackRanged'
+  | 'damageMelee'
+  | 'damageRanged'
+  | `saves.${SaveKey}`
+  | `abilities.${AbilityKey}`
+  | `abilityMods.${AbilityKey}`
+  | `skills.${SkillKey}`;
+
+/** PROTOTYPE (#216): one situation present on the sheet. */
+export type SheetSituation = {
+  key: SituationKey;
+  /** `SITUATION_TEXT[key]`, e.g. "vs. traps". */
+  text: string;
+  /** Sheet statistics with a contribution in this situation (waiting or applied). */
+  paths: StatPath[];
+  /**
+   * It (also) changes weapon attacks: 'attack' = an attack-bonus
+   * contribution (hatred), 'damage' = damage (sneak attack dice, a damage
+   * Modifier). Resolve them with `resolveRoutine(…, { situations })`.
+   */
+  attacks: ('attack' | 'damage')[];
+};
+
+/** PROTOTYPE (#216): extra damage dice from class features (sneak attack). */
+export type ExtraDamage = {
+  /** Catalog name: "Sneak Attack". */
+  label: string;
+  catalogKey: string;
+  /** Summed dice: "2d6". */
+  dice: string;
+  count: number;
+  die: number;
+  situationKey: SituationKey;
+  /** `SITUATION_TEXT[situationKey]`. */
+  conditionText: string;
+  rangedWithin?: number;
+  entryIds: string[];
+};
+
 export type ResolvedSheet = {
   abilities: Record<AbilityKey, Stat>;
   abilityMods: Record<AbilityKey, Stat>;
@@ -384,6 +566,12 @@ export type ResolvedSheet = {
   flatFootedAc: Stat;
   attackMelee: Stat;
   attackRanged: Stat;
+  /**
+   * PROTOTYPE (#216): authored `damage.melee` / `damage.ranged` Modifiers
+   * only (no Str, no weapon dice); weapon-scoped ones wait in `conditional`.
+   */
+  damageMelee: Stat;
+  damageRanged: Stat;
   cmb: Stat;
   cmd: Stat;
   flatFootedCmd: Stat;
@@ -398,4 +586,10 @@ export type ResolvedSheet = {
   /** Unsupported formulas and similar resolver notes. */
   notes: string[];
   militia: MilitiaCharacterFacts;
+  /** PROTOTYPE (#216): the situations this sheet was resolved with (`opts.situations`). */
+  situationsAsked: SituationKey[];
+  /** PROTOTYPE (#216): every situation present on the sheet, in `SITUATION_KEYS` order. */
+  situations: SheetSituation[];
+  /** PROTOTYPE (#216): extra damage dice (sneak attack), applied by attacks.ts. */
+  extraDamage: ExtraDamage[];
 };

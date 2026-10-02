@@ -6,7 +6,10 @@ import type {
   CatalogEntry,
   FeatureGroup,
   Modifier,
+  ModifierCondition,
+  SituationKey,
   SkillKey,
+  Weapon,
 } from './types';
 
 export const ABILITY_LABEL: Record<AbilityKey, string> = {
@@ -25,6 +28,19 @@ export const ABILITY_SHORT: Record<AbilityKey, string> = {
   int: 'Int',
   wis: 'Wis',
   cha: 'Cha',
+};
+
+/** PROTOTYPE (#216): display text of each situation, after the CRB wording. */
+export const SITUATION_TEXT: Record<SituationKey, string> = {
+  traps: 'vs. traps',
+  fear: 'vs. fear',
+  spells: 'vs. spells and spell-like abilities',
+  poison: 'vs. poison',
+  enchantment: 'vs. enchantment spells and effects',
+  giants: 'vs. giants',
+  orcsGoblinoids: 'vs. orcs and goblinoids',
+  bullRushTrip: 'vs. bull rush and trip',
+  sneak: 'when flanking or the target is denied its Dex bonus',
 };
 
 export type SkillInfo = {
@@ -91,7 +107,16 @@ const m = (
   target: Modifier['target'],
   bonusType: Modifier['bonusType'],
   value: Modifier['value'],
-): Modifier => ({ target, bonusType, value });
+  condition?: ModifierCondition,
+): Modifier =>
+  condition
+    ? { target, bonusType, value, condition }
+    : { target, bonusType, value };
+
+/** A situational condition; `text` defaults to `SITUATION_TEXT[key]`. */
+const vs = (key: SituationKey, text?: string): ModifierCondition => ({
+  situation: { key, text: text ?? SITUATION_TEXT[key] },
+});
 
 const CRAFT: SkillKey[] = ['craftAlchemy', 'craftWeapons'];
 const KNOWLEDGE: SkillKey[] = [
@@ -136,6 +161,12 @@ const races: CatalogEntry[] = [
       m('ability.con', 'racial', 2),
       m('ability.wis', 'racial', 2),
       m('ability.cha', 'racial', -2),
+      // Hatred, defensive training, hardy (two situations), stability.
+      m('attack', 'untyped', 1, vs('orcsGoblinoids')),
+      m('ac.other', 'dodge', 4, vs('giants')),
+      m('saves', 'racial', 2, vs('poison')),
+      m('saves', 'racial', 2, vs('spells')),
+      m('cmd', 'racial', 4, vs('bullRushTrip')),
     ],
     detail: {
       kind: 'race',
@@ -147,6 +178,7 @@ const races: CatalogEntry[] = [
       bonusSkillRanksPerLevel: 0,
       traitsText: [
         'Darkvision 60 ft.',
+        'Hatred: +1 attack vs. orcs and goblinoids',
         'Defensive training: +4 dodge AC vs. giants',
         'Hardy: +2 saves vs. poison, spells and spell-like abilities',
         'Stability: +4 CMD vs. bull rush and trip',
@@ -164,6 +196,7 @@ const races: CatalogEntry[] = [
       m('ability.int', 'racial', 2),
       m('ability.con', 'racial', -2),
       m('skill.perception', 'racial', 2),
+      m('saves', 'racial', 2, vs('enchantment')),
     ],
     detail: {
       kind: 'race',
@@ -221,7 +254,8 @@ const races: CatalogEntry[] = [
       m('cmb', 'size', -1),
       m('cmd', 'size', -1),
       m('skill.stealth', 'size', 4),
-      m('saves', 'luck', 1),
+      m('saves', 'racial', 1),
+      m('saves', 'racial', 2, vs('fear')),
       m('skill.perception', 'racial', 2),
       m('skill.acrobatics', 'racial', 2),
       m('skill.climb', 'racial', 2),
@@ -253,6 +287,10 @@ const feature = (
   opts: Partial<Pick<CatalogEntry, 'stacksWithItself' | 'modifiers'>> & {
     group?: 'ragePower' | 'rogueTalent';
     duplicateUpgrade?: { catalogKey: string; rule: string };
+    damageDice?: Extract<
+      CatalogEntry['detail'],
+      { kind: 'classFeature' }
+    >['damageDice'];
   } = {},
 ): CatalogEntry => ({
   key,
@@ -265,6 +303,7 @@ const feature = (
     kind: 'classFeature',
     group: opts.group,
     duplicateUpgrade: opts.duplicateUpgrade,
+    damageDice: opts.damageDice,
   },
 });
 
@@ -299,6 +338,10 @@ const classFeatures: CatalogEntry[] = [
     '+1 Reflex and dodge AC vs. traps; stacks across classes',
     {
       stacksWithItself: true,
+      modifiers: [
+        m('save.ref', 'untyped', 1, vs('traps')),
+        m('ac.other', 'dodge', 1, vs('traps')),
+      ],
     },
   ),
   feature('cf.damageReduction', 'Damage Reduction', 'DR 1/—', {
@@ -316,9 +359,26 @@ const classFeatures: CatalogEntry[] = [
   feature(
     'rp.superstition',
     'Rage power: Superstition',
-    '+2 morale on saves vs. spells while raging',
+    '+2 morale on saves vs. spells, +1 per 4 barbarian levels, while raging',
     {
       group: 'ragePower',
+      modifiers: [
+        m(
+          'saves',
+          'morale',
+          { formula: '2 + floor(@classLevel.barbarian / 4)' },
+          {
+            situation: {
+              key: 'spells',
+              text: 'vs. spells, supernatural and spell-like abilities',
+            },
+            whileActive: {
+              catalogKey: 'condition.raging',
+              text: 'while raging',
+            },
+          },
+        ),
+      ],
     },
   ),
   feature(
@@ -344,6 +404,7 @@ const classFeatures: CatalogEntry[] = [
     '+1d6 precision damage; stacks across sources',
     {
       stacksWithItself: true,
+      damageDice: { die: 6, situation: 'sneak', rangedWithin: 30 },
     },
   ),
   feature(
@@ -355,6 +416,12 @@ const classFeatures: CatalogEntry[] = [
         m('skill.disableDevice', 'untyped', {
           formula: 'max(1, floor(@classLevel.rogue / 2))',
         }),
+        m(
+          'skill.perception',
+          'untyped',
+          { formula: 'max(1, floor(@classLevel.rogue / 2))' },
+          vs('traps', 'to locate traps'),
+        ),
       ],
     },
   ),
@@ -402,6 +469,7 @@ const classFeatures: CatalogEntry[] = [
     '+1 Will vs. fear; increases at 6th, 10th…',
     {
       stacksWithItself: true,
+      modifiers: [m('save.will', 'untyped', 1, vs('fear'))],
     },
   ),
   feature(
@@ -726,7 +794,17 @@ const feats: CatalogEntry[] = [
     combat: true,
     prerequisites: [{ kind: 'bab', min: 1 }],
     choice: 'weapon',
+    modifiers: [m('attack', 'untyped', 1, { weapon: '$choice' })],
   }),
+  feat(
+    'feat.twoWeaponFighting',
+    'Two-Weapon Fighting',
+    'Two-weapon penalties −4/−4, or −2/−2 with a light off-hand weapon',
+    {
+      combat: true,
+      prerequisites: [{ kind: 'ability', ability: 'dex', min: 15 }],
+    },
+  ),
   feat('feat.dodge', 'Dodge', '+1 dodge bonus to AC', {
     combat: true,
     prerequisites: [{ kind: 'ability', ability: 'dex', min: 13 }],
@@ -860,7 +938,98 @@ const traits: CatalogEntry[] = [
 
 // ------------------------------------------------------------------ items
 
+/** A weapon item (CRB Table 6-4 statistics, Medium). */
+const weapon = (
+  key: string,
+  name: string,
+  summary: string,
+  stats: Weapon,
+  modifiers: Modifier[] = [],
+): CatalogEntry => ({
+  key,
+  scope: 'global',
+  name,
+  summary,
+  stacksWithItself: false,
+  modifiers,
+  detail: { kind: 'item', consumable: false, weapon: stats },
+});
+
+/** Enhancement bonus of a magic weapon: attack and damage with that weapon only. */
+const enhancement = (n: number): Modifier[] => [
+  m('attack', 'enhancement', n, { weapon: '$self' }),
+  m('damage', 'enhancement', n, { weapon: '$self' }),
+];
+
+const weapons: CatalogEntry[] = [
+  weapon(
+    'item.greataxe+1',
+    '+1 greataxe',
+    'Two-handed axe: 1d12, ×3, +1 enhancement',
+    {
+      base: 'greataxe',
+      group: 'axes',
+      handedness: 'twoHanded',
+      dice: '1d12',
+      threat: 20,
+      mult: 3,
+    },
+    enhancement(1),
+  ),
+  weapon('item.kukri', 'Kukri', 'Light blade: 1d4, 18–20/×2', {
+    base: 'kukri',
+    group: 'light blades',
+    handedness: 'light',
+    dice: '1d4',
+    threat: 18,
+    mult: 2,
+  }),
+  weapon(
+    'item.compositeLongbow2',
+    'Composite longbow (+2 Str)',
+    'Bow: 1d8, ×3, 110 ft., adds Str up to +2',
+    {
+      base: 'composite longbow',
+      group: 'bows',
+      handedness: 'ranged',
+      dice: '1d8',
+      threat: 20,
+      mult: 3,
+      rangeIncrement: 110,
+      strRating: 2,
+    },
+  ),
+  weapon(
+    'item.dwarvenWaraxe',
+    'Dwarven waraxe',
+    'Axe, one-handed for dwarves: 1d10, ×3',
+    {
+      base: 'dwarven waraxe',
+      group: 'axes',
+      handedness: 'oneHanded',
+      dice: '1d10',
+      threat: 20,
+      mult: 3,
+    },
+  ),
+  weapon(
+    'item.lightCrossbow',
+    'Light crossbow',
+    'Crossbow: 1d8, 19–20/×2, 80 ft.',
+    {
+      base: 'light crossbow',
+      group: 'crossbows',
+      handedness: 'ranged',
+      dice: '1d8',
+      threat: 19,
+      mult: 2,
+      rangeIncrement: 80,
+    },
+  ),
+];
+
 const items: CatalogEntry[] = [
+  ...weapons,
   {
     key: 'item.chainShirt',
     scope: 'global',

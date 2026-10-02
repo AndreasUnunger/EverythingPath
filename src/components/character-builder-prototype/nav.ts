@@ -1,7 +1,7 @@
 'use client';
 // PROTOTYPE (throwaway, #208) — URL-addressable navigation. Every page and
 // sub-state a reviewer may screenshot lives in the query string:
-//   ?variant=B&page=<ProtoPage>&campaign=<id>&character=<id>&from=<ProtoPage>
+//   ?variant=1|2|3&page=<ProtoPage>&campaign=<id>&character=<id>&from=<ProtoPage>
 // plus page-local params (`level`, `as`, `tab`…). `from` is where a
 // Character page (sheet, levelup, create, buildout) was opened from, so its
 // Back button returns there; it survives moving between Character pages.
@@ -163,7 +163,8 @@ export function useProtoNav() {
   return useMemo(
     () => ({
       page,
-      variant: search.get('variant') ?? 'B',
+      /** `?variant=` as given; sheet-variants.tsx maps anything unknown to '1'. */
+      variant: search.get('variant') ?? '1',
       /** The campaign this page is in, or undefined (top-level areas, a Character in no campaign). */
       campaignId,
       campaign,

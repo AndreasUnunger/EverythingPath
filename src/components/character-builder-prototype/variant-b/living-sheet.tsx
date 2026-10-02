@@ -5,10 +5,16 @@
 // up all end here, on the same sheet. It opens with its vitals row (the
 // name on the left, sticky under the shell's bar from tablet width) and
 // the membership strip under it.
+//
+// Round 3 (#216): the Defenses and Offense blocks, the vitals row's extras,
+// a row above the grid, skill extras and the breakdown's end come from the
+// active sheet variant's slots (sheet-variants.tsx). The situation lens
+// (`ui.situation`) renders the whole sheet resolved in that situation.
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { cn } from '~/lib/utils';
 import { ABILITY_LABEL, ABILITY_SHORT, CLASSES, RACES } from '../catalog';
+import { getStat, resolveInSituation } from '../resolve';
 import {
   ABILITIES,
   baseScores,
@@ -16,10 +22,17 @@ import {
   raceCatalog,
   useBuilderStore,
 } from '../store';
-import type { AbilityKey, Character, ResolvedSheet } from '../types';
+import type {
+  AbilityKey,
+  Character,
+  ResolvedSheet,
+  SituationKey,
+} from '../types';
 import type { Warning } from '../warnings';
 import { LevelsTable } from './levels-table';
 import { FeatsBlock, FeaturesBlock, GearBlock } from './lists';
+import { Figure } from './sheet-default-blocks';
+import { useSheetVariant } from './sheet-variants';
 import {
   Block,
   BreakdownPopover,
@@ -30,6 +43,7 @@ import {
   StatButton,
   TextField,
   type OpenBreakdown,
+  type SheetUi,
   type StatPath,
 } from './shared';
 import { SkillsTable } from './skills-table';
@@ -256,266 +270,6 @@ function AbilitiesBlock({
   );
 }
 
-// ------------------------------------------------------ defenses / offense
-
-function Figure({
-  path,
-  sheet,
-  title,
-  short,
-  signed,
-  size = 'md',
-  className,
-}: {
-  path: StatPath;
-  sheet: ResolvedSheet;
-  title: string;
-  short?: string;
-  signed?: boolean;
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-}) {
-  return (
-    <div className={cn('flex flex-col items-start', className)}>
-      <span className="text-muted-foreground font-sans text-[11px] leading-tight tracking-wide">
-        {short ?? title}
-      </span>
-      <StatButton
-        path={path}
-        sheet={sheet}
-        title={title}
-        signed={signed}
-        size={size}
-        className="font-sans"
-      />
-    </div>
-  );
-}
-
-/**
- * One line of a defense or offense card: a plain-text label, optional
- * secondary numbers, and the main number right-aligned in a fixed column so
- * the figures line up down the card. Body font, not the pixel one. The row's
- * solid rule runs under the labels; each number sits on that same edge and
- * covers its stretch of the rule with its own dotted underline.
- */
-const onRule = 'bg-card -mb-px self-end';
-
-function StatRow({
-  label,
-  title,
-  path,
-  sheet,
-  signed,
-  also,
-}: {
-  label: string;
-  title: string;
-  path: StatPath;
-  sheet: ResolvedSheet;
-  signed?: boolean;
-  /** Secondary numbers shown between the label and the main one. */
-  also?: { label: string; title: string; path: StatPath; signed?: boolean }[];
-}) {
-  return (
-    <li className="border-foreground/15 flex items-end gap-3 border-b pt-1">
-      <span className="flex min-w-0 flex-1 flex-wrap items-end gap-x-4">
-        <span className="pb-1.5 text-sm leading-tight">{label}</span>
-        {also && (
-          <span className="text-muted-foreground flex flex-wrap items-end gap-x-3 text-xs">
-            {also.map((a) => (
-              <span key={a.path} className="inline-flex items-end gap-1">
-                <span className="pb-1.5 leading-tight">{a.label}</span>
-                <StatButton
-                  path={a.path}
-                  sheet={sheet}
-                  title={a.title}
-                  signed={a.signed}
-                  className={cn(
-                    onRule,
-                    'text-foreground min-h-7 font-sans text-sm',
-                  )}
-                />
-              </span>
-            ))}
-          </span>
-        )}
-      </span>
-      <StatButton
-        path={path}
-        sheet={sheet}
-        title={title}
-        signed={signed}
-        className={cn(onRule, 'min-w-12 justify-end font-sans text-xl')}
-      />
-    </li>
-  );
-}
-
-/** Rows in groups set apart by space: HP and AC, the saves, CMD. */
-function StatGroups({
-  groups,
-}: {
-  groups: { key: string; rows: ReactNode }[];
-}) {
-  return (
-    <div>
-      {groups.map((g) => (
-        <ul key={g.key} className="py-3 first:pt-0 last:pb-0">
-          {g.rows}
-        </ul>
-      ))}
-    </div>
-  );
-}
-
-function DefensesBlock({ sheet }: { sheet: ResolvedSheet }) {
-  return (
-    <Block id="b-defenses" title="Defenses">
-      <StatGroups
-        groups={[
-          {
-            key: 'hp-ac',
-            rows: (
-              <>
-                <StatRow
-                  label="Hit points"
-                  title="Hit points"
-                  path="hp"
-                  sheet={sheet}
-                />
-                <StatRow
-                  label="Armor Class"
-                  title="Armor Class"
-                  path="ac"
-                  sheet={sheet}
-                  also={[
-                    { label: 'Touch', title: 'Touch AC', path: 'touchAc' },
-                    {
-                      label: 'Flat-footed',
-                      title: 'Flat-footed AC',
-                      path: 'flatFootedAc',
-                    },
-                  ]}
-                />
-              </>
-            ),
-          },
-          {
-            key: 'saves',
-            rows: (
-              <>
-                <StatRow
-                  label="Fortitude"
-                  title="Fortitude save"
-                  path="saves.fort"
-                  sheet={sheet}
-                  signed
-                />
-                <StatRow
-                  label="Reflex"
-                  title="Reflex save"
-                  path="saves.ref"
-                  sheet={sheet}
-                  signed
-                />
-                <StatRow
-                  label="Will"
-                  title="Will save"
-                  path="saves.will"
-                  sheet={sheet}
-                  signed
-                />
-              </>
-            ),
-          },
-          {
-            key: 'cmd',
-            rows: (
-              <StatRow
-                label="CMD"
-                title="Combat Maneuver Defense"
-                path="cmd"
-                sheet={sheet}
-                also={[
-                  {
-                    label: 'Flat-footed',
-                    title: 'Flat-footed CMD',
-                    path: 'flatFootedCmd',
-                  },
-                ]}
-              />
-            ),
-          },
-        ]}
-      />
-    </Block>
-  );
-}
-
-function OffenseBlock({ sheet }: { sheet: ResolvedSheet }) {
-  return (
-    <Block id="b-offense" title="Offense">
-      <StatGroups
-        groups={[
-          {
-            key: 'attacks',
-            rows: (
-              <>
-                <StatRow
-                  label="Base attack"
-                  title="Base attack bonus"
-                  path="bab"
-                  sheet={sheet}
-                  signed
-                />
-                <StatRow
-                  label="Melee"
-                  title="Melee attack"
-                  path="attackMelee"
-                  sheet={sheet}
-                  signed
-                />
-                <StatRow
-                  label="Ranged"
-                  title="Ranged attack"
-                  path="attackRanged"
-                  sheet={sheet}
-                  signed
-                />
-              </>
-            ),
-          },
-          {
-            key: 'cmb',
-            rows: (
-              <StatRow
-                label="CMB"
-                title="Combat Maneuver Bonus"
-                path="cmb"
-                sheet={sheet}
-                signed
-              />
-            ),
-          },
-          {
-            key: 'init',
-            rows: (
-              <StatRow
-                label="Initiative"
-                title="Initiative"
-                path="init"
-                sheet={sheet}
-                signed
-              />
-            ),
-          },
-        ]}
-      />
-    </Block>
-  );
-}
-
 // ------------------------------------------------------------- the sheet
 
 /** Always-visible derived numbers in the vitals strip. */
@@ -556,9 +310,15 @@ const VITALS: {
   },
 ];
 
+/**
+ * The sheet. `sheet` is the normal one; with the situation lens set, every
+ * block renders the sheet resolved in that situation instead. Mount it with
+ * `key={character.id}` so the lens and the open breakdown reset when the
+ * Character changes.
+ */
 export function LivingSheet({
   character,
-  sheet,
+  sheet: baseSheet,
   warnings,
   heading,
   below,
@@ -573,11 +333,45 @@ export function LivingSheet({
 }) {
   const [open, setOpen] = useState<OpenBreakdown | null>(null);
   const [ranksLevelId, setRanksLevelId] = useState<string | null>(null);
+  const [situation, setSituationState] = useState<SituationKey | null>(null);
+  const { key: variant, slots } = useSheetVariant();
+  const sheet = useMemo(
+    () => (situation ? resolveInSituation(character, situation) : baseSheet),
+    [baseSheet, character, situation],
+  );
+  const ui: SheetUi = {
+    open,
+    setOpen,
+    openStat: ({ key, title, stat, signed = true, anchor }) =>
+      setOpen(
+        open?.key === key
+          ? null
+          : {
+              key,
+              title,
+              stat,
+              signed,
+              path: null,
+              rect: anchor.getBoundingClientRect(),
+            },
+      ),
+    ranksLevelId,
+    setRanksLevelId,
+    situation,
+    setSituation: (next) => {
+      setOpen(null);
+      setSituationState(next);
+    },
+    sheet,
+    baseSheet,
+    character,
+    variant,
+    slots,
+  };
+  const { Defenses, Offense, VitalExtra, AboveSheet } = slots;
 
   return (
-    <SheetUiContext.Provider
-      value={{ open, setOpen, ranksLevelId, setRanksLevelId }}
-    >
+    <SheetUiContext.Provider value={ui}>
       {/* The vitals row: the name and summary on the left, the numbers
           right-aligned. Sticky under the shell's pinned bar from tablet
           width; in the flow on phone, where the name stacks above the
@@ -598,12 +392,22 @@ export function LivingSheet({
               signed={v.signed}
               size="sm"
               className={v.phoneHidden ? 'hidden md:flex' : undefined}
-            />
+            >
+              {VitalExtra && (
+                <VitalExtra
+                  path={v.path}
+                  stat={getStat(sheet, v.path)}
+                  character={character}
+                  sheet={sheet}
+                />
+              )}
+            </Figure>
           ))}
         </div>
       </div>
 
       {below}
+      {AboveSheet && <AboveSheet character={character} sheet={sheet} />}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-12">
@@ -618,8 +422,8 @@ export function LivingSheet({
             sheet={sheet}
             warnings={warnings}
           />
-          <DefensesBlock sheet={sheet} />
-          <OffenseBlock sheet={sheet} />
+          <Defenses character={character} sheet={sheet} />
+          <Offense character={character} sheet={sheet} />
           <div className="hidden lg:block">
             <GearBlock character={character} />
           </div>
@@ -641,7 +445,7 @@ export function LivingSheet({
           <GearBlock character={character} />
         </div>
       </div>
-      <BreakdownPopover sheet={sheet} />
+      <BreakdownPopover />
     </SheetUiContext.Provider>
   );
 }

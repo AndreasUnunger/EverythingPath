@@ -160,6 +160,7 @@ export function entriesOfKind(character: Character, kind: SheetEntry['kind']) {
 export function entryName(character: Character, entry: SheetEntry) {
   if (entry.state.kind === 'classLevel')
     return classLevelLabel(character, entry.id);
+  if (entry.state.kind === 'attackRoutine') return entry.state.name;
   if (
     entry.state.kind === 'abilityDamage' ||
     entry.state.kind === 'abilityDrain'

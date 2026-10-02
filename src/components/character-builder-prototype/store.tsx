@@ -34,6 +34,7 @@ import {
 import {
   ABILITIES,
   type AbilityKey,
+  type AttackRoutineState,
   type Campaign,
   type CatalogEntry,
   type Character,
@@ -41,6 +42,7 @@ import {
   type Modifier,
   type OfficerRole,
   type SheetEntry,
+  type Wield,
 } from './types';
 import { advisoryWarnings, type Warning } from './warnings';
 
@@ -84,7 +86,11 @@ const CHOICELESS = new Set([
   'classLevel',
   'abilityDamage',
   'abilityDrain',
+  'attackRoutine',
 ]);
+
+/** A saved Attack Routine as given to addRoutine (the state without its kind). */
+export type AttackRoutine = Omit<AttackRoutineState, 'kind'>;
 
 let seq = 0;
 /** Ids for new rows; generated outside the reducer so it stays pure. */
@@ -856,6 +862,73 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
         ],
       }));
       return entryId;
+    },
+
+    /**
+     * PROTOTYPE (#216, variant 2): how a weapon is held when it attacks
+     * (null = not used to attack). No-op on a non-item entry.
+     */
+    setWield: (id: string, entryId: string, wield: Wield | null) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.map((e) =>
+          e.id === entryId && e.state.kind === 'item'
+            ? { ...e, state: { ...e.state, wield } }
+            : e,
+        ),
+      }));
+    },
+
+    /** PROTOTYPE (#216, variant 3): saves an Attack Routine. Returns its id. */
+    addRoutine: (id: string, routine: AttackRoutine): string => {
+      const entryId = newId('routine');
+      edit(id, (c) => ({
+        ...c,
+        entries: [
+          ...c.entries,
+          {
+            id: entryId,
+            kind: 'attackRoutine',
+            active: true,
+            state: { kind: 'attackRoutine', ...structuredClone(routine) },
+          },
+        ],
+      }));
+      return entryId;
+    },
+
+    /**
+     * PROTOTYPE (#216, variant 3): patches a saved Attack Routine. `off: undefined`
+     * in the patch removes the off hand; `options` is merged.
+     */
+    updateRoutine: (
+      id: string,
+      routineId: string,
+      patch: Partial<AttackRoutine>,
+    ) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.map((e) => {
+          if (e.id !== routineId || e.state.kind !== 'attackRoutine') return e;
+          const state: AttackRoutineState = {
+            ...e.state,
+            ...patch,
+            options: { ...e.state.options, ...patch.options },
+          };
+          if ('off' in patch && !patch.off) delete state.off;
+          return { ...e, state };
+        }),
+      }));
+    },
+
+    /** PROTOTYPE (#216, variant 3): deletes a saved Attack Routine. */
+    removeRoutine: (id: string, routineId: string) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.filter(
+          (e) => !(e.id === routineId && e.state.kind === 'attackRoutine'),
+        ),
+      }));
     },
 
     setPointBuyBudget: (points: number) => {

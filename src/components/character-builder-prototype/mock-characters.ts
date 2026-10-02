@@ -2,12 +2,13 @@
 //
 // Ironfang Invasion (with a militia):
 //   kesh  — Full PC, human Barbarian 4 / Rogue 3 (B1 B2 R1 R2 B3 R3 B4), the showcase.
+//           Weapons (#216): +1 greataxe, two kukris, composite longbow (+2 Str).
 //   ama   — Full PC, elf Wizard 5.
 //   hessa — Militia-only NPC, level 5 = five Unspecified Class Levels, base scores only.
 //   ardo  — Militia-only PC, level 3 = three Unspecified Class Levels, base scores only.
 //   moss  — Militia-only NPC, level 2, not on the roster.
 // One-shot: Hollow Mountain (no militia):
-//   brannoc — Full PC, dwarf Fighter 3.
+//   brannoc — Full PC, dwarf Fighter 3, dwarven waraxe and light crossbow.
 // No campaign (owned by the signed-in user, Andreas):
 //   ilsa  — Full PC, human Cleric 2, built before joining a game.
 //   tobin — Full PC, no campaign: base scores and one Unspecified level.
@@ -18,12 +19,14 @@ import {
   ABILITIES,
   type Org,
   type AbilityKey,
+  type AttackRoutineState,
   type Campaign,
   type CatalogEntry,
   type Character,
   type ClassLevelState,
   type SheetEntry,
   type SkillKey,
+  type Wield,
 } from './types';
 
 export const IRONFANG = 'ironfang';
@@ -104,7 +107,14 @@ function has(
   id: string,
   catalogKey: string,
   kind: SheetEntry['kind'],
-  opts: { at?: string; active?: boolean; choice?: string; notes?: string } = {},
+  opts: {
+    at?: string;
+    active?: boolean;
+    choice?: string;
+    notes?: string;
+    /** Items: how the weapon is held when it attacks (variant 2). */
+    wield?: Wield;
+  } = {},
 ): SheetEntry {
   return {
     id,
@@ -115,8 +125,31 @@ function has(
     notes: opts.notes,
     state:
       kind === 'item'
-        ? { kind: 'item', quantity: 1 }
+        ? opts.wield
+          ? { kind: 'item', quantity: 1, wield: opts.wield }
+          : { kind: 'item', quantity: 1 }
         : ({ kind, choice: opts.choice ?? null } as SheetEntry['state']),
+  };
+}
+
+/** A saved Attack Routine (variant 3), a state-only entry. */
+function routine(
+  id: string,
+  name: string,
+  main: AttackRoutineState['main'],
+  rest: { off?: AttackRoutineState['off']; powerAttack?: boolean } = {},
+): SheetEntry {
+  return {
+    id,
+    kind: 'attackRoutine',
+    active: true,
+    state: {
+      kind: 'attackRoutine',
+      name,
+      main,
+      ...(rest.off ? { off: rest.off } : {}),
+      options: { powerAttack: rest.powerAttack ?? false },
+    },
   };
 }
 
@@ -310,6 +343,35 @@ const kesh: Character = {
     has('kesh-cloak', 'item.cloakOfResistance1', 'item'),
     has('kesh-belt', 'item.beltOfGiantStrength2', 'item'),
     has('kesh-potion', 'item.potionBullsStrength', 'item', { active: false }),
+    // Weapons (#216), with how each is held when it attacks (variant 2).
+    has('kesh-greataxe', 'item.greataxe+1', 'item', { wield: 'twoHands' }),
+    has('kesh-kukri-1', 'item.kukri', 'item', { wield: 'primary' }),
+    has('kesh-kukri-2', 'item.kukri', 'item', { wield: 'off' }),
+    has('kesh-longbow', 'item.compositeLongbow2', 'item', {
+      wield: 'twoHands',
+    }),
+    has('kesh-boots', 'item.bootsOfSpeed', 'item', { active: false }),
+    // Saved Attack Routines (variant 3).
+    routine('kesh-routine-greataxe', 'Greataxe', {
+      entryId: 'kesh-greataxe',
+      hand: 'twoHands',
+    }),
+    routine(
+      'kesh-routine-greataxe-pa',
+      'Greataxe with Power Attack',
+      { entryId: 'kesh-greataxe', hand: 'twoHands' },
+      { powerAttack: true },
+    ),
+    routine(
+      'kesh-routine-kukris',
+      'Two kukris',
+      { entryId: 'kesh-kukri-1', hand: 'oneHand' },
+      { off: { entryId: 'kesh-kukri-2' } },
+    ),
+    routine('kesh-routine-longbow', 'Longbow', {
+      entryId: 'kesh-longbow',
+      hand: 'twoHands',
+    }),
     // Effects, off until toggled.
     has('kesh-raging', 'condition.raging', 'condition', { active: false }),
     has('kesh-bulls', 'spell.bullsStrength', 'spell', {
@@ -466,6 +528,18 @@ const brannoc: Character = {
     }),
     has('brannoc-armor', 'item.chainShirt', 'item'),
     has('brannoc-shield', 'item.heavyWoodenShield', 'item'),
+    has('brannoc-waraxe', 'item.dwarvenWaraxe', 'item', { wield: 'oneHand' }),
+    has('brannoc-crossbow', 'item.lightCrossbow', 'item', {
+      wield: 'twoHands',
+    }),
+    routine('brannoc-routine-waraxe', 'Waraxe and shield', {
+      entryId: 'brannoc-waraxe',
+      hand: 'oneHand',
+    }),
+    routine('brannoc-routine-crossbow', 'Crossbow', {
+      entryId: 'brannoc-crossbow',
+      hand: 'twoHands',
+    }),
   ],
 };
 

@@ -36,6 +36,7 @@ export function SkillsTable({
 }) {
   const store = useBuilderStore();
   const ui = useSheetUi();
+  const SkillExtra = ui.slots.SkillExtra;
   const levels = classLevels(character);
   const level =
     levels.find((l) => l.id === ui.ranksLevelId) ?? levels.at(-1) ?? null;
@@ -150,6 +151,14 @@ export function SkillsTable({
                     signed
                     size="sm"
                   />
+                  {SkillExtra && (
+                    <SkillExtra
+                      skill={info.key}
+                      stat={stat}
+                      character={character}
+                      sheet={sheet}
+                    />
+                  )}
                 </td>
                 <td className="px-1 py-0.5 md:px-2">
                   <span className="inline-flex items-center gap-1">

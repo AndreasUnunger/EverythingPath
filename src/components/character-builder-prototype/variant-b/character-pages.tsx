@@ -101,6 +101,7 @@ export function SheetPage({ characterId }: { characterId: string }) {
   return (
     <main className={characterMain}>
       <LivingSheet
+        key={character.id}
         character={character}
         sheet={sheet}
         warnings={warnings}

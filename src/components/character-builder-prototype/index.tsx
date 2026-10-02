@@ -4,8 +4,12 @@
 // inside the approved app shell (variant C of #213), on
 // /prototype/character-builder. Primary target: tablet landscape
 // (1180×820); desktop and phone must remain usable. Details in CONTRACT.md.
+// Round 3 (#216 'Prototype attacks and conditional modifiers on the living
+// sheet'): three sheet variants, 1 "Stat-block lines", 2 "Attack table",
+// 3 "Attack routines"; every page is the same, only the living sheet's slots
+// differ (variant-b/sheet-variants.tsx).
 //
-// URL: ?variant=B&page=<page>&campaign=<id>&character=<id>&from=<page>
+// URL: ?variant=1|2|3&page=<page>&campaign=<id>&character=<id>&from=<page>
 //   campaigns            the homepage: pick a campaign            (shell placeholder)
 //   characters           my Characters, "No campaign" first, then per campaign
 //   campaign-home        a campaign's home                        (shell placeholder)
@@ -31,12 +35,18 @@ import {
 import { PrototypeStoreProvider, useBuilderStore } from './store';
 import type { ProtoPage } from './types';
 import * as B from './variant-b';
+import { SHEET_VARIANTS } from './variant-b/sheet-variants';
 
+/** The three sheet variants all render variant B's pages; only the living sheet's slots differ. */
 const variants: {
   key: string;
   name: string;
   Component: (props: { page: ProtoPage }) => ReactNode;
-}[] = [{ key: 'B', name: B.name, Component: B.VariantB }];
+}[] = SHEET_VARIANTS.map((v) => ({
+  key: v.key,
+  name: v.name,
+  Component: B.VariantB,
+}));
 
 /** Pages outside the builder: the shell's own placeholder bodies. */
 const PLACEHOLDERS: Partial<Record<ProtoPage, () => ReactNode>> = {
@@ -55,7 +65,23 @@ const SHORTCUTS: {
   campaign?: string;
   character?: string;
   from?: ProtoPage;
+  /** Switch the sheet variant too. */
+  variant?: string;
 }[] = [
+  ...SHEET_VARIANTS.map((v) => ({
+    label: `kesh · ${v.key} ${v.name.toLowerCase()}`,
+    page: 'sheet' as const,
+    character: 'kesh',
+    from: 'officers' as const,
+    variant: v.key,
+  })),
+  {
+    label: 'brannoc sheet',
+    page: 'sheet',
+    character: 'brannoc',
+    from: 'campaign-characters',
+  },
+  { label: 'ama sheet', page: 'sheet', character: 'ama', from: 'officers' },
   { label: 'campaigns', page: 'campaigns' },
   { label: 'my characters', page: 'characters' },
   {
@@ -111,10 +137,20 @@ const SHORTCUTS: {
   },
 ];
 
+/** Entries the panel switches on and off (#216). */
+const TOGGLES = [
+  { label: 'kesh raging', characterId: 'kesh', entryId: 'kesh-raging' },
+  { label: 'kesh boots of speed', characterId: 'kesh', entryId: 'kesh-boots' },
+];
+
 function StatePanel() {
   const [open, setOpen] = useState(false);
   const store = useBuilderStore();
   const nav = useProtoNav();
+  const isActive = (characterId: string, entryId: string) =>
+    store.state.characters
+      .find((c) => c.id === characterId)
+      ?.entries.find((e) => e.id === entryId)?.active ?? false;
   return (
     <aside className="fixed right-3 bottom-28 z-[100] border-2 border-dashed border-yellow-300 bg-black/90 p-2 font-mono text-sm text-yellow-200 md:bottom-3">
       <button className="w-full text-left" onClick={() => setOpen(!open)}>
@@ -138,10 +174,24 @@ function StatePanel() {
                     campaign: s.campaign ?? null,
                     character: s.character ?? null,
                     from: s.from ?? null,
+                    ...(s.variant ? { params: { variant: s.variant } } : {}),
                   })
                 }
               >
                 {s.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-2">
+            {TOGGLES.map((t) => (
+              <button
+                key={t.entryId}
+                className="opacity-70 hover:opacity-100"
+                onClick={() =>
+                  store.toggleEntryActive(t.characterId, t.entryId)
+                }
+              >
+                {t.label}: {isActive(t.characterId, t.entryId) ? 'on' : 'off'}
               </button>
             ))}
           </div>

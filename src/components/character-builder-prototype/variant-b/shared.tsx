@@ -3,6 +3,12 @@
 // context (open breakdown, the Class Level ranks are spent on), tappable
 // numbers with their breakdown popover, inline editable numbers, and
 // inline advisory warnings.
+//
+// Round 3 (#216): the context also carries the situation lens (`situation`,
+// `baseSheet`), the active sheet variant's slots, and `openStat` for
+// breakdowns of any Stat (attack bonus, damage). The popover lists a Stat's
+// `conditional` contributions under "Only when…" and ends with the variant's
+// `BreakdownExtra` slot.
 
 import { Check, ChevronDown, TriangleAlert, X } from 'lucide-react';
 import {
@@ -17,13 +23,14 @@ import {
 import { createPortal } from 'react-dom';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
+import { getStat } from '../resolve';
 import { useBuilderStore } from '../store';
 import type {
-  AbilityKey,
+  Character,
   ResolvedSheet,
-  SaveKey,
-  SkillKey,
+  SituationKey,
   Stat,
+  StatPath,
   Suppressed,
 } from '../types';
 import {
@@ -33,49 +40,59 @@ import {
   formatBonus,
 } from '../ui-helpers';
 import type { Warning } from '../warnings';
+import type { SheetVariantKey, SheetVariantSlots } from './sheet-variants';
 
 // ------------------------------------------------------------- stat paths
 
-export type StatPath =
-  | 'hp'
-  | 'ac'
-  | 'touchAc'
-  | 'flatFootedAc'
-  | 'bab'
-  | 'cmb'
-  | 'cmd'
-  | 'flatFootedCmd'
-  | 'init'
-  | 'attackMelee'
-  | 'attackRanged'
-  | `saves.${SaveKey}`
-  | `abilities.${AbilityKey}`
-  | `abilityMods.${AbilityKey}`
-  | `skills.${SkillKey}`;
-
-export function getStat(sheet: ResolvedSheet, path: StatPath): Stat {
-  const [head, tail] = path.split('.') as [string, string | undefined];
-  if (!tail) return sheet[head as 'hp'];
-  const group = sheet[head as 'saves'] as Record<string, Stat>;
-  return group[tail]!;
-}
+// StatPath and getStat moved to types.ts / resolve.ts (#216); re-exported.
+export type { StatPath };
+export { getStat };
 
 // ---------------------------------------------------------------- context
 
 export type OpenBreakdown = {
-  path: StatPath;
+  /** Which number is open: its StatPath, or the `key` given to `openStat`. */
+  key: string;
   title: string;
   rect: DOMRect;
   /** Signed value ("+6") instead of a plain score. */
   signed: boolean;
+  /** A sheet statistic, read live from the sheet on screen. */
+  path: StatPath | null;
+  /** Any other Stat (attack bonus, damage), shown as given. */
+  stat: Stat | null;
+};
+
+export type OpenStat = {
+  /** Unique per number on the page, e.g. ResolvedAttack.key + ':bonus'. */
+  key: string;
+  title: string;
+  stat: Stat;
+  /** Default true. */
+  signed?: boolean;
+  /** The element the popover opens next to (usually `event.currentTarget`). */
+  anchor: Element;
 };
 
 export type SheetUi = {
   open: OpenBreakdown | null;
   setOpen: (o: OpenBreakdown | null) => void;
+  /** Opens the breakdown popover for any Stat; again on the same key closes it. */
+  openStat: (o: OpenStat) => void;
   /** The Class Level the skills table assigns ranks to. */
   ranksLevelId: string | null;
   setRanksLevelId: (id: string | null) => void;
+  /** The situation lens: view state only, never saved; null = the normal sheet. */
+  situation: SituationKey | null;
+  setSituation: (s: SituationKey | null) => void;
+  /** The sheet rendered: resolved with `situation` when the lens is set. */
+  sheet: ResolvedSheet;
+  /** The normal sheet (no situation asked for). Same as `sheet` without a lens. */
+  baseSheet: ResolvedSheet;
+  character: Character;
+  /** The active sheet variant and its slots. */
+  variant: SheetVariantKey;
+  slots: SheetVariantSlots;
 };
 
 export const SheetUiContext = createContext<SheetUi | null>(null);
@@ -150,36 +167,60 @@ export function Block({
 
 // ----------------------------------------------------------- stat buttons
 
-/** A tappable number: opens the breakdown popover. */
-export function StatButton({
-  path,
-  sheet,
-  title,
-  signed = false,
-  size = 'md',
-  className,
-}: {
-  path: StatPath;
-  sheet: ResolvedSheet;
+export type StatButtonProps = {
   title: string;
   signed?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
-}) {
+} & (
+  | {
+      /** A sheet statistic. Under the lens, pass the sheet on screen (`ui.sheet`). */
+      path: StatPath;
+      sheet: ResolvedSheet;
+      stat?: undefined;
+      statKey?: undefined;
+      baseStat?: undefined;
+    }
+  | {
+      /** Any Stat (an attack bonus, damage). */
+      stat: Stat;
+      /** Unique per number on the page (the breakdown's `key`). */
+      statKey: string;
+      /** The same number without the lens, for `data-situation-changed`. */
+      baseStat?: Stat;
+      path?: undefined;
+      sheet?: undefined;
+    }
+);
+
+/**
+ * A tappable number: opens the breakdown popover. Gets
+ * `data-situation-changed="true"` when the lens changes its value (compared
+ * with `baseSheet`, or `baseStat` for an arbitrary Stat); unstyled here.
+ */
+export function StatButton(props: StatButtonProps) {
+  const { title, signed = false, size = 'md', className } = props;
   const ui = useSheetUi();
-  const stat = getStat(sheet, path);
+  const path = props.path ?? null;
+  const stat = props.stat ?? getStat(props.sheet, props.path);
+  const base = path ? getStat(ui.baseSheet, path) : props.baseStat;
+  const key = path ?? props.statKey!;
+  const changed = base !== undefined && base.total !== stat.total;
   const buffed = stat.applied.some((c) => c.temporary);
   const fmt = (n: number) => (signed ? formatBonus(n) : String(n));
-  const isOpen = ui.open?.path === path;
+  const isOpen = ui.open?.key === key;
   return (
     <button
       type="button"
+      data-situation-changed={changed ? 'true' : undefined}
       onClick={(e) =>
         ui.setOpen(
           isOpen
             ? null
             : {
+                key,
                 path,
+                stat: path ? null : stat,
                 title,
                 signed,
                 rect: e.currentTarget.getBoundingClientRect(),
@@ -222,8 +263,8 @@ function keyed<T extends { label: string; bonusType: string; value: number }>(
   });
 }
 
-/** The one breakdown popover, rendered by the sheet root. */
-export function BreakdownPopover({ sheet }: { sheet: ResolvedSheet }) {
+/** The one breakdown popover, rendered by the sheet root; reads the sheet on screen from the context. */
+export function BreakdownPopover() {
   const ui = useSheetUi();
   const ref = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<{ top: number; left: number } | null>(
@@ -266,8 +307,9 @@ export function BreakdownPopover({ sheet }: { sheet: ResolvedSheet }) {
   }, [open, ui]);
 
   if (!open) return null;
-  const stat = getStat(sheet, open.path);
+  const stat = open.stat ?? getStat(ui.sheet, open.path!);
   const fmt = (n: number) => (open.signed ? formatBonus(n) : String(n));
+  const Extra = ui.slots.BreakdownExtra;
   return createPortal(
     <div
       ref={ref}
@@ -293,6 +335,12 @@ export function BreakdownPopover({ sheet }: { sheet: ResolvedSheet }) {
           <li key={key} className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate">
               {c.label}
+              {c.conditionText && (
+                <span className="text-muted-foreground">
+                  {' '}
+                  · {c.conditionText}
+                </span>
+              )}
               {c.temporary && (
                 <span className="text-muted-foreground"> · temporary</span>
               )}
@@ -346,6 +394,42 @@ export function BreakdownPopover({ sheet }: { sheet: ResolvedSheet }) {
             )}
           </ul>
         </>
+      )}
+      {stat.conditional.length > 0 && (
+        <>
+          <p className="text-muted-foreground mt-2 font-mono text-[11px] tracking-wide uppercase">
+            Only when…
+          </p>
+          <ul className="space-y-0.5">
+            {keyed(stat.conditional).map(([key, c]) => (
+              <li key={key} className="text-muted-foreground">
+                <div className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                  {c.bonusType !== 'untyped' && (
+                    <span className="font-mono text-[11px]">
+                      {BONUS_TYPE_LABEL[c.bonusType]}
+                    </span>
+                  )}
+                  <span className="font-mono">{formatBonus(c.value)}</span>
+                </div>
+                <div className="text-xs">
+                  {c.conditionText}
+                  {c.waitingOn && ' (not active now)'}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {Extra && (
+        <Extra
+          path={open.path}
+          openKey={open.key}
+          title={open.title}
+          stat={stat}
+          character={ui.character}
+          sheet={ui.sheet}
+        />
       )}
     </div>,
     document.body,
