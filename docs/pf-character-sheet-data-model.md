@@ -8,8 +8,9 @@ Rules sources:
 - [Find how official PF1 rules treat "functions as" wordings for stacking](https://github.com/AndreasUnunger/EverythingPath/issues/210) (`research/pf1-functions-as-stacking`)
 - [Survey how existing PF1 builders model characters](https://github.com/AndreasUnunger/EverythingPath/issues/203) (`research/pf1-builder-models`)
 - [Collect the official rules for racial Hit Dice progression](https://github.com/AndreasUnunger/EverythingPath/issues/220) (`research/pf1-racial-hit-dice`) and its follow-up on FAQ and designer rulings (`research/pf1-racial-hd-level-rulings`)
+- [Collect the official PF1 spellcasting rules](https://github.com/AndreasUnunger/EverythingPath/issues/231) (`research/pf1-spellcasting-rules`) and [Compare the spell data sources for spellcasting](https://github.com/AndreasUnunger/EverythingPath/issues/217) (`research/pf1-spell-data`)
 
-Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). Other Paizo books supply catalog content, not rules.
+Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218) admits each casting class's own spellcasting section, for that class only. Other Paizo books supply catalog content, not rules.
 
 ## Principles
 
@@ -82,14 +83,14 @@ acceptedWarning: {
 // indexes: by_characterId
 ```
 
-The `spell` and `characterSpell` tables are untouched. Spellcasting is still in the map's fog.
+The old `spell` and `characterSpell` tables retire in the builder release (see "Migration and release"). Spells are `spell` Catalog Entries (see "Spellcasting").
 
 ### Entry kinds
 
 ```ts
 // Catalog-backed: the sheet entry points at a Catalog Entry of the same kind.
 type CatalogKind = 'base' | 'race' | 'class' | 'archetype' | 'classFeature' | 'feat' | 'trait'
-                 | 'item' | 'spell' | 'condition' | 'manual';
+                 | 'item' | 'spell' | 'spellEffect' | 'condition' | 'manual';
 // State-only: no Catalog Entry; the resolver emits built-in Modifiers from state.
 type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain' | 'attackRoutine';
 type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;   // a class is reached through Class Levels
@@ -109,6 +110,9 @@ type CatalogEntryDetail =
       saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
       skillRanksPerLevel: number; classSkills: SkillKey[];
       alignments?: Alignment[];                                   // absent = any; set by the Curation Overlay
+      casting?: Casting;                                          // a casting class, see "Spellcasting"
+      castingAdvances?: Array<{ classLevel: number; count: number; // prestige "+1 level of existing spellcasting class"
+        kind: 'any' | 'arcane' | 'divine' }>;
       featuresByLevel: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>;
       picksByLevel: Array<{ classLevel: number; list: string; count: number }> } // "choose a rage power"; empty = no prompts
   | { kind: 'archetype'; classEntryIds: Id<'catalogEntry'>[];   // the base class it varies; both versions where its source names both
@@ -116,7 +120,11 @@ type CatalogEntryDetail =
       adds: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>;
       classSkillsAdded: SkillKey[]; classSkillsRemoved: SkillKey[];
       skillRanksPerLevel?: number }                             // absent = the class's own
-  | { kind: 'classFeature' }
+  | { kind: 'classFeature';
+      spellcasting?: {                                            // set by the importer or the Curation Overlay
+        extraSlot?: 'domain' | 'school' | 'spirit';               // one extra slot per spell level from 1st
+        grants?: { list: 'domain' | 'subDomain' | 'bloodline'; key: string }; // a Foundry `learnedAt` list: its Spells are granted
+        school?: SchoolKey } }                                    // an arcane school: the specialist school
   | { kind: 'feat'; featTypes: string[];                         // Foundry feat types: 'combat', 'general', 'teamwork'…
       repeatable: 'no' | 'newChoice' | 'yes' }                    // "You can gain this feat multiple times"
   | { kind: 'trait'; traitType: string }                         // Foundry `traitType`: 'combat', 'faith', 'region', 'drawback'…
@@ -128,12 +136,18 @@ type CatalogEntryDetail =
         threat: number; mult: number;                            // lowest threat roll (20, 19, 18) and multiplier
         rangeIncrement?: number; strRating?: number;             // feet; composite bows
         reload?: 'free' | 'move' | 'fullRound' } }               // crossbows
-  | { kind: 'spell'; lastsOverOneDay: boolean }                 // later: level, school, duration text
+  | { kind: 'spell';                                           // the Spell itself; grants no Modifiers
+      levels: Record<ClassTag, number>;                          // Foundry `learnedAt.class`; the record's own `level` is ignored
+      grantedLevels: Partial<Record<'domain' | 'subDomain' | 'bloodline', Record<string, number>>>; // the rest of `learnedAt`
+      school: SchoolKey; subschools: string[]; descriptors: string[] }  // the stat block stays in the description
+  | { kind: 'spellEffect'; spellKey?: string;                    // the Spell's `externalKey`
+      lastsOverOneDay: boolean; defaultCasterLevel: number }      // Foundry's buff `level`, used when spellKey is absent
   | { kind: 'condition' } | { kind: 'manual' };
 
 type SheetEntryState =
   | { kind: 'classLevel'; classEntryId: Id<'catalogEntry'> | null;   // null = Unspecified Class Level
       position: number;                                               // character level this row is, 1-based
+      castingAdvances: Array<Id<'catalogEntry'> | null>;              // prestige levels: the class each advance goes to
       hpGained: number | null;
       favoredClassBonus: null | { choice: 'hp' } | { choice: 'skill' } | { choice: 'alt'; note: string };
       abilityIncrease: AbilityKey | null;
@@ -150,11 +164,16 @@ type SheetEntryState =
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
   | { kind: 'item'; quantity: number }                                // later: charges
+  | { kind: 'spell'; castingClassId: Id<'catalogEntry'>;              // the Spellcasting it is recorded for
+      level: number | null }                                          // null = the class's level for it; set for off-list Spells
+  | { kind: 'spellEffect'; casterLevel: number }                      // pre-filled, see "Spell Effects"
+  | { kind: 'classFeature'; oppositionSchools: SchoolKey[] }          // arcane schools only; empty otherwise
   | { kind: 'attackRoutine'; name: string;
       main: { itemEntryId: Id<'characterSheetEntry'>; hands: 'two' | 'one' };
       off?: { itemEntryId: Id<'characterSheetEntry'> };              // two-weapon fighting
       options: { powerAttack: boolean } }                            // more options: see "Attacks"
-  | { kind: Exclude<EntryKind, 'classLevel' | 'base' | 'race' | 'feat' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'> };
+  | { kind: Exclude<EntryKind, 'classLevel' | 'base' | 'race' | 'feat' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'
+                     | 'spell' | 'spellEffect' | 'classFeature'> };
 ```
 
 ## Class Levels and Hit Dice
@@ -197,13 +216,13 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
   - An Archetype is a Catalog Entry tied to one base class, or to both versions of one (see "Unchained Classes"). A Character takes it as a sheet entry, and it applies to every level of that class. The levels stay levels of the base class.
   - `replaces` names rows of the class's `featuresByLevel`, a feature at one class level, so "replaces armor training 1" removes only that row. An archetype feature that alters a class feature replaces that row and adds its own feature at the same level.
   - Adding an Archetype removes the class feature entries it replaces from the sheet and adds its own features at their levels, with `gainedAtClassLevel` set. Removing it reverses this. Entries added or edited by hand stay.
-  - Class skills added or removed and skill ranks per level are structured. Proficiency changes stay in the description. Spellcasting changes wait for spellcasting.
+  - Class skills added or removed and skill ranks per level are structured. Proficiency changes and spellcasting changes stay in the description.
   - Two Archetypes on one class that replace or alter the same row (one feature at one class level) show an advisory warning (see "Rules checks").
 - **Base class schedules.** Foundry links many multi-level features only at their first level; the Fighter links six features. The Curation Overlay completes each base class's `featuresByLevel` from its class table, so archetypes can replace any row and the sheet shows every feature gained.
 - **Prestige classes.** These are `class` entries with `classKind: 'prestige'`, and their `featuresByLevel` comes from the class's level table.
   - Entry requirements are prerequisites on the class entry, like a feat's. They are checked against the Character as of the Class Level before the class's first level.
   - A prestige class can never be the favored class.
-  - "+1 level of existing spellcasting class" waits for spellcasting.
+  - "+1 level of existing spellcasting class" is `castingAdvances` (see "Spellcasting").
 - **Source: a scraped AoN dataset.**
   - Neither Foundry repo has archetypes or prestige classes. PSRD-Data (no licence, frozen in 2015) and the `pf1e-archetypes` module are not used.
   - A one-off scraper reads Archives of Nethys' prestige class and archetype pages into a dataset committed to this repo. It runs very slowly, over days if need be, and only after the project owner has contacted AoN.
@@ -227,7 +246,92 @@ Decided by [Decide which Pathfinder Unchained rules the builder supports](https:
   - An archetype for the original monk on the unchained monk shows an advisory warning ("with the exception of the monk").
   - Archetypes written for an Unchained Class name it directly. One whose source names both versions lists both in `classEntryIds`.
   - The Pathfinder Society restrictions (no barbarian archetype that changes rage, no summoner archetype that changes the eidolon's base form) are campaign policy, not rules text, and are not adopted.
-- **Spells.** The unchained summoner's revised spell list is ordinary per-class spell data, left to spellcasting.
+- **Spells.** The unchained summoner's revised spell list is ordinary per-class spell data under its own class tag, and its casting table is the bard's (see "Spellcasting").
+
+## Spellcasting
+
+Decided by [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218). Rules from [Collect the official PF1 spellcasting rules](https://github.com/AndreasUnunger/EverythingPath/issues/231) (`research/pf1-spellcasting-rules`); open items there are cited as S1–S14.
+
+- **Scope.** The sheet records which Spells each casting class has, and derives caster level, spells per day with bonus spells, spells known, save DCs and concentration. It records no prepared spells, no casts and no slots used: preparation, like every pool, is play-time status tracking. Spell-like abilities stay prose class features and racial traits.
+- **Spellcasting.** One is derived for each class the Character has Class Levels in whose class entry has `casting`. Nothing is stored for it. A multiclass caster's Spellcastings stay separate: caster levels, spells per day, lists and bonus spells.
+
+```ts
+type Casting = {                                  // Foundry `system.casting`, completed by the casting tables file
+  classTag: ClassTag;                             // Foundry class `tag`: the key into a Spell's `levels`
+  type: 'prepared' | 'spontaneous' | 'hybrid';    // hybrid = the arcanist
+  spellKind: 'arcane' | 'divine' | 'psychic' | 'alchemy';
+  ability: AbilityKey;                            // casting ability: bonus spells, DCs, concentration
+  cantrips: boolean;
+  casterLevelOffset: number;                      // −3 for paladin, ranger and antipaladin; 0 otherwise, the bloodrager included
+  table: CastingTableKey;                         // in the casting tables file
+  record: 'known' | 'book' | 'none';              // what the sheet records for it
+};
+```
+
+### Recorded Spells
+
+`record` decides what a Spellcasting holds, and the heading it shows:
+
+| `record` | Heading | Classes |
+|---|---|---|
+| `known` | Spells known | the spontaneous casters: bard, sorcerer, oracle, inquisitor, summoner, skald, bloodrager, psychic, mesmerist, spiritualist, occultist and the rest |
+| `book` | Spellbook, Formula book, Familiar | wizard, magus, arcanist; alchemist and investigator; witch |
+| `none` | (no list) | casters from their whole class list: cleric, druid, paladin, ranger, antipaladin, warpriest, shaman and the rest |
+
+The casting tables file sets `record` for every casting class, because Foundry doesn't carry it.
+
+- A recorded Spell is a `spell` sheet entry naming its `castingClassId`. One Spell recorded for two Spellcastings is two entries.
+- Its level for that Spellcasting is the Spell's `levels[classTag]`. A Spell missing from the class's list takes its level from the entry's own `level`, and shows the off-list warning.
+- A `none` Spellcasting records nothing. It shows its numbers and a link to browse its class list.
+- **Granted Spells** are derived and never recorded. An active class feature whose `spellcasting.grants` names a domain, subdomain or bloodline grants every Spell on that list, at its `grantedLevels` level, once the Spellcasting can cast that level. Mystery, patron and spirit spells stay prose until the Curation Overlay adds them as `grants` lists. So do the oracle's and hunter's automatic cure and *summon nature's ally* spells.
+- A class feature's Spellcasting is that of its `gainedAtClassLevel`'s class. Without one, it applies to the Character's only Spellcasting, and shows nothing when there are several.
+
+### Casting tables
+
+A reviewed file in the repo beside the Curation Overlay. Foundry's own tables are GPL code (`config.mjs`) and are never copied.
+
+- **Shared tables:** the seven `(type, progression)` tables, authored from the OGL `rules` journal (`Spell Tables`) and cross-checked against a parse of it. Every Foundry casting class reduces to one of them plus `cantrips`.
+- **Class tables:** alchemist and investigator extracts (the bard's numbers for levels 1–6, no 0-level column), the adept, and the unchained summoner (the bard's). They are transcribed from the books.
+- **Rows:** class level 1 to 20, and per spell level either no entry, or a number. A "0" means bonus spells only.
+  - `spellsPerDay` for every table.
+  - `spellsKnown` for `known` casters.
+  - `preparedPerDay` for the arcanist.
+- **Class data:** each casting class's `record` and `table`, and corrections to the Foundry `casting` summary.
+
+### Derived per Spellcasting
+
+- **Casting level:** the class's Class Levels (an Unchained Class counts as its original, see "Unchained Classes"), plus the prestige advances assigned to it. It reads the table row, capped at row 20 (S11).
+- **Caster level:** the class's Class Levels plus `casterLevelOffset`, plus the advances assigned to it, plus `casterLevel` Modifiers. The offset applies to class levels only (S10). The caster level is shown only once the table has an entry, so a paladin shows none before 4th (S1).
+- **Spells per day:** the table row, plus bonus spells, plus one extra slot per spell level from 1st when an active class feature of the Spellcasting has `extraSlot`. Several such features still give one extra slot per level. The slot row labels it "+1 domain", "+1 school (evocation)" or "+1 spirit".
+- **Bonus spells:** from the CRB table, by the casting ability's permanent score (see "Temporary Effects"). They apply only at spell levels where the table has an entry, "0" included (FAQ). They add to spells per day, and never to spells known, the arcanist's prepared count, or the extra slot (S3).
+- **Spells known:** the table row for `known` casters. Nothing adds to it, so feats like Expanded Arcana are covered by accepting the warning.
+- **The arcanist's prepared count:** `preparedPerDay`, shown beside its spells per day. Prestige advances raise it (S12).
+- **Save DC per spell level:** 10 + spell level + the casting ability modifier + `spellDC` Modifiers. A `school` condition shows a DC per school where it differs.
+- **Concentration:** caster level + the casting ability modifier + `concentration` Modifiers.
+
+The casting ability modifier for DCs and concentration is the current one, Temporary Effects included. Only bonus spells read permanent scores.
+
+### Prestige advances
+
+- A prestige class entry's `castingAdvances` lists, per class level, how many advances the level gives and of which kind: one for most, one arcane and one divine for the mystic theurge. The AoN scraper parses them from the level table's Spells column.
+- Each prestige Class Level records, in `castingAdvances`, the class each advance goes to. An empty choice is a blue outline. It is pre-filled when exactly one Spellcasting qualifies.
+- An advance adds to that Spellcasting's casting level and caster level, and so to its spells per day and spells known. Nothing else counts it (FAQ): no bloodline, domain, mystery or patron spells, no school powers.
+- Choices are per level, so advances may be split across classes (S6). An advance may go to a class that doesn't cast yet. It counts once the class does (S9).
+- An `arcane` or `divine` advance on a Spellcasting of another `spellKind` warns, so a psychic, alchemist or investigator takes only an `any` advance without a warning (S7, S8).
+
+### Opposition schools
+
+- An arcane school is a class feature with `spellcasting.school` and `extraSlot: 'school'`. Its sheet entry records the two `oppositionSchools`. A universalist has no school entry, and so no school slot.
+- Every recorded Spell of an opposition school shows a "2 slots" tag, from the Spell's `school`.
+- The same shape covers any other class or archetype with an arcane school and opposition schools.
+- Crafting penalties for opposition schools are not modelled.
+
+### Spell Effects
+
+- A Spell Effect is a `spellEffect` Catalog Entry: the Modifiers a running spell grants, imported from the Foundry buffs. `spellKey` names its Spell. A Spell may have several, such as *Fire Shield*'s warm and cold shields.
+- Its sheet entry records `casterLevel`, a plain number the player can change ("cast by Brother Ardo at CL 7"). Nothing links it to the caster's sheet.
+- **Pre-fill.** `casterLevel` is pre-filled with the lowest caster level at which any class can cast the Spell. For each class in the Spell's `levels`, that is the caster level at the first class level whose table has an entry ("0" included) at the Spell's level for that class. *Haste* pre-fills 4, from the summoner's 2nd-level spells at summoner 4. A paladin spell of 1st level pre-fills 1. A Spell Effect without a Spell uses `defaultCasterLevel`.
+- Its formulas may read `@casterLevel` (see "Formulas"). Casting a Spell from a sheet is play-time and out of scope.
 
 ## Modifiers
 
@@ -239,6 +343,8 @@ type ModifierCondition = {                       // every part present must hold
   situation?: SituationKey;                      // "vs. traps": never in a total (see "Conditional Modifiers")
   whileActive?: Id<'catalogEntry'>;              // "while raging": applies while an active entry of that Catalog Entry exists
   weapon?: '$self' | '$choice';                  // only attacks with this item, or with the entry's chosen weapon (Weapon Focus)
+  castingClass?: '$choice' | ClassTag;           // only this Spellcasting (Magical Knack)
+  school?: '$choice' | SchoolKey;                // only Spells of this school (Spell Focus)
 };
 ```
 
@@ -254,6 +360,7 @@ Targets form a closed list of statistics. Any bonus type may go on any target, b
 - **Skills:** `skill.<key>`
 - **Combat:** `bab`, `attack.melee`, `attack.ranged`, `damage.melee`, `damage.ranged`, `cmb`, `cmd`, `init`
 - **Hit points:** `hp`
+- **Spellcasting:** `casterLevel`, `spellDC`, `concentration`. Each applies to every Spellcasting unless a `castingClass` condition narrows it.
 
 The parent targets `ac`, `saves`, `attack` and `damage` exist because rules text uses them. They expand into their leaves before stacking: `ac` expands to `ac.other`. Touch AC and flat-footed AC are never targets. They are derived from the AC leaves (see "Derived statistics").
 
@@ -267,6 +374,7 @@ A formula uses a closed grammar:
 
 - **Operators and functions:** integers, `+ - * /`, `floor`, `ceil`, `min` and `max`.
 - **Variables:** `@level`, `@classLevel.<classKey>`, `@hitDice`, `@ability.<key>.mod` and `@bab`.
+- **`@casterLevel`:** in a Spell Effect's Modifiers, the caster level recorded on its sheet entry (*shield of faith*'s +1 per 6 levels). In a `casterLevel` Modifier, the Spellcasting's caster level before `casterLevel` Modifiers, so Magical Knack is `min(2, @hitDice − @casterLevel)`, capped at Hit Dice as written (S13). Anywhere else it is unsupported.
 
 A formula may read only stages earlier than its target's stage (see "Resolution stages"). A formula outside the grammar is stored and flagged as unsupported. It contributes nothing and shows a warning. About 22% of the dataset's changes are formulas, so the importer parses them ([Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207)).
 
@@ -328,6 +436,7 @@ Each stage groups and stacks. There is no priority field.
      - the favored class bonus;
      - the Con modifier × Hit Dice.
    - **Attack, CMB and CMD.**
+   - **Spellcastings:** caster level, spells per day, spells known, DCs and concentration (see "Spellcasting").
 
 BAB, base saves, HP per level, ranks, the class-skill +3, Dex to AC, ability increases, favored class bonuses and ability damage are all built-in Modifiers. That way they appear in the same breakdown as item bonuses.
 
@@ -432,6 +541,12 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Class alignment:** a Class Level whose class's `alignments` exclude the current alignment | alignment | Curation Overlay, for the 9 Foundry classes; scraped prestige classes carry it as a clause |
 | **Archetypes:** two on one class replacing or altering the same row (one feature at one class level); an Archetype on a class the Character has no levels in; the Unchained warnings (see "Unchained Classes") | archetype entries | `replaces` |
 | **Class features:** a feature in `featuresByLevel` missing from the sheet prompts "Add"; a due selection in `picksByLevel` prompts "choose a rage power"; a duplicated feature with an upgrade prompts adding it (see "Stacking") | Class Levels | Curation Overlay, scraped dataset |
+| **Spells known over the table:** more Spells recorded at a level than the Spellcasting's spells known; `known` casters only | recorded Spells, casting level | casting tables |
+| **Spell too high:** a recorded Spell above the highest level its Spellcasting can cast now | recorded Spells, casting level | casting tables |
+| **Off-list Spell:** a recorded Spell that isn't on its class's list and isn't granted | recorded Spells | Spell `levels`, `grantedLevels` |
+| **Orphaned Spell:** a recorded Spell whose casting class the Character has no Class Levels in | recorded Spells, Class Levels | sheet |
+| **Prestige advance:** an `arcane` or `divine` advance on a Spellcasting of another kind; an advance to a class first taken after the prestige class ("belonged to before"). An empty choice is a blue outline, not a warning | Class Levels | `castingAdvances`, `casting.spellKind` |
+| **Opposition schools:** the specialist school chosen as an opposition school, or fewer than two opposition schools | arcane school entry | `spellcasting.school` |
 | **Unsupported formula** (see "Formulas") | Modifiers | importer |
 
 **Skill ranks follow Intelligence retroactively.** The CRB glossary says a permanent ability increase means you "modify all skills and statistics related to that ability. This might cause you to gain skill points", and drain "might cause you to lose skill points". So every Class Level's budget uses the current permanent Int modifier. The headband's fixed skill ranks are *Ultimate Equipment* rules and aren't admitted, so a headband counts as ordinary permanent Int.
@@ -451,7 +566,9 @@ type Prerequisite =
   | { classFeature: string }                                       // by name, ignoring `(UC)`
   | { classLevel: Id<'catalogEntry'>; min: number } | { characterLevel: number }
   | { race: Id<'catalogEntry'>[] } | { alignment: Alignment[] } | { deity: string }
-  | { casterLevel: number }                                        // shows nothing until spellcasting
+  | { casterLevel: number }                                        // the highest caster level among the Spellcastings
+  | { canCast: { spellLevel: number; kind?: 'arcane' | 'divine' | 'psychic' } } // "able to cast 3rd-level arcane spells"
+  | { castsSpell: Id<'catalogEntry'> }                             // "able to cast dimension door"
   | { unchecked: string };                                         // parsed but unmodelled, or unparsed: shows nothing
 ```
 
@@ -461,7 +578,9 @@ Clauses follow the CRB FAQ:
 - A class feature replaced by an Archetype doesn't count.
 - A same-named feature of either version of an Unchained Class counts.
 - Unchained Class levels count as the original's.
-- A spell-like ability meets an "able to cast" clause only when the clause names the spell.
+- A spell-like ability meets an "able to cast" clause only when the clause names the spell. Spell-like abilities are prose, so such a clause met only by one shows nothing.
+- `canCast` is met by a Spellcasting of that `spellKind` whose table has an entry at that level, "0" included ([Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218)).
+- `castsSpell` is met by a Spellcasting with that Spell recorded or granted, or, for a `none` Spellcasting, with it on its class list at a level it can cast.
 
 `gainedAtClassLevel` dates a feat. The historical sheet at Class Level *k* counts the Class Levels up to *k*, the entries gained at or before *k*, and every entry without a gained level, such as items. A feat without a gained level is checked only against the current sheet. The two checks have their own copy, for example "Power Attack needed BAB +1 when taken at level 1" and "Power Attack: Str 13 no longer met; it can't be used." Later prestige levels have no requirement check.
 
@@ -471,7 +590,7 @@ An entry is a Temporary Effect according to its kind:
 
 | Temporary | Permanent |
 |---|---|
-| `spell` with `lastsOverOneDay: false` | every other kind, including spells with `lastsOverOneDay: true` |
+| `spellEffect` with `lastsOverOneDay: false` | every other kind, including Spell Effects with `lastsOverOneDay: true` and `spell` |
 | `condition` | |
 | `item` with `consumable: true` | |
 | `abilityDamage` | `abilityDrain` |
@@ -482,7 +601,7 @@ The derived sheet applies every active entry to every statistic, HP included. Hi
 - the skill-rank budget;
 - bonus spells.
 
-This narrows "running spells" in [Decide what the militia reads from a Character Sheet, and when](https://github.com/AndreasUnunger/EverythingPath/issues/205) to spells lasting a day or less, which is the official 24-hour rule.
+This narrows "running spells" in [Decide what the militia reads from a Character Sheet, and when](https://github.com/AndreasUnunger/EverythingPath/issues/205) to Spell Effects lasting a day or less, which is the official 24-hour rule. A recorded `spell` grants no Modifiers, so it never affects these.
 
 ## Two presentations
 
@@ -548,10 +667,17 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - feats, traits and racial traits;
   - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
   - buffs;
+  - spells, as `spell` entries keyed `pf1/<_id>`;
   - the 13 `racial-hd` records, as the creature-type seed table rather than as Catalog Entries.
 
-  The spell pack, goods and services, third-party packs and 3.5 packs are not imported.
-- **Buffs.** A spell buff becomes a `spell` entry, with `lastsOverOneDay` taken from its duration. Class and item buffs become their own kinds. The `spell` and `characterSpell` tables wait for spellcasting.
+  Goods and services, third-party packs and 3.5 packs are not imported.
+- **Buffs.** A spell buff becomes a `spellEffect` entry, with `lastsOverOneDay` taken from its duration and `defaultCasterLevel` from its `level`. Its `spellKey` comes from its first `Compendium.pf1.spells` link when the names agree (177 of 185). Otherwise the import report proposes one and the Curation Overlay decides. Class and item buffs become their own kinds.
+- **Spells.** ([Compare the spell data sources for spellcasting](https://github.com/AndreasUnunger/EverythingPath/issues/217), `research/pf1-spell-data`.)
+  - `levels` come only from `learnedAt.class`, joined to class entries by `system.tag`. `grantedLevels` come from the rest of `learnedAt`.
+  - The description's `@UUID` links are rewritten to catalog links or stripped.
+  - The 186 class and level pairs where the retired spell sheet disagrees with Foundry go to the import report. A Curation Overlay correction is written only where a mistake matters.
+  - A class's `casting` comes from its `system.casting`, renaming `spells` to `spellKind` and `offset` to `casterLevelOffset`, completed by the casting tables file (see "Spellcasting").
+  - Spells join the book set, so their sources need Section 15 Registry records like any entry.
 - **Rows.** Global entries are ordinary `catalogEntry` rows, so the resolver loads every scope the same way. Each imported entry carries its description text and its `sources`.
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
@@ -597,7 +723,7 @@ The resolver lives in `src/lib`, is pure, and is shared by the client and Convex
 type SourcedModifier = Modifier & { sheetEntryId: string; entryName: string; source: string; builtIn: boolean };
 
 collectModifiers(character, entries, catalog): SourcedModifier[]   // active entries + built-ins from state
-resolveSheet(modifiers, { permanentOnly?: boolean; situations?: SituationKey[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }
+resolveSheet(modifiers, { permanentOnly?: boolean; situations?: SituationKey[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }; plus one resolved Spellcasting per casting class
 resolveRoutine(character, sheet, routine, { situations? }): { single, attacks }   // see "Attacks"
 militiaCharacterFacts(character, entries, catalog): MilitiaCharacterFacts // permanentOnly; the one function the militia uses
 sheetWarnings(character, entries, catalog, accepted): SheetWarning[]   // see "Rules checks"; client only, never stored
@@ -617,8 +743,9 @@ Everything ships in the one release that merges the PR to main. Netlify runs `pn
 3. **Check.** The build fails loudly if any Character's Militia Character Facts differ from the copy in `canonicalMilitiaState`. They don't change, so no revision is bumped and no reviewed week is invalidated.
 4. **Readers.** The mirror writer, the Setup options query and `requireReviewedCharacters` call `militiaCharacterFacts`. `createCharacter`, `updateCharacter` and the e2e fixtures write the sheet.
 5. **Ruleset Version.** The new Ruleset Version for computed Hit Dice ships in the same release.
+6. **Old spell tables.** The backfill clears every `spell` and `characterSpell` row. Nothing in the UI reads them.
 
-Open browsers on the old bundle get errors from the changed character mutations until they reload. The backfill is rehearsed on a preview deployment first. A follow-up PR, with no behaviour change, drops the unread columns. It is tracked in [the legacy compatibility inventory](legacy-compatibility-inventory.md) until then.
+Open browsers on the old bundle get errors from the changed character mutations until they reload. The backfill is rehearsed on a preview deployment first. A follow-up PR, with no behaviour change, drops the unread columns, the `spell` and `characterSpell` tables, `convex/spell.ts` and `convex/data/spells.js`. It is tracked in [the legacy compatibility inventory](legacy-compatibility-inventory.md) until then.
 
 ## Verification
 
@@ -638,6 +765,10 @@ Resolver tests (pure) must cover:
 - moving and deleting Class Levels;
 - a situational Modifier staying out of the total and stacking like any other once its Situation is asked for (raging Will vs. spells);
 - while-active and weapon conditions;
+- a multiclass caster's separate Spellcastings, caster level offsets, and prestige advances split across classes;
+- bonus spells only at levels with a table entry, from permanent scores, never adding to spells known;
+- one extra slot per level however many `extraSlot` features, and granted Spells appearing once their level is castable;
+- the Spell Effect caster level pre-fill, and `@casterLevel` in a Spell Effect and in Magical Knack;
 - attack bonus, iterative attacks, two-weapon penalties, Str multipliers, composite bows, crossbows, Power Attack and haste, and the single attack taking no two-weapon penalty.
 - `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, and an Accepted Warning reopening when its fingerprint changes.
 

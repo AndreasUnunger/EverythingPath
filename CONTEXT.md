@@ -143,8 +143,19 @@ A Class Level whose class has not been recorded. It lets a minimal Character She
 A *Pathfinder Unchained* version of a class, such as the unchained rogue: a class of its own that counts as another version of the original. Its levels count as levels of the original class, its features meet prerequisites that name the original's same-named features, and archetypes for the original apply to it where it still has the features they replace, except for the monk. One Character should hold levels in only one of the two versions.
 _Avoid_: class variant, archetype
 
+**Spell**:
+A spell as a thing a caster can know, prepare or write in a spellbook, with its level for each class that casts it. It grants no Modifiers itself; what it does to a Character while running is a Spell Effect.
+
+**Spellcasting**:
+One casting class's casting on a Character, such as their wizard casting: its caster level, spells per day and the Spells recorded for it. A Character has one for each casting class they have levels in, and each is kept separate.
+_Avoid_: spellbook (a wizard's spellbook is one kind of record), caster
+
+**Spell Effect**:
+What a running spell does to the Character it affects, as Modifiers, such as Haste's dodge bonus. It names its Spell, and one Spell may have several, such as Fire Shield's warm and cold shields.
+_Avoid_: buff, running spell
+
 **Temporary Effect**:
-A running spell lasting 1 day or less, a condition, a consumable or ability damage. Every other Character Sheet Entry is permanent, including a spell lasting longer than a day, and ability drain.
+A Spell Effect lasting 1 day or less, a condition, a consumable or ability damage. Every other Character Sheet Entry is permanent, including a Spell Effect lasting longer than a day, and ability drain.
 
 **Ability Damage**:
 Points that lower an ability's modifier by 1 for every 2 points, leaving the ability score unchanged. Unlike ability drain, which lowers the score itself.
@@ -157,7 +168,7 @@ A Character presented and edited through its whole Character Sheet. Its level an
 _Avoid_: built character, pfCharacter
 
 **Militia Character Facts**:
-The values the militia rules read from a Character: character level, racial Hit Dice, ability scores counting only permanent effects (ability drain included, spells, conditions, consumables and ability damage excluded), and whether the Character is active. Confirmed weeks keep their own frozen copy.
+The values the militia rules read from a Character: character level, racial Hit Dice, ability scores without Temporary Effects (ability drain counts; Spell Effects lasting 1 day or less, conditions, consumables and ability damage don't), and whether the Character is active. Confirmed weeks keep their own frozen copy.
 _Avoid_: mirror stats, live stats
 
 **Hit Dice**:
