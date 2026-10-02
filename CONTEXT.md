@@ -101,8 +101,12 @@ The project's reviewed corrections to the imported content, each citing the offi
 _Avoid_: patches, homebrew (homebrew belongs to one campaign)
 
 **Section 15 Registry**:
-The project's reviewed record of each source book's copyright notice, copied word for word, from which the legal page is built. It covers every book the imported content draws on.
+The project's reviewed collection of source books' copyright notices, copied word for word, from which the legal page is built. Whether an entry's notices are covered is established by its Attribution Assessment, not by the registry; retained content with unresolved attribution or notices lies outside any completeness claim.
 _Avoid_: OGL list, credits
+
+**Attribution Assessment**:
+The reviewed connection between a global Catalog Entry's content and the books and Section 15 notices it comes from: confirmed attribution names its books, reviewed notice coverage bounds every possible origin by a content comparison, and anything else is unresolved. An entry counts as covered only when its assessment is accepted and every notice it requires is present.
+_Avoid_: Source (a Modifier's stacking origin), attribution pass
 
 **Character Sheet Entry**:
 One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, an item's enhancement and Item Abilities, or notes. Two potions of the same kind are two Character Sheet Entries.
