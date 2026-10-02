@@ -1,6 +1,6 @@
 # Initial Character migration write gate (#258)
 
-This is the recoverable **pre-activation** window for the initial Character Sheet release. It is separate from the retired weekly-board cutover. No command here activates sheets, publishes a Catalog Release, deploys code, or publishes the site. Complete legacy reads continue while all migration inputs are frozen. The gate covers all currently registered Character writers, organization membership and ownership inputs, roster references, militia data, spell imports and aggregate maintenance, fixtures and administrative writers. The current schema still requires a campaign on Characters; private Characters without campaigns and their lifecycle endpoints are future work, and must use this same gate and enter the inventory when introduced.
+This is the recoverable **pre-activation** window for the initial Character Sheet release. It is separate from the retired weekly-board cutover. No command here activates sheets, publishes a Catalog Release, deploys code, or publishes the site. Complete legacy reads continue while all migration inputs are frozen. The gate covers all currently registered Character writers, organization membership and ownership inputs, roster references, militia data, spell imports and aggregate maintenance, fixtures and administrative writers. The prepared sheet commands support shared campaign sheets and owner-only private demos without campaigns, including campaign archive/restore and private deletion. These lifecycle writers use the same gate and appear in the inventory below; broader lifecycle and production activation remain later work.
 
 ## Operator procedure
 
@@ -79,6 +79,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/character.ts:createCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:deleteCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:updateCharacter` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:acceptWarning` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:addClassLevel` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:archive` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:create` | Shared write gate (epoch + maintenance) |
@@ -86,7 +87,9 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:deletePrivate` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editBaseScores` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:editCreationSettings` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:moveClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:reopenWarning` | Shared write gate (epoch + maintenance) |
 | `convex/clerk.ts:fulfill` | Signature verification only; no writes or scheduling |
 | `convex/cutover.ts:activate` | Retired: always rejects; never mutates |
 | `convex/cutover.ts:initialize` | Retired: always rejects; never mutates |

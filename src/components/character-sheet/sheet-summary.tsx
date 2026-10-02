@@ -55,7 +55,9 @@ function Figure({ label, value }: { label: string; value: number | null }) {
 /**
  * The summary row: the name left, level, Hit Dice and HP right. Pinned from
  * tablet width; on the phone it stacks and scrolls with the sheet so no
- * second wall of controls is fixed.
+ * second wall of controls is fixed. The row stays compact (PRD Decision 3):
+ * unresolved HP shows as a dash here and is explained under the Class
+ * Levels it is summed from.
  */
 export function SheetSummary({
   name,
@@ -70,7 +72,7 @@ export function SheetSummary({
     <div
       ref={row}
       data-sheet-summary
-      className="bg-background/95 border-foreground/15 z-20 -mx-4 mb-3 flex flex-col gap-y-1.5 border-b px-4 py-1.5 backdrop-blur md:sticky md:-mx-6 md:flex-row md:items-end md:justify-between md:gap-x-4 md:px-6"
+      className="bg-background/95 border-foreground/15 z-20 -mx-4 mb-3 flex flex-col gap-y-1.5 border-b px-4 py-1.5 backdrop-blur md:sticky md:-mx-6 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-x-4 md:px-6"
     >
       <h1 className="min-w-0 font-sans text-xl leading-tight [overflow-wrap:anywhere] md:flex-1">
         {name}

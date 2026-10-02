@@ -55,6 +55,9 @@ vi.mock('@convex/_generated/api', () => ({
       create: 'create',
       archive: 'archive',
       deletePrivate: 'deletePrivate',
+      editCreationSettings: 'settings',
+      acceptWarning: 'accept',
+      reopenWarning: 'reopen',
     },
   },
 }));
@@ -172,9 +175,11 @@ function sheet({
     catalogEntries: [catalogEntry],
     baseScoresEntry: catalogEntry,
     calculated: calculateCharacterSheet({
+      characterKind: 'pc',
       entries,
       catalogEntries: [catalogEntry],
     }),
+    acceptedWarnings: [],
     revision: 1,
     lastOperationId,
     updatedBy: 'owner',
@@ -701,7 +706,10 @@ test('a deleted row takes its pending save with it, focus lands on its successor
     within(levelsRegion()).queryByRole('listitem'),
   ).not.toBeInTheDocument();
   expect(screen.getByText('No Class Levels yet.')).toBeVisible();
-  expect(screen.getByText('This PC has no Class Levels.')).toBeVisible();
+  expect(screen.getByText('A PC has no Class Levels.')).toBeVisible();
+  expect(
+    screen.queryByText('This PC has no Class Levels.'),
+  ).not.toBeInTheDocument();
   expect(screen.getByText('Level 1 as')).toBeVisible();
   const levelUp = screen.getByRole('button', { name: 'Level up' });
   expect(levelUp).toBeEnabled();

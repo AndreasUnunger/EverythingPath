@@ -209,12 +209,38 @@ test('private sheets reject an asserted organization on reads and writes even fo
   );
 });
 
-test('only the owner can delete a private sheet and its owned definitions, with campaign deletion refused', async () => {
+test('only the owner can delete a private sheet and its owned definitions and Accepted Warnings, with campaign deletion refused', async () => {
   const { t, owner, member } = await fixture();
   const characterId = await owner.mutation(
     api.characterSheet.create,
     newCharacter,
   );
+  async function acceptPointBuy(id: typeof characterId) {
+    await owner.mutation(api.characterSheet.editBaseScores, {
+      characterId: id,
+      operationId: 'scores',
+      scores: { strength: 18 },
+    });
+    const sheet = await owner.query(api.characterSheet.read, {
+      characterId: id,
+    });
+    const warning = sheet?.calculated.warnings.find(
+      (warning) => warning.check === 'pointBuy',
+    );
+    if (!warning) throw new Error('Missing point-buy warning');
+    await owner.mutation(api.characterSheet.acceptWarning, {
+      characterId: id,
+      operationId: 'accept',
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+    });
+  }
+  await acceptPointBuy(characterId);
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))
+      ?.acceptedWarnings,
+  ).toHaveLength(1);
   await expect(
     member.mutation(api.characterSheet.deletePrivate, {
       characterId,
@@ -225,6 +251,7 @@ test('only the owner can delete a private sheet and its owned definitions, with 
     ...newCharacter,
     name: 'Keep me',
   });
+  await acceptPointBuy(unrelatedId);
   const unrelated = await owner.query(api.characterSheet.read, {
     characterId: unrelatedId,
   });
@@ -257,8 +284,17 @@ test('only the owner can delete a private sheet and its owned definitions, with 
         .query('characterSpell')
         .withIndex('characterId', (q) => q.eq('characterId', characterId))
         .collect(),
+      acceptedWarnings: await ctx.db
+        .query('acceptedWarning')
+        .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+        .collect(),
     })),
-  ).toEqual({ entries: [], definitions: [], spells: [] });
+  ).toEqual({
+    entries: [],
+    definitions: [],
+    spells: [],
+    acceptedWarnings: [],
+  });
   expect(
     await owner.query(api.characterSheet.read, { characterId: unrelatedId }),
   ).toEqual(unrelated);
@@ -294,6 +330,10 @@ test('only the owner can delete a private sheet and its owned definitions, with 
     campaignId,
     organizationId: 'org',
   });
+  await acceptPointBuy(sharedId);
+  const shared = await owner.query(api.characterSheet.read, {
+    characterId: sharedId,
+  });
   await expect(
     owner.mutation(api.characterSheet.deletePrivate, {
       characterId: sharedId,
@@ -310,6 +350,9 @@ test('only the owner can delete a private sheet and its owned definitions, with 
   ).toMatchObject({
     character: { isActive: false, campaignId },
     calculated: { level: 1 },
+    acceptedWarnings: shared?.acceptedWarnings,
+    lastOperationId: 'archive',
+    revision: shared!.revision + 1,
   });
   expect(
     await owner.query(api.character.listByCampaign, {
@@ -324,7 +367,129 @@ test('only the owner can delete a private sheet and its owned definitions, with 
   });
   expect(
     await member.query(api.characterSheet.read, { characterId: sharedId }),
-  ).toMatchObject({ character: { isActive: true, campaignId } });
+  ).toMatchObject({
+    character: { isActive: true, campaignId },
+    acceptedWarnings: shared?.acceptedWarnings,
+    lastOperationId: 'restore',
+    revision: shared!.revision + 2,
+  });
+});
+
+test('private creation settings and warning commands belong only to the unscoped owner', async () => {
+  const { t, owner, member, outsider } = await fixture();
+  const characterId = await owner.mutation(
+    api.characterSheet.create,
+    newCharacter,
+  );
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    characterId,
+    operationId: 'settings',
+    settings: { traitCount: 0, campaignTraitRequired: true },
+  });
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    characterId,
+    operationId: 'scores',
+    scores: { strength: 18 },
+  });
+  const sheet = await owner.query(api.characterSheet.read, { characterId });
+  expect(sheet?.calculated.creationSettings).toEqual({
+    abilityMethod: { kind: 'pointBuy', budget: 15 },
+    traitCount: 0,
+    campaignTraitRequired: true,
+  });
+  const warning = sheet?.calculated.warnings.find(
+    (warning) => warning.check === 'pointBuy',
+  );
+  if (!warning) throw new Error('Missing point-buy warning');
+  const key = { check: warning.check, subject: warning.subject };
+  function commands(caller: typeof owner, organizationId?: string) {
+    const scope = {
+      characterId,
+      ...(organizationId ? { organizationId } : {}),
+      operationId: 'command',
+    };
+    return [
+      () =>
+        caller.mutation(api.characterSheet.editCreationSettings, {
+          ...scope,
+          settings: { traitCount: 3 },
+        }),
+      () =>
+        caller.mutation(api.characterSheet.acceptWarning, {
+          ...scope,
+          ...key,
+          fingerprint: warning!.fingerprint,
+        }),
+      () =>
+        caller.mutation(api.characterSheet.reopenWarning, { ...scope, ...key }),
+    ];
+  }
+  for (const caller of [t, member, outsider])
+    for (const organizationId of [undefined, 'org'])
+      for (const command of commands(caller, organizationId))
+        await expect(command()).rejects.toThrow('Character not found');
+  for (const command of commands(owner, 'org'))
+    await expect(command()).rejects.toThrow('Character not found');
+  expect(await owner.query(api.characterSheet.read, { characterId })).toEqual(
+    sheet,
+  );
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    characterId,
+    operationId: 'accept',
+    ...key,
+    fingerprint: warning.fingerprint,
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))
+      ?.acceptedWarnings,
+  ).toHaveLength(1);
+  await owner.mutation(api.characterSheet.reopenWarning, {
+    characterId,
+    operationId: 'reopen',
+    ...key,
+  });
+  const reopened = await owner.query(api.characterSheet.read, { characterId });
+  expect(reopened?.acceptedWarnings).toEqual([]);
+  expect(reopened?.calculated).toEqual(sheet?.calculated);
+});
+
+test('private deletion removes Accepted Warnings up to the sheet’s full acceptance capacity', async () => {
+  const { t, owner } = await fixture();
+  const characterId = await owner.mutation(
+    api.characterSheet.create,
+    newCharacter,
+  );
+  // Stored acceptance capacity is independent of the smaller entry-row limit.
+  await t.run(async (ctx) => {
+    for (let index = 0; index < 8192; index++)
+      await ctx.db.insert('acceptedWarning', {
+        characterId,
+        check: 'futureCheck',
+        subject: `subject:${index}`,
+        fingerprint: 'recorded-facts',
+        acceptedBy: 'test|owner',
+        acceptedAt: 0,
+      });
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))
+      ?.acceptedWarnings,
+  ).toHaveLength(8192);
+  await owner.mutation(api.characterSheet.deletePrivate, {
+    characterId,
+    operationId: 'delete',
+  });
+  await expect(
+    owner.query(api.characterSheet.read, { characterId }),
+  ).rejects.toThrow('Character not found');
+  expect(
+    await t.run((ctx) =>
+      ctx.db
+        .query('acceptedWarning')
+        .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+        .take(1),
+    ),
+  ).toEqual([]);
 });
 
 test('private demos never activate ordinary users or unmarked sheets, and maintenance closes every new writer', async () => {

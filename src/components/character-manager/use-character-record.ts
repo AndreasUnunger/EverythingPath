@@ -1,4 +1,5 @@
 'use client';
+import { createCharacterSheetOperationId } from '~/lib/character-sheet-operations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
@@ -92,6 +93,7 @@ export function useCharacterRecord({
       });
     else if (archive || changed)
       await updateCharacter({
+        operationId: createCharacterSheetOperationId(),
         organizationId,
         characterId: current._id,
         patch: archive ? { ...patch, isActive } : patch,

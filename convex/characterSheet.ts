@@ -3,7 +3,7 @@ import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { query } from './_generated/server';
 import { campaignMutation } from './lib/campaignRuntime';
-import schema from './schema';
+import schema, { creationSettingsValidator } from './schema';
 import { getUser } from './user';
 import {
   requireCharacterCampaignAccess,
@@ -13,12 +13,14 @@ import {
   abilityKeys,
   abilityTargets,
   defaultAbilityScores,
+  calculateCharacterSheet,
+  creationSettingsFor,
 } from '../src/lib/character-sheet';
 import {
   deleteCharacterSheet,
   initializeCharacterSheet,
   loadCharacterSheet,
-  recordSheetChange,
+  pruneWarningAcceptancesAndRecordChange,
   requireFixtureCampaign,
   updateCharacterArchive,
 } from './lib/characterSheet';
@@ -41,6 +43,43 @@ const calculatedValidator = v.object({
   level: v.number(),
   hitDice: v.number(),
   hp: v.union(v.number(), v.null()),
+  creationSettings: creationSettingsValidator,
+  pointBuy: v.union(
+    v.null(),
+    v.object({
+      spent: v.union(v.number(), v.null()),
+    }),
+  ),
+  warnings: v.array(
+    v.object({
+      kind: v.union(
+        v.literal('incomplete'),
+        v.literal('unresolved'),
+        v.literal('rules'),
+      ),
+      check: v.union(
+        v.literal('class'),
+        v.literal('hpGainedMissing'),
+        v.literal('hpGainedBelowMinimum'),
+        v.literal('totalHpUnresolved'),
+        v.literal('levelZero'),
+        v.literal('pointBuy'),
+      ),
+      target: v.union(
+        v.object({ kind: v.literal('pointBuy') }),
+        v.object({
+          kind: v.literal('classLevel'),
+          entryId: v.string(),
+          field: v.union(v.literal('class'), v.literal('hpGained')),
+        }),
+        v.object({ kind: v.literal('hitPoints') }),
+        v.object({ kind: v.literal('classLevels') }),
+      ),
+      subject: v.string(),
+      fingerprint: v.string(),
+      message: v.string(),
+    }),
+  ),
 });
 export const create = campaignMutation({
   args: {
@@ -104,6 +143,7 @@ export const read = query({
       catalogEntries: v.array(schema.doc('catalogEntry')),
       baseScoresEntry: schema.doc('catalogEntry'),
       calculated: calculatedValidator,
+      acceptedWarnings: v.array(schema.doc('acceptedWarning')),
       revision: v.number(),
       lastOperationId: v.union(v.string(), v.null()),
       updatedBy: v.union(v.string(), v.null()),
@@ -115,7 +155,14 @@ export const read = query({
     const sheet = await loadCharacterSheet(ctx, { ...args, characterId });
     if (!sheet) return null;
     const { actor: _actor, ...result } = sheet;
-    return result;
+    return {
+      ...result,
+      calculated: calculateCharacterSheet({
+        entries: sheet.entries,
+        catalogEntries: sheet.catalogEntries,
+        characterKind: sheet.character.kind,
+      }),
+    };
   },
 });
 
@@ -139,14 +186,22 @@ async function renumberClassLevels(
   ctx: MutationCtx,
   levels: ReturnType<typeof getClassLevel>[],
 ) {
-  for (const [index, row] of levels.entries())
-    if (row.state.position !== index + 1)
-      await ctx.db.patch('characterSheetEntry', row._id, {
-        state: { ...row.state, position: index + 1 },
-      });
+  const reordered = levels.map((row, index) => ({
+    ...row,
+    state: { ...row.state, position: index + 1 },
+  }));
+  for (const [index, row] of reordered.entries())
+    if (levels[index]?.state.position !== row.state.position)
+      await ctx.db.patch('characterSheetEntry', row._id, { state: row.state });
+  return reordered;
 }
 function requireFiniteNumber(value: number) {
   if (!Number.isFinite(value)) throw new ConvexError('Enter a finite number');
+}
+function requireNonnegativeInteger(value: number, label: string) {
+  requireFiniteNumber(value);
+  if (!Number.isInteger(value) || value < 0)
+    throw new ConvexError(`${label} must be a whole number of 0 or more`);
 }
 export const editBaseScores = campaignMutation({
   args: {
@@ -185,10 +240,12 @@ export const editBaseScores = campaignMutation({
     );
     if (!hasChanges) return null;
     await ctx.db.patch('catalogEntry', catalogEntry._id, { modifiers });
-    await recordSheetChange(ctx, {
-      character: sheet.character,
+    sheet.catalogEntries = sheet.catalogEntries.map((entry) =>
+      entry._id === catalogEntry._id ? { ...entry, modifiers } : entry,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
       operationId: args.operationId,
-      updatedBy: sheet.actor,
     });
     return null;
   },
@@ -207,14 +264,18 @@ export const addClassLevel = campaignMutation({
       state: {
         kind: 'classLevel',
         classEntryId: null,
-        position: sheet.calculated.level + 1,
+        position:
+          sheet.entries.filter((entry) => entry.kind === 'classLevel').length +
+          1,
         hpGained: null,
       },
     });
-    await recordSheetChange(ctx, {
-      character: sheet.character,
+    const entry = await ctx.db.get('characterSheetEntry', entryId);
+    if (!entry) throw new ConvexError('Class Level is unavailable');
+    sheet.entries.push(entry);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
       operationId: args.operationId,
-      updatedBy: sheet.actor,
     });
     return entryId;
   },
@@ -227,13 +288,14 @@ export const editClassLevel = campaignMutation({
     const entry = getClassLevel(sheet, args.entryId);
     if (args.hpGained !== null) requireFiniteNumber(args.hpGained);
     if (entry.state.hpGained === args.hpGained) return null;
-    await ctx.db.patch('characterSheetEntry', entry._id, {
-      state: { ...entry.state, hpGained: args.hpGained },
-    });
-    await recordSheetChange(ctx, {
-      character: sheet.character,
+    const state = { ...entry.state, hpGained: args.hpGained };
+    await ctx.db.patch('characterSheetEntry', entry._id, { state });
+    sheet.entries = sheet.entries.map((row) =>
+      row._id === entry._id ? { ...entry, state } : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
       operationId: args.operationId,
-      updatedBy: sheet.actor,
     });
     return null;
   },
@@ -254,11 +316,13 @@ export const moveClassLevel = campaignMutation({
     )
       throw new ConvexError('Choose a valid Class Level position');
     levels.splice(args.position - 1, 0, entry);
-    await renumberClassLevels(ctx, levels);
-    await recordSheetChange(ctx, {
-      character: sheet.character,
+    sheet.entries = [
+      ...sheet.entries.filter((entry) => entry.kind === 'base'),
+      ...(await renumberClassLevels(ctx, levels)),
+    ];
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
       operationId: args.operationId,
-      updatedBy: sheet.actor,
     });
     return null;
   },
@@ -273,11 +337,110 @@ export const deleteClassLevel = campaignMutation({
     const levels = sheet.entries
       .filter((item) => item.kind === 'classLevel')
       .filter((item) => item._id !== entry._id);
-    await renumberClassLevels(ctx, levels);
-    await recordSheetChange(ctx, {
-      character: sheet.character,
+    sheet.entries = [
+      ...sheet.entries.filter((entry) => entry.kind === 'base'),
+      ...(await renumberClassLevels(ctx, levels)),
+    ];
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
       operationId: args.operationId,
-      updatedBy: sheet.actor,
+    });
+    return null;
+  },
+});
+
+export const editCreationSettings = campaignMutation({
+  args: { ...writeScope, settings: creationSettingsValidator.partial() },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const base = sheet.entries.find((entry) => entry.kind === 'base');
+    if (!base) throw new ConvexError('Base scores are unavailable');
+    const previous = creationSettingsFor(base);
+    const settings = { ...previous, ...args.settings };
+    if (settings.abilityMethod.budget !== undefined)
+      requireNonnegativeInteger(
+        settings.abilityMethod.budget,
+        'Point-buy budget',
+      );
+    requireNonnegativeInteger(settings.traitCount, 'Trait count');
+    if (JSON.stringify(previous) === JSON.stringify(settings)) return null;
+    const state = { ...base.state, ...settings };
+    await ctx.db.patch('characterSheetEntry', base._id, { state });
+    sheet.entries = sheet.entries.map((entry) =>
+      entry._id === base._id ? { ...base, state } : entry,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+const warningScope = { ...writeScope, check: v.string(), subject: v.string() };
+export const acceptWarning = campaignMutation({
+  args: { ...warningScope, fingerprint: v.string() },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const calculated = calculateCharacterSheet({
+      entries: sheet.entries,
+      catalogEntries: sheet.catalogEntries,
+      characterKind: sheet.character.kind,
+    });
+    const warning = calculated.warnings.find(
+      (item) =>
+        item.check === args.check &&
+        item.subject === args.subject &&
+        item.fingerprint === args.fingerprint,
+    );
+    if (warning?.kind !== 'rules')
+      throw new ConvexError('Only a current rules warning can be accepted');
+    const previous = sheet.acceptedWarnings.find(
+      (item) => item.check === args.check && item.subject === args.subject,
+    );
+    if (previous?.fingerprint === warning.fingerprint) return null;
+    if (previous) {
+      await ctx.db.delete('acceptedWarning', previous._id);
+      sheet.acceptedWarnings = sheet.acceptedWarnings.filter(
+        (item) => item._id !== previous._id,
+      );
+    }
+    if (sheet.acceptedWarnings.length >= 8192)
+      throw new ConvexError('Character has too many accepted warnings');
+    await ctx.db.insert('acceptedWarning', {
+      characterId: args.characterId,
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+      acceptedBy: sheet.actor,
+      acceptedAt: Date.now(),
+    });
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+      calculated,
+    });
+    return null;
+  },
+});
+export const reopenWarning = campaignMutation({
+  args: warningScope,
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const previous = sheet.acceptedWarnings.find(
+      (item) => item.check === args.check && item.subject === args.subject,
+    );
+    if (!previous) return null;
+    await ctx.db.delete('acceptedWarning', previous._id);
+    sheet.acceptedWarnings = sheet.acceptedWarnings.filter(
+      (item) => item._id !== previous._id,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
     });
     return null;
   },
@@ -291,10 +454,10 @@ export const archive = campaignMutation({
     if (!sheet.character.campaignId)
       throw new ConvexError('Only campaign Characters can be archived');
     await updateCharacterArchive(ctx, args);
-    await recordSheetChange(ctx, {
-      character: sheet.character,
+    sheet.character = { ...sheet.character, isActive: args.isActive };
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
       operationId: args.operationId,
-      updatedBy: sheet.actor,
     });
     return null;
   },

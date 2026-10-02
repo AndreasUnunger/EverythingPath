@@ -15,7 +15,10 @@ import {
   abilityKeys,
   abilityLabels,
   type AbilityScores,
+  type CreationSettings,
 } from '~/lib/character-sheet';
+import { cn } from '~/lib/utils';
+import { InlineWarnings } from './inline-warning';
 import {
   action,
   Block,
@@ -24,11 +27,40 @@ import {
   RemoteNotice,
   SaveFeedback,
 } from './sheet-parts';
-import type { useCharacterSheet } from './use-character-sheet';
+import type {
+  SheetWarningView,
+  useCharacterSheet,
+} from './use-character-sheet';
 import { useBaseScoresForm } from './use-sheet-forms';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
-type Abilities = NonNullable<Controller['sheet']>['calculated']['abilities'];
+type ReadySheet = NonNullable<Controller['sheet']>;
+type Abilities = ReadySheet['calculated']['abilities'];
+
+// "{spent} / {budget} points" while the cost resolves; amber only while a
+// point-buy warning is open. Under budget is a counter, not a warning.
+function PointCounter({
+  pointBuy,
+  budget,
+  hasOpenWarning,
+}: {
+  pointBuy: NonNullable<ReadySheet['calculated']['pointBuy']>;
+  budget: number;
+  hasOpenWarning: boolean;
+}) {
+  return (
+    <p
+      className={cn(
+        'font-mono text-xs',
+        hasOpenWarning ? 'text-amber-300' : 'text-muted-foreground',
+      )}
+    >
+      {pointBuy.spent === null
+        ? 'Point-buy cost unresolved.'
+        : `${pointBuy.spent} / ${budget} points`}
+    </p>
+  );
+}
 
 // Label | base input | saved total | modifier, the message under the row.
 const columns = 'grid grid-cols-[minmax(0,1fr)_4.5rem_3rem_3rem] gap-x-3';
@@ -41,17 +73,46 @@ const columns = 'grid grid-cols-[minmax(0,1fr)_4.5rem_3rem_3rem] gap-x-3';
 export function BaseScoresEditor({
   scores,
   abilities,
+  creationSettings,
+  pointBuy,
+  warnings,
+  warningController,
   save,
 }: {
   scores: AbilityScores;
   abilities: Abilities;
+  creationSettings: CreationSettings;
+  pointBuy: ReadySheet['calculated']['pointBuy'];
+  warnings: SheetWarningView[];
+  warningController: Controller['warnings'];
   save: Controller['saveBaseScores'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const editor = useBaseScoresForm({ scores, save });
   const isSaving = editor.status.kind === 'saving';
+  const pointBuyWarnings = warnings.filter(
+    (warning) => warning.target.kind === 'pointBuy',
+  );
   return (
-    <Block title="Ability scores">
+    <Block
+      title="Ability scores"
+      aside={
+        pointBuy && creationSettings.abilityMethod.kind === 'pointBuy' ? (
+          <PointCounter
+            pointBuy={pointBuy}
+            budget={creationSettings.abilityMethod.budget}
+            hasOpenWarning={pointBuyWarnings.some(
+              (warning) => !warning.accepted,
+            )}
+          />
+        ) : null
+      }
+    >
+      <InlineWarnings
+        warnings={pointBuyWarnings}
+        controller={warningController}
+        className="mb-2"
+      />
       <Form {...editor.form}>
         <form
           noValidate

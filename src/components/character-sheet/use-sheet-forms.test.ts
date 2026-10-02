@@ -1,7 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { ConvexError } from 'convex/values';
-import { useBaseScoresForm, useClassLevelForm } from './use-sheet-forms';
+import type { CreationSettings } from '~/lib/character-sheet';
+import {
+  useBaseScoresForm,
+  useClassLevelForm,
+  useCreationSettingsForm,
+} from './use-sheet-forms';
 
 test('a missing HP choice stays blank and can be saved; malformed HP has a field error', async () => {
   let persisted: number | null = 8;
@@ -524,4 +529,322 @@ test('an unknown score save keeps newer drafts and treats later matching scores 
   expect(view.result.current.status.kind).toBe('error');
   expect(view.result.current.form.getValues('strength')).toBe('18');
   expect(view.result.current.form.formState.dirtyFields.strength).toBe(true);
+});
+
+test('creation settings separate empty and malformed fields while allowing unusual budgets and trait counts', async () => {
+  const writes: unknown[] = [];
+  const view = renderHook(() =>
+    useCreationSettingsForm({
+      settings: {
+        abilityMethod: { kind: 'pointBuy', budget: 15 },
+        traitCount: 2,
+        campaignTraitRequired: false,
+      },
+      save: async (changes) => {
+        writes.push(changes);
+      },
+    }),
+  );
+  expect(view.result.current.form.getValues()).toEqual({
+    abilityMethod: 'pointBuy',
+    pointBuyBudget: '15',
+    traitCount: '2',
+    campaignTraitRequired: false,
+  });
+  act(() => {
+    view.result.current.form.setValue('pointBuyBudget', '', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('traitCount', 'two', {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(
+    view.result.current.form.formState.errors.pointBuyBudget?.message,
+  ).toBe('Point-buy budget is required');
+  expect(view.result.current.form.formState.errors.traitCount?.message).toBe(
+    'Trait count must be a number',
+  );
+  expect(writes).toEqual([]);
+  act(() => {
+    view.result.current.form.setValue('pointBuyBudget', '40', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('traitCount', '0', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('campaignTraitRequired', true, {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(writes).toEqual([
+    {
+      abilityMethod: { kind: 'pointBuy', budget: 40 },
+      traitCount: 0,
+      campaignTraitRequired: true,
+    },
+  ]);
+});
+
+test.each(['invalid', '-1', '2.5'])(
+  'rolled scores ignore the invalid hidden budget %s and keep other creation choices',
+  async (hiddenBudget) => {
+    const saved: unknown[] = [];
+    const view = renderHook(() =>
+      useCreationSettingsForm({
+        settings: {
+          abilityMethod: { kind: 'pointBuy', budget: 15 },
+          traitCount: 2,
+          campaignTraitRequired: false,
+        },
+        save: async (changes) => {
+          saved.push(changes);
+        },
+      }),
+    );
+    act(() => {
+      view.result.current.form.setValue('pointBuyBudget', hiddenBudget, {
+        shouldDirty: true,
+      });
+      view.result.current.form.setValue('abilityMethod', 'rolled', {
+        shouldDirty: true,
+      });
+      view.result.current.form.setValue('traitCount', '4', {
+        shouldDirty: true,
+      });
+    });
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(saved).toEqual([
+      { abilityMethod: { kind: 'rolled', budget: 15 }, traitCount: 4 },
+    ]);
+    expect(
+      view.result.current.form.formState.errors.pointBuyBudget,
+    ).toBeUndefined();
+    expect(view.result.current.status.kind).toBe('saved');
+  },
+);
+
+test.each([
+  ['pointBuyBudget', 'Point-buy budget', '-1'],
+  ['pointBuyBudget', 'Point-buy budget', '2.5'],
+  ['traitCount', 'Trait count', '-1'],
+  ['traitCount', 'Trait count', '2.5'],
+] as const)(
+  '%s rejects the structurally invalid value %s %s before saving',
+  async (field, label, value) => {
+    const writes: unknown[] = [];
+    const view = renderHook(() =>
+      useCreationSettingsForm({
+        settings: {
+          abilityMethod: { kind: 'pointBuy', budget: 15 },
+          traitCount: 2,
+          campaignTraitRequired: false,
+        },
+        save: async (changes) => {
+          writes.push(changes);
+        },
+      }),
+    );
+    act(() =>
+      view.result.current.form.setValue(field, value, { shouldDirty: true }),
+    );
+    await act(async () => view.result.current.save());
+    expect(view.result.current.form.formState.errors[field]?.message).toBe(
+      `${label} must be a whole number of 0 or more`,
+    );
+    expect(writes).toEqual([]);
+    expect(view.result.current.form.getValues(field)).toBe(value);
+    act(() =>
+      view.result.current.form.setValue(field, '0', { shouldDirty: true }),
+    );
+    await act(async () => view.result.current.save());
+    expect(writes).toEqual([
+      field === 'pointBuyBudget'
+        ? { abilityMethod: { kind: 'pointBuy', budget: 0 } }
+        : { traitCount: 0 },
+    ]);
+  },
+);
+
+test('creation settings retain refused drafts and remote pristine choices, then acknowledge only their saved patch', async () => {
+  const settings = {
+    abilityMethod: { kind: 'pointBuy' as const, budget: 15 },
+    traitCount: 2,
+    campaignTraitRequired: false,
+  };
+  let fail = true;
+  const writes: unknown[] = [];
+  const view = renderHook(
+    ({ settings }) =>
+      useCreationSettingsForm({
+        settings,
+        save: async (changes) => {
+          if (fail) throw new ConvexError('Editing is paused');
+          writes.push(changes);
+        },
+      }),
+    { initialProps: { settings } },
+  );
+  act(() => {
+    view.result.current.form.setValue('pointBuyBudget', '25', {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(view.result.current.status.kind).toBe('error');
+  expect(view.result.current.form.getValues('pointBuyBudget')).toBe('25');
+  view.rerender({
+    settings: { ...settings, traitCount: 3, campaignTraitRequired: true },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(true);
+  expect(view.result.current.form.getValues()).toEqual({
+    abilityMethod: 'pointBuy',
+    pointBuyBudget: '25',
+    traitCount: '3',
+    campaignTraitRequired: true,
+  });
+  act(() => {
+    view.result.current.dismissRemoteChange();
+  });
+  fail = false;
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(writes).toEqual([{ abilityMethod: { kind: 'pointBuy', budget: 25 } }]);
+  view.rerender({
+    settings: {
+      ...settings,
+      abilityMethod: { kind: 'pointBuy', budget: 25 },
+      traitCount: 3,
+      campaignTraitRequired: true,
+    },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(false);
+  expect(view.result.current.status.kind).toBe('saved');
+});
+
+test('a point-buy budget retained through rolled mode is the budget saved on returning to point buy', async () => {
+  const writes: unknown[] = [];
+  const settings: CreationSettings = {
+    abilityMethod: { kind: 'pointBuy', budget: 15 },
+    traitCount: 2,
+    campaignTraitRequired: false,
+  };
+  const view = renderHook(
+    ({ settings }) =>
+      useCreationSettingsForm({
+        settings,
+        save: async (changes) => {
+          writes.push(changes);
+        },
+      }),
+    { initialProps: { settings } },
+  );
+  act(() => {
+    view.result.current.form.setValue('pointBuyBudget', '20', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('abilityMethod', 'rolled', {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  view.rerender({
+    settings: { ...settings, abilityMethod: { kind: 'rolled' } },
+  });
+  act(() => {
+    view.result.current.form.setValue('abilityMethod', 'pointBuy', {
+      shouldDirty: true,
+    });
+  });
+  expect(view.result.current.form.getValues('pointBuyBudget')).toBe('20');
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(writes).toEqual([
+    { abilityMethod: { kind: 'rolled', budget: 20 } },
+    { abilityMethod: { kind: 'pointBuy', budget: 20 } },
+  ]);
+});
+
+test('a remote switch to rolled preserves the dirty budget for an explicit switch back', async () => {
+  const writes: unknown[] = [];
+  const settings: CreationSettings = {
+    abilityMethod: { kind: 'pointBuy', budget: 15 },
+    traitCount: 2,
+    campaignTraitRequired: false,
+  };
+  const view = renderHook(
+    ({ settings }) =>
+      useCreationSettingsForm({
+        settings,
+        save: async (changes) => {
+          writes.push(changes);
+        },
+      }),
+    { initialProps: { settings } },
+  );
+  act(() => {
+    view.result.current.form.setValue('pointBuyBudget', '30', {
+      shouldDirty: true,
+    });
+  });
+  view.rerender({
+    settings: { ...settings, abilityMethod: { kind: 'rolled' } },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(true);
+  expect(view.result.current.form.getValues('abilityMethod')).toBe('rolled');
+  expect(view.result.current.form.getValues('pointBuyBudget')).toBe('30');
+  act(() => {
+    view.result.current.form.setValue('abilityMethod', 'pointBuy', {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(writes).toEqual([{ abilityMethod: { kind: 'pointBuy', budget: 30 } }]);
+});
+
+test('a saved rolled interval preserves the point-buy budget after reopening the editor', async () => {
+  let settings: CreationSettings = {
+    abilityMethod: { kind: 'pointBuy', budget: 27 },
+    traitCount: 2,
+    campaignTraitRequired: false,
+  };
+  const save = async (changes: Partial<CreationSettings>) => {
+    settings = { ...settings, ...changes };
+  };
+  const first = renderHook(() => useCreationSettingsForm({ settings, save }));
+  act(() =>
+    first.result.current.form.setValue('abilityMethod', 'rolled', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => first.result.current.save());
+  expect(settings.abilityMethod).toEqual({ kind: 'rolled', budget: 27 });
+  first.unmount();
+  const reopened = renderHook(() =>
+    useCreationSettingsForm({ settings, save }),
+  );
+  act(() =>
+    reopened.result.current.form.setValue('abilityMethod', 'pointBuy', {
+      shouldDirty: true,
+    }),
+  );
+  expect(reopened.result.current.form.getValues('pointBuyBudget')).toBe('27');
+  await act(async () => reopened.result.current.save());
+  expect(settings.abilityMethod).toEqual({ kind: 'pointBuy', budget: 27 });
 });

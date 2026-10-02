@@ -1,5 +1,5 @@
 'use client';
-import { TriangleAlert, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
@@ -102,16 +102,6 @@ export function RemoteNotice({
         <X aria-hidden className="size-3.5" />
         Dismiss <span className="sr-only">{subject} update</span>
       </Button>
-    </p>
-  );
-}
-
-/** An advisory rule note: isShown, never blocking. */
-export function Advisory({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex items-start gap-1.5 text-sm text-amber-300">
-      <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </p>
   );
 }

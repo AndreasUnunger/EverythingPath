@@ -2,13 +2,17 @@ import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
-import { updateCharacterArchive } from './lib/characterSheet';
 import { campaignValidator, characterValidator } from './schema';
 import {
   listAccessibleCharacters,
   requireCampaignCharacterAccess,
   requireCharacterCampaignAccess,
 } from './lib/characterAccess';
+import {
+  pruneWarningAcceptancesAndRecordChange,
+  loadCharacterSheet,
+  updateCharacterArchive,
+} from './lib/characterSheet';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
 
 export const listByCampaign = query({
@@ -70,6 +74,7 @@ export const createCharacter = mutation({
 
 export const updateCharacter = mutation({
   args: {
+    operationId: v.optional(v.string()),
     organizationId: campaignValidator.fields.organizationId,
     characterId: v.id('character'),
     patch: v.object({
@@ -91,7 +96,7 @@ export const updateCharacter = mutation({
       throw new ConvexError('Character name cannot be empty');
     }
 
-    await requireCampaignCharacterAccess(ctx, {
+    const character = await requireCampaignCharacterAccess(ctx, {
       characterId: args.characterId,
       organizationId: args.organizationId,
     });
@@ -99,10 +104,31 @@ export const updateCharacter = mutation({
     // A submitted kind is stored as PC or NPC; an unrelated edit leaves the
     // stored kind alone. Either way the roster mirror follows in this write.
     const { kind, ...patch } = args.patch;
+    const changesSheetKind =
+      character.sheetMode &&
+      kind !== undefined &&
+      normalizeCharacterKind(kind) !== character.kind;
+    const sheet = changesSheetKind
+      ? await loadCharacterSheet(ctx, {
+          characterId: character._id,
+          organizationId: args.organizationId,
+        })
+      : null;
     await ctx.db.patch('character', args.characterId, {
       ...patch,
       ...(kind && { kind: normalizeCharacterKind(kind) }),
     });
+    if (sheet) {
+      sheet.character = {
+        ...sheet.character,
+        ...patch,
+        kind: normalizeCharacterKind(kind ?? character.kind),
+      };
+      await pruneWarningAcceptancesAndRecordChange(ctx, {
+        sheet,
+        operationId: args.operationId ?? crypto.randomUUID(),
+      });
+    }
     await updateCanonicalCharacter(ctx, args.characterId);
   },
 });

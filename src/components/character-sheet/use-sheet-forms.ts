@@ -9,7 +9,12 @@ import {
   type UseFormReturn,
 } from 'react-hook-form';
 import { z } from 'zod';
-import { abilityKeys, abilityLabels } from '~/lib/character-sheet';
+import {
+  abilityKeys,
+  abilityLabels,
+  defaultCreationSettings,
+  type CreationSettings,
+} from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { SaveStatus } from './save-status';
 
@@ -30,6 +35,17 @@ function buildNumberField(label: string, isOptional = false) {
       });
     }
   });
+}
+
+function buildNonnegativeIntegerField(label: string) {
+  return buildNumberField(label).pipe(
+    z
+      .string()
+      .refine(
+        (value) => Number.isInteger(Number(value)) && Number(value) >= 0,
+        `${label} must be a whole number of 0 or more`,
+      ),
+  );
 }
 
 function isSameNumber(left: unknown, right: unknown) {
@@ -72,7 +88,7 @@ function useSheetForm<T extends FieldValues>({
 }: {
   values: T;
   resolver: Resolver<T>;
-  write: (changes: Partial<T>) => Promise<void>;
+  write: (changes: Partial<T>, submitted: T) => Promise<void>;
 }) {
   const [source, setSource] = useState(values);
   const [baseline, setBaseline] = useState(values);
@@ -122,7 +138,7 @@ function useSheetForm<T extends FieldValues>({
     expected.current = { ...expected.current, ...changes };
     setStatus({ kind: 'saving' });
     try {
-      await write(changes);
+      await write(changes, valuesToSave);
       const next = { ...latestBaseline.current };
       for (const key in changes) {
         if (latestSource.current[key] === source[key])
@@ -224,6 +240,76 @@ export function useBaseScoresForm({
       for (const key of abilityKeys) {
         if (changes[key] !== undefined) patch[key] = Number(changes[key]);
       }
+      await save(patch);
+    },
+  });
+}
+
+const creationSettingsSchema = z
+  .object({
+    abilityMethod: z.enum(['pointBuy', 'rolled']),
+    pointBuyBudget: z.string(),
+    traitCount: buildNonnegativeIntegerField('Trait count'),
+    campaignTraitRequired: z.boolean(),
+  })
+  .superRefine((values, context) => {
+    if (values.abilityMethod !== 'pointBuy') return;
+    const budget = buildNonnegativeIntegerField('Point-buy budget').safeParse(
+      values.pointBuyBudget,
+    );
+    if (!budget.success) {
+      for (const issue of budget.error.issues) {
+        context.addIssue({
+          code: 'custom',
+          path: ['pointBuyBudget'],
+          message: issue.message,
+        });
+      }
+    }
+  });
+
+export function useCreationSettingsForm({
+  settings,
+  save,
+}: {
+  settings: CreationSettings;
+  save: (changes: Partial<CreationSettings>) => Promise<void>;
+}) {
+  const budget =
+    settings.abilityMethod.budget ??
+    defaultCreationSettings.abilityMethod.budget;
+  return useSheetForm({
+    values: {
+      abilityMethod: settings.abilityMethod.kind,
+      pointBuyBudget: String(budget),
+      traitCount: String(settings.traitCount),
+      campaignTraitRequired: settings.campaignTraitRequired,
+    },
+    resolver: zodResolver(creationSettingsSchema),
+    write: async (changes, submitted) => {
+      const patch: Partial<CreationSettings> = {};
+      if (
+        changes.abilityMethod !== undefined ||
+        changes.pointBuyBudget !== undefined
+      ) {
+        const kind = submitted.abilityMethod;
+        const validBudget = buildNonnegativeIntegerField(
+          'Point-buy budget',
+        ).safeParse(submitted.pointBuyBudget);
+        patch.abilityMethod =
+          kind === 'rolled'
+            ? {
+                kind,
+                budget: validBudget.success
+                  ? Number(submitted.pointBuyBudget)
+                  : budget,
+              }
+            : { kind, budget: Number(submitted.pointBuyBudget) };
+      }
+      if (changes.traitCount !== undefined)
+        patch.traitCount = Number(changes.traitCount);
+      if (changes.campaignTraitRequired !== undefined)
+        patch.campaignTraitRequired = changes.campaignTraitRequired;
       await save(patch);
     },
   });

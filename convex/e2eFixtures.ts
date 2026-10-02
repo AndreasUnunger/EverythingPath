@@ -203,7 +203,11 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         .take(101),
     );
     for (const character of characters) {
-      for (const table of ['characterSheetEntry', 'catalogEntry'] as const) {
+      for (const table of [
+        'characterSheetEntry',
+        'catalogEntry',
+        'acceptedWarning',
+      ] as const) {
         const rows = bounded(
           await ctx.db
             .query(table)

@@ -632,3 +632,573 @@ test('a prepared sheet leaves legacy Character facts, current militia and frozen
     history,
   );
 });
+
+test('creation settings default on new sheets and members save configurable budgets and trait choices', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  expect(
+    initial?.entries.find((entry) => entry.kind === 'base')?.state,
+  ).toMatchObject({
+    abilityMethod: { kind: 'pointBuy', budget: 15 },
+    traitCount: 2,
+    campaignTraitRequired: false,
+  });
+  await member.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'settings',
+    settings: {
+      abilityMethod: { kind: 'pointBuy', budget: 22 },
+      traitCount: 3,
+      campaignTraitRequired: true,
+    },
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated
+      .creationSettings,
+  ).toEqual({
+    abilityMethod: { kind: 'pointBuy', budget: 22 },
+    traitCount: 3,
+    campaignTraitRequired: true,
+  });
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'rolled',
+    settings: { abilityMethod: { kind: 'rolled' } },
+  });
+  const saved = await member.query(api.characterSheet.read, scope);
+  expect(saved?.calculated.creationSettings).toEqual({
+    abilityMethod: { kind: 'rolled' },
+    traitCount: 3,
+    campaignTraitRequired: true,
+  });
+  expect(saved?.calculated.pointBuy).toBeNull();
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'unchanged',
+    settings: { abilityMethod: { kind: 'rolled' } },
+  });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(saved);
+});
+
+test('members accept and reopen an intended rules warning without changing calculation or missing decisions', async () => {
+  const { owner, member, scope } = await fixture();
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    operationId: 'over-budget',
+    scores: { strength: 18 },
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const warning = before?.calculated.warnings.find(
+    (item) => item.check === 'pointBuy',
+  );
+  if (!warning) throw new Error('Missing point-buy warning');
+  const key = {
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+  };
+  await member.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    ...key,
+    operationId: 'accept',
+  });
+  const accepted = await owner.query(api.characterSheet.read, scope);
+  expect(accepted?.calculated).toEqual(before?.calculated);
+  expect(accepted?.calculated.hp).toBeNull();
+  expect(accepted?.acceptedWarnings).toEqual([
+    expect.objectContaining({
+      ...key,
+      characterId: scope.characterId,
+      acceptedBy: 'test|member',
+      acceptedAt: expect.any(Number),
+    }),
+  ]);
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    ...key,
+    operationId: 'duplicate',
+  });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(accepted);
+  await owner.mutation(api.characterSheet.reopenWarning, {
+    ...scope,
+    operationId: 'reopen',
+    check: key.check,
+    subject: key.subject,
+  });
+  const reopened = await member.query(api.characterSheet.read, scope);
+  expect(reopened?.acceptedWarnings).toEqual([]);
+  expect(reopened?.calculated).toEqual(before?.calculated);
+});
+
+test('related facts reopen acceptance permanently while unrelated edits preserve it and stale accept commands fail', async () => {
+  const { owner, member, scope } = await fixture();
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    operationId: 'scores',
+    scores: { strength: 18, dexterity: 17 },
+  });
+  const first = await owner.query(api.characterSheet.read, scope);
+  const warning = first?.calculated.warnings.find(
+    (item) => item.check === 'pointBuy',
+  );
+  const level = first?.entries.find((item) => item.kind === 'classLevel');
+  if (!warning || !level) throw new Error('Missing warning or level');
+  const key = {
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+  };
+  await member.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    ...key,
+    operationId: 'accept',
+  });
+  const acceptance = (await owner.query(api.characterSheet.read, scope))
+    ?.acceptedWarnings;
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: level._id,
+    hpGained: 8,
+    operationId: 'hp',
+  });
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    settings: { traitCount: 3 },
+    operationId: 'traits',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toEqual(acceptance);
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    operationId: 'same-cost',
+    scores: { strength: 17, dexterity: 18 },
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toEqual([]);
+  await expect(
+    member.mutation(api.characterSheet.acceptWarning, {
+      ...scope,
+      ...key,
+      operationId: 'stale',
+    }),
+  ).rejects.toThrow('current rules warning');
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    operationId: 'back',
+    scores: { strength: 18, dexterity: 17 },
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toEqual([]);
+  await member.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    ...key,
+    operationId: 'accept-again',
+  });
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'budget',
+    settings: { abilityMethod: { kind: 'pointBuy', budget: 20 } },
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toEqual([]);
+});
+
+test('deleting a warning’s Class Level deletes its acceptance without touching another accepted warning', async () => {
+  const { owner, scope } = await fixture();
+  const first = await owner.query(api.characterSheet.read, scope);
+  const level = first?.entries.find((item) => item.kind === 'classLevel');
+  if (!level) throw new Error('Missing level');
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: level._id,
+    hpGained: 0,
+    operationId: 'hp',
+  });
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    scores: { strength: 18 },
+    operationId: 'scores',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  for (const warning of before?.calculated.warnings.filter(
+    (item) => item.kind === 'rules',
+  ) ?? [])
+    await owner.mutation(api.characterSheet.acceptWarning, {
+      ...scope,
+      operationId: warning.check,
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+    });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toHaveLength(2);
+  await owner.mutation(api.characterSheet.deleteClassLevel, {
+    ...scope,
+    entryId: level._id,
+    operationId: 'delete',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toEqual([expect.objectContaining({ check: 'pointBuy' })]);
+});
+
+test('acceptance refuses missing inputs, unresolved calculations, stale facts and another Character’s subjects', async () => {
+  const { owner, scope, campaignId } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  for (const warning of initial?.calculated.warnings ?? [])
+    await expect(
+      owner.mutation(api.characterSheet.acceptWarning, {
+        ...scope,
+        operationId: 'missing',
+        check: warning.check,
+        subject: warning.subject,
+        fingerprint: warning.fingerprint,
+      }),
+    ).rejects.toThrow('current rules warning');
+  const otherId = await owner.mutation(api.characterSheet.create, {
+    organizationId: 'org',
+    campaignId,
+    name: 'Other',
+    kind: 'pc',
+    operationId: 'other',
+  });
+  const otherScope = { ...scope, characterId: otherId };
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...otherScope,
+    scores: { strength: 18 },
+    operationId: 'other-scores',
+  });
+  const other = await owner.query(api.characterSheet.read, otherScope);
+  const warning = other?.calculated.warnings.find(
+    (item) => item.check === 'pointBuy',
+  );
+  if (!warning) throw new Error('Missing warning');
+  await expect(
+    owner.mutation(api.characterSheet.acceptWarning, {
+      ...scope,
+      operationId: 'foreign',
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+    }),
+  ).rejects.toThrow('current rules warning');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(initial);
+  expect(await owner.query(api.characterSheet.read, otherScope)).toEqual(other);
+});
+
+test('settings and warning commands require membership and honor fixture, maintenance and Write Gate controls', async () => {
+  const { t, owner, outsider, scope, campaignId } = await fixture();
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    scores: { strength: 18 },
+    operationId: 'scores',
+  });
+  const sheet = await owner.query(api.characterSheet.read, scope);
+  const warning = sheet?.calculated.warnings.find(
+    (item) => item.check === 'pointBuy',
+  );
+  if (!warning) throw new Error('Missing warning');
+  const key = {
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+  };
+  function commands(caller: typeof owner) {
+    return [
+      () =>
+        caller.mutation(api.characterSheet.editCreationSettings, {
+          ...scope,
+          operationId: 'settings',
+          settings: { traitCount: 3 },
+        }),
+      () =>
+        caller.mutation(api.characterSheet.acceptWarning, {
+          ...scope,
+          ...key,
+          operationId: 'accept',
+        }),
+      () =>
+        caller.mutation(api.characterSheet.reopenWarning, {
+          ...scope,
+          check: key.check,
+          subject: key.subject,
+          operationId: 'reopen',
+        }),
+    ];
+  }
+  for (const caller of [t, outsider])
+    for (const command of commands(caller))
+      await expect(command()).rejects.toThrow();
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(sheet);
+  const controlId = await t.run(async (ctx) => {
+    const runId = await ctx.db.insert('initialMigrationRun', {
+      operationId: 'migration',
+      epoch: 1,
+      state: 'maintenance',
+      frontendBuild: 'build',
+      catalogManifest: 'catalog',
+      startedAt: 0,
+      deadline: 60000,
+    });
+    return ctx.db.insert('initialMigrationControl', {
+      key: 'character-sheet',
+      epoch: 1,
+      closed: true,
+      authority: 'legacy',
+      runId,
+    });
+  });
+  for (const command of commands(owner))
+    await expect(command()).rejects.toThrow('MAINTENANCE');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(sheet);
+  await t.run((ctx) =>
+    ctx.db.patch('initialMigrationControl', controlId, { closed: false }),
+  );
+  for (const command of commands(owner))
+    await expect(command()).rejects.toThrow('RELOAD_REQUIRED');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(sheet);
+  await t.run((ctx) =>
+    ctx.db.patch('initialMigrationControl', controlId, {
+      epoch: 0,
+      authority: 'sheet',
+    }),
+  );
+  for (const command of commands(owner))
+    await expect(command()).rejects.toThrow('RELOAD_REQUIRED');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(sheet);
+  await t.run((ctx) =>
+    ctx.db.patch('initialMigrationControl', controlId, { authority: 'legacy' }),
+  );
+  await t.run((ctx) =>
+    ctx.db.patch('campaign', campaignId, { e2eFixture: undefined }),
+  );
+  for (const command of commands(owner))
+    await expect(command()).rejects.toThrow(
+      "Character sheets aren't available for this campaign yet.",
+    );
+  await t.run((ctx) =>
+    ctx.db.insert('campaignCutover', {
+      key: 'weekly-draft',
+      status: 'paused',
+      operationId: 'pause',
+      oldRelease: 'old',
+      newRelease: 'new',
+      campaignIds: [],
+      pausedAt: 0,
+    }),
+  );
+  for (const command of commands(owner))
+    await expect(command()).rejects.toThrow('paused for maintenance');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(sheet);
+});
+
+test('creation settings block non-finite values but preserve unusual whole-number choices, with rolled fallback for older sheets', async () => {
+  const { t, owner, scope } = await fixture();
+  for (const value of [NaN, Infinity, -Infinity]) {
+    await expect(
+      owner.mutation(api.characterSheet.editCreationSettings, {
+        ...scope,
+        operationId: 'invalid',
+        settings: { abilityMethod: { kind: 'pointBuy', budget: value } },
+      }),
+    ).rejects.toThrow('finite');
+    await expect(
+      owner.mutation(api.characterSheet.editCreationSettings, {
+        ...scope,
+        operationId: 'invalid',
+        settings: { traitCount: value },
+      }),
+    ).rejects.toThrow('finite');
+  }
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'unusual',
+    settings: {
+      abilityMethod: { kind: 'pointBuy', budget: 40 },
+      traitCount: 0,
+    },
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(saved?.calculated.creationSettings).toMatchObject({
+    abilityMethod: { kind: 'pointBuy', budget: 40 },
+    traitCount: 0,
+  });
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'same',
+    settings: {
+      abilityMethod: { kind: 'pointBuy', budget: 40 },
+      traitCount: 0,
+    },
+  });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(saved);
+  const base = saved?.entries.find((entry) => entry.kind === 'base');
+  if (!base) throw new Error('Missing base');
+  await t.run((ctx) =>
+    ctx.db.patch('characterSheetEntry', base._id, { state: { kind: 'base' } }),
+  );
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated
+      .creationSettings,
+  ).toEqual({
+    abilityMethod: { kind: 'rolled' },
+    traitCount: 2,
+    campaignTraitRequired: false,
+  });
+});
+
+test.each([-1, 2.5])(
+  'creation settings reject negative or fractional counts and budgets (%s) without changing the sheet',
+  async (value) => {
+    const { owner, scope } = await fixture();
+    const before = await owner.query(api.characterSheet.read, scope);
+    for (const kind of ['pointBuy', 'rolled'] as const)
+      await expect(
+        owner.mutation(api.characterSheet.editCreationSettings, {
+          ...scope,
+          operationId: 'invalid-budget',
+          settings: { abilityMethod: { kind, budget: value } },
+        }),
+      ).rejects.toThrow('Point-buy budget must be a whole number of 0 or more');
+    await expect(
+      owner.mutation(api.characterSheet.editCreationSettings, {
+        ...scope,
+        operationId: 'invalid-count',
+        settings: { traitCount: value },
+      }),
+    ).rejects.toThrow('Trait count must be a whole number of 0 or more');
+    expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+    await owner.mutation(api.characterSheet.editCreationSettings, {
+      ...scope,
+      operationId: 'zero',
+      settings: {
+        abilityMethod: { kind: 'pointBuy', budget: 0 },
+        traitCount: 0,
+      },
+    });
+    expect(
+      (await owner.query(api.characterSheet.read, scope))?.calculated
+        .creationSettings,
+    ).toEqual({
+      abilityMethod: { kind: 'pointBuy', budget: 0 },
+      traitCount: 0,
+      campaignTraitRequired: false,
+    });
+  },
+);
+
+test('changing a prepared Character’s kind reopens level-zero acceptance without resurrecting it on return', async () => {
+  const { owner, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const level = initial?.entries.find((item) => item.kind === 'classLevel');
+  if (!level) throw new Error('Missing level');
+  await owner.mutation(api.characterSheet.deleteClassLevel, {
+    ...scope,
+    entryId: level._id,
+    operationId: 'zero',
+  });
+  const zero = await owner.query(api.characterSheet.read, scope);
+  const warning = zero?.calculated.warnings.find(
+    (item) => item.check === 'levelZero',
+  );
+  if (!warning) throw new Error('Missing warning');
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+    operationId: 'accept',
+  });
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    scores: { strength: 18 },
+    operationId: 'scores',
+  });
+  const overBudget = await owner.query(api.characterSheet.read, scope);
+  const pointBuy = overBudget?.calculated.warnings.find(
+    (item) => item.check === 'pointBuy',
+  );
+  if (!pointBuy) throw new Error('Missing point-buy warning');
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    operationId: 'point-buy',
+    check: pointBuy.check,
+    subject: pointBuy.subject,
+    fingerprint: pointBuy.fingerprint,
+  });
+  const accepted = await owner.query(api.characterSheet.read, scope);
+  const pointBuyAcceptance = accepted?.acceptedWarnings.filter(
+    (item) => item.check === 'pointBuy',
+  );
+  await owner.mutation(api.character.updateCharacter, {
+    ...scope,
+    patch: { kind: 'pc' },
+  });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(accepted);
+  await owner.mutation(api.character.updateCharacter, {
+    ...scope,
+    patch: { name: 'New name', description: 'Notes' },
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toEqual(accepted?.acceptedWarnings);
+  await owner.mutation(api.character.updateCharacter, {
+    ...scope,
+    patch: { kind: 'npc' },
+    operationId: 'caller-kind-operation',
+  });
+  const npc = await owner.query(api.characterSheet.read, scope);
+  expect(npc?.lastOperationId).toBe('caller-kind-operation');
+  expect(npc?.acceptedWarnings).toEqual(pointBuyAcceptance);
+  expect(npc?.revision).toBe((accepted?.revision ?? 0) + 1);
+  await owner.mutation(api.character.updateCharacter, {
+    ...scope,
+    patch: { kind: 'pc' },
+  });
+  const restored = await owner.query(api.characterSheet.read, scope);
+  expect(restored?.acceptedWarnings).toEqual(pointBuyAcceptance);
+  expect(restored?.calculated.warnings).toContainEqual(warning);
+});
+
+test('rolled settings retain a saved point-buy budget across queries and reject nonfinite retained budgets', async () => {
+  const { owner, member, scope } = await fixture();
+  await owner.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'rolled-with-budget',
+    settings: { abilityMethod: { kind: 'rolled', budget: 27 } },
+  });
+  const rolled = await member.query(api.characterSheet.read, scope);
+  expect(rolled?.calculated.creationSettings.abilityMethod).toEqual({
+    kind: 'rolled',
+    budget: 27,
+  });
+  expect(rolled?.calculated.pointBuy).toBeNull();
+  await member.mutation(api.characterSheet.editCreationSettings, {
+    ...scope,
+    operationId: 'point-buy-again',
+    settings: {
+      abilityMethod: {
+        kind: 'pointBuy',
+        budget: rolled!.calculated.creationSettings.abilityMethod.budget!,
+      },
+    },
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated
+      .creationSettings.abilityMethod,
+  ).toEqual({ kind: 'pointBuy', budget: 27 });
+  for (const budget of [NaN, Infinity, -Infinity]) {
+    await expect(
+      owner.mutation(api.characterSheet.editCreationSettings, {
+        ...scope,
+        operationId: 'invalid-budget',
+        settings: { abilityMethod: { kind: 'rolled', budget } },
+      }),
+    ).rejects.toThrow('finite');
+  }
+});

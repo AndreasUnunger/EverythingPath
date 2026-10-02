@@ -9,9 +9,9 @@ import {
   getLevelAnchorId,
   levelColumns,
 } from './class-level-row';
+import { InlineWarnings } from './inline-warning';
 import {
   action,
-  Advisory,
   Block,
   chip,
   fieldLabel,
@@ -19,7 +19,10 @@ import {
   SaveFeedback,
   getScrollBehavior,
 } from './sheet-parts';
-import type { useCharacterSheet } from './use-character-sheet';
+import type {
+  SheetWarningView,
+  useCharacterSheet,
+} from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type ReadySheet = NonNullable<Controller['sheet']>;
@@ -39,17 +42,21 @@ function findRowDeleteButton(entryId: string) {
 /**
  * The ordered Class Levels: every row keyed by its stable entry, Level up
  * appending an Unspecified level, and the section's own save and
- * another-player feedback. Every level may be removed; at zero the PC
- * advisory shows and Level 1 can be appended again.
+ * another-player feedback. Every level may be removed; at zero the PC rule
+ * warns, acceptably, and Level 1 can be appended again. Total HP is the sum
+ * of these rows, so while it cannot resolve the reason reads here, under
+ * them, rather than growing the pinned summary.
  */
 export function ClassLevels({
   rows,
-  warning,
+  warnings,
+  warningController,
   levels,
   saveHitPoints,
 }: {
   rows: ReadySheet['levels'];
-  warning: ReadySheet['warning'];
+  warnings: SheetWarningView[];
+  warningController: Controller['warnings'];
   levels: Controller['levels'];
   saveHitPoints: Controller['saveHitPoints'];
 }) {
@@ -123,6 +130,12 @@ export function ClassLevels({
                   row={row}
                   index={index}
                   count={rows.length}
+                  warnings={warnings.filter(
+                    (warning) =>
+                      warning.target.kind === 'classLevel' &&
+                      warning.target.entryId === row._id,
+                  )}
+                  warningController={warningController}
                   saveHitPoints={saveHitPoints}
                   isChangingLevels={isBusy}
                   moveLevel={levels.move}
@@ -136,7 +149,14 @@ export function ClassLevels({
             </ul>
           </>
         )}
-        {warning ? <Advisory>{warning}</Advisory> : null}
+        <InlineWarnings
+          warnings={warnings.filter(
+            (warning) =>
+              warning.target.kind === 'classLevels' ||
+              warning.target.kind === 'hitPoints',
+          )}
+          controller={warningController}
+        />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-sm">
           <span className="text-muted-foreground">
             Level {rows.length + 1} as

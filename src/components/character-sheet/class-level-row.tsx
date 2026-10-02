@@ -16,6 +16,7 @@ import {
 import { Input } from '~/components/ui/input';
 import { cn } from '~/lib/utils';
 import { InlineDeleteQuestion } from './inline-delete-question';
+import { InlineWarnings } from './inline-warning';
 import {
   chip,
   fieldLabel,
@@ -23,11 +24,24 @@ import {
   RemoteNotice,
   SaveFeedback,
 } from './sheet-parts';
-import type { useCharacterSheet } from './use-character-sheet';
+import type {
+  SheetWarningView,
+  useCharacterSheet,
+} from './use-character-sheet';
 import { useClassLevelForm } from './use-sheet-forms';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type LevelRow = NonNullable<Controller['sheet']>['levels'][number];
+
+function listFieldWarnings(
+  warnings: SheetWarningView[],
+  field: 'class' | 'hpGained',
+) {
+  return warnings.filter(
+    (warning) =>
+      warning.target.kind === 'classLevel' && warning.target.field === field,
+  );
+}
 
 /** The row's DOM anchor: found again after an append or a deletion. */
 export function getLevelAnchorId(entryId: string) {
@@ -136,12 +150,16 @@ function LevelActions({
 /**
  * One Class Level, mounted once per stable entry and kept through reorders
  * so its typed hit points, focus and field error travel with it. Its label
- * is its current position.
+ * is its current position. The row's own warnings sit by the field they
+ * are about: the class still to choose, the hit points still to enter or
+ * below the rule.
  */
 export function ClassLevelRow({
   row,
   index,
   count,
+  warnings,
+  warningController,
   saveHitPoints,
   isChangingLevels,
   moveLevel,
@@ -150,6 +168,8 @@ export function ClassLevelRow({
   row: LevelRow;
   index: number;
   count: number;
+  warnings: SheetWarningView[];
+  warningController: Controller['warnings'];
   saveHitPoints: Controller['saveHitPoints'];
   isChangingLevels: boolean;
   moveLevel: Controller['levels']['move'];
@@ -179,10 +199,16 @@ export function ClassLevelRow({
       >
         Level {level}
       </h3>
-      <p className="col-span-2 flex items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1 md:py-1.5">
-        <span className={cn(fieldLabel, 'md:sr-only')}>Class</span>
-        <span className={cn(chip, missingChoice)}>Unspecified</span>
-      </p>
+      <div className="col-span-2 flex flex-col gap-1 md:col-span-1 md:col-start-2 md:row-start-1 md:py-1.5">
+        <p className="flex items-center gap-2">
+          <span className={cn(fieldLabel, 'md:sr-only')}>Class</span>
+          <span className={cn(chip, missingChoice)}>Unspecified</span>
+        </p>
+        <InlineWarnings
+          warnings={listFieldWarnings(warnings, 'class')}
+          controller={warningController}
+        />
+      </div>
       <Form {...editor.form}>
         <form
           noValidate
@@ -242,6 +268,11 @@ export function ClassLevelRow({
             }
             subject={`level ${level} hit points`}
             onDismiss={editor.dismissRemoteChange}
+          />
+          <InlineWarnings
+            warnings={listFieldWarnings(warnings, 'hpGained')}
+            controller={warningController}
+            className="w-full"
           />
         </form>
       </Form>

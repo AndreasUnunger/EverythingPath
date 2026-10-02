@@ -4,7 +4,8 @@ import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
 import { BaseScoresEditor } from './base-scores-editor';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
-import { Block, chip, fieldLabel } from './sheet-parts';
+import { CreationSettingsEditor } from './creation-settings-editor';
+import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
 import type { useCharacterSheet } from './use-character-sheet';
 
@@ -97,9 +98,11 @@ function CampaignRow({
 
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
- * campaign row that scrolls with the body, then Character, Class Levels and
- * Ability scores in the left five of the sheet's twelve columns. The other
- * seven stay empty until their blocks exist.
+ * campaign row that scrolls with the body, then Character, Class Levels,
+ * and Ability scores in the left five of the sheet's twelve columns with
+ * the creation settings beside them. Each calculation warning sits by its
+ * subject (unresolved HP under the Class Levels it is summed from); only
+ * another player's acceptances are announced for the sheet.
  */
 export function CharacterSheetView({
   sheet,
@@ -123,6 +126,12 @@ export function CharacterSheetView({
         campaignName={campaignName}
         action={lifecycle}
       />
+      <RemoteNotice
+        isShown={controller.warnings.hasRemoteChange}
+        message="Warnings updated by another player."
+        subject="warnings"
+        onDismiss={controller.warnings.dismissRemoteChange}
+      />
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-12">
           <CharacterBlock
@@ -133,7 +142,8 @@ export function CharacterSheetView({
         <div className="min-w-0 lg:col-span-12">
           <ClassLevels
             rows={sheet.levels}
-            warning={sheet.warning}
+            warnings={sheet.warnings}
+            warningController={controller.warnings}
             levels={controller.levels}
             saveHitPoints={controller.saveHitPoints}
           />
@@ -142,7 +152,17 @@ export function CharacterSheetView({
           <BaseScoresEditor
             scores={sheet.baseScores}
             abilities={sheet.calculated.abilities}
+            creationSettings={sheet.calculated.creationSettings}
+            pointBuy={sheet.calculated.pointBuy}
+            warnings={sheet.warnings}
+            warningController={controller.warnings}
             save={controller.saveBaseScores}
+          />
+        </div>
+        <div className="min-w-0 lg:col-span-7">
+          <CreationSettingsEditor
+            settings={sheet.calculated.creationSettings}
+            save={controller.saveCreationSettings}
           />
         </div>
       </div>

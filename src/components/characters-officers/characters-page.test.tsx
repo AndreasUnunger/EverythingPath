@@ -523,6 +523,7 @@ describe('record dialog', () => {
     await press('Save');
     expect(calls[0]!.name).toBe('updateCharacter');
     expect(calls[0]!.args).toEqual({
+      operationId: expect.any(String),
       organizationId: 'org',
       characterId: 'dalla',
       patch: { description: 'Back from the war', kind: 'npc', level: 5 },
@@ -617,6 +618,7 @@ describe('record dialog', () => {
     await press('Archive');
     expect(calls).toHaveLength(1);
     expect(calls[0]!.args).toEqual({
+      operationId: expect.any(String),
       organizationId: 'org',
       characterId: 'sera',
       patch: { description: 'Left for Phaendar', isActive: false },
@@ -678,6 +680,7 @@ describe('record dialog', () => {
     type('Notes', 'Drillmaster');
     await press('Save');
     expect(calls[0]!.args).toEqual({
+      operationId: expect.any(String),
       organizationId: 'org',
       characterId: 'bren',
       patch: { description: 'Drillmaster' },
@@ -737,6 +740,7 @@ describe('record dialog', () => {
     expect(field('Notes')).toHaveValue('Drillmaster');
     await press('Save');
     expect(calls[0]!.args).toEqual({
+      operationId: expect.any(String),
       organizationId: 'org',
       characterId: 'bren',
       patch: {

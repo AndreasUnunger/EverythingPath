@@ -153,6 +153,14 @@ export const catalogEntryValidator = v.object({
     v.object({ book: v.string(), pages: v.optional(v.string()) }),
   ),
 });
+export const creationSettingsValidator = v.object({
+  abilityMethod: v.union(
+    v.object({ kind: v.literal('pointBuy'), budget: v.number() }),
+    v.object({ kind: v.literal('rolled'), budget: v.optional(v.number()) }),
+  ),
+  traitCount: v.number(),
+  campaignTraitRequired: v.boolean(),
+});
 export const characterSheetEntryValidator = v.union(
   v.object({
     characterId: v.id('character'),
@@ -161,6 +169,7 @@ export const characterSheetEntryValidator = v.union(
     catalogEntryId: v.id('catalogEntry'),
     state: v.object({
       kind: v.literal('base'),
+      ...creationSettingsValidator.partial().fields,
     }),
   }),
   v.object({
@@ -302,6 +311,14 @@ export default defineSchema({
   catalogEntry: defineTable(catalogEntryValidator).index('by_characterId', [
     'characterId',
   ]),
+  acceptedWarning: defineTable({
+    characterId: v.id('character'),
+    check: v.string(),
+    subject: v.string(),
+    fingerprint: v.string(),
+    acceptedBy: v.string(),
+    acceptedAt: v.number(),
+  }).index('by_characterId', ['characterId']),
   characterSheetEntry: defineTable(characterSheetEntryValidator).index(
     'by_characterId',
     ['characterId'],

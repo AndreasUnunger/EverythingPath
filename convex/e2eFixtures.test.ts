@@ -222,6 +222,31 @@ describe('internal fixture boundary', () => {
         characterId: createdId,
       }),
     ).toMatchObject({ character: { name: 'Created during play' } });
+    const createdScope = {
+      organizationId: 'org_members',
+      characterId: createdId,
+    };
+    await owner.mutation(api.characterSheet.editBaseScores, {
+      ...createdScope,
+      scores: { strength: 18 },
+      operationId: 'scores',
+    });
+    const created = await owner.query(api.characterSheet.read, createdScope);
+    const warning = created?.calculated.warnings.find(
+      (item) => item.check === 'pointBuy',
+    );
+    if (!warning) throw new Error('Missing point-buy warning');
+    await owner.mutation(api.characterSheet.acceptWarning, {
+      ...createdScope,
+      operationId: 'accept',
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+    });
+    expect(
+      (await owner.query(api.characterSheet.read, createdScope))
+        ?.acceptedWarnings,
+    ).toHaveLength(1);
     const second = await t.mutation(internal.e2eFixtures.resetCase, {
       ...characterSheet,
       now: 0,
@@ -256,8 +281,10 @@ describe('internal fixture boundary', () => {
       await t.run(async (ctx) => ({
         entries: (await ctx.db.query('characterSheetEntry').collect()).length,
         catalogEntries: (await ctx.db.query('catalogEntry').collect()).length,
+        acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
+          .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 1 });
+    ).toEqual({ entries: 2, catalogEntries: 1, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(
@@ -270,8 +297,10 @@ describe('internal fixture boundary', () => {
       await t.run(async (ctx) => ({
         entries: (await ctx.db.query('characterSheetEntry').collect()).length,
         catalogEntries: (await ctx.db.query('catalogEntry').collect()).length,
+        acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
+          .length,
       })),
-    ).toEqual({ entries: 0, catalogEntries: 0 });
+    ).toEqual({ entries: 0, catalogEntries: 0, acceptedWarnings: 0 });
     expect(await t.query(internal.e2eFixtures.inspectCase, isolation)).toEqual(
       comparison,
     );
@@ -291,6 +320,33 @@ describe('internal fixture boundary', () => {
         kind: 'pc',
         operationId: name,
       });
+    async function createAcceptedPrivate(name: string) {
+      const characterId = await createPrivate(name);
+      await owner.mutation(api.characterSheet.editBaseScores, {
+        characterId,
+        operationId: 'scores',
+        scores: { strength: 18 },
+      });
+      const sheet = await owner.query(api.characterSheet.read, {
+        characterId,
+      });
+      const warning = sheet?.calculated.warnings.find(
+        (warning) => warning.check === 'pointBuy',
+      );
+      if (!warning) throw new Error('Missing point-buy warning');
+      await owner.mutation(api.characterSheet.acceptWarning, {
+        characterId,
+        operationId: 'accept',
+        check: warning.check,
+        subject: warning.subject,
+        fingerprint: warning.fingerprint,
+      });
+      expect(
+        (await owner.query(api.characterSheet.read, { characterId }))
+          ?.acceptedWarnings,
+      ).toHaveLength(1);
+      return characterId;
+    }
     const unavailable =
       "Private character sheets aren't available for your account yet.";
     // The Character Sheet case shares the cohort's identities but not the grant.
@@ -304,7 +360,7 @@ describe('internal fixture boundary', () => {
       ...privateCharacter,
       now: 0,
     });
-    const privateId = await createPrivate('Private demo');
+    const privateId = await createAcceptedPrivate('Private demo');
     expect(
       await owner.query(api.characterSheet.read, { characterId: privateId }),
     ).toMatchObject({ character: { name: 'Private demo' } });
@@ -315,7 +371,15 @@ describe('internal fixture boundary', () => {
     await expect(
       owner.query(api.characterSheet.read, { characterId: privateId }),
     ).rejects.toThrow('Character not found');
-    const leftover = await createPrivate('Left by a failed attempt');
+    expect(
+      await t.run((ctx) =>
+        ctx.db
+          .query('acceptedWarning')
+          .withIndex('by_characterId', (q) => q.eq('characterId', privateId))
+          .take(1),
+      ),
+    ).toEqual([]);
+    const leftover = await createAcceptedPrivate('Left by a failed attempt');
     await t.mutation(internal.e2eFixtures.cleanupCase, privateCharacter);
     await expect(
       owner.query(api.characterSheet.read, { characterId: leftover }),
@@ -325,8 +389,10 @@ describe('internal fixture boundary', () => {
       await t.run(async (ctx) => ({
         characters: (await ctx.db.query('character').collect()).length,
         entries: (await ctx.db.query('characterSheetEntry').collect()).length,
+        acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
+          .length,
       })),
-    ).toEqual({ characters: 0, entries: 0 });
+    ).toEqual({ characters: 0, entries: 0, acceptedWarnings: 0 });
   });
   it('resets an isolated realtime Action Slot board', async () => {
     const t = convexTest({ schema, modules });

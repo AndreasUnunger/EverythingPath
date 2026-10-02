@@ -7,11 +7,13 @@ import {
   abilityTargets,
   calculateCharacterSheet,
   defaultAbilityScores,
+  defaultCreationSettings,
 } from '../../src/lib/character-sheet';
 import { requireCharacterAccess, type CharacterScope } from './characterAccess';
 import { updateCanonicalCharacter } from './canonicalCharacters';
 
 const maxCharacterChildRows = 4096;
+const maxAcceptedWarnings = 8192;
 
 export function requireFixtureCampaign(campaign: Doc<'campaign'>) {
   if (!campaign.e2eFixture)
@@ -54,6 +56,7 @@ export async function initializeCharacterSheet(
     catalogEntryId,
     state: {
       kind: 'base',
+      ...defaultCreationSettings,
     },
   });
   await ctx.db.insert('characterSheetEntry', {
@@ -105,7 +108,12 @@ export async function loadCharacterSheet(
   if (baseScoresEntry?.characterId !== args.characterId)
     throw new ConvexError('Base scores do not belong to this Character');
   const catalogEntries = [baseScoresEntry];
-  const calculated = calculateCharacterSheet({ entries, catalogEntries });
+  const acceptedWarnings = await ctx.db
+    .query('acceptedWarning')
+    .withIndex('by_characterId', (q) => q.eq('characterId', args.characterId))
+    .take(maxAcceptedWarnings + 1);
+  if (acceptedWarnings.length > maxAcceptedWarnings)
+    throw new ConvexError('Character has too many accepted warnings');
   const classLevels = entries
     .filter((entry) => entry.kind === 'classLevel')
     .sort((a, b) => a.state.position - b.state.position);
@@ -117,7 +125,7 @@ export async function loadCharacterSheet(
     ],
     catalogEntries,
     baseScoresEntry,
-    calculated,
+    acceptedWarnings,
     revision: character.sheetRevision ?? 0,
     lastOperationId: character.sheetLastOperationId ?? null,
     updatedBy: character.sheetUpdatedBy ?? null,
@@ -125,18 +133,41 @@ export async function loadCharacterSheet(
   };
 }
 
-export async function recordSheetChange(
+export type LoadedCharacterSheet = NonNullable<
+  Awaited<ReturnType<typeof loadCharacterSheet>>
+>;
+
+// The in-memory sheet must reflect the pending write before pruning acceptances.
+export async function pruneWarningAcceptancesAndRecordChange(
   ctx: MutationCtx,
   {
-    character,
+    sheet,
     operationId,
-    updatedBy,
-  }: { character: Doc<'character'>; operationId: string; updatedBy: string },
+    calculated = calculateCharacterSheet({
+      entries: sheet.entries,
+      catalogEntries: sheet.catalogEntries,
+      characterKind: sheet.character.kind,
+    }),
+  }: {
+    sheet: LoadedCharacterSheet;
+    operationId: string;
+    calculated?: ReturnType<typeof calculateCharacterSheet>;
+  },
 ) {
-  await ctx.db.patch('character', character._id, {
-    sheetRevision: (character.sheetRevision ?? 0) + 1,
+  for (const accepted of sheet.acceptedWarnings) {
+    const stillApplies = calculated.warnings.some(
+      (warning) =>
+        warning.kind === 'rules' &&
+        warning.check === accepted.check &&
+        warning.subject === accepted.subject &&
+        warning.fingerprint === accepted.fingerprint,
+    );
+    if (!stillApplies) await ctx.db.delete('acceptedWarning', accepted._id);
+  }
+  await ctx.db.patch('character', sheet.character._id, {
+    sheetRevision: (sheet.character.sheetRevision ?? 0) + 1,
     sheetLastOperationId: operationId,
-    sheetUpdatedBy: updatedBy,
+    sheetUpdatedBy: sheet.actor,
   });
 }
 
@@ -154,10 +185,10 @@ export async function updateCharacterArchive(
 async function listRowsForDeletion<Row>(
   query: { take: (limit: number) => Promise<Row[]> },
   overflowMessage: string,
+  limit = maxCharacterChildRows,
 ) {
-  const rows = await query.take(maxCharacterChildRows + 1);
-  if (rows.length > maxCharacterChildRows)
-    throw new ConvexError(overflowMessage);
+  const rows = await query.take(limit + 1);
+  if (rows.length > limit) throw new ConvexError(overflowMessage);
   return rows;
 }
 
@@ -174,6 +205,15 @@ export async function deleteCharacterSheet(
     );
     for (const row of rows) await ctx.db.delete(table, row._id);
   }
+  const acceptedWarnings = await listRowsForDeletion(
+    ctx.db
+      .query('acceptedWarning')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId)),
+    'Character has too many accepted warnings',
+    maxAcceptedWarnings,
+  );
+  for (const warning of acceptedWarnings)
+    await ctx.db.delete('acceptedWarning', warning._id);
   const spells = await listRowsForDeletion(
     ctx.db
       .query('characterSpell')
