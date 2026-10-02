@@ -51,6 +51,10 @@ catalogEntry: {
   retired?: boolean,                   // global scope: removed upstream; hidden from pickers, kept for sheets
   copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
   unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
+  prerequisites?: Prerequisite[],      // feats, traits, prestige classes, archetypes; all must hold, see "Rules checks"
+  grantsSlots?: Array<{ kind: 'feat' | 'trait'; count: number;   // bonus feats (fighter, human), Additional Traits
+    featTypes?: string[];              // a bonus feat must carry one of these Foundry feat types, such as 'combat'
+    ignoresPrerequisites?: boolean }>, // monk bonus feats, ranger combat style
 }
 // indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey, by_externalKey, by_copiedFrom
 
@@ -65,6 +69,17 @@ characterSheetEntry: {
   state: SheetEntryState,              // discriminated on `kind`
 }
 // indexes: by_characterId, by_characterId_and_kind, by_catalogEntryId
+
+// A warning someone on the sheet marked as intended. The only stored part of the rules checks.
+acceptedWarning: {
+  characterId: Id<'character'>,
+  check: string,                       // the check's key, such as 'pointBuy' or 'prerequisites.current'
+  subject: string,                     // what it is about: a sheet entry id, or 'sheet'
+  fingerprint: string,                 // the facts that raised it; when they change, the warning reopens
+  acceptedBy: string,
+  acceptedAt: number,
+}
+// indexes: by_characterId
 ```
 
 The `spell` and `characterSpell` tables are untouched. Spellcasting is still in the map's fog.
@@ -82,6 +97,8 @@ type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;   // a class is reac
 type CatalogEntryDetail =
   | { kind: 'base' }
   | { kind: 'race'; racialHitDice: number;                      // 0 for every core race
+      favoredClassCount: 1 | 2;                                  // 2 for Multitalented; set by the Curation Overlay
+      bonusSkillRanksPerLevel: number;                           // 1 for the human's Skilled; set by the Curation Overlay
       racialProgression?: { creatureType: CreatureType;          // needed when racialHitDice > 0
         hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
         saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
@@ -91,13 +108,18 @@ type CatalogEntryDetail =
       hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
       saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
       skillRanksPerLevel: number; classSkills: SkillKey[];
-      featuresByLevel: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }> }
+      alignments?: Alignment[];                                   // absent = any; set by the Curation Overlay
+      featuresByLevel: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>;
+      picksByLevel: Array<{ classLevel: number; list: string; count: number }> } // "choose a rage power"; empty = no prompts
   | { kind: 'archetype'; classEntryIds: Id<'catalogEntry'>[];   // the base class it varies; both versions where its source names both
       replaces: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>; // rows of the class's featuresByLevel
       adds: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>;
       classSkillsAdded: SkillKey[]; classSkillsRemoved: SkillKey[];
       skillRanksPerLevel?: number }                             // absent = the class's own
-  | { kind: 'classFeature' } | { kind: 'feat' } | { kind: 'trait' }
+  | { kind: 'classFeature' }
+  | { kind: 'feat'; featTypes: string[];                         // Foundry feat types: 'combat', 'general', 'teamwork'…
+      repeatable: 'no' | 'newChoice' | 'yes' }                    // "You can gain this feat multiple times"
+  | { kind: 'trait'; traitType: string }                         // Foundry `traitType`: 'combat', 'faith', 'region', 'drawback'…
   | { kind: 'item'; consumable: boolean;                        // later: slot, weight, price
       weapon?: { baseType: string;                               // Foundry `baseTypes`: what Weapon Focus names
         group: WeaponGroup;                                      // Foundry `weaponGroups`
@@ -116,8 +138,15 @@ type SheetEntryState =
       favoredClassBonus: null | { choice: 'hp' } | { choice: 'skill' } | { choice: 'alt'; note: string };
       abilityIncrease: AbilityKey | null;
       skillRanks: Partial<Record<SkillKey, number>> }
+  | { kind: 'base';                                                  // the one base-scores entry also holds sheet-wide facts
+      alignment: Alignment | null; deity: string | null;               // deity: a free-text name
+      abilityMethod: { method: 'pointBuy'; budget: number } | { method: 'rolled' };
+      traitCount: number; campaignTraitRequired: boolean }
   | { kind: 'race'; racialHpGained: number | null;                  // hit points from all racial Hit Dice together
-      racialSkillRanks: Partial<Record<SkillKey, number>> }
+      racialSkillRanks: Partial<Record<SkillKey, number>>;
+      favoredClassIds: Id<'catalogEntry'>[] }
+  | { kind: 'feat'; choice: string | null;                          // Weapon Focus's weapon (a `baseType`), Skill Focus's skill…
+      slot: 'general' | { grantedBy: Id<'characterSheetEntry'> } }   // the entry whose `grantsSlots` it fills
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
   | { kind: 'item'; quantity: number }                                // later: charges
@@ -125,7 +154,7 @@ type SheetEntryState =
       main: { itemEntryId: Id<'characterSheetEntry'>; hands: 'two' | 'one' };
       off?: { itemEntryId: Id<'characterSheetEntry'> };              // two-weapon fighting
       options: { powerAttack: boolean } }                            // more options: see "Attacks"
-  | { kind: Exclude<EntryKind, 'classLevel' | 'race' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'> };
+  | { kind: Exclude<EntryKind, 'classLevel' | 'base' | 'race' | 'feat' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'> };
 ```
 
 ## Class Levels and Hit Dice
@@ -169,7 +198,7 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
   - `replaces` names rows of the class's `featuresByLevel`, a feature at one class level, so "replaces armor training 1" removes only that row. An archetype feature that alters a class feature replaces that row and adds its own feature at the same level.
   - Adding an Archetype removes the class feature entries it replaces from the sheet and adds its own features at their levels, with `gainedAtClassLevel` set. Removing it reverses this. Entries added or edited by hand stay.
   - Class skills added or removed and skill ranks per level are structured. Proficiency changes stay in the description. Spellcasting changes wait for spellcasting.
-  - Two Archetypes on one class that replace or alter the same feature show an advisory warning.
+  - Two Archetypes on one class that replace or alter the same row (one feature at one class level) show an advisory warning (see "Rules checks").
 - **Base class schedules.** Foundry links many multi-level features only at their first level; the Fighter links six features. The Curation Overlay completes each base class's `featuresByLevel` from its class table, so archetypes can replace any row and the sheet shows every feature gained.
 - **Prestige classes.** These are `class` entries with `classKind: 'prestige'`, and their `featuresByLevel` comes from the class's level table.
   - Entry requirements are prerequisites on the class entry, like a feat's. They are checked against the Character as of the Class Level before the class's first level.
@@ -192,7 +221,7 @@ Decided by [Decide which Pathfinder Unchained rules the builder supports](https:
 - **One version per Character.** Class Levels in both an original class and its Unchained Class show an advisory warning ("individual characters must use one version or the other exclusively").
 - **A version of the same class.** The book's own framing, applied consistently:
   - Levels of an Unchained Class count as levels of the original wherever something counts levels in that class: `@classLevel.<classKey>`, requirements, and the favored class with its favored class options. The two never coexist, so nothing double-counts.
-  - A prerequisite naming a class feature is met by the same-named feature of either version, ignoring Foundry's `(UC)` suffix: Extra Rage accepts *Rage (UC)*. The check itself belongs to [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215).
+  - A prerequisite naming a class feature is met by the same-named feature of either version, ignoring Foundry's `(UC)` suffix: Extra Rage accepts *Rage (UC)*. See "Rules checks".
 - **Archetypes.**
   - An archetype for the original barbarian, rogue or summoner applies to the Unchained Class ("as long as the classes still have the appropriate class features to replace"). Its `replaces` rows match the Unchained Class's `featuresByLevel` by feature name and class level, ignoring `(UC)`. A row with no match shows an advisory warning and removes nothing.
   - An archetype for the original monk on the unchained monk shows an advisory warning ("with the exception of the monk").
@@ -350,6 +379,92 @@ Decided by [Prototype attacks and conditional modifiers on the living sheet](htt
   - **Situational bonuses never appear on the face of the sheet.** A small marker flags any number that has them: in the pinned stats, the Defenses, the skills and the attacks.
   - The number's breakdown has an "Only when…" section grouped by Situation. Each group shows its lines and what the total becomes then, with suppressed lines struck through. A while-active line that is waiting is dimmed ("only while raging").
 
+## Rules checks
+
+Decided by [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215). Every check is advisory (Principle 5). The approved prototype fixed the presentation ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)): warnings show inline next to their field, and blue outlines mark only what Class Levels leave unfilled.
+
+**Where checks run.**
+- `sheetWarnings` is a pure function beside the resolver. Its warnings are computed on the client and never stored.
+- Warnings appear only on the Character Sheet. Characters & officers, the Characters area and the campaign Characters page show no warnings or warning counts.
+- A Militia-only Character gets only the level-0 warning.
+
+**Accepted Warnings.**
+- Anyone who can edit the sheet can accept a warning as intended. No reason is asked for, which sets it apart from the militia's Rules Exception.
+- An accepted warning collapses to a muted "Accepted" line, and anyone can reopen it.
+- An `acceptedWarning` row is keyed by check, subject and a fingerprint of the facts that raised the warning. When those facts change, the warning reopens: accepting 22 of 20 points doesn't cover 25 of 20.
+- Deleting the subject deletes the acceptance. Blue outlines can't be accepted, because they mark unfilled fields, not broken rules.
+
+**Settings.** The base entry holds how the Character was built, as facts of the Character rather than of a campaign:
+- `abilityMethod`: point buy with a budget, or rolled;
+- `traitCount`;
+- `campaignTraitRequired`.
+
+A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign trait. Backfilled Characters get rolled.
+
+**What the sheet records for checks.**
+- Alignment.
+- Deity, as a free-text name matched to deity clauses by name.
+- Each feat's `choice` and the slot it fills.
+- The favored classes, on the race sheet entry.
+- Proficiencies and region are never recorded.
+- Racial traits as sheet entries are open in [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232).
+
+**Clauses that can't be checked show nothing.** A prerequisite clause the sheet has no fact for, or that the importer couldn't parse, shows no warning and no "not checked" line. This covers proficiency, region, a racial trait, and a cleric's alignment relative to the deity. The entry's prerequisite prose stays readable in its description.
+
+### The checks
+
+| Check | Reads | Data from |
+|---|---|---|
+| **Level 0:** a PC with no Class Levels | Class Levels | sheet |
+| **Point buy:** a `base` score outside 7–18, or the cost over the budget; under budget shows only the "N left" counter; nothing when rolled | `base` Modifiers, `abilityMethod` | CRB cost table |
+| **Hit points:** `hpGained` outside 1 to the hit die; a PC with no racial Hit Dice whose first Class Level isn't the hit die's maximum | Class Levels | class `hitDie` |
+| **Ability increase:** at a Class Level where neither the character level nor the Hit Dice count is 4, 8, 12, 16 or 20; a prompt where one is due | Class Levels, racial Hit Dice | sheet |
+| **Skill rank budget:** per Class Level, max(1, ranks per level + Int modifier) + race `bonusSkillRanksPerLevel` + 1 for a skill-rank favored class bonus; racial skill ranks get `skillRanksPerHitDie` + Int, at least 1, per racial Hit Die; over budget warns | the archetype's or class's ranks per level; current permanent Int | class, archetype, race (Curation Overlay) |
+| **Rank cap:** at each Class Level position, a skill's ranks so far exceed racial Hit Dice + position; racial skill ranks are capped by racial Hit Dice | ranks per Class Level | sheet |
+| **Feat slots:** feats over or under 1 + one per odd Hit Die, plus `grantsSlots` | Hit Dice, active entries | Curation Overlay (`grantsSlots`) |
+| **Bonus feat type:** a feat in a bonus slot whose `featTypes` miss the slot's | feat `slot` | Foundry feat types |
+| **Prerequisites as taken:** a feat checked against the Character as of its `gainedAtClassLevel`; a prestige class as of the Class Level before its first | historical sheet | parsed `prerequisites` |
+| **Prerequisites now:** the same clauses against the current sheet ("can't be used while unmet"). Both prerequisite checks skip a feat in a slot with `ignoresPrerequisites` | current sheet | parsed `prerequisites` |
+| **Duplicate feat:** a second copy of a `no` feat; a second copy of a `newChoice` feat with the same `choice`, case-insensitive; never for `yes` | feat entries | `repeatable` (importer, Curation Overlay) |
+| **Duplicate trait** | trait entries | sheet |
+| **Favored class:** more favored classes than the race's `favoredClassCount`; a prestige class as a favored class; a favored class bonus on a level of a class that isn't favored, or on a prestige level | race entry state, Class Levels | race (Curation Overlay), `classKind` |
+| **Traits:** more than `traitCount`, +1 for a drawback (only one drawback counts), +2 per Additional Traits; two from one `traitType` list; a race trait for another race; no campaign trait when required; an NPC with traits but no Additional Traits | trait entries | `traitType`, `prerequisites` |
+| **Class alignment:** a Class Level whose class's `alignments` exclude the current alignment | alignment | Curation Overlay, for the 9 Foundry classes; scraped prestige classes carry it as a clause |
+| **Archetypes:** two on one class replacing or altering the same row (one feature at one class level); an Archetype on a class the Character has no levels in; the Unchained warnings (see "Unchained Classes") | archetype entries | `replaces` |
+| **Class features:** a feature in `featuresByLevel` missing from the sheet prompts "Add"; a due selection in `picksByLevel` prompts "choose a rage power"; a duplicated feature with an upgrade prompts adding it (see "Stacking") | Class Levels | Curation Overlay, scraped dataset |
+| **Unsupported formula** (see "Formulas") | Modifiers | importer |
+
+**Skill ranks follow Intelligence retroactively.** The CRB glossary says a permanent ability increase means you "modify all skills and statistics related to that ability. This might cause you to gain skill points", and drain "might cause you to lose skill points". So every Class Level's budget uses the current permanent Int modifier. The headband's fixed skill ranks are *Ultimate Equipment* rules and aren't admitted, so a headband counts as ordinary permanent Int.
+
+**Favored class.** It is chosen on the race sheet entry, once a race is set. Unchained Class levels count as the original's. Favored class options stay a free-text note and are not checked against race and class pairs. A change of favored class after creation can't be detected and isn't checked.
+
+### Prerequisites
+
+The importer parses each Prerequisites or Requirements line into clauses ([Find how the Foundry pf1 dataset encodes prerequisites](https://github.com/AndreasUnunger/EverythingPath/issues/214), `research/pf1-prerequisite-data`). The AoN scraper does the same for prestige classes and archetypes, and its unmatched records go to hand review. The Curation Overlay corrects misparses and adds the "counts as X for prerequisites" substitutions, which exist only in prose.
+
+```ts
+type Prerequisite =
+  | { anyOf: Prerequisite[] }                                      // "or" clauses
+  | { ability: AbilityKey; min: number } | { bab: number }
+  | { skillRanks: SkillKey; min: number }
+  | { feat: Id<'catalogEntry'>; choice?: string }                  // `@UUID` first, then exact name
+  | { classFeature: string }                                       // by name, ignoring `(UC)`
+  | { classLevel: Id<'catalogEntry'>; min: number } | { characterLevel: number }
+  | { race: Id<'catalogEntry'>[] } | { alignment: Alignment[] } | { deity: string }
+  | { casterLevel: number }                                        // shows nothing until spellcasting
+  | { unchecked: string };                                         // parsed but unmodelled, or unparsed: shows nothing
+```
+
+Clauses follow the CRB FAQ:
+- Numeric clauses are inclusive.
+- A feat clause needs only the feat, not that feat's own prerequisites.
+- A class feature replaced by an Archetype doesn't count.
+- A same-named feature of either version of an Unchained Class counts.
+- Unchained Class levels count as the original's.
+- A spell-like ability meets an "able to cast" clause only when the clause names the spell.
+
+`gainedAtClassLevel` dates a feat. The historical sheet at Class Level *k* counts the Class Levels up to *k*, the entries gained at or before *k*, and every entry without a gained level, such as items. A feat without a gained level is checked only against the current sheet. The two checks have their own copy, for example "Power Attack needed BAB +1 when taken at level 1" and "Power Attack: Str 13 no longer met; it can't be used." Later prestige levels have no requirement check.
+
 ## Temporary Effects
 
 An entry is a Temporary Effect according to its kind:
@@ -485,6 +600,7 @@ collectModifiers(character, entries, catalog): SourcedModifier[]   // active ent
 resolveSheet(modifiers, { permanentOnly?: boolean; situations?: SituationKey[] }): ResolvedSheet // staged; each statistic → { total, applied, suppressed, conditional }
 resolveRoutine(character, sheet, routine, { situations? }): { single, attacks }   // see "Attacks"
 militiaCharacterFacts(character, entries, catalog): MilitiaCharacterFacts // permanentOnly; the one function the militia uses
+sheetWarnings(character, entries, catalog, accepted): SheetWarning[]   // see "Rules checks"; client only, never stored
 ```
 
 ## Migration and release
@@ -495,6 +611,7 @@ Everything ships in the one release that merges the PR to main. Netlify runs `pn
 2. **Backfill.** The Netlify build command runs an idempotent backfill right after `convex deploy`. For each Character it:
    - creates the base-scores entry from the flat scores, as recorded;
    - creates `level` Unspecified Class Levels;
+   - sets the base entry's `abilityMethod` to rolled, since the flat scores were totals;
    - sets `sheetMode: 'militiaOnly'`;
    - clears the flat columns.
 3. **Check.** The build fails loudly if any Character's Militia Character Facts differ from the copy in `canonicalMilitiaState`. They don't change, so no revision is bumped and no reviewed week is invalidated.
@@ -522,6 +639,7 @@ Resolver tests (pure) must cover:
 - a situational Modifier staying out of the total and stacking like any other once its Situation is asked for (raging Will vs. spells);
 - while-active and weapon conditions;
 - attack bonus, iterative attacks, two-weapon penalties, Str multipliers, composite bows, crossbows, Power Attack and haste, and the single attack taking no two-weapon penalty.
+- `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, and an Accepted Warning reopening when its fingerprint changes.
 
 Integration tests (convex-test) must cover:
 
@@ -533,3 +651,4 @@ Integration tests (convex-test) must cover:
 - owner-only access to a Character in no campaign, and campaign access once it joins;
 - leaving a campaign removes the Character from the roster, its roles and team management as one Militia Correction, detaches campaign catalog entries without changing the resolved sheet, and leaves past Resolution Records untouched;
 - deleting is refused for a Character in a campaign.
+- an Accepted Warning follows its Character between campaigns and is deleted with its subject.

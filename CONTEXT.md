@@ -104,6 +104,10 @@ _Avoid_: OGL list, credits
 **Character Sheet Entry**:
 One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, or notes. Two potions of the same kind are two Character Sheet Entries.
 
+**Accepted Warning**:
+A rules warning on a Character Sheet that someone marked as intended, so it shows as accepted instead of as a warning. It needs no reason, unlike a Rules Exception. It reopens when the facts that raised it change, and anyone who can edit the sheet can reopen it.
+_Avoid_: override, waiver, dismissed warning
+
 **Modifier**:
 A bonus or penalty that a Catalog Entry grants to one statistic. Its bonus type decides whether it stacks with others. Its value is a number or a formula over the Character's other statistics.
 
@@ -126,7 +130,7 @@ _Avoid_: attack set, action
 One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
 
 **Archetype**:
-A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Two Archetypes on one class may not replace or alter the same feature.
+A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Two Archetypes on one class may not replace or alter the same feature at the same class level.
 _Avoid_: subclass, class variant
 
 **Prestige Class**:
