@@ -170,6 +170,10 @@ A spell as a thing a caster can know, prepare or write in a spellbook, with its 
 One casting class's casting on a Character, such as their wizard casting: its caster level, spells per day and the Spells recorded for it. A Character has one for each casting class they have levels in, and each is kept separate.
 _Avoid_: spellbook (a wizard's spellbook is one kind of record), caster
 
+**Granted Spell**:
+A Spell a Spellcasting has because a class feature grants it, such as a domain or bloodline spell. It is never recorded. A slot-style grant, such as a cleric's domain, follows every spell level the Spellcasting can cast, prestige advances included. A schedule-style grant, such as a sorcerer's bloodline, arrives at the class level its feature names and ignores prestige advances.
+_Avoid_: bonus spell (extra spells per day from a high ability score)
+
 **Spell Effect**:
 What a running spell does to the Character it affects, as Modifiers, such as Haste's dodge bonus. It names its Spell, and one Spell may have several, such as Fire Shield's warm and cold shields.
 _Avoid_: buff, running spell

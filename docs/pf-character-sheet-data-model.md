@@ -132,7 +132,8 @@ type CatalogEntryDetail =
   | { kind: 'classFeature';
       spellcasting?: {                                            // set by the importer or the Curation Overlay
         extraSlot?: 'domain' | 'school' | 'spirit';               // one extra slot per spell level from 1st
-        grants?: { list: 'domain' | 'subDomain' | 'bloodline'; key: string }; // a Foundry `learnedAt` list: its Spells are granted
+        grants?: { list: 'domain' | 'subDomain' | 'bloodline'; key: string; // a Foundry `learnedAt` list: its Spells are granted
+          atClassLevel?: number[] };                              // schedule-style: the class level granting spell level 1, 2…; absent = slot-style
         school?: SchoolKey } }                                    // an arcane school: the specialist school
   | { kind: 'feat'; featTypes: string[];                         // Foundry feat types: 'combat', 'general', 'teamwork'…
       repeatable: 'no' | 'newChoice' | 'yes' }                    // "You can gain this feat multiple times"
@@ -370,8 +371,13 @@ The casting tables file sets `record` for every casting class, because Foundry d
 
 - A recorded Spell is a `spell` sheet entry naming its `castingClassId`. One Spell recorded for two Spellcastings is two entries.
 - Its level for that Spellcasting is the Spell's `levels[classTag]`. A Spell missing from the class's list takes its level from the entry's own `level`, and shows the off-list warning.
-- A `none` Spellcasting records nothing. It shows its numbers and a link to browse its class list.
-- **Granted Spells** are derived and never recorded. An active class feature whose `spellcasting.grants` names a domain, subdomain or bloodline grants every Spell on that list, at its `grantedLevels` level, once the Spellcasting can cast that level. Mystery, patron and spirit spells stay prose until the Curation Overlay adds them as `grants` lists. So do the oracle's and hunter's automatic cure and *summon nature's ally* spells.
+- A `none` Spellcasting records nothing. It shows its numbers, and its Spells page browses its class list read-only (see "On the sheet").
+- A recorded Spell whose casting class the Character has no Class Levels in is **orphaned**. It shows in a "Not under any Spellcasting" group with its warning.
+- **Granted Spells** are derived and never recorded. An active class feature whose `spellcasting.grants` names a domain, subdomain or bloodline grants every Spell on that list, at its `grantedLevels` level. When each level is granted follows the feature's text ([Prototype the spellcasting section on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/233)):
+  - **Slot-style** grants follow every spell level the Spellcasting can cast, prestige advances included: the cleric's domain Spells and domain slot (CRB p. 38: "one domain spell slot for each level of cleric spell she can cast"; the FAQ gives a domain gained elsewhere "a domain spell slot at each spell level they can cast"), the wizard's school slot and the shaman's spirit slot.
+  - **Schedule-style** grants follow the class's own Class Levels, never advances (FAQ). Each spell level arrives at the class level the feature's text names. `grants.atClassLevel` holds that schedule: a sorcerer bloodline grants spell level N at sorcerer 2N + 1, a bloodrager bloodline at 7, 10, 13 and 16. The Curation Overlay writes it, because Foundry doesn't carry it. Sorcerer and bloodrager bloodlines are separate class features, so the schedule lives on the feature, not on the list. Oracle mysteries and witch patrons are schedule-style too, once added.
+  - **"Domain slot only."** A granted domain Spell that isn't on the class's own list, at any level, is tagged "domain slot only" (CRB: "If a domain spell is not on the cleric spell list, a cleric can prepare it only in her domain spell slot"). Bloodline and mystery Spells join the class list (FAQ), so they never get it. The tag is derived, never stored.
+  - Mystery, patron and spirit spells stay prose until the Curation Overlay adds them as `grants` lists. So do the oracle's and hunter's automatic cure and *summon nature's ally* spells.
 - A class feature's Spellcasting is that of its `gainedAtClassLevel`'s class. Without one, it applies to the Character's only Spellcasting, and shows nothing when there are several.
 
 ### Casting tables
@@ -389,7 +395,8 @@ A reviewed file in the repo beside the Curation Overlay. Foundry's own tables ar
 ### Derived per Spellcasting
 
 - **Casting level:** the class's Class Levels (an Unchained Class counts as its original, see "Unchained Classes"), plus the prestige advances assigned to it. It reads the table row, capped at row 20 (S11).
-- **Caster level:** the class's Class Levels plus `casterLevelOffset`, plus the advances assigned to it, plus `casterLevel` Modifiers. The offset applies to class levels only (S10). The caster level is shown only once the table has an entry, so a paladin shows none before 4th (S1).
+- **Castable spell levels:** a spell level the Spellcasting's spells per day, spells known or prepared table has an entry at, "0" included. Spells known and prepared cover sorcerer and arcanist cantrips, which have no 0-level per-day column. Spell too high, Granted Spells and the Spell Effect pre-fill read it ([Prototype the spellcasting section on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/233)).
+- **Caster level:** the class's Class Levels plus `casterLevelOffset`, plus the advances assigned to it, plus `casterLevel` Modifiers. The offset applies to class levels only (S10), and nothing clamps the sum. The caster level is shown only once the table has an entry, so a paladin shows none before 4th (S1), and a shown caster level is never 0 or less.
 - **Spells per day:** the table row, plus bonus spells, plus one extra slot per spell level from 1st when an active class feature of the Spellcasting has `extraSlot`. Several such features still give one extra slot per level. The slot row labels it "+1 domain", "+1 school (evocation)" or "+1 spirit".
 - **Bonus spells:** from the CRB table, by the casting ability's permanent score (see "Temporary Effects"). They apply only at spell levels where the table has an entry, "0" included (FAQ). They add to spells per day, and never to spells known, the arcanist's prepared count, or the extra slot (S3).
 - **Spells known:** the table row for `known` casters. Nothing adds to it, so feats like Expanded Arcana are covered by accepting the warning.
@@ -402,8 +409,9 @@ The casting ability modifier for DCs and concentration is the current one, Tempo
 ### Prestige advances
 
 - A prestige class entry's `castingAdvances` lists, per class level, how many advances the level gives and of which kind: one for most, one arcane and one divine for the mystic theurge. The AoN scraper parses them from the level table's Spells column.
-- Each prestige Class Level records, in `castingAdvances`, the class each advance goes to. An empty choice is a blue outline. It is pre-filled when exactly one Spellcasting qualifies.
-- An advance adds to that Spellcasting's casting level and caster level, and so to its spells per day and spells known. Nothing else counts it (FAQ): no bloodline, domain, mystery or patron spells, no school powers.
+- Each prestige Class Level records, in `castingAdvances`, the class each advance goes to. An empty choice is a blue outline. It is pre-filled when exactly one class qualifies.
+- **An advance qualifies** for a casting class of its kind (`any`, or the class's `spellKind`) that the Character had Class Levels in before the prestige class's first level, the literal "belonged to before adding the prestige class". So a casting class first taken between prestige levels never qualifies for later advances. The pre-fill and the "belonged to before" warning both use this ([Prototype the spellcasting section on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/233)).
+- An advance adds to that Spellcasting's casting level and caster level, and so to its spells per day, spells known and castable spell levels. Slot-style grants follow those levels, so an advance can add domain Spells and the domain, school or spirit slot at a new spell level (see "Recorded Spells"). Nothing else counts it (FAQ): no schedule-style grants such as bloodline, mystery or patron spells, and no other class features such as school or domain powers.
 - Choices are per level, so advances may be split across classes (S6). An advance may go to a class that doesn't cast yet. It counts once the class does (S9).
 - An `arcane` or `divine` advance on a Spellcasting of another `spellKind` warns, so a psychic, alchemist or investigator takes only an `any` advance without a warning (S7, S8).
 
@@ -418,8 +426,27 @@ The casting ability modifier for DCs and concentration is the current one, Tempo
 
 - A Spell Effect is a `spellEffect` Catalog Entry: the Modifiers a running spell grants, imported from the Foundry buffs. `spellKey` names its Spell. A Spell may have several, such as *Fire Shield*'s warm and cold shields.
 - Its sheet entry records `casterLevel`, a plain number the player can change ("cast by Brother Ardo at CL 7"). Nothing links it to the caster's sheet. A Spell Effect on one weapon or armor also records `onItem` (see "Spells on an item").
-- **Pre-fill.** `casterLevel` is pre-filled with the lowest caster level at which any class can cast the Spell. For each class in the Spell's `levels`, that is the caster level at the first class level whose table has an entry ("0" included) at the Spell's level for that class. *Haste* pre-fills 4, from the summoner's 2nd-level spells at summoner 4. A paladin spell of 1st level pre-fills 1. A Spell Effect without a Spell uses `defaultCasterLevel`.
+- **Pre-fill.** `casterLevel` is pre-filled with the lowest caster level at which any class can cast the Spell. For each class in the Spell's `levels`, that is the caster level at the first class level at which that class can cast the Spell's level (see "Derived per Spellcasting"). *Haste* pre-fills 4, from the summoner's 2nd-level spells at summoner 4. A paladin spell of 1st level pre-fills 1. A Spell Effect without a Spell uses `defaultCasterLevel`.
 - Its formulas may read `@casterLevel` (see "Formulas"). Casting a Spell from a sheet is play-time and out of scope.
+
+### On the sheet
+
+Decided by [Prototype the spellcasting section on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/233) (variant 3 "Spells page", tag `prototype-approved/spellcasting` at 3df8cf5: `src/components/character-builder-prototype/`, derivation in `spellcasting.ts`, contract in its CONTRACT.md "Round 4"). The rejected variants were "Spell cards", a card per Spellcasting with a numbers grid, and "Spell-level ladder", rows per spell level with slot pips and Spell chips.
+
+- **Spellcasting section.** One line per Spellcasting: caster level, concentration, a per-day strip, the recorded or granted counts, the warning count, and a link to its Spells page. The section shows whenever the Character has a Spellcasting or an orphaned Spell.
+- **Spells page.** Each Character has one at `/characters/<id>/spells`, with a tab per Spellcasting.
+  - The numbers: caster level with its casting-level sum ("Wizard 3 +2 from Mystic theurge"), concentration, casting ability, school and opposition schools, the extra slot, and per spell level the spells per day as "table + bonus + extra = total", the DC, and a DC per school where it differs.
+  - The default view lists recorded Spells by level, then Granted Spells.
+  - **Add Spells** switches to the class list, one spell level at a time, with search across levels, a school filter and "include other lists". A check per Spell records it.
+  - A `none` Spellcasting's page is the same browser, read-only.
+- Spell warnings sit inline under their Spell, with Accept.
+- Orphaned Spells show in a "Not under any Spellcasting" group on the sheet and the Spells page, with their warning.
+- **Elsewhere on the sheet:**
+  - A prestige Class Level's advance choices sit in the levels table, with a blue outline while empty.
+  - Opposition schools are edited on the arcane school's row in Class features.
+  - A Spell Effect's caster level field is in Gear, spells & conditions. It may be empty while typing, and leaving it empty restores the pre-fill.
+- On phone, Spell rows are one line, and the description opens on tap.
+- Recording prepared spells, casts and slots used stays out of scope.
 
 ## Modifiers
 
@@ -790,10 +817,10 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Archetypes:** two on one class replacing or altering the same row (one feature at one class level); an Archetype on a class the Character has no levels in; the Unchained warnings (see "Unchained Classes") | archetype entries | `replaces` |
 | **Class features:** a feature in `featuresByLevel` missing from the sheet prompts "Add"; a due selection in `picksByLevel` prompts "choose a rage power"; a duplicated feature with an upgrade prompts adding it (see "Stacking") | Class Levels | Curation Overlay, scraped dataset |
 | **Spells known over the table:** more Spells recorded at a level than the Spellcasting's spells known; `known` casters only | recorded Spells, casting level | casting tables |
-| **Spell too high:** a recorded Spell above the highest level its Spellcasting can cast now | recorded Spells, casting level | casting tables |
+| **Spell too high:** a recorded Spell above the highest castable spell level of its Spellcasting (see "Derived per Spellcasting") | recorded Spells, casting level | casting tables |
 | **Off-list Spell:** a recorded Spell that isn't on its class's list and isn't granted | recorded Spells | Spell `levels`, `grantedLevels` |
-| **Orphaned Spell:** a recorded Spell whose casting class the Character has no Class Levels in | recorded Spells, Class Levels | sheet |
-| **Prestige advance:** an `arcane` or `divine` advance on a Spellcasting of another kind; an advance to a class first taken after the prestige class ("belonged to before"). An empty choice is a blue outline, not a warning | Class Levels | `castingAdvances`, `casting.spellKind` |
+| **Orphaned Spell:** a recorded Spell whose casting class the Character has no Class Levels in; it shows under "Not under any Spellcasting" | recorded Spells, Class Levels | sheet |
+| **Prestige advance:** an `arcane` or `divine` advance on a Spellcasting of another kind; an advance to a class the Character had no Class Levels in before the prestige class's first level ("belonged to before", see "Prestige advances"). An empty choice is a blue outline, not a warning | Class Levels | `castingAdvances`, `casting.spellKind` |
 | **Opposition schools:** the specialist school chosen as an opposition school, or fewer than two opposition schools | arcane school entry | `spellcasting.school` |
 | **Enhancement over +5** (`item.enhancement`): an item's state enhancement above +5. Only state counts, because *bane* and conditional items may exceed +5 in a Situation | item state | sheet |
 | **Ability without enhancement** (`item.abilityWithoutEnhancement`): an Item Ability on an item with no +1 enhancement | item state | sheet |
@@ -1032,6 +1059,8 @@ Resolver tests (pure) must cover:
 - a multiclass caster's separate Spellcastings, caster level offsets, and prestige advances split across classes;
 - bonus spells only at levels with a table entry, from permanent scores, never adding to spells known;
 - one extra slot per level however many `extraSlot` features, and granted Spells appearing once their level is castable;
+- castable spell levels from spells known or prepared (sorcerer and arcanist cantrips), slot-style grants following prestige advances, schedule-style grants following only the class's own levels, and "domain slot only";
+- an advance qualifying only for classes taken before the prestige class's first level, for both the pre-fill and the warning;
 - the Spell Effect caster level pre-fill, and `@casterLevel` in a Spell Effect and in Magical Knack;
 - attack bonus, iterative attacks, two-weapon penalties, Str multipliers, composite bows, crossbows, Power Attack and haste, and the single attack taking no two-weapon penalty;
 - an `option` Modifier applying only in routines that switch it on, its other targets only in its option's Situation, and a routine keeping an option whose entry left;
