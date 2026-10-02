@@ -80,6 +80,10 @@ it.each([
         `import { test } from ${playwright}; test('players share character and officer assignment changes', () => {});`,
       );
       await writeFile(
+        join(directory, 'character-sheet.spec.ts'),
+        `import { test } from ${playwright}; test('two players edit one living sheet; failures stay local and rows keep their identity', () => {});`,
+      );
+      await writeFile(
         join(directory, 'complete-week.spec.ts'),
         `import { test } from ${playwright}; test('a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload', () => {});`,
       );

@@ -39,6 +39,10 @@ export const criticalJourneys = [
     'players share character and officer assignment changes',
   ],
   [
+    'character-sheet.spec.ts',
+    'two players edit one living sheet; failures stay local and rows keep their identity',
+  ],
+  [
     'complete-week.spec.ts',
     'a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload',
   ],

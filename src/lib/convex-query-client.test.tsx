@@ -1,10 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { convexQuery } from '@convex-dev/react-query';
-import { useQuery } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { makeFunctionReference } from 'convex/server';
 import { StrictMode, useLayoutEffect, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { queryCacheFixture } from '../../tests/convex-query-cache';
+import { convexWebSocketFixture } from '../../tests/convex-websocket';
+import { createQueryClient } from './convex-query-client';
 
 const query = makeFunctionReference<'query', { id: string }, string>(
   'example:read',
@@ -94,20 +96,119 @@ test('a late callback during selection cleanup only updates its own cached query
   expect(view.result.current.data).toBe('Late old selection');
 });
 
-test('query errors remain local and explicit retry reuses the subscription', async () => {
-  values.set('first', new Error('unavailable'));
-  const { result } = renderHook(
-    () => useQuery(convexQuery(query, { id: 'first' })),
-    { wrapper: cache.wrapper },
+test.each(['Recovered', null])(
+  'explicit retry recovers a cached Convex failure with %s for every reader',
+  async (recovered) => {
+    const server = convexWebSocketFixture();
+    const client = createQueryClient(server.convex);
+    const args = { id: 'first' };
+    server.values.set('first', new Error('unavailable'));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const useRead = () => useQuery(convexQuery(query, args));
+    const first = renderHook(useRead, { wrapper });
+    const second = renderHook(useRead, { wrapper });
+    try {
+      await waitFor(() => expect(first.result.current.isError).toBe(true));
+      await act(async () => {
+        await first.result.current.refetch();
+      });
+      expect(first.result.current.isError).toBe(true);
+      server.values.set('first', recovered);
+      // Changing the server alone leaves the real client's failed result cached.
+      expect(() => server.convex.query(query, args)).toThrow('unavailable');
+      await act(async () => {
+        await first.result.current.refetch();
+      });
+      await waitFor(() => expect(first.result.current.data).toBe(recovered));
+      expect(second.result.current.data).toBe(recovered);
+      expect(first.result.current.isSuccess).toBe(true);
+      expect(second.result.current.isSuccess).toBe(true);
+    } finally {
+      first.unmount();
+      second.unmount();
+      client.clear();
+      await server.convex.close();
+    }
+  },
+);
+
+test('removing a query cancels its pending retry and a new reader can recover', async () => {
+  const server = convexWebSocketFixture();
+  const client = createQueryClient(server.convex);
+  server.values.set('first', new Error('unavailable'));
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  await waitFor(() => expect(result.current.isError).toBe(true));
-  expect(cache.reads).toHaveLength(1);
-  values.set('first', 'Recovered');
-  await act(async () => {
-    await result.current.refetch();
+  const useRead = () => useQuery(convexQuery(query, { id: 'first' }));
+  const first = renderHook(useRead, { wrapper });
+  try {
+    await waitFor(() => expect(first.result.current.isError).toBe(true));
+    server.values.set('first', 'Recovered');
+    server.pause();
+    let retry: ReturnType<typeof first.result.current.refetch>;
+    act(() => {
+      retry = first.result.current.refetch();
+    });
+    await waitFor(() => expect(first.result.current.isFetching).toBe(true));
+    first.unmount();
+    client.clear();
+    await retry!;
+    act(() => server.resume());
+    const second = renderHook(useRead, { wrapper });
+    try {
+      await waitFor(() => expect(second.result.current.data).toBe('Recovered'));
+    } finally {
+      second.unmount();
+    }
+  } finally {
+    first.unmount();
+    client.clear();
+    await server.convex.close();
+  }
+});
+
+test('retry settles while another Convex subscriber retains a failure and live updates still recover', async () => {
+  const server = convexWebSocketFixture();
+  const client = createQueryClient(server.convex);
+  const args = { id: 'first' };
+  server.values.set('first', new Error('unavailable'));
+  const watch = server.convex.watchQuery(query, args);
+  const stopWatching = watch.onUpdate(() => undefined);
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  const reader = renderHook(() => useQuery(convexQuery(query, args)), {
+    wrapper,
   });
-  await waitFor(() => expect(result.current.data).toBe('Recovered'));
-  expect(cache.opened).toHaveLength(1);
+  try {
+    await waitFor(() => expect(reader.result.current.isError).toBe(true));
+    server.values.set('first', 'Recovered');
+    vi.useFakeTimers();
+    const settled = vi.fn();
+    act(() => {
+      void reader.result.current.refetch().then(settled);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(settled).toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    vi.useRealTimers();
+    expect(reader.result.current.isFetching).toBe(false);
+    expect(reader.result.current.error?.message).toContain('unavailable');
+    act(() => server.push());
+    await waitFor(() => expect(reader.result.current.data).toBe('Recovered'));
+    expect(watch.localQueryResult()).toBe('Recovered');
+  } finally {
+    reader.unmount();
+    client.clear();
+    stopWatching();
+    await server.convex.close();
+  }
 });
 
 test.each(['Recovered', null])(

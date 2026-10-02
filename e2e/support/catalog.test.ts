@@ -41,10 +41,26 @@ const journeyCases = [
   .flatMap((name) =>
     [
       ...readFileSync(join(process.cwd(), 'e2e', name), 'utf8').matchAll(
-        /test\.use\(\{ caseKey: '([A-Za-z]+)' \}\)/g,
+        /test\.use\(\{ caseKey: '([A-Za-z]+)'(?:,| \})/g,
       ),
     ].map(([, key]) => [name, key] as const),
   );
+
+it('requires the Character Sheet journey on Chromium and nightly WebKit with its own case', () => {
+  const file = 'character-sheet.spec.ts';
+  const title =
+    'two players edit one living sheet; failures stay local and rows keep their identity';
+  expect(requiredTests('mandatory').filter(([name]) => name === file)).toEqual([
+    [file, 'chromium-tablet', title],
+  ]);
+  expect(requiredTests('nightly').filter(([name]) => name === file)).toEqual([
+    [file, 'webkit-tablet', title],
+    [file, 'chromium-tablet', title],
+  ]);
+  expect(journeyCases.filter(([, key]) => key === 'characterSheet')).toEqual([
+    [file, 'characterSheet'],
+  ]);
+});
 
 const accessSplits = [
   ['campaign-home.spec.ts', 'campaignHome'],

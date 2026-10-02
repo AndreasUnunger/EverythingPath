@@ -66,7 +66,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the eight Chromium tablet journeys at 1194×834 with
+creates fresh ignored role storage and runs the nine Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
 and at most one per two available CPUs, unless `--workers N` asks for up to the
 declared number; a single cohort runs exactly serially. Local runs acquire an
@@ -197,6 +197,18 @@ it resets its case before creating any browser context and restores that cohort'
 role storage. Cleanup is best effort; reset and next-run preview recreation provide
 correctness, and the isolation canary below turns a leftover campaign into a
 failure instead of a silently changed campaign list.
+
+The Character Sheet journey (`character-sheet.spec.ts`) is required on Chromium
+tablet and on nightly WebKit tablet. Its `characterSheet` case is provisioned
+automatically by a normal `pnpm test:e2e` run: the deployment callback runs
+`bind-preview.ts`, which generates a fresh capability for every `caseKeys` entry
+for each worker and binds the resulting config to the recreated preview. Before
+the journey, `support/fixtures.ts` calls `e2eFixtures:resetCase`, which creates a
+PC and initializes its Character Sheet. Cleanup removes the owned graph.
+No separate `e2e:provision --bootstrap` step is needed for this case; that command
+manages the Clerk users, organizations and memberships, not journey cases.
+Older fixture configs may omit `characterSheet` and still parse, but cannot run
+this journey. Start a fresh normal harness run to regenerate their capabilities.
 
 `e2eFixtures` exposes only internal functions: `seedIdentityProjection`,
 `resetCase`, `inspectCase`, `cleanupCase`. The harness sends every `resetCase`
@@ -469,18 +481,19 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 ## Nightly compatibility matrix (#30)
 
 Run the same isolated harness with `--nightly`. The default command and **E2E
-required** retain the eight mandatory Chromium tablet journeys. Nightly selects:
+required** retain the nine mandatory Chromium tablet journeys. Nightly selects:
 
 | Project         | Viewport | Journeys                                                                                             |
 | --------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| Chromium tablet | 1194×834 | All eight, plus navigation/form/persistence and reconnect steps                                      |
-| WebKit tablet   | 1194×834 | All eight critical journeys                                                                          |
+| Chromium tablet | 1194×834 | All nine, plus navigation/form/persistence and reconnect steps                                       |
+| WebKit tablet   | 1194×834 | All nine critical journeys                                                                           |
 | Firefox desktop | 1440×900 | Access and the three journeys split from it, existing-militia initialization, complete week          |
 | Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; the three split journeys |
 
 The journeys split from access are campaign home, campaign sections and week
-links (see [Access split](#access-split)). Nightly requires 38 first-attempt
-results and the mandatory run 20.
+links (see [Access split](#access-split)). Including authentication, the canonical
+contracts, Workspace journeys and cutover, nightly requires 43 first-attempt
+results and the mandatory run 24.
 
 The access journey's nightly extension creates a character, checks that form
 controls fit the viewport, reloads the saved record, edits at the alternate

@@ -44,6 +44,7 @@ it.each(['mandatory', 'nightly'] as const)(
       expect(result.stdout).toContain('[chromium-tablet]');
       expect(result.stdout).toContain('existing-militia.spec.ts');
       expect(result.stdout).toContain('character-ledger.spec.ts');
+      expect(result.stdout).toContain('character-sheet.spec.ts');
       expect(result.stdout).toContain('complete-week.spec.ts');
       expect(result.stdout).toContain('realtime-action-slot.spec.ts');
       expect(result.stdout).toContain('[canonical-persistence]');
@@ -58,7 +59,7 @@ it.each(['mandatory', 'nightly'] as const)(
       expect(result.stdout).toContain('[canonical-cutover]');
       expect(result.stdout).toContain('canonical-cutover.spec.ts');
       expect(result.stdout).toContain(
-        mode === 'nightly' ? 'Total: 41 tests' : 'Total: 23 tests',
+        mode === 'nightly' ? 'Total: 43 tests' : 'Total: 24 tests',
       );
       if (mode === 'nightly') {
         expect(result.stdout).toContain('[webkit-tablet]');
@@ -112,7 +113,7 @@ it.each([
         },
       );
       expect(result.status, result.stdout + result.stderr).toBe(status);
-      if (status === 0) expect(result.stdout).toContain('Total: 41 tests');
+      if (status === 0) expect(result.stdout).toContain('Total: 43 tests');
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

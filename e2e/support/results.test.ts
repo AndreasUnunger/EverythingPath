@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(41);
+  expect(required).toHaveLength(43);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -166,6 +166,16 @@ const passing = () => ({
       annotations: [] as string[],
       results: [{ status: 'passed', retry: 0 }],
     })),
+    {
+      file: 'character-sheet.spec.ts',
+      project: 'chromium-tablet',
+      title:
+        'two players edit one living sheet; failures stay local and rows keep their identity',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
@@ -251,6 +261,14 @@ it('rejects a run that omits the character-ledger journey', () => {
   expect(evaluateResults(report)).toBe(false);
 });
 
+it('rejects a run that omits the Character Sheet journey', () => {
+  const report = passing();
+  report.tests = report.tests.filter(
+    ({ file }) => file !== 'character-sheet.spec.ts',
+  );
+  expect(evaluateResults(report)).toBe(false);
+});
+
 it('rejects a run that omits the complete-week journey', () => {
   const report = passing();
   report.tests.splice(4, 1);
@@ -314,7 +332,9 @@ it('requires every selected nightly project journey without skips or retry passe
 
 it('rejects a missing canonical Workspace UI journey', () => {
   const report = passing();
-  report.tests.pop();
+  report.tests = report.tests.filter(
+    ({ title }) => title !== workspaceTitles[0],
+  );
   expect(evaluateResults(report)).toBe(false);
 });
 

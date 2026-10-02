@@ -12,21 +12,25 @@ export class MigrationConvexClient extends ConvexReactClient {
   readonly maintenance = createMigrationSession();
   private stopMaintenance?: () => void;
 
-  constructor(address: string) {
-    super(address);
-    if (typeof window !== 'undefined') {
-      const watch = this.watchQuery(api.initialMigration.clientStatus, {});
-      const update = () => {
-        try {
-          const status = watch.localQueryResult();
-          if (status !== undefined) this.maintenance.observe(status);
-        } catch {
-          this.maintenance.unavailable();
-        }
-      };
-      this.stopMaintenance = watch.onUpdate(update);
-      update();
-    }
+  override setAuth(...args: Parameters<ConvexReactClient['setAuth']>) {
+    super.setAuth(...args);
+    this.startMaintenance();
+  }
+
+  // The provider calls this after auth setup or once signed-out state is known.
+  startMaintenance() {
+    if (typeof window === 'undefined' || this.stopMaintenance) return;
+    const watch = this.watchQuery(api.initialMigration.clientStatus, {});
+    const update = () => {
+      try {
+        const status = watch.localQueryResult();
+        if (status !== undefined) this.maintenance.observe(status);
+      } catch {
+        this.maintenance.unavailable();
+      }
+    };
+    this.stopMaintenance = watch.onUpdate(update);
+    update();
   }
 
   override mutation<Mutation extends FunctionReference<'mutation'>>(

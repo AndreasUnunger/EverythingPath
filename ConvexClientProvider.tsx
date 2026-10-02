@@ -2,7 +2,7 @@
 
 import { MigrationConvexClient } from '~/lib/migration-convex-client';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import {
   QueryClientProvider,
@@ -14,6 +14,10 @@ const convex = new MigrationConvexClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const queryClient = createQueryClient(convex);
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) convex.startMaintenance();
+  }, [isLoaded, isSignedIn]);
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <QueryClientProvider client={queryClient}>

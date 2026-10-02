@@ -25,7 +25,7 @@ test('a host without editing-status support explains why saving is unavailable',
   await client.close();
 });
 
-test('subscribed maintenance survives hook remount and every write carries the original epoch', async () => {
+test('subscribed maintenance survives hook remount and reauthentication with the original epoch', async () => {
   let status: { status: 'ready' | 'maintenance'; epoch: number } = {
     status: 'ready',
     epoch: 8,
@@ -45,12 +45,22 @@ test('subscribed maintenance survives hook remount and every write carries the o
   const send = vi
     .spyOn(ConvexReactClient.prototype, 'mutation')
     .mockResolvedValue('saved');
+  const setAuth = vi
+    .spyOn(ConvexReactClient.prototype, 'setAuth')
+    .mockImplementation(() => undefined);
+  const clearAuth = vi
+    .spyOn(ConvexReactClient.prototype, 'clearAuth')
+    .mockImplementation(() => undefined);
   client = new MigrationConvexClient('https://unused.convex.cloud');
   const mutation = makeFunctionReference<'mutation', { name: string }, string>(
     'example:save',
   );
   try {
     const first = renderHook(useInitialMigrationMaintenance);
+    expect(first.result.current.kind).toBe('loading');
+    act(() => {
+      client.setAuth(async () => 'token');
+    });
     expect(first.result.current.readOnly).toBe(false);
     await expect(client.mutation(mutation, { name: 'Before' })).resolves.toBe(
       'saved',
@@ -66,8 +76,10 @@ test('subscribed maintenance survives hook remount and every write carries the o
     });
     expect(first.result.current.kind).toBe('maintenance');
     first.unmount();
+    client.clearAuth();
     status = { status: 'ready', epoch: 10 };
     update?.();
+    client.setAuth(async () => 'new-token');
     const next = renderHook(useInitialMigrationMaintenance);
     expect(next.result.current.kind).toBe('reload_required');
     await expect(client.mutation(mutation, { name: 'Stale' })).rejects.toThrow(
@@ -80,5 +92,7 @@ test('subscribed maintenance survives hook remount and every write carries the o
     expect(stop).toHaveBeenCalledTimes(1);
     send.mockRestore();
     watch.mockRestore();
+    setAuth.mockRestore();
+    clearAuth.mockRestore();
   }
 });
