@@ -1,0 +1,50 @@
+{
+  "PZO9419": {
+    "title": "Pathfinder Player Companion: Goblins of Golarion",
+    "notice": "Pathfinder Player Companion: Goblins of Golarion. © 2011, Paizo Publishing, LLC; Author: James Jacobs, Hal Maclean, and Richard Pett.",
+    "checkedAgainst": "owner-transcription",
+    "checkedOn": "2026-10-02",
+    "aliases": [],
+    "reviewStatus": "unreviewed",
+    "provenance": [
+      "https://github.com/AndreasUnunger/EverythingPath/issues/227#issuecomment-5948776405",
+      "Owner screenshot transcription; printing unknown. PDF comparison is still required before printed verification."
+    ]
+  },
+  "PZO9416": {
+    "title": "Pathfinder Player Companion: Faiths of Purity",
+    "notice": "Pathfinder Player Companion: Faiths of Purity. © 2011, Paizo Publishing, LLC; Author: Colin McComb.",
+    "checkedAgainst": "owner-transcription",
+    "checkedOn": "2026-10-02",
+    "aliases": [],
+    "reviewStatus": "unreviewed",
+    "provenance": [
+      "https://github.com/AndreasUnunger/EverythingPath/issues/227#issuecomment-5948776405",
+      "Owner screenshot transcription; printing unknown. PDF comparison is still required before printed verification."
+    ]
+  },
+  "PZO1137": {
+    "title": "Pathfinder Roleplaying Game Bestiary 6",
+    "notice": "The Book of Fiends © 2003, Green Ronin Publishing; Authors: Aaron Loeb, Erik Mona, Chris Pramas, Robert J. Schwalb.\nBrownie from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nDaemon, Ceustodaemon (Guardian Daemon) from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Ian McDowall.\nDaemon, Derghodaemon from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nDaemon, Hydrodaemon from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nDaemon, Piscodaemon from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nDemon, Shadow from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Neville White.\nGiant, Wood from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Wizards of the Coast.\nGryph from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Peter Brown.\nHuecuva from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Underworld Oracle.\nIron Cobra from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Philip Masters.\nJubilex from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nPazuzu from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nRusset Mold from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nScarecrow from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Roger Musson.\nSlithering Tracker from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nThessalhydra from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax and Wizards of the Coast.\nVegepygmy from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nZombie, Juju from the Tome of Horrors Complete © 2011, Necromancer Games, Inc., published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax.\nPathfinder Roleplaying Game Bestiary 6 © 2017, Paizo Inc.; Authors: Robert Brookes, Benjamin Bruck, John Compton, Paris Crenshaw, Adam Daigle, Crystal Frasier, James Jacobs, Thurston Hillman, Tim Hitchcock, Brandon Hodge, Jason Keeley, Isabelle Lee, Jason Nelson, Tim Nightengale, F. Wesley Schneider, David Schwartz, Mark Seifter, Todd Stewart, Josh Vogt, and Linda Zayas-Palmer.",
+    "checkedAgainst": "owner-transcription",
+    "checkedOn": "2026-10-02",
+    "aliases": [],
+    "reviewStatus": "unreviewed",
+    "provenance": [
+      "https://github.com/AndreasUnunger/EverythingPath/issues/227#issuecomment-5948776405",
+      "Owner screenshot transcription; printing unknown. PDF comparison is still required before printed verification."
+    ]
+  },
+  "PZO9269": {
+    "title": "Pathfinder Campaign Setting: Occult Mysteries",
+    "notice": "Pathfinder Campaign Setting: Occult Mysteries © 2014, Paizo Inc.; Authors: Jason Bulmahn, Crystal Frasier, Jim Groves, Brandon Hodge, James Jacobs, Erik Mona, F. Wesley Schneider, and Jerome Virnich. ",
+    "checkedAgainst": "pf1-content",
+    "checkedOn": "2026-10-02",
+    "aliases": [],
+    "reviewStatus": "unreviewed",
+    "provenance": [
+      "https://gitlab.com/foundryvtt_pathfinder1e/pf1-content/-/blob/11.4.0/OGL.txt",
+      "Only the book line is available in the pinned compilation. Inherited notices and printed comparison remain unreviewed; do not use the AoN Numeria block."
+    ]
+  }
+}

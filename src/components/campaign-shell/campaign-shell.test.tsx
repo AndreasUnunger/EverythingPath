@@ -33,52 +33,39 @@ const signOut = vi.fn();
 let avatarPending = false;
 let clerkStatus: 'loading' | 'ready' | 'degraded' | 'error' = 'ready';
 
-vi.mock('@clerk/nextjs', () => ({
-  useAuth: () => auth(),
-  useOrganization: () => organization(),
-  useClerk: () => ({
-    status: clerkStatus,
-    openCreateOrganization,
-    openOrganizationProfile,
-    openUserProfile,
-    signOut,
-  }),
-  useUser: () => ({
-    isLoaded: true,
-    user: {
-      fullName: 'Andreas',
-      primaryEmailAddress: { emailAddress: 'andreas@example.com' },
-    },
-  }),
-  useOrganizationList: () => ({
-    isLoaded: true,
-    setActive,
-    userMemberships: {
-      data: [
-        { organization: { id: 'org', name: 'Thursday table' } },
-        { organization: { id: 'other', name: 'Other table' } },
-      ],
-      hasNextPage: false,
-      isFetching: false,
-      fetchNext: vi.fn(),
-    },
-  }),
-  SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
-  // Clerk shows `fallback` until it has rendered the avatar button.
-  UserButton: ({ fallback }: { fallback?: ReactNode }) =>
-    avatarPending ? fallback : <button>Account</button>,
-}));
-const convex = {};
-vi.mock('convex/react', () => ({
-  useConvex: () => convex,
-  useConvexAuth: () => convexAuth(),
-  Authenticated: ({ children }: { children: ReactNode }) =>
-    convexAuth().isAuthenticated ? children : null,
-  Unauthenticated: ({ children }: { children: ReactNode }) =>
-    !convexAuth().isLoading && !convexAuth().isAuthenticated ? children : null,
-  AuthLoading: ({ children }: { children: ReactNode }) =>
-    convexAuth().isLoading ? children : null,
-}));
+vi.mock('@clerk/nextjs', async () => {
+  const { clerkModule, organizationList, thursdayTable } =
+    await import('./shell-test-helpers');
+  return clerkModule({
+    auth: () => auth(),
+    organization: () => organization(),
+    clerk: () => ({
+      status: clerkStatus,
+      openCreateOrganization,
+      openOrganizationProfile,
+      openUserProfile,
+      signOut,
+    }),
+    user: () => ({
+      isLoaded: true,
+      user: {
+        fullName: 'Andreas',
+        primaryEmailAddress: { emailAddress: 'andreas@example.com' },
+      },
+    }),
+    organizations: () =>
+      organizationList({
+        organizations: [thursdayTable, { id: 'other', name: 'Other table' }],
+        setActive,
+      }),
+    // Clerk shows `fallback` until it has rendered the avatar button.
+    UserButton: ({ fallback }) =>
+      avatarPending ? fallback : <button>Account</button>,
+  });
+});
+vi.mock('convex/react', async () =>
+  (await import('./shell-test-helpers')).convexReactModule(() => convexAuth()),
+);
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));
@@ -88,21 +75,15 @@ vi.mock('~/components/weekly-draft-workspace/gateway', () => ({
 vi.mock('~/lib/sharedQueries', () => ({
   useCampaignQuery: (...args: unknown[]) => campaigns(...args),
 }));
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, replace: vi.fn() }),
-  usePathname: () => pathname(),
-}));
-vi.mock('next/link', () => ({
-  default: ({
-    href,
-    children,
-    ...props
-  }: React.ComponentProps<'a'> & { href: string }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}));
+vi.mock('next/navigation', async () =>
+  (await import('./shell-test-helpers')).navigationModule({
+    push: (href) => push(href),
+    pathname: () => pathname(),
+  }),
+);
+vi.mock('next/link', async () =>
+  (await import('./shell-test-helpers')).linkModule(),
+);
 // A native select that keeps the trigger's accessible name and its items.
 vi.mock('~/components/ui/select', () => {
   const SelectTrigger = () => null;
@@ -772,6 +753,71 @@ test('the week page can fill the phone status strip above the bottom bar; the to
   expect(
     document.querySelector('[data-shell-slot="top-bar-status"]'),
   ).toBeNull();
+});
+
+function legalLink() {
+  return within(screen.getByRole('contentinfo')).getByRole('link', {
+    name: 'Legal notices',
+  });
+}
+
+test('the legal notices link closes the frame in every access state', () => {
+  const view = render(shell('alpha'));
+  expect(legalLink()).toHaveAttribute('href', '/legal');
+  auth.mockReturnValue({ isLoaded: true, isSignedIn: false });
+  convexAuth.mockReturnValue({ isLoading: false, isAuthenticated: false });
+  campaigns.mockReturnValue({});
+  view.rerender(shell('alpha'));
+  expect(
+    screen.getByRole('heading', { name: 'Sign in to open this campaign.' }),
+  ).toBeVisible();
+  expect(legalLink()).toHaveAttribute('href', '/legal');
+});
+
+test('on the bounded Week the legal link sits inside the frame above the phone bar, which keeps its strip and tabs', () => {
+  pathname.mockReturnValue('/campaigns/alpha/week');
+  render(shell('alpha', <StripPage />));
+  const frame = document.querySelector('[data-shell-frame="bounded"]');
+  expect(frame).not.toBeNull();
+  const footer = screen.getByRole('contentinfo');
+  expect(frame).toContainElement(footer);
+  expect(footer).toContainElement(legalLink());
+  // The week host (the editor's scroll area) precedes the footer; the phone
+  // bar with its strip host and tabs follows it unchanged.
+  const host = document.querySelector('[data-week-host]');
+  expect(frame).toContainElement(host as HTMLElement);
+  expect(host!.compareDocumentPosition(footer)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+  const strip = screen.getByText('Training 3 → 4');
+  const bar = strip.closest(
+    '[data-shell-slot="phone-status-strip"]',
+  )!.parentElement!;
+  expect(footer.nextElementSibling).toBe(bar);
+  expect(within(bar).getByRole('navigation')).toHaveAccessibleName(
+    'Campaign sections',
+  );
+  expect(within(bar).getAllByRole('link')).toHaveLength(4);
+});
+
+test('pending editor work turns the legal link into the same departure decision', async () => {
+  const fixture = onWeekWithFixture();
+  render(shell('alpha', <Editor />));
+  const release = fixture.hold();
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit week 4' }));
+  fireEvent.click(legalLink());
+  expect(
+    screen.getByRole('dialog', { name: 'Changes are still saving' }),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.click(legalLink());
+  fireEvent.click(screen.getByRole('button', { name: 'Leave anyway' }));
+  expect(push).toHaveBeenLastCalledWith('/legal');
+  release();
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
 });
 
 test('only the week route gets the bounded desktop host; other sections keep document scrolling', () => {

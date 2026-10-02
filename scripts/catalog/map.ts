@@ -1,3 +1,4 @@
+import knownNoticeHolds from './legal/known-notice-holds.json';
 import {
   sourceDescription,
   uuidKey,
@@ -153,6 +154,7 @@ export function mapEntry({
   const sanitize = createSanitizer({ resolveKey, lookup, unsupported });
   const description = sanitize(sourceDescription(record));
   const sources = mapSources({ record, unsupported });
+  recordNoticeHolds({ record, upstreamKey, unsupported });
   const detail = detailMappers[kind]({
     record,
     resolveKey,
@@ -214,6 +216,33 @@ function createSanitizer({
   return sanitize;
 }
 
+function recordNoticeHolds({
+  record,
+  upstreamKey,
+  unsupported,
+}: Pick<MappingContext, 'record' | 'unsupported'> & { upstreamKey: string }) {
+  const sources = readArray(record.system.sources).map(readObject);
+  for (const hold of knownNoticeHolds) {
+    if (
+      hold.externalKeys?.includes(upstreamKey) ||
+      sources.some(
+        (source) =>
+          hold.productCodes.includes(readText({ value: source.id })) ||
+          hold.titles.includes(readText({ value: source.name })) ||
+          hold.titles.includes(readText({ value: source.title })) ||
+          hold.publishers?.some((publisher) =>
+            readText({ value: source.publisher }).includes(publisher),
+          ),
+      )
+    )
+      unsupported.push({
+        field: 'attribution',
+        reason:
+          'Known notice/evidence hold (#227/#241); unavailable for new release admission.',
+      });
+  }
+}
+
 function mapSources({
   record: { system },
   unsupported,
@@ -240,17 +269,6 @@ function mapSources({
             : '',
           pages,
         },
-      });
-    if (
-      ['PZOGWK0001', 'PZOPSS0412', 'PZO9297', 'PZO9064'].includes(
-        readText({ value: source.id }),
-      ) ||
-      readText({ value: source.publisher }).includes('Dynamite')
-    )
-      unsupported.push({
-        field: 'attribution',
-        reason:
-          'Known notice/evidence hold (#227/#241); unavailable for new release admission.',
       });
     return book ? [{ book, ...(pages === undefined ? {} : { pages }) }] : [];
   });

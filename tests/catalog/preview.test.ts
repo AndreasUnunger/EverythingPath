@@ -14,6 +14,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { runCapturedProcess } from '../../scripts/catalog/process';
+import { importCatalog } from '../../scripts/catalog/import';
+import {
+  buildAssessmentBinding,
+  computeFingerprint,
+} from '../../scripts/catalog/admission';
 
 const script = resolve('scripts/catalog-preview.ts');
 const fixtures = resolve('tests/fixtures/catalog');
@@ -24,6 +29,78 @@ async function createWorkspace() {
   const root = await mkdtemp(join(tmpdir(), 'catalog-preview-'));
   temporary.push(root);
   return root;
+}
+
+async function createAdmissionFixture() {
+  const root = await createWorkspace();
+  const system = join(root, 'system');
+  const content = join(root, 'content');
+  await mkdir(join(system, 'public'), { recursive: true });
+  await mkdir(join(system, 'packs/feats'), { recursive: true });
+  await mkdir(join(content, 'src'), { recursive: true });
+  await writeFile(
+    join(system, 'public/system.json'),
+    JSON.stringify({ version: '11.11', packs: [{ name: 'feats' }] }),
+  );
+  await writeFile(
+    join(content, 'module.json'),
+    JSON.stringify({ version: '11.4.0', packs: [] }),
+  );
+  await writeFile(
+    join(system, 'packs/feats/fixture.yaml'),
+    JSON.stringify({
+      _id: 'FixtureFeat',
+      _key: '!items!FixtureFeat',
+      name: 'Fixture feat',
+      type: 'feat',
+      system: {},
+    }),
+  );
+  const artifact = await importCatalog({
+    systemPath: system,
+    contentPath: content,
+    remaps: [],
+  });
+  const entry = artifact.catalog.entries[0];
+  if (!entry) throw new Error('Fixture entry missing');
+  const reviewed = {
+    assessments: [
+      {
+        externalKey: entry.externalKey,
+        status: 'unresolved',
+        ...buildAssessmentBinding({
+          entry,
+          artifact,
+          evidence: {},
+          registry: {},
+          requiredNotices: [],
+          evidenceIds: [],
+        }),
+        requiredNotices: [],
+        rationale: 'Synthetic fixture awaits content comparison.',
+        reviewedBy: 'CLI fixture reviewer',
+        reviewedOn: '2026-10-02',
+      },
+    ],
+    evidence: {},
+    registry: {},
+  };
+  const attribution = join(root, 'attribution.json');
+  await writeFile(attribution, JSON.stringify(reviewed));
+  return {
+    root,
+    reviewed,
+    attribution,
+    args: [
+      '--system',
+      system,
+      '--content',
+      content,
+      '--allow-unverified-checkouts',
+      '--attribution',
+      attribution,
+    ],
+  };
 }
 
 function runPreview({
@@ -57,15 +134,16 @@ afterEach(async () => {
   );
 });
 
-it('writes an inspectable catalog and both reports from pinned checkout fixtures', async () => {
+it('reports held candidates separately from inventory failures and extracted definitions', async () => {
   const root = await createWorkspace();
   const output = join(root, 'preview');
   const result = runPreview({
     args: [...getInputArgs(), '--allow-unverified-checkouts', '--out', output],
   });
-  expect(result.stderr).toBe('');
-  expect(result.status).toBe(0);
+  expect(result.stderr).toContain('Catalog admission failed');
+  expect(result.status).toBe(1);
   expect(await readdir(output)).toEqual([
+    'admission.json',
     'catalog.json',
     'comparison.json',
     'unsupported.json',
@@ -79,6 +157,24 @@ it('writes an inspectable catalog and both reports from pinned checkout fixtures
       name: 'Human',
     }),
   );
+  expect(catalog.purpose).toBe('preview');
+  expect(catalog.releaseAdmission).toBe('not-evaluated');
+  const admission = JSON.parse(
+    await readFile(join(output, 'admission.json'), 'utf8'),
+  );
+  expect(admission.passed).toBe(false);
+  expect(admission.admitted).toEqual([]);
+  expect(admission.held).toContainEqual(
+    expect.objectContaining({
+      externalKey: 'pf1/e6IaBxKgMxy1yKlr',
+      reason: 'missing Attribution Assessment',
+      evidence: [],
+    }),
+  );
+  expect(admission.inputVerification).toEqual({ status: 'unverified' });
+  expect(admission.inputs).toEqual(catalog.inputs);
+  expect(admission.extractionFingerprint).toMatch(/^[a-f0-9]{64}$/);
+  expect(admission.reviewedInputsFingerprint).toMatch(/^[a-f0-9]{64}$/);
   for (const report of ['comparison', 'unsupported']) {
     expect(
       JSON.parse(await readFile(join(output, `${report}.json`), 'utf8')),
@@ -98,12 +194,152 @@ it('requires exact pinned Git checkouts unless unverified input is explicitly re
   const unverified = runPreview({
     args: [...getInputArgs(), '--allow-unverified-checkouts', '--out', output],
   });
-  expect(unverified.status).toBe(0);
+  expect(unverified.status).toBe(1);
+  expect(unverified.stderr).toContain('Catalog admission failed');
   const catalog = JSON.parse(
     await readFile(join(output, 'catalog.json'), 'utf8'),
   );
   expect(catalog.inputVerification).toEqual({ status: 'unverified' });
 });
+
+it('succeeds with individually reviewed holds and writes repeatable admission reports', async () => {
+  const { root, args } = await createAdmissionFixture();
+  const output = join(root, 'preview');
+  const result = runPreview({ args: [...args, '--out', output] });
+  expect(result.stderr).toBe('');
+  expect(result.status).toBe(0);
+  const original = await readFile(join(output, 'admission.json'), 'utf8');
+  expect(JSON.parse(original)).toMatchObject({
+    passed: true,
+    admitted: [],
+    held: [{ externalKey: 'pf1/FixtureFeat', name: 'Fixture feat' }],
+    failures: [],
+  });
+  expect(result.stdout).toContain('0 admitted, 1 held');
+  expect(runPreview({ args: [...args, '--out', output] }).status).toBe(0);
+  expect(await readFile(join(output, 'admission.json'), 'utf8')).toBe(original);
+});
+
+it('reports legal resource provenance and outstanding retained notices without failing named holds', async () => {
+  const { root, args, attribution, reviewed } = await createAdmissionFixture();
+  await writeFile(
+    attribution,
+    JSON.stringify({
+      ...reviewed,
+      retainedUses: [
+        {
+          useId: 'previous-selection',
+          externalKey: 'pf1/OldFeat',
+          name: 'Old feat',
+          characterId: 'character-one',
+          definitionFingerprint: 'old-definition',
+          admittedRelease: 1,
+          requiredNotices: ['MISSING-BOOK'],
+        },
+      ],
+      retainedExceptions: [
+        {
+          useId: 'previous-selection',
+          externalKey: 'pf1/OldFeat',
+          definitionFingerprint: 'old-definition',
+          reason: 'Previously admitted; notice review remains outstanding.',
+          requiredNotices: ['MISSING-BOOK'],
+        },
+      ],
+    }),
+  );
+  const output = join(root, 'preview');
+  const result = runPreview({ args: [...args, '--out', output] });
+  expect(result.status).toBe(0);
+  const admission = JSON.parse(
+    await readFile(join(output, 'admission.json'), 'utf8'),
+  );
+  expect(admission.legalResourcesFingerprint).toMatch(/^[a-f0-9]{64}$/);
+  expect(admission.outstandingNotices).toEqual([
+    { code: 'MISSING-BOOK', title: 'MISSING-BOOK', reason: 'missing' },
+  ]);
+  expect(admission.outstandingResources).toEqual([]);
+});
+
+it.each(['stale content', 'missing notice'])(
+  'exits nonzero and preserves inspectable output for an accepted assessment with %s',
+  async (problem) => {
+    const { root, args, attribution, reviewed } =
+      await createAdmissionFixture();
+    const assessment = reviewed.assessments[0];
+    if (!assessment) throw new Error('Fixture assessment missing');
+    const evidence = {
+      comparison: { content: 'Synthetic comparison for CLI testing only.' },
+    };
+    await writeFile(
+      attribution,
+      JSON.stringify({
+        ...reviewed,
+        evidence,
+        assessments: [
+          {
+            ...assessment,
+            status: 'confirmed',
+            contentFingerprint:
+              problem === 'stale content'
+                ? '0'.repeat(64)
+                : assessment.contentFingerprint,
+            evidenceFingerprints: {
+              comparison: computeFingerprint(evidence.comparison),
+            },
+            requiredNotices: ['FIXTURE'],
+            noticeFingerprints: { FIXTURE: computeFingerprint(null) },
+          },
+        ],
+      }),
+    );
+    const output = join(root, 'preview');
+    const result = runPreview({ args: [...args, '--out', output] });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Catalog admission failed');
+    const admission = JSON.parse(
+      await readFile(join(output, 'admission.json'), 'utf8'),
+    );
+    expect(admission.passed).toBe(false);
+    expect(admission.admitted).toEqual([]);
+    expect(admission.failures).toContainEqual(
+      expect.objectContaining({
+        externalKey: 'pf1/FixtureFeat',
+        reason: expect.stringMatching(
+          problem === 'stale content' ? /stale/i : /notice/i,
+        ),
+      }),
+    );
+    expect(
+      JSON.parse(await readFile(join(output, 'catalog.json'), 'utf8')).entries,
+    ).toHaveLength(1);
+  },
+);
+
+it.each(['missing inputs', 'invalid review metadata'])(
+  'rejects malformed reviewed inputs (%s) without writing reports',
+  async (problem) => {
+    const { root, args, attribution, reviewed } =
+      await createAdmissionFixture();
+    const malformed =
+      problem === 'missing inputs'
+        ? { assessments: [] }
+        : {
+            ...reviewed,
+            assessments: reviewed.assessments.map((assessment) => ({
+              ...assessment,
+              reviewedBy: '',
+              reviewedOn: '2026-02-30',
+            })),
+          };
+    await writeFile(attribution, JSON.stringify(malformed));
+    const output = join(root, 'preview');
+    const result = runPreview({ args: [...args, '--out', output] });
+    expect(result.status).toBe(1);
+    expect(result.stderr).not.toBe('');
+    await expect(readdir(output)).rejects.toMatchObject({ code: 'ENOENT' });
+  },
+);
 
 it.each(
   [
@@ -202,13 +438,13 @@ it('uses the default output directory and preserves prior reports when a later i
     join(sources, 'pf1-content'),
     '--allow-unverified-checkouts',
   ];
-  expect(runPreview({ args, cwd: root }).status).toBe(0);
+  expect(runPreview({ args, cwd: root }).status).toBe(1);
   const output = join(root, '.catalog-preview');
   const names = await readdir(output);
   const original = await Promise.all(
     names.map((name) => readFile(join(output, name), 'utf8')),
   );
-  expect(runPreview({ args, cwd: root }).status).toBe(0);
+  expect(runPreview({ args, cwd: root }).status).toBe(1);
   const manifestPath = join(sources, 'pf1-content/module.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   await writeFile(

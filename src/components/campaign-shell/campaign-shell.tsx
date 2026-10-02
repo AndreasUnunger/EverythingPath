@@ -47,12 +47,11 @@ import { useScrollPaddingFor } from './scroll-padding';
 import { ShellSlotHost, ShellSlotProvider } from './shell-slots';
 import {
   AccountControl,
-  KeepLink,
   OrganizationControl,
   ShellFrame,
   SignIn,
-  TopBarRow,
 } from './shell-frame';
+import { KeepLink, TopBarRow } from './top-bar';
 
 type Campaign = Doc<'campaign'>;
 const ALL_CAMPAIGNS = '__all';

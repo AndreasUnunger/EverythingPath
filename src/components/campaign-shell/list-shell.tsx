@@ -1,13 +1,8 @@
 'use client';
 import type { ReactNode } from 'react';
 import { NavigationGuardProvider } from './navigation-guard';
-import {
-  AccountControl,
-  KeepLink,
-  OrganizationControl,
-  ShellFrame,
-  TopBarRow,
-} from './shell-frame';
+import { AccountControl, OrganizationControl, ShellFrame } from './shell-frame';
+import { KeepLink, TopBarRow } from './top-bar';
 
 // Campaign list: the organization switcher takes the breadcrumb position;
 // campaign pages move it to the right beside the account.

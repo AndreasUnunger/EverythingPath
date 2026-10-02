@@ -36,6 +36,12 @@ The [data model](pf-character-sheet-data-model.md), [ADR 0001](adr/0001-one-char
 
 The wider membership/ownership lifecycle is still future work: [#300](https://github.com/AndreasUnunger/EverythingPath/issues/300), [#316](https://github.com/AndreasUnunger/EverythingPath/issues/316), [#706](https://github.com/AndreasUnunger/EverythingPath/issues/706) and [#708](https://github.com/AndreasUnunger/EverythingPath/issues/708) implement reassignment, moves, membership loss and account deletion. #252 must not infer those permissions from the stored `ownerId`. Legacy spell import and aggregate writers remain covered by inventory B6 and #258/#715; they are not Character-statistics readers.
 
+## Catalog legal publication seam (#257)
+
+The local attribution gate reports admitted definitions, individual holds, dependent omissions, retained exceptions and failures without activating catalog content. `src/lib/catalog/retained-use-policy.ts` supplies the pure policy for existing uses; Catalog Release and Character Sheet writers must enforce it with the authoritative prior-use inventory and preserve the last usable definition and notice obligations.
+
+[Catalog Release #310](https://github.com/AndreasUnunger/EverythingPath/issues/310) must persist the gate's `requiredNotices` and the legal builder's returned `permanentNoticeSuperset` with each release, then feed both persisted inputs to `buildLegalPageData` for the public page. Previously shipped notice versions remain present through corrections and rollbacks. Held-only content never adds notice requirements for unrelated admissions. The page route currently passes committed defaults explicitly; #257 adds no release persistence, selection enforcement or publication. The owner-authorized project notice is `Keepnet © 2026 Andreas Ununger`.
+
 ## Regression evidence
 
 `src/components/characters-officers/characters-page.test.tsx` extends the existing jsdom ledger suite with a saved-statistics regression: edit name, Notes, kind, level and all six scores; verify the public mutation payload; publish accepted query data; verify refreshed officer effects, retained roles and the roster Hit Dice override; reopen the record and read the saved values. Existing cases cover archived editing, archive failure, untouched concurrent fields and drafts surviving week confirmation. These tests mock Convex at the browser interface and do not prove server authorization or persistence; public Convex integration tests supply that evidence.

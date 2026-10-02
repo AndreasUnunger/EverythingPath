@@ -411,6 +411,10 @@ describe('pinned catalog extraction', () => {
     const record = parse(await readFile(file, 'utf8'));
     const heldSources = [
       { name: 'Pathfinder Comic', publisher: 'Dynamite Entertainment' },
+      { id: 'DYN0032-E' },
+      { id: 'DYN0010-A' },
+      { title: 'Pathfinder: Worldscape #2' },
+      { id: 'DYN0046-HC', publisher: 'Paizo' },
       { id: 'PZOGWK0001' },
       { id: 'PZOPSS0412' },
       { id: 'PZO9297' },
@@ -444,6 +448,41 @@ describe('pinned catalog extraction', () => {
       );
     }
   });
+
+  it.each(['CadEsVvAN7kdruSH', 'aLCy6zW8AldME74r', 'xhUw4hzZlljYFCzj'])(
+    'holds identified Worldscape weapon %s when upstream omits its source metadata',
+    async (id) => {
+      const root = await copyFixtures();
+      const { parse, stringify } = await import('yaml');
+      const file = join(root, 'pf1/packs/races/human.e6IaBxKgMxy1yKlr.yaml');
+      const record = parse(await readFile(file, 'utf8'));
+      await writeFile(
+        file,
+        stringify({
+          ...record,
+          _id: id,
+          _key: `!items!${id}`,
+          name: 'Thark rifle',
+          system: { ...record.system, sources: [] },
+        }),
+      );
+      const { catalog } = await importCatalog({
+        systemPath: join(root, 'pf1'),
+        contentPath: join(root, 'pf1-content'),
+        remaps: [],
+      });
+      const rifle = catalog.entries.find(
+        (entry) => entry.externalKey === `pf1/${id}`,
+      );
+      expect(rifle?.sources).toEqual([]);
+      expect(rifle?.unsupported).toContainEqual(
+        expect.objectContaining({
+          field: 'attribution',
+          reason: expect.stringContaining('notice/evidence hold'),
+        }),
+      );
+    },
+  );
 
   it('associates spell effects from the first spell link with variant and inverted names', async () => {
     const root = await copyFixtures();
