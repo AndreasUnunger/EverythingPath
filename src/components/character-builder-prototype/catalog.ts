@@ -1,9 +1,13 @@
 // PROTOTYPE (throwaway, #208) — a small PF1 Core Rulebook catalog shaped like
 // global Catalog Entries. Keys are `<kind>.<slug>`.
 
+import { SPELLS } from './spell-catalog';
 import type {
   AbilityKey,
   CatalogEntry,
+  Casting,
+  FeatureSpellcasting,
+  SchoolKey,
   FeatureGroup,
   Modifier,
   ModifierCondition,
@@ -41,6 +45,7 @@ export const SITUATION_TEXT: Record<SituationKey, string> = {
   orcsGoblinoids: 'vs. orcs and goblinoids',
   bullRushTrip: 'vs. bull rush and trip while standing on the ground',
   sneak: 'when flanking or the target is denied its Dex bonus',
+  castDefensively: 'to cast defensively or while grappled',
 };
 
 export type SkillInfo = {
@@ -285,12 +290,13 @@ const feature = (
   name: string,
   summary: string,
   opts: Partial<Pick<CatalogEntry, 'stacksWithItself' | 'modifiers'>> & {
-    group?: 'ragePower' | 'rogueTalent';
+    group?: FeatureGroup;
     duplicateUpgrade?: { catalogKey: string; rule: string };
     damageDice?: Extract<
       CatalogEntry['detail'],
       { kind: 'classFeature' }
     >['damageDice'];
+    spellcasting?: FeatureSpellcasting;
   } = {},
 ): CatalogEntry => ({
   key,
@@ -304,6 +310,7 @@ const feature = (
     group: opts.group,
     duplicateUpgrade: opts.duplicateUpgrade,
     damageDice: opts.damageDice,
+    spellcasting: opts.spellcasting,
   },
 });
 
@@ -513,18 +520,259 @@ const classFeatures: CatalogEntry[] = [
   ),
   // Wizard
   feature('cf.arcaneBond', 'Arcane Bond', 'Bonded object or familiar'),
-  feature(
-    'cf.arcaneSchool',
-    'Arcane School',
-    'Specialist school powers, opposition schools',
-  ),
   feature('cf.cantrips', 'Cantrips', '0-level arcane spells'),
   feature(
     'cf.wizardSpells',
     'Arcane spells',
     'Prepared arcane spellcasting (Int)',
   ),
+  // Arcane schools (#233): the specialist school, one extra slot per level,
+  // two opposition schools recorded on the sheet entry.
+  ...(
+    [
+      ['conjuration', 'Conjuration'],
+      ['divination', 'Divination'],
+      ['evocation', 'Evocation'],
+      ['illusion', 'Illusion'],
+      ['transmutation', 'Transmutation'],
+    ] as [SchoolKey, string][]
+  ).map(([school, label]) =>
+    feature(
+      `cf.school.${school}`,
+      `Arcane school: ${label}`,
+      `Specialist in ${school}; +1 ${school} slot per spell level; two opposition schools`,
+      {
+        group: 'arcaneSchool',
+        spellcasting: { school, extraSlot: 'school' },
+      },
+    ),
+  ),
+  // Cleric domains (#233): granted domain Spells and a domain slot.
+  ...(
+    [
+      ['Fire', 'Fire'],
+      ['Sun', 'Sun'],
+      ['Animal', 'Animal'],
+      ['Community', 'Community'],
+    ] as [string, string][]
+  ).map(([key, label]) =>
+    feature(
+      `cf.domain.${key.toLowerCase()}`,
+      `${label} domain`,
+      `Domain spells from the ${label} list; +1 domain slot per spell level`,
+      {
+        group: 'domain',
+        spellcasting: {
+          extraSlot: 'domain',
+          grants: { list: 'domain', key },
+        },
+      },
+    ),
+  ),
+  // Sorcerer (#233)
+  feature(
+    'cf.bloodline.arcane',
+    'Arcane bloodline',
+    'Bloodline spells: identify, invisibility, dispel magic…',
+    {
+      group: 'bloodline',
+      spellcasting: { grants: { list: 'bloodline', key: 'Arcane' } },
+    },
+  ),
+  feature(
+    'cf.sorcererSpells',
+    'Arcane spells',
+    'Spontaneous arcane spellcasting (Cha)',
+  ),
+  feature(
+    'cf.eschewMaterials',
+    'Eschew Materials',
+    'Cast without cheap material components',
+  ),
+  // Arcanist (#233)
+  feature(
+    'cf.arcaneReservoir',
+    'Arcane Reservoir',
+    '3 + ½ arcanist level points per day',
+  ),
+  feature(
+    'cf.consumeSpells',
+    'Consume Spells',
+    'Expend a slot to regain reservoir points',
+  ),
+  feature(
+    'cf.arcanistSpells',
+    'Arcane spells',
+    'Prepares from a spellbook, casts spontaneously from what is prepared (Int)',
+  ),
+  // Paladin (#233)
+  feature('cf.auraOfGood', 'Aura of Good', 'An aura of good'),
+  feature('cf.detectEvil', 'Detect Evil', 'At will, as the spell'),
+  feature('cf.smiteEvil', 'Smite Evil', '1/day, +1 per three paladin levels'),
+  feature('cf.divineGrace', 'Divine Grace', 'Cha bonus on all saving throws', {
+    modifiers: [m('saves', 'untyped', { formula: 'max(0, @ability.cha.mod)' })],
+  }),
+  feature('cf.layOnHands', 'Lay on Hands', 'Heal ½ paladin level d6'),
+  feature('cf.auraOfCourage', 'Aura of Courage', 'Immune to fear'),
+  feature('cf.divineHealth', 'Divine Health', 'Immune to disease'),
+  feature('cf.mercy', 'Mercy', 'Lay on hands also removes a condition'),
+  feature(
+    'cf.channelPositive',
+    'Channel Positive Energy',
+    'Two uses of lay on hands to channel energy',
+  ),
+  feature(
+    'cf.paladinSpells',
+    'Divine spells',
+    'Prepared divine spellcasting (Cha), from 4th level',
+  ),
+  // Mystic theurge (#233)
+  feature(
+    'cf.combinedSpells',
+    'Combined Spells',
+    'Prepare spells of one class in the other’s slots',
+  ),
 ];
+
+// --------------------------------------------- casting (#233)
+
+/**
+ * The casting tables file's class data (data model "Casting tables"): each
+ * casting class tag's `Casting`, with `record` and `table`. Classes without a
+ * class entry here (bard, summoner, magus, druid, ranger, oracle) are used
+ * only for a Spell Effect's caster level pre-fill.
+ */
+export const CASTING_BY_TAG: Record<string, Casting & { name: string }> = {
+  wizard: {
+    name: 'Wizard',
+    classTag: 'wizard',
+    type: 'prepared',
+    spellKind: 'arcane',
+    ability: 'int',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'preparedHigh',
+    record: 'book',
+    bookName: 'Spellbook',
+  },
+  sorcerer: {
+    name: 'Sorcerer',
+    classTag: 'sorcerer',
+    type: 'spontaneous',
+    spellKind: 'arcane',
+    ability: 'cha',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'spontaneousHigh',
+    record: 'known',
+  },
+  arcanist: {
+    name: 'Arcanist',
+    classTag: 'arcanist',
+    type: 'hybrid',
+    spellKind: 'arcane',
+    ability: 'int',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'hybridHigh',
+    record: 'book',
+    bookName: 'Spellbook',
+  },
+  cleric: {
+    name: 'Cleric',
+    classTag: 'cleric',
+    type: 'prepared',
+    spellKind: 'divine',
+    ability: 'wis',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'preparedHigh',
+    record: 'none',
+  },
+  oracle: {
+    name: 'Oracle',
+    classTag: 'oracle',
+    type: 'spontaneous',
+    spellKind: 'divine',
+    ability: 'cha',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'spontaneousHigh',
+    record: 'known',
+  },
+  druid: {
+    name: 'Druid',
+    classTag: 'druid',
+    type: 'prepared',
+    spellKind: 'divine',
+    ability: 'wis',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'preparedHigh',
+    record: 'none',
+  },
+  paladin: {
+    name: 'Paladin',
+    classTag: 'paladin',
+    type: 'prepared',
+    spellKind: 'divine',
+    ability: 'cha',
+    cantrips: false,
+    casterLevelOffset: -3,
+    table: 'preparedLow',
+    record: 'none',
+  },
+  ranger: {
+    name: 'Ranger',
+    classTag: 'ranger',
+    type: 'prepared',
+    spellKind: 'divine',
+    ability: 'wis',
+    cantrips: false,
+    casterLevelOffset: -3,
+    table: 'preparedLow',
+    record: 'none',
+  },
+  bard: {
+    name: 'Bard',
+    classTag: 'bard',
+    type: 'spontaneous',
+    spellKind: 'arcane',
+    ability: 'cha',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'spontaneousMed',
+    record: 'known',
+  },
+  summoner: {
+    name: 'Summoner',
+    classTag: 'summoner',
+    type: 'spontaneous',
+    spellKind: 'arcane',
+    ability: 'cha',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'spontaneousMed',
+    record: 'known',
+  },
+  magus: {
+    name: 'Magus',
+    classTag: 'magus',
+    type: 'prepared',
+    spellKind: 'arcane',
+    ability: 'int',
+    cantrips: true,
+    casterLevelOffset: 0,
+    table: 'preparedMed',
+    record: 'book',
+    bookName: 'Spellbook',
+  },
+};
+
+const casting = (tag: string): Casting => {
+  const { name: _name, ...c } = CASTING_BY_TAG[tag]!;
+  return c;
+};
 
 // ---------------------------------------------------------------- classes
 
@@ -697,6 +945,7 @@ const classes: CatalogEntry[] = [
         { classLevel: 1, catalogKey: 'cf.aura' },
         { classLevel: 1, catalogKey: 'cf.channelEnergy' },
         { classLevel: 1, catalogKey: 'cf.domains' },
+        { classLevel: 1, choose: 'domain', label: 'Domain', count: 2 },
         { classLevel: 1, catalogKey: 'cf.orisons' },
         { classLevel: 1, catalogKey: 'cf.spontaneousCasting' },
         { classLevel: 1, catalogKey: 'cf.clericSpells' },
@@ -705,7 +954,7 @@ const classes: CatalogEntry[] = [
         { classLevel: 7, catalogKey: 'cf.channelEnergy' },
       ],
       favoredClassAlt: 'Human: +1 to channel energy healing',
-      spellcasting: 'Divine, prepared, Wis',
+      casting: casting('cleric'),
     },
   },
   {
@@ -733,7 +982,7 @@ const classes: CatalogEntry[] = [
       ],
       featuresByLevel: [
         { classLevel: 1, catalogKey: 'cf.arcaneBond' },
-        { classLevel: 1, catalogKey: 'cf.arcaneSchool' },
+        { classLevel: 1, choose: 'arcaneSchool', label: 'Arcane school' },
         { classLevel: 1, catalogKey: 'cf.cantrips' },
         { classLevel: 1, catalogKey: 'feat.scribeScroll' },
         { classLevel: 1, catalogKey: 'cf.wizardSpells' },
@@ -744,7 +993,145 @@ const classes: CatalogEntry[] = [
         },
       ],
       favoredClassAlt: 'Elf: +1 to arcane bond concentration… (1/2)',
-      spellcasting: 'Arcane, prepared, Int',
+      casting: casting('wizard'),
+    },
+  },
+  {
+    key: 'class.sorcerer',
+    scope: 'global',
+    name: 'Sorcerer',
+    stacksWithItself: false,
+    summary: 'd6, ½ BAB, good Will, 2 + Int ranks',
+    modifiers: [],
+    detail: {
+      kind: 'class',
+      classKind: 'base',
+      hitDie: 6,
+      bab: 'half',
+      saves: { fort: 'poor', ref: 'poor', will: 'good' },
+      skillRanksPerLevel: 2,
+      classSkills: [
+        'appraise',
+        'bluff',
+        ...CRAFT,
+        'fly',
+        'intimidate',
+        'knowledgeArcana',
+        'professionSoldier',
+        'spellcraft',
+        'useMagicDevice',
+      ],
+      featuresByLevel: [
+        { classLevel: 1, choose: 'bloodline', label: 'Bloodline' },
+        { classLevel: 1, catalogKey: 'cf.cantrips' },
+        { classLevel: 1, catalogKey: 'cf.eschewMaterials' },
+        { classLevel: 1, catalogKey: 'cf.sorcererSpells' },
+      ],
+      favoredClassAlt: 'Human: +1 spell known (lower than highest)',
+      casting: casting('sorcerer'),
+    },
+  },
+  {
+    key: 'class.arcanist',
+    scope: 'global',
+    name: 'Arcanist',
+    stacksWithItself: false,
+    summary: 'd6, ½ BAB, good Will, 2 + Int ranks',
+    modifiers: [],
+    detail: {
+      kind: 'class',
+      classKind: 'base',
+      hitDie: 6,
+      bab: 'half',
+      saves: { fort: 'poor', ref: 'poor', will: 'good' },
+      skillRanksPerLevel: 2,
+      classSkills: [
+        'appraise',
+        ...CRAFT,
+        'fly',
+        ...KNOWLEDGE,
+        'linguistics',
+        'professionSoldier',
+        'spellcraft',
+        'useMagicDevice',
+      ],
+      featuresByLevel: [
+        { classLevel: 1, catalogKey: 'cf.arcaneReservoir' },
+        { classLevel: 1, catalogKey: 'cf.consumeSpells' },
+        { classLevel: 1, catalogKey: 'cf.cantrips' },
+        { classLevel: 1, catalogKey: 'cf.arcanistSpells' },
+      ],
+      favoredClassAlt: 'Elf: +1/6 arcanist exploit',
+      casting: casting('arcanist'),
+    },
+  },
+  {
+    key: 'class.paladin',
+    scope: 'global',
+    name: 'Paladin',
+    stacksWithItself: false,
+    summary: 'd10, full BAB, good Fort and Will, 2 + Int ranks',
+    modifiers: [],
+    detail: {
+      kind: 'class',
+      classKind: 'base',
+      hitDie: 10,
+      bab: 'full',
+      saves: { fort: 'good', ref: 'poor', will: 'good' },
+      skillRanksPerLevel: 2,
+      classSkills: [
+        ...CRAFT,
+        'diplomacy',
+        'handleAnimal',
+        'heal',
+        'knowledgeReligion',
+        'professionSoldier',
+        'ride',
+        'senseMotive',
+        'spellcraft',
+      ],
+      featuresByLevel: [
+        { classLevel: 1, catalogKey: 'cf.auraOfGood' },
+        { classLevel: 1, catalogKey: 'cf.detectEvil' },
+        { classLevel: 1, catalogKey: 'cf.smiteEvil' },
+        { classLevel: 2, catalogKey: 'cf.divineGrace' },
+        { classLevel: 2, catalogKey: 'cf.layOnHands' },
+        { classLevel: 3, catalogKey: 'cf.auraOfCourage' },
+        { classLevel: 3, catalogKey: 'cf.divineHealth' },
+        { classLevel: 3, catalogKey: 'cf.mercy' },
+        { classLevel: 4, catalogKey: 'cf.channelPositive' },
+        { classLevel: 4, catalogKey: 'cf.paladinSpells' },
+      ],
+      favoredClassAlt: 'Human: +1 to lay on hands healing',
+      casting: casting('paladin'),
+    },
+  },
+  {
+    key: 'class.mysticTheurge',
+    scope: 'global',
+    name: 'Mystic theurge',
+    stacksWithItself: false,
+    summary:
+      'Prestige: d6, ½ BAB, good Will, +1 arcane and +1 divine casting level per level',
+    modifiers: [],
+    detail: {
+      kind: 'class',
+      classKind: 'prestige',
+      hitDie: 6,
+      bab: 'half',
+      saves: { fort: 'poor', ref: 'poor', will: 'good' },
+      skillRanksPerLevel: 2,
+      classSkills: [
+        'knowledgeArcana',
+        'knowledgeReligion',
+        'senseMotive',
+        'spellcraft',
+      ],
+      featuresByLevel: [{ classLevel: 1, catalogKey: 'cf.combinedSpells' }],
+      castingAdvances: Array.from({ length: 10 }, (_, i) => [
+        { classLevel: i + 1, count: 1, kind: 'arcane' as const },
+        { classLevel: i + 1, count: 1, kind: 'divine' as const },
+      ]).flat(),
     },
   },
 ];
@@ -762,7 +1149,7 @@ const feat = (
       { kind: 'feat' }
     >['prerequisites'];
     modifiers?: Modifier[];
-    choice?: 'skill' | 'weapon';
+    choice?: 'skill' | 'weapon' | 'school';
   } = {},
 ): CatalogEntry => ({
   key,
@@ -884,6 +1271,23 @@ const feats: CatalogEntry[] = [
   feat('feat.scribeScroll', 'Scribe Scroll', 'Create magic scrolls', {
     prerequisites: [{ kind: 'casterLevel', min: 1 }],
   }),
+  feat(
+    'feat.spellFocus',
+    'Spell Focus',
+    '+1 to the save DCs of spells of one school',
+    {
+      choice: 'school',
+      modifiers: [m('spellDC', 'untyped', 1, { school: '$choice' })],
+    },
+  ),
+  feat(
+    'feat.combatCasting',
+    'Combat Casting',
+    '+4 concentration to cast defensively or while grappled',
+    {
+      modifiers: [m('concentration', 'untyped', 4, vs('castDefensively'))],
+    },
+  ),
 ];
 
 // ----------------------------------------------------------------- traits
@@ -1144,50 +1548,77 @@ const items: CatalogEntry[] = [
   },
 ];
 
-// ----------------------------------------------------------------- spells
+// ------------------------------------------------- spell effects (#233)
 
-const spells: CatalogEntry[] = [
-  {
-    key: 'spell.bullsStrength',
-    scope: 'global',
-    name: 'Bull’s strength',
-    summary: '+4 enhancement to Strength, 1 min/level',
-    stacksWithItself: false,
-    modifiers: [m('ability.str', 'enhancement', 4)],
-    detail: { kind: 'spell', lastsOverOneDay: false },
+/** A Spell Effect: the Modifiers a running Spell grants. `@casterLevel` reads its sheet entry's caster level. */
+const effect = (
+  key: string,
+  name: string,
+  summary: string,
+  spellKey: string,
+  modifiers: Modifier[],
+  opts: { sourceKey?: string; defaultCasterLevel?: number } = {},
+): CatalogEntry => ({
+  key,
+  scope: 'global',
+  name,
+  summary,
+  ...(opts.sourceKey ? { sourceKey: opts.sourceKey } : {}),
+  stacksWithItself: false,
+  modifiers,
+  detail: {
+    kind: 'spellEffect',
+    spellKey,
+    lastsOverOneDay: false,
+    defaultCasterLevel: opts.defaultCasterLevel ?? 1,
   },
-  {
-    key: 'spell.haste',
-    scope: 'global',
-    name: 'Haste',
-    summary: '+1 attack, +1 dodge AC and Reflex, extra attack',
-    sourceKey: 'haste',
-    stacksWithItself: false,
-    modifiers: [
+});
+
+const spellEffects: CatalogEntry[] = [
+  effect(
+    'effect.bullsStrength',
+    'Bull’s strength',
+    '+4 enhancement to Strength, 1 min/level',
+    'spell.bullsStrength',
+    [m('ability.str', 'enhancement', 4)],
+  ),
+  effect(
+    'effect.haste',
+    'Haste',
+    '+1 attack, +1 dodge AC and Reflex, extra attack',
+    'spell.haste',
+    [
       m('attack', 'untyped', 1),
       m('ac.other', 'dodge', 1),
       m('save.ref', 'dodge', 1),
     ],
-    detail: { kind: 'spell', lastsOverOneDay: false },
-  },
-  {
-    key: 'spell.mageArmor',
-    scope: 'global',
-    name: 'Mage armor',
-    summary: '+4 armor bonus, 1 hour/level',
-    stacksWithItself: false,
-    modifiers: [m('ac.armor', 'armor', 4)],
-    detail: { kind: 'spell', lastsOverOneDay: false },
-  },
-  {
-    key: 'spell.shieldOfFaith',
-    scope: 'global',
-    name: 'Shield of faith',
-    summary: '+2 deflection to AC',
-    stacksWithItself: false,
-    modifiers: [m('ac.other', 'deflection', 2)],
-    detail: { kind: 'spell', lastsOverOneDay: false },
-  },
+    { sourceKey: 'haste' },
+  ),
+  effect(
+    'effect.mageArmor',
+    'Mage armor',
+    '+4 armor bonus, 1 hour/level',
+    'spell.mageArmor',
+    [m('ac.armor', 'armor', 4)],
+  ),
+  effect(
+    'effect.shieldOfFaith',
+    'Shield of faith',
+    '+2 deflection to AC, +1 per 6 caster levels (max +5)',
+    'spell.shieldOfFaith',
+    [
+      m('ac.other', 'deflection', {
+        formula: 'min(5, 2 + floor(@casterLevel / 6))',
+      }),
+    ],
+  ),
+  effect(
+    'effect.foxsCunning',
+    'Fox’s cunning',
+    '+4 enhancement to Intelligence, 1 min/level',
+    'spell.foxsCunning',
+    [m('ability.int', 'enhancement', 4)],
+  ),
 ];
 
 // ------------------------------------------------------------- conditions
@@ -1251,7 +1682,8 @@ export const CATALOG: CatalogEntry[] = [
   ...feats,
   ...traits,
   ...items,
-  ...spells,
+  ...spellEffects,
+  ...SPELLS,
   ...conditions,
 ];
 

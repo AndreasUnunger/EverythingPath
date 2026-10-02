@@ -41,10 +41,17 @@ import {
   type ClassLevelState,
   type Modifier,
   type OfficerRole,
+  type SchoolKey,
   type SheetEntry,
   type Wield,
 } from './types';
 import { advisoryWarnings, type Warning } from './warnings';
+import {
+  isSpellCatalog,
+  lowestLevel,
+  prefillAdvances,
+  prefillCasterLevel,
+} from './spellcasting';
 
 /**
  * What just happened to one Character's membership or presentation
@@ -63,6 +70,12 @@ export type BuilderState = {
   characters: Character[];
   pointBuyBudget: number;
   notice: Notice | null;
+  /**
+   * PROTOTYPE (#233): Accepted Warnings, per Character: warning id → the
+   * fingerprint it was accepted with. A warning whose fingerprint changed
+   * reopens.
+   */
+  accepted: Record<string, Record<string, string>>;
 };
 
 const initialState = (): BuilderState => ({
@@ -70,7 +83,18 @@ const initialState = (): BuilderState => ({
   characters: structuredClone(SEED_CHARACTERS),
   pointBuyBudget: 20,
   notice: null,
+  accepted: {},
 });
+
+/** PROTOTYPE (#233): whether a warning is accepted (same fingerprint as when accepted). */
+export function isAccepted(
+  state: BuilderState,
+  characterId: string,
+  warning: Warning,
+) {
+  const fp = state.accepted[characterId]?.[warning.id];
+  return fp !== undefined && fp === (warning.fingerprint ?? '');
+}
 
 type Action =
   | { kind: 'apply'; fn: (s: BuilderState) => BuilderState }
@@ -87,6 +111,8 @@ const CHOICELESS = new Set([
   'abilityDamage',
   'abilityDrain',
   'attackRoutine',
+  'spell',
+  'spellEffect',
 ]);
 
 /** A saved Attack Routine as given to addRoutine (the state without its kind). */
@@ -157,7 +183,40 @@ function catalogEntryToSheet(
         ? { kind: 'item', quantity: opts.quantity ?? 1 }
         : kind === 'race'
           ? { kind: 'race', abilityChoice: null, favoredClass: null }
-          : { kind, choice: opts.choice ?? null },
+          : kind === 'spell'
+            ? {
+                kind: 'spell',
+                castingClass: opts.castingClass ?? '',
+                level: opts.level ?? null,
+              }
+            : kind === 'spellEffect'
+              ? {
+                  kind: 'spellEffect',
+                  casterLevel: opts.casterLevel ?? prefillCasterLevel(catalog),
+                }
+              : kind === 'classFeature'
+                ? {
+                    kind: 'classFeature',
+                    choice: opts.choice ?? null,
+                    ...(catalog.detail.kind === 'classFeature' &&
+                    catalog.detail.spellcasting?.school
+                      ? { oppositionSchools: [] }
+                      : {}),
+                  }
+                : { kind, choice: opts.choice ?? null },
+  };
+}
+
+/** PROTOTYPE (#233): sets a prestige level's advances to their pre-fill (one class only when exactly one qualifies). */
+function prefillLevelAdvances(c: Character, levelId: string): Character {
+  const advances = prefillAdvances(c, levelId);
+  return {
+    ...c,
+    entries: c.entries.map((e) =>
+      e.id === levelId && e.state.kind === 'classLevel'
+        ? { ...e, state: { ...e.state, castingAdvances: advances } }
+        : e,
+    ),
   };
 }
 
@@ -344,6 +403,12 @@ export type AddEntryOptions = {
   choice?: string | null;
   notes?: string;
   quantity?: number;
+  /** Spells (#233): the Spellcasting's class key. Use `addSpell`. */
+  castingClass?: string;
+  /** Spells (#233): the off-list level. */
+  level?: number | null;
+  /** Spell Effects (#233): default = the pre-fill. */
+  casterLevel?: number;
 };
 
 export type NewCharacter = {
@@ -662,9 +727,9 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
           const entry = classLevelEntry(levelId, position, classKey, choices);
           const order = levels.map((l) => l.id);
           order.splice(position - 1, 0, levelId);
-          const next = renumber(
-            { ...c, entries: [...c.entries, entry] },
-            order,
+          const next = prefillLevelAdvances(
+            renumber({ ...c, entries: [...c.entries, entry] }, order),
+            levelId,
           );
           return choices.autoFeatures === false
             ? next
@@ -700,7 +765,10 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
               : e,
           ),
         };
-        if (classChanged) next = addFixedFeatures(next, levelId, prefix);
+        if (classChanged) {
+          next = addFixedFeatures(next, levelId, prefix);
+          next = prefillLevelAdvances(next, levelId);
+        }
         return next;
       });
     },
@@ -806,7 +874,7 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
       oneOff: {
         name: string;
         modifiers: Modifier[];
-        kind?: 'manual' | 'item' | 'condition' | 'spell';
+        kind?: 'manual' | 'item' | 'condition' | 'spellEffect';
         temporary?: boolean;
         notes?: string;
       },
@@ -818,8 +886,12 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
         const detail: CatalogEntry['detail'] =
           kind === 'item'
             ? { kind: 'item', consumable: oneOff.temporary ?? false }
-            : kind === 'spell'
-              ? { kind: 'spell', lastsOverOneDay: !(oneOff.temporary ?? true) }
+            : kind === 'spellEffect'
+              ? {
+                  kind: 'spellEffect',
+                  lastsOverOneDay: !(oneOff.temporary ?? true),
+                  defaultCasterLevel: 1,
+                }
               : { kind };
         const catalog: CatalogEntry = {
           key,
@@ -929,6 +1001,127 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
           (e) => !(e.id === routineId && e.state.kind === 'attackRoutine'),
         ),
       }));
+    },
+
+    // ------------------------------------------------ spellcasting (#233)
+
+    /**
+     * Records a Spell for a Spellcasting (`castingClass` = its class key).
+     * An off-list Spell gets a level: `level`, else its lowest level on any
+     * list. Returns the entry id. One Spell for two Spellcastings is two entries.
+     */
+    addSpell: (
+      id: string,
+      castingClass: string,
+      spellKey: string,
+      level?: number | null,
+    ): string => {
+      const entryId = newId('spell');
+      edit(id, (c) => {
+        const catalog = lookupCatalog(c, spellKey);
+        if (!isSpellCatalog(catalog)) return c;
+        const tag = CATALOG_BY_KEY[castingClass]?.detail;
+        const classTag =
+          tag?.kind === 'class' ? tag.casting?.classTag : undefined;
+        const onList =
+          classTag !== undefined &&
+          catalog.detail.levels[classTag] !== undefined;
+        const entry = catalogEntryToSheet(catalog, entryId, {
+          castingClass,
+          level: onList
+            ? null
+            : level !== undefined
+              ? level
+              : lowestLevel(catalog.detail),
+        });
+        return entry ? { ...c, entries: [...c.entries, entry] } : c;
+      });
+      return entryId;
+    },
+
+    /** An off-list Spell's level (null = not set). No-op for other entries. */
+    setSpellLevel: (id: string, entryId: string, level: number | null) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.map((e) =>
+          e.id === entryId && e.state.kind === 'spell'
+            ? { ...e, state: { ...e.state, level } }
+            : e,
+        ),
+      }));
+    },
+
+    /** A prestige Class Level's advance `index` goes to `classKey` (null = not chosen). */
+    setCastingAdvance: (
+      id: string,
+      levelId: string,
+      index: number,
+      classKey: string | null,
+    ) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.map((e) => {
+          if (e.id !== levelId || e.state.kind !== 'classLevel') return e;
+          const advances = [...e.state.castingAdvances];
+          while (advances.length <= index) advances.push(null);
+          advances[index] = classKey;
+          return { ...e, state: { ...e.state, castingAdvances: advances } };
+        }),
+      }));
+    },
+
+    /** A Spell Effect's caster level (a plain number the player types). */
+    setSpellEffectCasterLevel: (
+      id: string,
+      entryId: string,
+      casterLevel: number,
+    ) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.map((e) =>
+          e.id === entryId && e.state.kind === 'spellEffect'
+            ? { ...e, state: { kind: 'spellEffect', casterLevel } }
+            : e,
+        ),
+      }));
+    },
+
+    /** An arcane school entry's opposition schools. */
+    setOppositionSchools: (
+      id: string,
+      entryId: string,
+      schools: SchoolKey[],
+    ) => {
+      edit(id, (c) => ({
+        ...c,
+        entries: c.entries.map((e) =>
+          e.id === entryId && e.state.kind === 'classFeature'
+            ? { ...e, state: { ...e.state, oppositionSchools: schools } }
+            : e,
+        ),
+      }));
+    },
+
+    /** Accepts a warning as intended (Accepted Warnings), with its current fingerprint. */
+    acceptWarning: (characterId: string, warning: Warning) => {
+      apply((s) => ({
+        ...s,
+        accepted: {
+          ...s.accepted,
+          [characterId]: {
+            ...s.accepted[characterId],
+            [warning.id]: warning.fingerprint ?? '',
+          },
+        },
+      }));
+    },
+
+    /** Reopens an accepted warning. */
+    reopenWarning: (characterId: string, warningId: string) => {
+      apply((s) => {
+        const { [warningId]: _gone, ...rest } = s.accepted[characterId] ?? {};
+        return { ...s, accepted: { ...s.accepted, [characterId]: rest } };
+      });
     },
 
     setPointBuyBudget: (points: number) => {

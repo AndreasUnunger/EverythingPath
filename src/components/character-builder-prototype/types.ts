@@ -80,7 +80,11 @@ export type LeafTarget =
   | 'cmb'
   | 'cmd'
   | 'init'
-  | 'hp';
+  | 'hp'
+  /** PROTOTYPE (#233): Spellcasting targets; every Spellcasting unless a `castingClass` condition narrows it. */
+  | 'casterLevel'
+  | 'spellDC'
+  | 'concentration';
 
 /** Parent targets expand into leaves before stacking (`ac` → `ac.other`, `damage` → both damage leaves). */
 export type ParentTarget = 'ac' | 'saves' | 'attack' | 'damage';
@@ -107,6 +111,7 @@ export const SITUATION_KEYS = [
   'orcsGoblinoids',
   'bullRushTrip',
   'sneak',
+  'castDefensively',
 ] as const;
 export type SituationKey = (typeof SITUATION_KEYS)[number];
 
@@ -126,6 +131,10 @@ export type ModifierCondition = {
    * sheet-level statistics, only inside attack resolution (attacks.ts).
    */
   weapon?: '$self' | '$choice';
+  /** PROTOTYPE (#233): only this Spellcasting (a class tag, or '$choice' = the entry's choice). */
+  castingClass?: '$choice' | ClassTag;
+  /** PROTOTYPE (#233): only Spells of this school ('$choice' = the entry's choice: Spell Focus). */
+  school?: '$choice' | SchoolKey;
 };
 
 /** Negative value = penalty. A formula uses the closed grammar in resolve.ts. */
@@ -146,6 +155,7 @@ export type CatalogKind =
   | 'trait'
   | 'item'
   | 'spell'
+  | 'spellEffect'
   | 'condition'
   | 'manual';
 
@@ -157,11 +167,101 @@ export type StateKind =
 export type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;
 
 /** A pick a class level offers (a rage power, a rogue talent, a bonus feat). */
-export type FeatureGroup = 'ragePower' | 'rogueTalent' | 'combatFeat';
+export type FeatureGroup =
+  | 'ragePower'
+  | 'rogueTalent'
+  | 'combatFeat'
+  | 'arcaneSchool'
+  | 'domain'
+  | 'bloodline';
 
 export type FeatureGrant =
   | { classLevel: number; catalogKey: string }
-  | { classLevel: number; choose: FeatureGroup; label: string };
+  /** `count`: how many picks (a cleric's two domains); default 1. */
+  | { classLevel: number; choose: FeatureGroup; label: string; count?: number };
+
+// ---- Spellcasting (#233) ----
+
+export const SCHOOLS = [
+  'abjuration',
+  'conjuration',
+  'divination',
+  'enchantment',
+  'evocation',
+  'illusion',
+  'necromancy',
+  'transmutation',
+  'universal',
+] as const;
+export type SchoolKey = (typeof SCHOOLS)[number];
+
+/** Foundry class `tag`: the key into a Spell's `levels`. Only the tags this prototype's catalog uses. */
+export type ClassTag =
+  | 'wizard'
+  | 'sorcerer'
+  | 'arcanist'
+  | 'cleric'
+  | 'oracle'
+  | 'druid'
+  | 'paladin'
+  | 'ranger'
+  | 'bard'
+  | 'summoner'
+  | 'magus';
+
+export type CastingTableKey =
+  | 'preparedHigh'
+  | 'spontaneousHigh'
+  | 'hybridHigh'
+  | 'preparedMed'
+  | 'spontaneousMed'
+  | 'preparedLow';
+
+/** The data model's `Casting`, on a casting class entry. */
+export type Casting = {
+  classTag: ClassTag;
+  type: 'prepared' | 'spontaneous' | 'hybrid';
+  spellKind: 'arcane' | 'divine' | 'psychic' | 'alchemy';
+  ability: AbilityKey;
+  cantrips: boolean;
+  /** −3 for paladin and ranger; 0 otherwise. */
+  casterLevelOffset: number;
+  table: CastingTableKey;
+  /** What the sheet records: Spells known, a book, or nothing. */
+  record: 'known' | 'book' | 'none';
+  /** The `book` heading: "Spellbook", "Formula book" or "Familiar". */
+  bookName?: string;
+};
+
+/** A prestige class level's "+1 level of existing spellcasting class". */
+export type CastingAdvance = {
+  classLevel: number;
+  count: number;
+  kind: 'any' | 'arcane' | 'divine';
+};
+
+/** A class feature's spellcasting facts (domain, bloodline, arcane school). */
+export type FeatureSpellcasting = {
+  /** One extra slot per spell level from 1st. */
+  extraSlot?: 'domain' | 'school' | 'spirit';
+  /** Its list's Spells are granted (domain, subdomain, bloodline). */
+  grants?: { list: 'domain' | 'subDomain' | 'bloodline'; key: string };
+  /** An arcane school: the specialist school. */
+  school?: SchoolKey;
+};
+
+export type SpellDetail = {
+  kind: 'spell';
+  /** Level per class tag; absent = not on that class's list. */
+  levels: Partial<Record<ClassTag, number>>;
+  /** Domain, subdomain and bloodline lists: list key → level. */
+  grantedLevels: Partial<
+    Record<'domain' | 'subDomain' | 'bloodline', Record<string, number>>
+  >;
+  school: SchoolKey;
+  subschools: string[];
+  descriptors: string[];
+};
 
 export type Prerequisite =
   | { kind: 'ability'; ability: AbilityKey; min: number }
@@ -195,7 +295,10 @@ export type CatalogEntryDetail =
       featuresByLevel: FeatureGrant[];
       /** Advisory alternative favored class bonus text; hp and skill are always offered. */
       favoredClassAlt?: string;
-      spellcasting?: string;
+      /** PROTOTYPE (#233): a casting class. */
+      casting?: Casting;
+      /** PROTOTYPE (#233): prestige "+1 level of existing spellcasting class". */
+      castingAdvances?: CastingAdvance[];
     }
   | {
       kind: 'classFeature';
@@ -213,13 +316,15 @@ export type CatalogEntryDetail =
         /** Ranged attacks qualify only within this many feet. */
         rangedWithin?: number;
       };
+      /** PROTOTYPE (#233): domain, bloodline, arcane school. */
+      spellcasting?: FeatureSpellcasting;
     }
   | {
       kind: 'feat';
       combat: boolean;
       prerequisites: Prerequisite[];
-      /** The feat needs a choice; `skill` choices feed `skill.$choice` targets. */
-      choice?: 'skill' | 'weapon';
+      /** The feat needs a choice; `skill` choices feed `skill.$choice` targets; `school` feeds `school: '$choice'`. */
+      choice?: 'skill' | 'weapon' | 'school';
     }
   | { kind: 'trait'; traitCategory: 'combat' | 'faith' | 'social' | 'magic' }
   | {
@@ -239,7 +344,14 @@ export type CatalogEntryDetail =
       /** PROTOTYPE (#216): present on weapons. */
       weapon?: Weapon;
     }
-  | { kind: 'spell'; lastsOverOneDay: boolean }
+  | SpellDetail
+  | {
+      kind: 'spellEffect';
+      /** The Spell's catalog key; absent = use `defaultCasterLevel`. */
+      spellKey?: string;
+      lastsOverOneDay: boolean;
+      defaultCasterLevel: number;
+    }
   | { kind: 'condition' }
   | { kind: 'manual' };
 
@@ -297,6 +409,12 @@ export type ClassLevelState = {
   favoredClassBonus: FavoredClassBonus;
   abilityIncrease: AbilityKey | null;
   skillRanks: Partial<Record<SkillKey, number>>;
+  /**
+   * PROTOTYPE (#233): prestige levels only — the class (key) each casting
+   * advance goes to, one per advance in order; null = not chosen (blue outline).
+   * Empty for every other level.
+   */
+  castingAdvances: (string | null)[];
 };
 
 /**
@@ -341,8 +459,27 @@ export type SheetEntryState =
       abilityChoice: AbilityKey | null;
       favoredClass: string | null;
     }
+  /** PROTOTYPE (#233): a recorded Spell. */
   | {
-      kind: Exclude<EntryKind, StateKind | 'item' | 'race'>;
+      kind: 'spell';
+      /** The Spellcasting it is recorded for: a class key ("class.wizard"). */
+      castingClass: string;
+      /** null = the class's level for it; set for off-list Spells. */
+      level: number | null;
+    }
+  /** PROTOTYPE (#233): a running Spell Effect. */
+  | { kind: 'spellEffect'; casterLevel: number }
+  /** PROTOTYPE (#233): class features; an arcane school records its opposition schools. */
+  | {
+      kind: 'classFeature';
+      choice?: string | null;
+      oppositionSchools?: SchoolKey[];
+    }
+  | {
+      kind: Exclude<
+        EntryKind,
+        StateKind | 'item' | 'race' | 'spell' | 'spellEffect' | 'classFeature'
+      >;
       /** Feat choice (Skill Focus skill, Weapon Focus weapon). */
       choice?: string | null;
     };
@@ -430,7 +567,9 @@ export type ProtoPage =
   | 'sheet'
   | 'levelup'
   | 'create'
-  | 'buildout';
+  | 'buildout'
+  /** PROTOTYPE (#233, spellcasting variant 3): the sheet's spells page. */
+  | 'spells';
 
 // ---- Resolver output ----
 

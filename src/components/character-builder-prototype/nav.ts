@@ -30,6 +30,7 @@ export const CHARACTER_PAGES: ProtoPage[] = [
   'levelup',
   'create',
   'buildout',
+  'spells',
 ];
 export const PAGES: ProtoPage[] = [
   'campaigns',
@@ -52,6 +53,7 @@ export function parsePage(value: string | null): ProtoPage | undefined {
 /** The character a page shows when `&character=` is absent. */
 export function defaultCharacterFor(page: ProtoPage): string | null {
   if (page === 'sheet' || page === 'levelup') return 'kesh';
+  if (page === 'spells') return 'seren';
   if (page === 'buildout') return 'hessa';
   return null;
 }
@@ -158,7 +160,11 @@ export function useProtoNav() {
     [page, pathname, search],
   );
 
-  const back = backTarget(from, character, campaign);
+  // Where the Character page sits in the app (the page it was opened from).
+  const origin = backTarget(from, character, campaign);
+  // PROTOTYPE (#233): the spells page is a sub-page of the sheet; Back goes to the sheet.
+  const back: { page: ProtoPage; campaign?: string } =
+    page === 'spells' ? { page: 'sheet', campaign: campaign?.id } : origin;
 
   return useMemo(
     () => ({
@@ -173,8 +179,10 @@ export function useProtoNav() {
       characterId,
       /** Where a Character page was opened from. */
       from,
-      /** Where Back on a Character page goes. */
+      /** Where Back on a Character page goes (the sheet, from its spells page). */
       back,
+      /** Where the Character page was opened from: lights the shell's section. */
+      origin,
       /** Any query param, e.g. `nav.param('level')`. */
       param: (key: string) => search.get(key),
       /** The URL for a page (for <a href>). */
@@ -193,6 +201,7 @@ export function useProtoNav() {
     }),
     [
       back,
+      origin,
       campaign,
       campaignId,
       campaignParam,

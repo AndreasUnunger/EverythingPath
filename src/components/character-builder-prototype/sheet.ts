@@ -148,7 +148,7 @@ export function hitDice(character: Character) {
 export function isTemporary(character: Character, entry: SheetEntry) {
   if (entry.kind === 'abilityDamage' || entry.kind === 'condition') return true;
   const detail = lookupCatalog(character, entry.catalogKey)?.detail;
-  if (detail?.kind === 'spell') return !detail.lastsOverOneDay;
+  if (detail?.kind === 'spellEffect') return !detail.lastsOverOneDay;
   if (detail?.kind === 'item') return detail.consumable;
   return false;
 }

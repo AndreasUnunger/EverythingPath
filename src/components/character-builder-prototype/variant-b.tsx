@@ -39,6 +39,8 @@ export function VariantB({ page }: { page: ProtoPage }): ReactNode {
       return <LevelUpPage characterId={nav.characterId ?? 'kesh'} />;
     case 'sheet':
       return <SheetPage characterId={nav.characterId ?? 'kesh'} />;
+    case 'spells':
+      return <SheetPage characterId={nav.characterId ?? 'seren'} spellsPage />;
     default:
       return <Missing noun="page" />;
   }

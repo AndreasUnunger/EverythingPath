@@ -90,6 +90,12 @@ type FormulaContext = {
   bab: number;
   classLevel: Record<string, number>;
   abilityMod: Partial<Record<AbilityKey, number>>;
+  /**
+   * PROTOTYPE (#233): in a Spell Effect's Modifiers, the caster level on its
+   * sheet entry; in a `casterLevel` Modifier, the Spellcasting's caster level
+   * before `casterLevel` Modifiers. Unsupported anywhere else.
+   */
+  casterLevel?: number;
 };
 
 /** Stage of a target: 1 ability scores, 3 class bases (bab), 4 the rest. */
@@ -130,6 +136,8 @@ export function evaluateFormula(
     if (head === 'hitDice' && parts.length === 1)
       return (needs(3), ctx.hitDice);
     if (head === 'bab' && parts.length === 1) return (needs(3), ctx.bab);
+    if (head === 'casterLevel' && parts.length === 1)
+      return ctx.casterLevel ?? fail('@casterLevel only in a Spell Effect');
     if (head === 'classLevel' && key && parts.length === 2)
       return (needs(3), ctx.classLevel[key] ?? 0);
     if (head === 'ability' && key && tail === 'mod' && parts.length === 3) {
@@ -208,6 +216,8 @@ type Candidate = {
   condition?: ModifierCondition;
   /** The weapon part of the condition as text ("with greataxe"). */
   weaponText?: string;
+  /** PROTOTYPE (#233): a Spell Effect's recorded caster level, for `@casterLevel`. */
+  casterLevel?: number;
 };
 
 function expandTarget(target: Target, choice: string | null): LeafTarget[] {
@@ -316,6 +326,9 @@ function collect(character: Character, permanentOnly: boolean) {
           choice,
           condition: modifier.condition,
           weaponText,
+          ...(entry.state.kind === 'spellEffect'
+            ? { casterLevel: entry.state.casterLevel }
+            : {}),
         });
         byTarget.set(target, list);
       }
@@ -373,7 +386,7 @@ function checkCondition(
 
 // --------------------------------------------------------------- stacking
 
-type Evaluated = Contribution & {
+export type Evaluated = Contribution & {
   entryId: string;
   source: string;
   stacksWithItself: boolean;
@@ -405,7 +418,7 @@ const builtIn = (
  * then bonus type (stacking types sum, others highest; untyped penalties
  * sum, typed penalties worst).
  */
-function stackLeaf(list: Evaluated[]): {
+export function stackLeaf(list: Evaluated[]): {
   applied: Contribution[];
   suppressed: Suppressed[];
 } {
@@ -554,7 +567,13 @@ export function resolveSheet(
       let value: number;
       if (typeof c.raw === 'number') value = c.raw;
       else {
-        const result = evaluateFormula(c.raw.formula, ctx, targetStage(target));
+        const result = evaluateFormula(
+          c.raw.formula,
+          c.casterLevel === undefined
+            ? ctx
+            : { ...ctx, casterLevel: c.casterLevel },
+          targetStage(target),
+        );
         if ('error' in result) {
           notes.push(
             `${c.label}: formula "${c.raw.formula}" on ${target} is unsupported (${result.error}) and adds nothing.`,

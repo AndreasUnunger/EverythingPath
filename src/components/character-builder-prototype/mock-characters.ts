@@ -12,11 +12,21 @@
 // No campaign (owned by the signed-in user, Andreas):
 //   ilsa  — Full PC, human Cleric 2, built before joining a game.
 //   tobin — Full PC, no campaign: base scores and one Unspecified level.
+// Spellcasting (#233):
+//   seren — Full PC in Ironfang (not on the roster), human Wizard 3 / Cleric 3 /
+//           Mystic theurge 2: evoker, Fire and Sun domains, one prestige
+//           advance empty. Spellbook with an off-list and a too-high Spell.
+//   quill — Full PC, no campaign, elf Arcanist 5 (spellbook + prepared count).
+//   nyra  — Full PC, no campaign, human Sorcerer 7, Arcane bloodline; one
+//           level over the spells-known table; one orphaned wizard Spell.
+//   oswin — Full PC, no campaign, human Paladin 4 (`none`, caster level 1).
 // Owners: Andreas (me) owns kesh, ardo, brannoc, ilsa, tobin; Mira owns ama;
 // Jonas (the GM) owns the NPCs hessa and moss.
 
+import { grantsAt } from './sheet';
 import {
   ABILITIES,
+  type SchoolKey,
   type Org,
   type AbilityKey,
   type AttackRoutineState,
@@ -93,6 +103,7 @@ export function classLevelEntry(
       favoredClassBonus: rest.favoredClassBonus ?? null,
       abilityIncrease: rest.abilityIncrease ?? null,
       skillRanks: rest.skillRanks ?? {},
+      castingAdvances: rest.castingAdvances ?? [],
     },
   };
 }
@@ -114,6 +125,8 @@ function has(
     notes?: string;
     /** Items: how the weapon is held when it attacks (variant 2). */
     wield?: Wield;
+    /** Arcane schools (#233). */
+    opposition?: SchoolKey[];
   } = {},
 ): SheetEntry {
   return {
@@ -128,8 +141,75 @@ function has(
         ? opts.wield
           ? { kind: 'item', quantity: 1, wield: opts.wield }
           : { kind: 'item', quantity: 1 }
-        : ({ kind, choice: opts.choice ?? null } as SheetEntry['state']),
+        : opts.opposition
+          ? {
+              kind: 'classFeature',
+              choice: null,
+              oppositionSchools: opts.opposition,
+            }
+          : ({ kind, choice: opts.choice ?? null } as SheetEntry['state']),
   };
+}
+
+/** PROTOTYPE (#233): a recorded Spell for a Spellcasting (`level` only for off-list Spells). */
+function spellRec(
+  id: string,
+  spellKey: string,
+  castingClass: string,
+  level: number | null = null,
+): SheetEntry {
+  return {
+    id,
+    kind: 'spell',
+    catalogKey: spellKey,
+    active: true,
+    state: { kind: 'spell', castingClass, level },
+  };
+}
+
+/** PROTOTYPE (#233): a Spell Effect with its recorded caster level. */
+function effect(
+  id: string,
+  effectKey: string,
+  casterLevel: number,
+  opts: { active?: boolean; notes?: string } = {},
+): SheetEntry {
+  return {
+    id,
+    kind: 'spellEffect',
+    catalogKey: effectKey,
+    active: opts.active ?? false,
+    notes: opts.notes,
+    state: { kind: 'spellEffect', casterLevel },
+  };
+}
+
+/**
+ * PROTOTYPE (#233): adds every fixed class feature the Character's levels
+ * grant that isn't on the sheet yet (as addClassLevel does), so the new seed
+ * Characters don't list them by hand.
+ */
+function withFixedFeatures(c: Character): Character {
+  const added: SheetEntry[] = [];
+  for (const e of c.entries) {
+    if (e.state.kind !== 'classLevel') continue;
+    grantsAt(c, e.id).forEach((g, i) => {
+      if (!('catalogKey' in g)) return;
+      const there = c.entries.some(
+        (x) => x.gainedAtClassLevel === e.id && x.catalogKey === g.catalogKey,
+      );
+      if (!there)
+        added.push(
+          has(
+            `${e.id}-f${i}`,
+            g.catalogKey,
+            g.catalogKey.startsWith('feat.') ? 'feat' : 'classFeature',
+            { at: e.id },
+          ),
+        );
+    });
+  }
+  return { ...c, entries: [...c.entries, ...added] };
 }
 
 /** A saved Attack Routine (variant 3), a state-only entry. */
@@ -374,9 +454,11 @@ const kesh: Character = {
     }),
     // Effects, off until toggled.
     has('kesh-raging', 'condition.raging', 'condition', { active: false }),
-    has('kesh-bulls', 'spell.bullsStrength', 'spell', {
-      active: false,
+    effect('kesh-bulls', 'effect.bullsStrength', 3, {
       notes: 'Cast by Brother Ardo before a sortie',
+    }),
+    effect('kesh-haste', 'effect.haste', 4, {
+      notes: 'From Ama before the gate fight',
     }),
   ],
 };
@@ -450,9 +532,9 @@ const ama: Character = {
       at: 'ama-l1',
       notes: 'Bonded ring',
     }),
-    has('ama-cf-school', 'cf.arcaneSchool', 'classFeature', {
+    has('ama-cf-school', 'cf.school.divination', 'classFeature', {
       at: 'ama-l1',
-      notes: 'Divination',
+      opposition: ['enchantment', 'necromancy'],
     }),
     has('ama-cf-cantrips', 'cf.cantrips', 'classFeature', { at: 'ama-l1' }),
     has('ama-cf-spells', 'cf.wizardSpells', 'classFeature', { at: 'ama-l1' }),
@@ -463,8 +545,8 @@ const ama: Character = {
     has('ama-trait-lineage', 'trait.magicalLineage', 'trait'),
     has('ama-headband', 'item.headbandOfVastIntelligence2', 'item'),
     has('ama-ring', 'item.ringOfProtection1', 'item'),
-    has('ama-mage-armor', 'spell.mageArmor', 'spell', { active: false }),
-    has('ama-haste', 'spell.haste', 'spell', { active: false }),
+    effect('ama-mage-armor', 'effect.mageArmor', 5),
+    effect('ama-haste', 'effect.haste', 5),
   ],
 };
 
@@ -653,7 +735,12 @@ const ilsa: Character = {
     }),
     has('ilsa-cf-domains', 'cf.domains', 'classFeature', {
       at: 'ilsa-l1',
-      notes: 'Animal, Community',
+    }),
+    has('ilsa-domain-animal', 'cf.domain.animal', 'classFeature', {
+      at: 'ilsa-l1',
+    }),
+    has('ilsa-domain-community', 'cf.domain.community', 'classFeature', {
+      at: 'ilsa-l1',
     }),
     has('ilsa-cf-orisons', 'cf.orisons', 'classFeature', { at: 'ilsa-l1' }),
     has('ilsa-cf-spont', 'cf.spontaneousCasting', 'classFeature', {
@@ -690,6 +777,373 @@ const tobin: Character = {
   entries: [baseSheetEntry('tobin'), classLevelEntry('tobin-l1', 1, null)],
 };
 
+// ------------------------------------------------- spellcasters (#233)
+
+const WIZ = 'class.wizard';
+const CLE = 'class.cleric';
+const MT = 'class.mysticTheurge';
+const SOR = 'class.sorcerer';
+const ARC = 'class.arcanist';
+const PAL = 'class.paladin';
+
+const serenRanks = ranks(
+  'knowledgeArcana',
+  'knowledgeReligion',
+  'spellcraft',
+  'knowledgeLocal',
+  'knowledgeNature',
+  'linguistics',
+  'senseMotive',
+  'heal',
+);
+
+/**
+ * Human Wizard 3 / Cleric 3 / Mystic theurge 2 (W C W C W C MT MT). Mystic
+ * theurge 1's two advances went to wizard and cleric (pre-filled); Mystic
+ * theurge 2's arcane advance went to wizard and its divine one is empty.
+ */
+const seren: Character = withFixedFeatures({
+  id: 'seren',
+  ownerId: 'u1',
+  campaignId: IRONFANG,
+  name: 'Seren Vale',
+  kind: 'pc',
+  isActive: true,
+  description:
+    'Evoker and priestess of Sarenrae; burns the Ironfang’s siege lines.',
+  sheetMode: 'full',
+  ownCatalog: [
+    baseCatalogEntry('seren', {
+      str: 8,
+      dex: 12,
+      con: 14,
+      int: 16,
+      wis: 15,
+      cha: 8,
+    }),
+  ],
+  entries: [
+    baseSheetEntry('seren'),
+    {
+      id: 'seren-race',
+      kind: 'race',
+      catalogKey: 'race.human',
+      active: true,
+      state: { kind: 'race', abilityChoice: 'int', favoredClass: WIZ },
+    },
+    classLevelEntry('seren-l1', 1, WIZ, {
+      hpGained: 6,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: serenRanks,
+    }),
+    classLevelEntry('seren-l2', 2, CLE, {
+      hpGained: 6,
+      skillRanks: serenRanks,
+    }),
+    classLevelEntry('seren-l3', 3, WIZ, {
+      hpGained: 4,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: serenRanks,
+    }),
+    classLevelEntry('seren-l4', 4, CLE, {
+      hpGained: 5,
+      abilityIncrease: 'wis',
+      skillRanks: serenRanks,
+    }),
+    classLevelEntry('seren-l5', 5, WIZ, {
+      hpGained: 3,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: serenRanks,
+    }),
+    classLevelEntry('seren-l6', 6, CLE, {
+      hpGained: 5,
+      skillRanks: serenRanks,
+    }),
+    classLevelEntry('seren-l7', 7, MT, {
+      hpGained: 4,
+      skillRanks: serenRanks,
+      castingAdvances: [WIZ, CLE],
+    }),
+    classLevelEntry('seren-l8', 8, MT, {
+      hpGained: 3,
+      abilityIncrease: 'int',
+      skillRanks: serenRanks,
+      castingAdvances: [WIZ, null],
+    }),
+    // Picks the levels offer: the arcane school and two domains.
+    has('seren-school', 'cf.school.evocation', 'classFeature', {
+      at: 'seren-l1',
+      opposition: ['enchantment', 'necromancy'],
+    }),
+    has('seren-domain-fire', 'cf.domain.fire', 'classFeature', {
+      at: 'seren-l2',
+    }),
+    has('seren-domain-sun', 'cf.domain.sun', 'classFeature', {
+      at: 'seren-l2',
+    }),
+    // Feats: level 1, human bonus feat, levels 3, 5 and 7.
+    has('seren-feat-focus', 'feat.spellFocus', 'feat', {
+      at: 'seren-l1',
+      choice: 'evocation',
+    }),
+    has('seren-feat-tough', 'feat.toughness', 'feat', {
+      at: 'seren-l1',
+      notes: 'Human bonus feat',
+    }),
+    has('seren-feat-iw', 'feat.ironWill', 'feat', { at: 'seren-l3' }),
+    has('seren-feat-init', 'feat.improvedInitiative', 'feat', {
+      at: 'seren-l5',
+    }),
+    has('seren-feat-alert', 'feat.alertness', 'feat', { at: 'seren-l7' }),
+    has('seren-trait-faith', 'trait.indomitableFaith', 'trait'),
+    has('seren-trait-lineage', 'trait.magicalLineage', 'trait'),
+    has('seren-headband', 'item.headbandOfVastIntelligence2', 'item'),
+    effect('seren-sof', 'effect.shieldOfFaith', 4, {
+      notes: 'Cast on herself',
+    }),
+    effect('seren-fox', 'effect.foxsCunning', 3, { notes: 'From a scroll' }),
+    // Spellbook (wizard).
+    ...[
+      'acidSplash',
+      'bleed',
+      'daze',
+      'detectMagic',
+      'light',
+      'mageHand',
+      'prestidigitation',
+      'rayOfFrost',
+      'readMagic',
+      'burningHands',
+      'grease',
+      'mageArmor',
+      'magicMissile',
+      'shield',
+      'sleep',
+      'falseLife',
+      'flamingSphere',
+      'invisibility',
+      'scorchingRay',
+      'fireball',
+      'haste',
+      'wallOfFire',
+    ].map((slug) => spellRec(`seren-sb-${slug}`, `spell.${slug}`, WIZ)),
+    spellRec('seren-sb-summonNaturesAlly1', 'spell.summonNaturesAlly1', WIZ, 1),
+  ],
+});
+
+const quillRanks = ranks(
+  'knowledgeArcana',
+  'spellcraft',
+  'perception',
+  'knowledgeLocal',
+  'knowledgeNature',
+  'linguistics',
+  'fly',
+);
+
+/** Elf Arcanist 5: a spellbook, spells per day and the prepared count. */
+const quill: Character = withFixedFeatures({
+  id: 'quill',
+  ownerId: 'u1',
+  name: 'Quill',
+  kind: 'pc',
+  isActive: true,
+  description: 'Elven arcanist; collects other people’s spellbooks.',
+  sheetMode: 'full',
+  ownCatalog: [
+    baseCatalogEntry('quill', {
+      str: 10,
+      dex: 13,
+      con: 14,
+      int: 17,
+      wis: 11,
+      cha: 8,
+    }),
+  ],
+  entries: [
+    baseSheetEntry('quill'),
+    {
+      id: 'quill-race',
+      kind: 'race',
+      catalogKey: 'race.elf',
+      active: true,
+      state: { kind: 'race', abilityChoice: null, favoredClass: ARC },
+    },
+    classLevelEntry('quill-l1', 1, ARC, {
+      hpGained: 6,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: quillRanks,
+    }),
+    classLevelEntry('quill-l2', 2, ARC, {
+      hpGained: 4,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: quillRanks,
+    }),
+    classLevelEntry('quill-l3', 3, ARC, {
+      hpGained: 4,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: quillRanks,
+    }),
+    classLevelEntry('quill-l4', 4, ARC, {
+      hpGained: 3,
+      favoredClassBonus: { choice: 'hp' },
+      abilityIncrease: 'int',
+      skillRanks: quillRanks,
+    }),
+    classLevelEntry('quill-l5', 5, ARC, {
+      hpGained: 5,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: quillRanks,
+    }),
+    has('quill-feat-init', 'feat.improvedInitiative', 'feat', {
+      at: 'quill-l1',
+    }),
+    has('quill-feat-iw', 'feat.ironWill', 'feat', { at: 'quill-l3' }),
+    has('quill-feat-lr', 'feat.lightningReflexes', 'feat', { at: 'quill-l5' }),
+    ...[
+      'acidSplash',
+      'daze',
+      'detectMagic',
+      'light',
+      'mageHand',
+      'prestidigitation',
+      'rayOfFrost',
+      'readMagic',
+      'colorSpray',
+      'grease',
+      'identify',
+      'mageArmor',
+      'magicMissile',
+      'shield',
+      'sleep',
+      'glitterdust',
+      'invisibility',
+      'mirrorImage',
+      'web',
+    ].map((slug) => spellRec(`quill-sb-${slug}`, `spell.${slug}`, ARC)),
+  ],
+});
+
+/**
+ * Human Sorcerer 7, Arcane bloodline: four 2nd-level Spells known where the
+ * table allows three, and a wizard Spell left over with no wizard levels.
+ */
+const nyra: Character = withFixedFeatures({
+  id: 'nyra',
+  ownerId: 'u1',
+  name: 'Nyra Ashgrove',
+  kind: 'pc',
+  isActive: true,
+  description: 'Sorcerer from a line of Lastwall court mages.',
+  sheetMode: 'full',
+  ownCatalog: [
+    baseCatalogEntry('nyra', {
+      str: 8,
+      dex: 13,
+      con: 14,
+      int: 10,
+      wis: 11,
+      cha: 17,
+    }),
+  ],
+  entries: [
+    baseSheetEntry('nyra'),
+    {
+      id: 'nyra-race',
+      kind: 'race',
+      catalogKey: 'race.human',
+      active: true,
+      state: { kind: 'race', abilityChoice: 'cha', favoredClass: SOR },
+    },
+    ...[6, 4, 3, 5, 4, 3, 4].map((hp, i) =>
+      classLevelEntry(`nyra-l${i + 1}`, i + 1, SOR, {
+        hpGained: hp,
+        favoredClassBonus: { choice: 'hp' },
+        abilityIncrease: i === 3 ? 'con' : null,
+        skillRanks: ranks('spellcraft', 'knowledgeArcana', 'bluff'),
+      }),
+    ),
+    has('nyra-bloodline', 'cf.bloodline.arcane', 'classFeature', {
+      at: 'nyra-l1',
+    }),
+    has('nyra-feat-init', 'feat.improvedInitiative', 'feat', { at: 'nyra-l1' }),
+    has('nyra-feat-tough', 'feat.toughness', 'feat', {
+      at: 'nyra-l1',
+      notes: 'Human bonus feat',
+    }),
+    has('nyra-feat-iw', 'feat.ironWill', 'feat', { at: 'nyra-l3' }),
+    has('nyra-feat-lr', 'feat.lightningReflexes', 'feat', { at: 'nyra-l5' }),
+    has('nyra-feat-cc', 'feat.combatCasting', 'feat', { at: 'nyra-l7' }),
+    ...[
+      'acidSplash',
+      'detectMagic',
+      'light',
+      'mageHand',
+      'prestidigitation',
+      'rayOfFrost',
+      'readMagic',
+      'colorSpray',
+      'grease',
+      'mageArmor',
+      'magicMissile',
+      'shield',
+      'glitterdust',
+      'mirrorImage',
+      'scorchingRay',
+      'web',
+      'fireball',
+      'haste',
+    ].map((slug) => spellRec(`nyra-sk-${slug}`, `spell.${slug}`, SOR)),
+    spellRec('nyra-orphan-featherFall', 'spell.featherFall', WIZ),
+  ],
+});
+
+/** Human Paladin 4: a `none` Spellcasting, caster level 1, bonus spells only. */
+const oswin: Character = withFixedFeatures({
+  id: 'oswin',
+  ownerId: 'u1',
+  name: 'Ser Oswin',
+  kind: 'pc',
+  isActive: true,
+  description: 'Paladin of Iomedae; holds the ford.',
+  sheetMode: 'full',
+  ownCatalog: [
+    baseCatalogEntry('oswin', {
+      str: 16,
+      dex: 10,
+      con: 14,
+      int: 10,
+      wis: 10,
+      cha: 14,
+    }),
+  ],
+  entries: [
+    baseSheetEntry('oswin'),
+    {
+      id: 'oswin-race',
+      kind: 'race',
+      catalogKey: 'race.human',
+      active: true,
+      state: { kind: 'race', abilityChoice: 'cha', favoredClass: PAL },
+    },
+    ...[10, 8, 7, 9].map((hp, i) =>
+      classLevelEntry(`oswin-l${i + 1}`, i + 1, PAL, {
+        hpGained: hp,
+        favoredClassBonus: { choice: 'hp' },
+        abilityIncrease: i === 3 ? 'str' : null,
+        skillRanks: ranks('diplomacy', 'senseMotive', 'knowledgeReligion'),
+      }),
+    ),
+    has('oswin-feat-pa', 'feat.powerAttack', 'feat', { at: 'oswin-l1' }),
+    has('oswin-feat-tough', 'feat.toughness', 'feat', {
+      at: 'oswin-l1',
+      notes: 'Human bonus feat',
+    }),
+    has('oswin-feat-iw', 'feat.ironWill', 'feat', { at: 'oswin-l3' }),
+    has('oswin-armor', 'item.chainShirt', 'item'),
+  ],
+});
+
 export const SEED_CHARACTERS: Character[] = [
   kesh,
   ama,
@@ -699,6 +1153,10 @@ export const SEED_CHARACTERS: Character[] = [
   brannoc,
   ilsa,
   tobin,
+  seren,
+  quill,
+  nyra,
+  oswin,
 ];
 
 export const SEED_CAMPAIGNS: Campaign[] = [

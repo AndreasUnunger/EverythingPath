@@ -268,7 +268,8 @@ export function FeaturesBlock({
                   );
                 })}
                 {picks.map((f) =>
-                  f.kind === 'choice' && f.picked.length === 0 ? (
+                  f.kind === 'choice' &&
+                  f.picked.length < (f.grant.count ?? 1) ? (
                     <li key={f.grant.choose} className="py-0.5">
                       <PickField
                         ariaLabel={`Pick a ${f.grant.label}`}
@@ -324,7 +325,7 @@ export function FeaturesBlock({
 
 const KIND_LABEL: Record<string, string> = {
   item: 'gear',
-  spell: 'spell',
+  spellEffect: 'spell',
   condition: 'condition',
   manual: 'manual',
   abilityDamage: 'damage',
@@ -338,18 +339,19 @@ export function GearBlock({ character }: { character: Character }) {
   const entries = character.entries.filter((e) =>
     [
       'item',
-      'spell',
+      'spellEffect',
       'condition',
       'manual',
       'abilityDamage',
       'abilityDrain',
     ].includes(e.kind),
   );
-  const options = (['item', 'spell', 'condition'] as const).flatMap((kind) =>
-    catalogOfKind(kind).map((c) => ({
-      value: c.key,
-      label: `${KIND_LABEL[kind]}: ${c.name}${c.summary ? ` — ${c.summary}` : ''}`,
-    })),
+  const options = (['item', 'spellEffect', 'condition'] as const).flatMap(
+    (kind) =>
+      catalogOfKind(kind).map((c) => ({
+        value: c.key,
+        label: `${KIND_LABEL[kind]}: ${c.name}${c.summary ? ` — ${c.summary}` : ''}`,
+      })),
   );
   return (
     <Block id="b-gear" title="Gear, spells & conditions">

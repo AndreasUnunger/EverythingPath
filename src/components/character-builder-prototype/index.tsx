@@ -8,6 +8,10 @@
 // sheet'): three sheet variants, 1 "Stat-block lines", 2 "Attack table",
 // 3 "Attack routines"; every page is the same, only the living sheet's slots
 // differ (variant-b/sheet-variants.tsx).
+// Round 4 (#233 'Prototype the spellcasting section on the living sheet'):
+// attack routines (round 3's variant 3) are the fixed base; `?variant=`
+// now picks one of three spellcasting variants, 1 "Spell cards",
+// 2 "Spell-level ladder", 3 "Spells page" (which adds `?page=spells`).
 //
 // URL: ?variant=1|2|3&page=<page>&campaign=<id>&character=<id>&from=<page>
 //   campaigns            the homepage: pick a campaign            (shell placeholder)
@@ -67,14 +71,48 @@ const SHORTCUTS: {
   from?: ProtoPage;
   /** Switch the sheet variant too. */
   variant?: string;
+  /** Page-local params. */
+  params?: Record<string, string>;
 }[] = [
   ...SHEET_VARIANTS.map((v) => ({
-    label: `kesh · ${v.key} ${v.name.toLowerCase()}`,
+    label: `seren · ${v.key} ${v.name.toLowerCase()}`,
     page: 'sheet' as const,
-    character: 'kesh',
-    from: 'officers' as const,
+    character: 'seren',
+    from: 'campaign-characters' as const,
     variant: v.key,
   })),
+  {
+    label: 'seren spells page (3)',
+    page: 'spells',
+    character: 'seren',
+    from: 'campaign-characters',
+    variant: '3',
+  },
+  {
+    label: 'seren levelup mystic theurge',
+    page: 'levelup',
+    character: 'seren',
+    from: 'campaign-characters',
+    params: { as: 'class.mysticTheurge' },
+  },
+  {
+    label: 'quill (arcanist)',
+    page: 'sheet',
+    character: 'quill',
+    from: 'characters',
+  },
+  {
+    label: 'nyra (sorcerer)',
+    page: 'sheet',
+    character: 'nyra',
+    from: 'characters',
+  },
+  {
+    label: 'oswin (paladin)',
+    page: 'sheet',
+    character: 'oswin',
+    from: 'characters',
+  },
   {
     label: 'brannoc sheet',
     page: 'sheet',
@@ -141,6 +179,8 @@ const SHORTCUTS: {
 const TOGGLES = [
   { label: 'kesh raging', characterId: 'kesh', entryId: 'kesh-raging' },
   { label: 'kesh boots of speed', characterId: 'kesh', entryId: 'kesh-boots' },
+  { label: 'kesh haste', characterId: 'kesh', entryId: 'kesh-haste' },
+  { label: 'seren fox’s cunning', characterId: 'seren', entryId: 'seren-fox' },
 ];
 
 function StatePanel() {
@@ -174,7 +214,10 @@ function StatePanel() {
                     campaign: s.campaign ?? null,
                     character: s.character ?? null,
                     from: s.from ?? null,
-                    ...(s.variant ? { params: { variant: s.variant } } : {}),
+                    params: {
+                      ...(s.variant ? { variant: s.variant } : {}),
+                      ...s.params,
+                    },
                   })
                 }
               >

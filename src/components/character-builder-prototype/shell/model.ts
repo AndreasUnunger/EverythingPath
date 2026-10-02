@@ -65,6 +65,7 @@ export const PAGE_LABEL: Record<ProtoPage, string> = {
   levelup: 'Level up',
   create: 'New character',
   buildout: 'Build out',
+  spells: 'Spells',
 };
 
 /**

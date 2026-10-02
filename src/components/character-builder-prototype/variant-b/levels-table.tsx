@@ -24,7 +24,7 @@ import {
   skillRankBudget,
   useBuilderStore,
 } from '../store';
-import type { AbilityKey, Character } from '../types';
+import type { AbilityKey, Character, FeatureGroup } from '../types';
 import type { Warning } from '../warnings';
 import {
   Block,
@@ -197,7 +197,7 @@ function GainedCell({
 }) {
   const { gained } = useLevelRow(character, levelId);
   const picksOpen = gained.features.filter(
-    (f) => f.kind === 'choice' && f.picked.length === 0,
+    (f) => f.kind === 'choice' && f.picked.length < (f.grant.count ?? 1),
   );
   const featOpen =
     gained.generalFeat && !gained.gainedHere.some((e) => e.kind === 'feat');
@@ -343,7 +343,9 @@ export function levelTodos(character: Character, levelId: string) {
     inc: gained.abilityIncreaseDue && level.state.abilityIncrease === null,
     ranks: !!budget && budget.spent < budget.total,
     picks: gained.features.flatMap((f) =>
-      f.kind === 'choice' && f.picked.length === 0 ? [f.grant.label] : [],
+      f.kind === 'choice' && f.picked.length < (f.grant.count ?? 1)
+        ? [f.grant.label]
+        : [],
     ),
   };
 }
@@ -610,9 +612,7 @@ export function LevelsTable({
 }
 
 /** Options for a pick group, used by the features block. */
-export function groupOptions(
-  group: 'ragePower' | 'rogueTalent' | 'combatFeat',
-) {
+export function groupOptions(group: FeatureGroup) {
   return catalogForGroup(group).map((e) => ({
     value: e.key,
     label: e.summary ? `${e.name} — ${e.summary}` : e.name,

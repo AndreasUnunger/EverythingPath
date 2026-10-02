@@ -316,8 +316,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const context = useRecentCampaign(campaign);
   const characterPage = isCharacterPage(page);
   const militia = !characterPage && isMilitiaPage(page) && campaign?.militia;
-  const section = sectionOf(page, nav.back.page, campaign !== undefined);
-  const area = phoneAreaOf(page, nav.back.page);
+  const section = sectionOf(page, nav.origin.page, campaign !== undefined);
+  const area = phoneAreaOf(page, nav.origin.page);
   const sectionTabs = campaign ? campaignTabs(campaign) : TOP_TABS;
   const go: Go = (to, campaignId) =>
     nav.go(to, { campaign: campaignId ?? null });

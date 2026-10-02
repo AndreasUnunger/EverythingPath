@@ -148,7 +148,12 @@ function Defenses({ sheet }: SheetSlotProps) {
             key: 'hp-ac',
             rows: (
               <>
-                <Row label="Hit points" title="Hit points" path="hp" sheet={sheet} />
+                <Row
+                  label="Hit points"
+                  title="Hit points"
+                  path="hp"
+                  sheet={sheet}
+                />
                 <Row
                   label="Armor Class"
                   title="Armor Class"
@@ -530,9 +535,7 @@ function AttackLine({
           />
         </Marked>
         <Marked
-          flagged={
-            situationalDamage || hasSituational(attack.damage.bonus)
-          }
+          flagged={situationalDamage || hasSituational(attack.damage.bonus)}
         >
           <button
             type="button"
@@ -606,9 +609,22 @@ type Group = {
   /** What the number becomes in that situation; absent when nothing applies yet. */
   total?: string;
   lines: Line[];
-  suppressed: { key: string; label: string; bonusType: BonusType; value: number; by: string; reason: Suppressed['reason'] }[];
+  suppressed: {
+    key: string;
+    label: string;
+    bonusType: BonusType;
+    value: number;
+    by: string;
+    reason: Suppressed['reason'];
+  }[];
   /** Lines waiting on something else as well ("while raging"), dimmed. */
-  waiting: { key: string; label: string; bonusType: BonusType; value: number; waitingOn: string }[];
+  waiting: {
+    key: string;
+    label: string;
+    bonusType: BonusType;
+    value: number;
+    waitingOn: string;
+  }[];
 };
 
 const same = (a: Suppressed, b: Suppressed) =>
@@ -680,7 +696,16 @@ function otherGroups(stat: Stat): Group[] {
       const text = ownText(c);
       let g = groups.get(text);
       if (!g)
-        groups.set(text, (g = { key: `other:${text}`, text, lines: [], suppressed: [], waiting: [] }));
+        groups.set(
+          text,
+          (g = {
+            key: `other:${text}`,
+            text,
+            lines: [],
+            suppressed: [],
+            waiting: [],
+          }),
+        );
       if (c.waitingOn)
         g.waiting.push({
           key: `${c.label}|${i}`,
@@ -760,7 +785,11 @@ function attackGroups(
       if (which === 'bonus') {
         const lines = linesOf(a.bonus.applied, s.key, s.text);
         const suppressed = suppressedOf(a.bonus, stat);
-        if (lines.length === 0 && suppressed.length === 0 && waiting.length === 0)
+        if (
+          lines.length === 0 &&
+          suppressed.length === 0 &&
+          waiting.length === 0
+        )
           return [];
         return [
           {
@@ -861,11 +890,15 @@ function BreakdownExtra({
             <div className="flex items-baseline justify-between gap-2">
               <span className="flex min-w-0 items-baseline gap-1.5 text-sky-300">
                 <Marker className="relative top-0 size-1.5 shrink-0 self-center" />
-                <span className="min-w-0 [overflow-wrap:anywhere]">{g.text}</span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">
+                  {g.text}
+                </span>
               </span>
               {g.total !== undefined && (
                 <span className="shrink-0 font-mono">
-                  <span className="text-muted-foreground text-xs">becomes </span>
+                  <span className="text-muted-foreground text-xs">
+                    becomes{' '}
+                  </span>
                   <span className="text-lg">{g.total}</span>
                 </span>
               )}
@@ -910,9 +943,7 @@ function BreakdownExtra({
                     <TypeTag bonusType={w.bonusType} dim />
                     <span className="font-mono">{formatBonus(w.value)}</span>
                   </div>
-                  <div className="text-xs">
-                    only {w.waitingOn} — not now
-                  </div>
+                  <div className="text-xs">only {w.waitingOn} — not now</div>
                 </li>
               ))}
             </ul>

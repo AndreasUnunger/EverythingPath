@@ -4,6 +4,7 @@
 
 import { ABILITY_SHORT, SKILL_BY_KEY, classDetail } from './catalog';
 import { resolveSheet } from './resolve';
+import { spellWarnings } from './spellcasting';
 import {
   baseScores,
   classLevelLabel,
@@ -25,10 +26,20 @@ export type Warning = {
   severity: 'warning' | 'prompt' | 'info';
   /**
    * Where it belongs: 'abilities' | 'race' | 'level' | 'skills' | 'feats' |
-   * 'features' | 'sheet' | `classLevel:<levelId>` | `entry:<entryId>`.
+   * 'features' | 'sheet' | `classLevel:<levelId>` | `entry:<entryId>` |
+   * `spellcasting:<classKey>` (#233).
    */
   where: string;
   message: string;
+  /**
+   * PROTOTYPE (#233): a spell rules check the player may accept as intended
+   * (Accepted Warnings). `fingerprint` is the facts that raised it: when they
+   * change, an acceptance no longer covers it.
+   */
+  acceptable?: boolean;
+  fingerprint?: string;
+  /** PROTOTYPE (#233): the spell level a Spellcasting warning is about. */
+  spellLevel?: number;
   /** An optional one-click fix the UI may offer (never applied automatically). */
   action?: {
     kind: 'addEntry';
@@ -208,12 +219,18 @@ export function advisoryWarnings(
             gainedAtClassLevel: level.id,
           },
         });
-      if (feature.kind === 'choice' && feature.picked.length === 0)
+      if (
+        feature.kind === 'choice' &&
+        feature.picked.length < (feature.grant.count ?? 1)
+      )
         out.push({
           id: `${level.id}-pick-${feature.grant.choose}`,
           severity: 'prompt',
           where,
-          message: `${label}: choose a ${feature.grant.label.toLowerCase()}.`,
+          message:
+            (feature.grant.count ?? 1) > 1
+              ? `${label}: choose ${(feature.grant.count ?? 1) - feature.picked.length} more ${feature.grant.label.toLowerCase()}${(feature.grant.count ?? 1) - feature.picked.length === 1 ? '' : 's'}.`
+              : `${label}: choose a ${feature.grant.label.toLowerCase()}.`,
         });
     }
   }
@@ -253,7 +270,7 @@ export function advisoryWarnings(
         );
       if (
         p.kind === 'casterLevel' &&
-        !levels.some((l) => classDetail(l.state.classKey)?.spellcasting)
+        !levels.some((l) => classDetail(l.state.classKey)?.casting)
       )
         unmet.push(`caster level ${p.min}`);
     }
@@ -334,6 +351,8 @@ export function advisoryWarnings(
       },
     });
   }
+
+  out.push(...spellWarnings(character));
 
   for (const note of permanent.notes)
     out.push({

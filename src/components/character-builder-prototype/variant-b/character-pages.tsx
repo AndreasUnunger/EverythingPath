@@ -70,8 +70,14 @@ function MilitiaOnlyBody({ character }: { character: Character }) {
 
 // --------------------------------------------------------------- pages
 
-/** The sheet: everything editable, breakdowns on tap. */
-export function SheetPage({ characterId }: { characterId: string }) {
+/** The sheet: everything editable, breakdowns on tap. `spellsPage` (#233): the sheet's spells page instead of its grid. */
+export function SheetPage({
+  characterId,
+  spellsPage = false,
+}: {
+  characterId: string;
+  spellsPage?: boolean;
+}) {
   const character = useCharacter(characterId);
   const sheet = useResolved(characterId);
   const warnings = useWarnings(characterId);
@@ -106,7 +112,12 @@ export function SheetPage({ characterId }: { characterId: string }) {
         sheet={sheet}
         warnings={warnings}
         heading={<CharacterTitle character={character} />}
-        below={<MembershipStrip character={character} className="mb-3" />}
+        below={
+          spellsPage ? undefined : (
+            <MembershipStrip character={character} className="mb-3" />
+          )
+        }
+        spellsPage={spellsPage}
       />
     </main>
   );

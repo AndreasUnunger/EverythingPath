@@ -322,10 +322,13 @@ export function LivingSheet({
   warnings,
   heading,
   below,
+  spellsPage = false,
 }: {
   character: Character;
   sheet: ResolvedSheet;
   warnings: Warning[];
+  /** PROTOTYPE (#233): `?page=spells` — the variant's SpellsPage replaces the grid. */
+  spellsPage?: boolean;
   /** Left of the vitals row: the Character's name and summary line. */
   heading?: ReactNode;
   /** Under the vitals row: the membership strip. */
@@ -368,7 +371,15 @@ export function LivingSheet({
     variant,
     slots,
   };
-  const { Defenses, Offense, VitalExtra, AboveSheet } = slots;
+  const {
+    Defenses,
+    Offense,
+    VitalExtra,
+    AboveSheet,
+    Spellcasting,
+    VitalsExtra,
+    SpellsPage,
+  } = slots;
 
   return (
     <SheetUiContext.Provider value={ui}>
@@ -403,48 +414,70 @@ export function LivingSheet({
               )}
             </Figure>
           ))}
+          {VitalsExtra && (
+            <VitalsExtra
+              character={character}
+              sheet={sheet}
+              warnings={warnings}
+            />
+          )}
         </div>
       </div>
 
       {below}
-      {AboveSheet && <AboveSheet character={character} sheet={sheet} />}
+      {spellsPage && SpellsPage ? (
+        <SpellsPage character={character} sheet={sheet} warnings={warnings} />
+      ) : (
+        <>
+          {AboveSheet && <AboveSheet character={character} sheet={sheet} />}
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-12">
-          <IdentityBlock character={character} warnings={warnings} />
-        </div>
-        <div className="min-w-0 lg:col-span-12">
-          <LevelsTable character={character} warnings={warnings} />
-        </div>
-        <div className="min-w-0 space-y-3 lg:col-span-5">
-          <AbilitiesBlock
-            character={character}
-            sheet={sheet}
-            warnings={warnings}
-          />
-          <Defenses character={character} sheet={sheet} />
-          <Offense character={character} sheet={sheet} />
-          <div className="hidden lg:block">
-            <GearBlock character={character} />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+            <div className="min-w-0 lg:col-span-12">
+              <IdentityBlock character={character} warnings={warnings} />
+            </div>
+            <div className="min-w-0 lg:col-span-12">
+              <LevelsTable character={character} warnings={warnings} />
+            </div>
+            <div className="min-w-0 space-y-3 lg:col-span-5">
+              <AbilitiesBlock
+                character={character}
+                sheet={sheet}
+                warnings={warnings}
+              />
+              <Defenses character={character} sheet={sheet} />
+              <Offense character={character} sheet={sheet} />
+              <div className="hidden lg:block">
+                <GearBlock character={character} />
+              </div>
+            </div>
+            <div className="min-w-0 lg:col-span-7">
+              <SkillsTable
+                character={character}
+                sheet={sheet}
+                warnings={warnings}
+              />
+            </div>
+            {Spellcasting && (
+              <div className="min-w-0 empty:hidden lg:col-span-12">
+                <Spellcasting
+                  character={character}
+                  sheet={sheet}
+                  warnings={warnings}
+                />
+              </div>
+            )}
+            <div className="min-w-0 lg:col-span-5">
+              <FeatsBlock character={character} warnings={warnings} />
+            </div>
+            <div className="min-w-0 lg:col-span-7">
+              <FeaturesBlock character={character} warnings={warnings} />
+            </div>
+            <div className="min-w-0 lg:hidden">
+              <GearBlock character={character} />
+            </div>
           </div>
-        </div>
-        <div className="min-w-0 lg:col-span-7">
-          <SkillsTable
-            character={character}
-            sheet={sheet}
-            warnings={warnings}
-          />
-        </div>
-        <div className="min-w-0 lg:col-span-5">
-          <FeatsBlock character={character} warnings={warnings} />
-        </div>
-        <div className="min-w-0 lg:col-span-7">
-          <FeaturesBlock character={character} warnings={warnings} />
-        </div>
-        <div className="min-w-0 lg:hidden">
-          <GearBlock character={character} />
-        </div>
-      </div>
+        </>
+      )}
       <BreakdownPopover />
     </SheetUiContext.Provider>
   );
