@@ -79,7 +79,7 @@ One person, PC or NPC, whether they serve the militia, are fully built, or both.
 _Avoid_: pfCharacter, ledger record (as a separate thing)
 
 **Character Owner**:
-The user who created a Character. Outside a campaign only the Character Owner can see and edit it; inside a campaign everyone in the campaign can edit it, ownership grants nothing extra, and anyone in the campaign can hand ownership to another member.
+The user who currently owns a Character, initially its creator: only they can take it out of a campaign, move it between campaigns, or see and edit it outside a campaign. Inside a campaign everyone can edit it, and any member can transfer ownership to any current member, including themselves, without the current owner's or recipient's approval.
 
 **Character Sheet**:
 Everything a Character has (base ability scores, race, class levels, feats, gear, effects), from which their current statistics are derived. Every Character has one; a minimal sheet holds only base scores and level, and building it out is optional.

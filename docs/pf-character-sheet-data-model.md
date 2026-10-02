@@ -27,7 +27,7 @@ Only official Paizo text decides a rule: the Core Rulebook, plus the official FA
 // Existing table, narrowed. Level and ability scores are derived from the sheet.
 character: {
   name: string,
-  ownerId: string,                    // the Character Owner, see "Ownership and campaigns"
+  ownerId?: string,                   // absent only for retained ownerless states; see "Ownership and campaigns"
   campaignId?: Id<'campaign'>,        // absent = in no campaign; a Character is in at most one
   description: string,                // labelled "Notes" in the UI
   kind: 'pc' | 'npc',
@@ -1045,20 +1045,23 @@ The roster Hit Dice override, the name, PC/NPC kind, active state and `descripti
 
 ## Ownership and campaigns
 
-Decided in [Decide how Characters exist outside a campaign, and the app's home](https://github.com/AndreasUnunger/EverythingPath/issues/212); see [ADR 0002](adr/0002-characters-owned-by-users-move-between-campaigns.md).
+Decided in [Decide how Characters exist outside a campaign, and the app's home](https://github.com/AndreasUnunger/EverythingPath/issues/212), amended by [Decide Character ownership when campaign access changes](https://github.com/AndreasUnunger/EverythingPath/issues/245); see [ADR 0002](adr/0002-characters-owned-by-users-move-between-campaigns.md).
 
-- **Character Owner.** The user who created the Character.
-  - Outside a campaign, only the owner can see and edit it.
-  - Inside a campaign, everyone in the campaign can edit it, and ownership grants nothing extra.
-  - Anyone in the campaign can hand ownership to another member of the campaign's organization. Outside a campaign, ownership never changes.
-- **Joining a campaign.** Joining moves the Character itself into the campaign; it is never copied.
+- **Character Owner.** The current owning user, initially the creator. Outside a campaign, only the owner can see and edit the Character. Inside a campaign, everyone with campaign access can edit it; ownership supplies authority to leave or move, not extra editing permissions. Campaign access is organization membership, with no separate campaign membership model.
+- **Reassigning ownership.** Any current campaign member can transfer ownership to any current member, including themselves, without the current owner's or recipient's approval. This deliberately permits taking ownership and then leaving with the Character. The recipient must have a surviving account and current campaign access when the transfer is applied. Outside a campaign, ownership cannot be transferred.
+- **Joining or moving.** The owner can move the same Character into a campaign they can currently access; it is never copied and belongs to at most one campaign.
   - It doesn't put the Character on the militia roster. That stays a "Correct roster" Militia Correction.
   - "Add to a campaign" offers the active organization's campaigns.
-- **Leaving a campaign.** The owner can take a Character out, back to no campaign or into another campaign. In one mutation, leaving does three things:
+- **Leaving a campaign.** The owner can take a Character out, back to no campaign or into another accessible campaign. Every actual departure, including automatic departures below, applies these changes together:
   - It takes the Character off the militia roster, out of its officer roles and out of team management. This is recorded as a Militia Correction with an automatic reason, and Staged Action Choices it affects must be reviewed before Confirmation.
-  - It detaches every sheet entry that points at a campaign Catalog Entry into a character-scoped copy, so the sheet doesn't change.
+  - It detaches campaign homebrew while preserving the Character Sheet. Copying, remapping and dependency mechanics remain with [Decide how campaign homebrew moves with a Character](https://github.com/AndreasUnunger/EverythingPath/issues/244).
   - A Militia-only Character becomes Full.
-- **History.** Finished weeks read only their frozen snapshots, so leaving a campaign changes no past week.
+- **Losing organization access.** If the owner's account survives, all their Characters in that organization's campaigns automatically return to no campaign. No action by the departed owner is required. Revoked campaign access is enforced even while preservation cleanup retries; backend completion must not require the departed user's access.
+- **Deleting an account.** Its owned Characters in campaigns stay there, editable by the remaining members, and visibly need an owner. Any current member can claim them or assign them to another current member under the same reassignment rules. Its owned Characters outside campaigns are deleted. `ownerId` is absent for the retained Characters until reassignment.
+- **Deleting a campaign or organization through the app.** First return every Character with a surviving owner to no campaign; ownerless Characters must be assigned before deletion can proceed.
+- **An organization deleted externally.** Deletion cannot wait for assignment. Return Characters with surviving owners to no campaign; preserve ownerless Characters, inaccessible to users, for manual recovery by the app operator. This is an operational action, not a gameplay role or a right for former members to claim Characters. Preserve all sheet dependencies needed for recovery. A normal Character outside a campaign must have a surviving owner; these ownerless records are retained recovery data, not browseable private Characters.
+- **Lifecycle processing.** Handlers must check current authoritative account, membership and ownership state and be safe to retry. A known deleted account follows account-deletion policy, not surviving-account membership-loss policy. A real earlier departure that already made a Character private still follows private-Character deletion if its owner later deletes their account. Preserve source data and dependencies until departure detachment or recovery completes successfully.
+- **History.** Frozen Resolution Records, including superseded audit records, remain unchanged through departure or deletion. A deleted campaign's history remains available read-only to current members of its surviving organization; a deleted organization's history is inaccessible to users. Historical references never grant access to a current private Character Sheet.
 - **Deleting.** The owner can delete a Character in no campaign. Inside a campaign, a Character can only be archived (`isActive: false`), as today.
 - **Catalog outside a campaign.** A Character in no campaign uses the global catalog and its own character-scoped entries. "Save to catalog" needs a campaign. Character-scoped entries stay with the Character when it joins or leaves.
 - **App shell:**
@@ -1265,10 +1268,22 @@ Integration tests (convex-test) must cover:
 - editing a militia-only Character's score adjusts its base score;
 - a full Character's level can't be edited through Characters & officers;
 - campaign scoping of every catalog and sheet read;
-- owner-only access to a Character in no campaign, and campaign access once it joins;
-- leaving a campaign removes the Character from the roster, its roles and team management as one Militia Correction, detaches campaign catalog entries without changing the resolved sheet, and leaves past Resolution Records untouched;
-- deleting is refused for a Character in a campaign.
+- deleting is refused for a Character in a campaign;
 - an Accepted Warning follows its Character between campaigns and is deleted with its subject.
+
+Ownership and access-change handoff checks must demonstrate:
+
+- private Characters are visible and editable only by their current owner; campaign Characters are editable by every current organization member, with no owner-only editing privilege;
+- any current member can assign a campaign Character to themselves or another current member without either person's approval; a deleted account, a recipient without access and a transfer outside a campaign are rejected;
+- only the current owner can request departure or a move, including immediately after claiming ownership; joining or moving preserves identity, requires destination access and does not add a roster assignment;
+- every actual departure, requested or automatic, removes roster, officer and team-manager assignments through an automatic-reason Militia Correction, marks affected Staged Action Choices for review, makes a Militia-only Character Full and preserves its sheet through the homebrew detachment contract;
+- loss of organization access returns every affected Character of a surviving owner to no campaign; access is revoked during cleanup failures and retries, and completion does not require that user's campaign access;
+- account deletion leaves campaign Characters editable and visibly needing an owner, lets remaining members claim or assign them, and deletes private Characters;
+- delayed, repeated or reordered lifecycle events check current authoritative state before acting: a known deleted account uses account-deletion policy, changed ownership is respected, and a real completed private departure followed by account deletion remains private-Character deletion;
+- app-controlled campaign and organization deletion return surviving-owner Characters and refuse to proceed with any ownerless Character until assignment;
+- external organization deletion returns surviving-owner Characters and retains ownerless Characters with their required sheet dependencies for app-operator recovery, with no user browsing or former-member claim rights;
+- failed detachment or recovery retains source data and dependencies, retrying does not duplicate Characters or departure effects, and a normal private Character cannot be ownerless;
+- departure and deletion preserve all frozen and superseded Resolution Records; current surviving-organization members can read but not edit deleted-campaign history, deleted-organization history is inaccessible to users, and historical references cannot open a private sheet.
 
 Catalog-release handoff checks must demonstrate:
 
