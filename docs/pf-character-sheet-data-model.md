@@ -396,7 +396,8 @@ The casting ability modifier for DCs and concentration is the current one, Tempo
 
 ```ts
 type Modifier = { target: Target; bonusType: BonusType; value: number | { formula: string };  // negative = penalty
-                  condition?: ModifierCondition };
+                  condition?: ModifierCondition;
+                  stacksWithinEntry?: true };    // text says it adds to its own entry's other bonuses, see "Stacking"
 
 type ModifierCondition = {                       // every part present must hold
   situation?: Situation;                         // "vs. traps": never in a total (see "Conditional Modifiers")
@@ -494,7 +495,11 @@ Modifiers are grouped by (leaf target, bonus type).
 - Entries share a key only where official text makes them one effect: *haste*, *boots of speed* and the *speed* property share `haste`, and a spell-like ability shares the key of the spell it names. Where the rules are silent, entries stay separate, and bonus type decides.
 - Among active entries of one Source, per target, only the entry with the largest net contribution applies. The others are listed as suppressed by it.
 - `stacksWithItself` lifts this rule for text that says duplicates stack, such as sneak attack, trap sense, and the myrmidarch's "as the fighter ability".
-- Within one entry, two Modifiers of the same type and target don't stack. Only Modifiers that apply count, so two Situations of one entry never suppress each other. Text that says two bonuses of one entry stack (halfling *fearless* with halfling luck) is open in [Decide how bonuses on one entry stack when their text says so](https://github.com/AndreasUnunger/EverythingPath/issues/230).
+- Within one entry, two Modifiers of the same type and target don't stack. Only Modifiers that apply count, so two Situations of one entry never suppress each other. The rule fits the dataset: a note that raises an entry's bonus in a Situation usually gives the new total ("increases to +4"), and one bonus against several Situations (dwarf *hardy*) never counts twice.
+- `stacksWithinEntry` marks a Modifier whose text says it adds to another bonus of its own entry. Decided by [Decide how bonuses on one entry stack when their text says so](https://github.com/AndreasUnunger/EverythingPath/issues/230).
+  - Per target and type, an entry contributes its largest unmarked Modifier plus every marked one, even where the type wouldn't stack. That contribution then stacks with other entries by type.
+  - Only the Curation Overlay sets it. The drafter flags "stacks with" wordings that point back at the same entry, and a reviewer confirms each. At the pins three entries need it: *Overlooked Mastermind*'s feign-ignorance +2, *Good Influence*'s second +1, and *Elixir of the Peaks*'s mountain +10.
+  - Halfling *fearless* and halfling luck don't need it: they are separate Racial Traits, so their racial bonuses stack.
 - The built-in Modifiers use fixed Sources where the FAQ names them. The class-skill +3 applies once per skill, however many classes grant it.
 
 **Duplicated class features.** A feature taken from two classes that the rules upgrade, such as Uncanny Dodge becoming Improved Uncanny Dodge, gets an advisory prompt to add the upgraded feature. It is never changed automatically.
@@ -798,7 +803,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Rows.** Global entries are ordinary `catalogEntry` rows, so the resolver loads every scope the same way. Each imported entry carries its description text and its `sources`.
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
-  - set `sourceKey` and `stacksWithItself`;
+  - set `sourceKey` and `stacksWithItself`, and mark Modifiers `stacksWithinEntry`;
   - set Racial Trait `replaces`, `countsAsRaces` and `favoredClassCount`, and move race-record Modifiers onto traits (see "Racial traits");
   - turn every situational note (Foundry `contextNotes`) and action conditional into Situational Modifiers and situational notes, with a gate that fails the import on any note without a record (see "Situational notes");
   - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
@@ -873,7 +878,7 @@ Resolver tests (pure) must cover:
 - each stacking rule;
 - untyped penalties summing and typed penalties taking the worst;
 - a shared `sourceKey` keeping only the strongest entry, and `stacksWithItself` lifting that;
-- the same-entry rule;
+- the same-entry rule, and `stacksWithinEntry` adding to the entry's largest bonus even of a non-stacking type (*Elixir of the Peaks* in mountains at altitude);
 - parent targets competing with their leaves;
 - the touch, flat-footed, CMD and flat-footed CMD compositions above;
 - ability damage changing the modifier but not the score;
