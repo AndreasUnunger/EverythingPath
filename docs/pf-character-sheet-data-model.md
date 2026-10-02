@@ -7,6 +7,7 @@ Rules sources:
 - [Collect the official PF1 bonus-stacking and target rules](https://github.com/AndreasUnunger/EverythingPath/issues/209) (`research/pf1-official-stacking-rules`)
 - [Find how official PF1 rules treat "functions as" wordings for stacking](https://github.com/AndreasUnunger/EverythingPath/issues/210) (`research/pf1-functions-as-stacking`)
 - [Survey how existing PF1 builders model characters](https://github.com/AndreasUnunger/EverythingPath/issues/203) (`research/pf1-builder-models`)
+- [Collect the official rules for racial Hit Dice progression](https://github.com/AndreasUnunger/EverythingPath/issues/220) (`research/pf1-racial-hit-dice`) and its follow-up on FAQ and designer rulings (`research/pf1-racial-hd-level-rulings`)
 
 Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). Other Paizo books supply catalog content, not rules.
 
@@ -80,7 +81,11 @@ type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;   // a class is reac
 
 type CatalogEntryDetail =
   | { kind: 'base' }
-  | { kind: 'race'; racialHitDice: number }                     // later: creature-type progression
+  | { kind: 'race'; racialHitDice: number;                      // 0 for every core race
+      racialProgression?: { creatureType: CreatureType;          // needed when racialHitDice > 0
+        hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
+        saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
+        skillRanksPerHitDie: number; classSkills: SkillKey[] } }
   | { kind: 'class'; classKind: 'base' | 'prestige' | 'npc';
       counterpartOf?: Id<'catalogEntry'>,                         // an Unchained Class: its original class
       hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
@@ -104,10 +109,12 @@ type SheetEntryState =
       favoredClassBonus: null | { choice: 'hp' } | { choice: 'skill' } | { choice: 'alt'; note: string };
       abilityIncrease: AbilityKey | null;
       skillRanks: Partial<Record<SkillKey, number>> }
+  | { kind: 'race'; racialHpGained: number | null;                  // hit points from all racial Hit Dice together
+      racialSkillRanks: Partial<Record<SkillKey, number>> }
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
   | { kind: 'item'; quantity: number }                                // later: charges
-  | { kind: Exclude<EntryKind, 'classLevel' | 'abilityDamage' | 'abilityDrain' | 'item'> };
+  | { kind: Exclude<EntryKind, 'classLevel' | 'race' | 'abilityDamage' | 'abilityDrain' | 'item'> };
 ```
 
 ## Class Levels and Hit Dice
@@ -115,9 +122,31 @@ type SheetEntryState =
 - A Character's level is the number of its Class Levels. It is never stored. Zero is allowed: a PC at level 0 shows an advisory warning.
 - A new Character starts with one Unspecified Class Level. An Unspecified Class Level adds Hit Dice and nothing else.
 - The level within a class is the count of earlier Class Levels of that class. Every field of every Class Level can be edited at any time. That includes its class, its position (a level can move), and deleting it from the middle, in which case later positions close up.
-- The ability increase and favored class bonus fields exist on every Class Level. An increase outside levels 4, 8, 12, 16 and 20, or a favored class bonus on a level of a class that isn't favored, shows a warning.
+- The ability increase and favored class bonus fields exist on every Class Level. A favored class bonus on a level of a class that isn't favored shows a warning. So does an increase on a Class Level where neither its character level nor its Hit Dice count is 4, 8, 12, 16 or 20 (see "Racial Hit Dice").
 - `hpGained` holds the recorded number. The builder takes it as a plain number and never pre-fills it: there is no roll, average or maximum button ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)).
 - **Hit Dice** = Class Levels + racial Hit Dice. They are computed and never recorded. The militia's roster Hit Dice override stays as the militia's own ruling.
+
+## Racial Hit Dice
+
+Decided by [Decide how a Character Sheet models racial Hit Dice beyond the count](https://github.com/AndreasUnunger/EverythingPath/issues/222).
+
+- **Rules sources.** No FAQ or errata covers how racial Hit Dice meet level-keyed rules. The CRB, the CRB FAQ and Paizo's own stat blocks decide what they can. The Bestiary is not admitted as a rules source: its creature-type table arrives only as catalog content. Its rules for adding racial Hit Dice and for Monsters as PCs (CR counted as class levels) are not modelled, and a Monster PC's level-equivalence is the GM's call.
+- **On the race.** The race fixes the count, so `racialHitDice` and `racialProgression` live on the race entry, in the class detail's vocabulary. Foundry race records carry no count, so every imported race has 0. A race with racial Hit Dice is a campaign or character Catalog Copy, with the count and progression set by hand.
+- **Seeding.** Choosing a creature type fills `racialProgression` from the creature-type seed table (see "Global catalog import"). Every seeded field stays editable, because type features hold "unless otherwise noted" and humanoid and outsider good saves vary.
+- **Choices on the sheet.** The race sheet entry records `racialHpGained`, one plain number for all racial Hit Dice, never pre-filled. It gets no favored class bonus and no maximized first Hit Die (CRB FAQ). It also records `racialSkillRanks`. Feats from racial Hit Dice are ordinary feat entries.
+- **Ability increases.** Racial Hit Dice have no ability increase field. The rules are silent when racial Hit Dice and Class Levels mix, so the increase warning accepts either reading: the Class Level's character level or its Hit Dice count.
+- **Level-keyed rules.**
+
+  | Rule | Reads | Basis |
+  |---|---|---|
+  | Character level: prerequisites such as Leadership, "1/2 your character level", the militia, the level-0 warning | Class Levels only | CRB definition; Paizo keeps character level and Hit Dice apart (familiar rule, monster DCs by Hit Dice) |
+  | Feat count | Hit Dice | CRB "based off their Hit Dice"; Monster Codex stat blocks |
+  | Maximum ranks per skill | Hit Dice | CRB "your total number of Hit Dice" |
+  | BAB | per source, summed | CRB FAQ (Monk): racial Hit Dice BAB "adds normally" |
+  | Base saves | per source, summed | CRB multiclassing rule; Paizo stat blocks add a racial and a class good save +2 each |
+  | Skill ranks per Hit Die | per source, summed | CRB multiclassing rule |
+
+- **Type quirks.** Construct bonus hit points by size and undead Cha-for-Con hit points are hand-entered `hp` Modifiers on the race Catalog Copy. Mindless creatures (no Int score) are not supported.
 
 ## Archetypes and prestige classes
 
@@ -231,14 +260,14 @@ Each stage groups and stacks. There is no priority field.
    - ability drain, lowering the score.
 2. **Ability modifiers:** `floor((score − 10) / 2)`, minus `floor(damage points / 2)` of that ability's ability damage. The score itself doesn't change.
 3. **Class bases:**
-   - BAB and base saves are computed per class from its progression, floored, and summed across classes.
+   - BAB and base saves are computed per class from its progression, floored, and summed across classes. A race's `racialProgression` is one more source, computed from `racialHitDice`.
    - Hit Dice are computed here.
 4. **Dependent statistics:**
    - **AC leaves:** with Dex as a built-in Modifier on `ac.other`.
    - **Saves, skills and initiative:**
      - Skills combine ranks (`base`), the class-skill +3, the ability modifier and armor check penalty.
    - **Hit points:**
-     - `hpGained` per Class Level;
+     - `hpGained` per Class Level, and the race's `racialHpGained`;
      - the favored class bonus;
      - the Con modifier × Hit Dice.
    - **Attack, CMB and CMD.**
@@ -342,7 +371,8 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - races, classes and class abilities;
   - feats, traits and racial traits;
   - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
-  - buffs.
+  - buffs;
+  - the 13 `racial-hd` records, as the creature-type seed table rather than as Catalog Entries.
 
   The spell pack, goods and services, third-party packs and 3.5 packs are not imported.
 - **Buffs.** A spell buff becomes a `spell` entry, with `lastsOverOneDay` taken from its duration. Class and item buffs become their own kinds. The `spell` and `characterSpell` tables wait for spellcasting.

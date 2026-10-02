@@ -143,6 +143,10 @@ _Avoid_: mirror stats, live stats
 **Hit Dice**:
 A Character's class levels plus racial Hit Dice, always computed and never recorded. A roster person's Hit Dice override, zero included, replaces it for the militia rules.
 
+**Racial Hit Dice**:
+Hit Dice a Character has from its race, a number the race fixes and that never advances. Every core race has none. They count toward Hit Dice but never toward character level, and never earn a favored class bonus.
+_Avoid_: racial levels, monster levels
+
 ## Related documents
 
 - [Legacy compatibility inventory](docs/legacy-compatibility-inventory.md): code kept only for data shapes older than the current writers produce, and when each path can be removed.
