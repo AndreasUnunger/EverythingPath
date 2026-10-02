@@ -1,6 +1,6 @@
 'use client';
 
-import { ConvexReactClient } from 'convex/react';
+import { MigrationConvexClient } from '~/lib/migration-convex-client';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import type { ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-query';
 import { createQueryClient } from '~/lib/convex-query-client';
 
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const convex = new MigrationConvexClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const queryClient = createQueryClient(convex);
 export function ConvexClientProvider({ children }: { children: ReactNode }) {

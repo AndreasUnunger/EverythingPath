@@ -75,19 +75,35 @@ test.each(['edit', 'confirm'] as const)(
     try {
       mutation.mockRejectedValue(
         new ConvexError(
-          'Campaign editing is paused for maintenance. Please try again later.',
+          'Editing is paused for maintenance. Saved information remains available.',
         ),
       );
       await expect(perform()).rejects.toMatchObject({
         failureReason:
-          'Campaign editing is paused for maintenance. Please try again later.',
+          'Editing is paused for maintenance. Saved information remains available.',
+      });
+      mutation.mockRejectedValue(
+        new ConvexError({
+          code: 'RELOAD_REQUIRED',
+          message: 'untrusted detail',
+        }),
+      );
+      await expect(perform()).rejects.toMatchObject({
+        failureReason:
+          'This page is out of date. Reload to keep editing; unsaved changes will be discarded.',
+      });
+      mutation.mockRejectedValue(
+        new ConvexError({ code: 'MAINTENANCE', message: 'untrusted detail' }),
+      );
+      await expect(perform()).rejects.toMatchObject({
+        failureReason: DraftRejected.maintenanceReason,
       });
       for (const data of [
         'Private campaign id secret',
-        'Campaign editing is paused for maintenance. Please try again later. secret',
+        'Editing is paused for maintenance. Saved information remains available. secret',
         {
           message:
-            'Campaign editing is paused for maintenance. Please try again later.',
+            'Editing is paused for maintenance. Saved information remains available.',
         },
       ]) {
         mutation.mockRejectedValue(new ConvexError(data));

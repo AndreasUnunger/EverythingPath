@@ -2,7 +2,9 @@
 import { ArrowRight, Check, CircleAlert } from 'lucide-react';
 import { useEffect, useId, useRef, type RefObject } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { useScrollPaddingFor } from '~/components/campaign-shell/scroll-padding';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import {
   CONFLICT_HEADING,
@@ -171,6 +173,7 @@ function ReasonBar({
   const id = useId();
   const errorId = `${id}-error`;
   const { view, reason } = correction;
+  const maintenance = useInitialMigrationMaintenance();
   const editing = view.kind === 'editing';
   // The pieces are the same in both layouts; only their arrangement differs.
   const reasonInput = (className?: string) => (
@@ -228,11 +231,14 @@ function ReasonBar({
     <Button
       type="button"
       className={cn(action, className)}
-      disabled={!editing}
+      disabled={!editing || maintenance.readOnly}
       onClick={correction.save}
     >
       {view.kind === 'saving' ? SAVING_MESSAGE : 'Save correction'}
     </Button>
+  );
+  const maintenanceReason = (className: string) => (
+    <MaintenanceReason notice={maintenance} className={className} />
   );
   const cancelButton = (className?: string) => (
     <Button
@@ -272,6 +278,7 @@ function ReasonBar({
         {saveButton('col-start-2 row-start-2 self-start')}
         {cancelButton('col-start-2 row-start-1')}
         {savingStatus}
+        {maintenanceReason('col-span-2')}
       </div>
     );
   }
@@ -292,6 +299,7 @@ function ReasonBar({
         {saveButton()}
         {cancelButton()}
         {savingStatus}
+        {maintenanceReason('basis-full')}
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { migrationWriteMessages } from './migration-write-messages';
+import { findMigrationWriteRejection } from './migration-write-rejection';
 import { ConvexError } from 'convex/values';
 
 export type WriteFailure =
@@ -9,6 +11,9 @@ export type WriteFailure =
 // (a closed connection, an unexpected failure) may or may not have been
 // applied, so the caller must not claim it failed or replay it blindly.
 export function classifyWriteFailure(error: unknown): WriteFailure {
+  const rejection = findMigrationWriteRejection(error);
+  if (rejection)
+    return { kind: 'rejected', message: migrationWriteMessages[rejection] };
   if (error instanceof ConvexError)
     return {
       kind: 'rejected',

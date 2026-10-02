@@ -1,5 +1,6 @@
 'use client';
 import type { Id } from '@convex/_generated/dataModel';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { CharacterRecordDialogView } from './character-record-dialog-view';
 import { defaultCharacterFormValues, type CharacterRecord } from './types';
 import { useCharacterRecord } from './use-character-record';
@@ -25,6 +26,7 @@ export function CharacterRecordDialog({
   /** "Archiving keeps Dalla Rook as Commandant.", shown by Archive. */
   archiveWarning?: string | null;
 }) {
+  const maintenance = useInitialMigrationMaintenance();
   const recordForm = useCharacterRecord({
     campaignId,
     organizationId,
@@ -44,6 +46,7 @@ export function CharacterRecordDialog({
       }}
       recordForm={recordForm}
       archiveWarning={archiveWarning}
+      maintenance={maintenance}
     />
   );
 }

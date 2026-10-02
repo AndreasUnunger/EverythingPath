@@ -6,11 +6,148 @@ import { expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   command,
+  canonicalPersistenceFixtureCall,
+  fixtureCall,
   isolateCases,
   parseFixtureResponse,
+  runSchema,
   withIsolationCanary,
 } from './process';
 import { resources } from './test-data';
+
+it('uses the current deployment epoch for each new fixture write and leaves inspections read-only', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'e2e-fixture-epoch-'));
+  const packageDirectory = join(directory, 'node_modules', 'convex');
+  await mkdir(packageDirectory, { recursive: true });
+  await writeFile(
+    join(packageDirectory, 'package.json'),
+    JSON.stringify({ name: 'convex', bin: 'fixture.cjs' }),
+  );
+  const run = runSchema.parse({
+    resources,
+    workspace: directory,
+    sourceRoot: directory,
+    privateDirectory: directory,
+    artifactDirectory: join(directory, 'artifacts'),
+    envFile: join(directory, 'convex.env'),
+    baseURL: 'http://127.0.0.1:49123',
+  });
+  await writeFile(run.envFile, '');
+  await writeFile(join(directory, 'epoch'), '2');
+  await writeFile(
+    join(packageDirectory, 'fixture.cjs'),
+    `const fs = require('node:fs');
+const [, operation, serialized, ...selection] = process.argv.slice(2);
+if (JSON.stringify(selection) !== JSON.stringify(${JSON.stringify(['--preview-name', resources.previewName, '--env-file', run.envFile])})) process.exit(1);
+const args = JSON.parse(serialized);
+const epoch = Number(fs.readFileSync('epoch', 'utf8'));
+if (operation === 'initialMigration:clientStatus') {
+  process.stdout.write(JSON.stringify({ status: 'ready', epoch }));
+} else {
+  const inspect = operation === 'e2eFixtures:inspectCase';
+  if (inspect ? 'writeEpoch' in args : args.writeEpoch !== epoch) process.exit(2);
+  if (!inspect) fs.writeFileSync('epoch', String(epoch + 2));
+  if (!['e2eFixtures:seedIdentityProjection', 'e2eFixtures:cleanupCase'].includes(operation)) process.stdout.write(JSON.stringify(args));
+}`,
+  );
+  isolateCases(['existingMilitia']);
+  try {
+    expect(await fixtureCall(run, 'resetCase', { caseKey: 'smoke' })).toEqual({
+      caseKey: 'smoke',
+      isolatedWith: ['smoke', 'existingMilitia'],
+      writeEpoch: 2,
+    });
+    expect(await fixtureCall(run, 'seedIdentityProjection', {})).toBeNull();
+    expect(await fixtureCall(run, 'cleanupCase', {})).toBeNull();
+    expect(
+      await fixtureCall(run, 'resetCase', { caseKey: 'smoke' }),
+    ).toMatchObject({
+      writeEpoch: 8,
+    });
+    expect(await fixtureCall(run, 'inspectCase', { caseKey: 'smoke' })).toEqual(
+      {
+        caseKey: 'smoke',
+      },
+    );
+  } finally {
+    isolateCases([]);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it('uses a fresh epoch for canonical persistence fixture writes while preserving inspection and null results', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'canonical-fixture-epoch-'));
+  const packageDirectory = join(directory, 'node_modules', 'convex');
+  await mkdir(packageDirectory, { recursive: true });
+  await writeFile(
+    join(packageDirectory, 'package.json'),
+    JSON.stringify({ name: 'convex', bin: 'fixture.cjs' }),
+  );
+  const run = runSchema.parse({
+    resources,
+    workspace: directory,
+    sourceRoot: directory,
+    privateDirectory: directory,
+    artifactDirectory: join(directory, 'artifacts'),
+    envFile: join(directory, 'convex.env'),
+    baseURL: 'http://127.0.0.1:49123',
+  });
+  await writeFile(run.envFile, '');
+  await writeFile(join(directory, 'epoch'), '4');
+  await writeFile(
+    join(packageDirectory, 'fixture.cjs'),
+    `const fs = require('node:fs');
+const [, operation, serialized, ...selection] = process.argv.slice(2);
+if (JSON.stringify(selection) !== JSON.stringify(${JSON.stringify(['--preview-name', resources.previewName, '--env-file', run.envFile])})) process.exit(1);
+const args = JSON.parse(serialized);
+const epoch = Number(fs.readFileSync('epoch', 'utf8'));
+if (operation === 'initialMigration:clientStatus') {
+  process.stdout.write(JSON.stringify({ status: 'ready', epoch }));
+} else {
+  const inspect = operation === 'canonicalPersistenceFixtures:inspect';
+  if (inspect ? 'writeEpoch' in args : args.writeEpoch !== epoch) process.exit(2);
+  if (!inspect) fs.writeFileSync('epoch', String(epoch + 2));
+  if (!['close', 'changeSource', 'blockSuccessor', 'installAcceptanceSource', 'appendHistory'].some(name => operation === 'canonicalPersistenceFixtures:' + name)) process.stdout.write(JSON.stringify(args));
+}`,
+  );
+  isolateCases(['isolation']);
+  try {
+    expect(
+      await canonicalPersistenceFixtureCall(run, 'initialize', {}),
+    ).toEqual({ writeEpoch: 4 });
+    expect(
+      await canonicalPersistenceFixtureCall(run, 'resetAndInitialize', {
+        scope: { caseKey: 'smoke' },
+      }),
+    ).toEqual({
+      scope: { caseKey: 'smoke' },
+      isolatedWith: ['smoke', 'isolation'],
+      writeEpoch: 6,
+    });
+    for (const operation of [
+      'close',
+      'changeSource',
+      'blockSuccessor',
+      'installAcceptanceSource',
+      'appendHistory',
+    ] as const) {
+      expect(
+        await canonicalPersistenceFixtureCall(run, operation, {}),
+      ).toBeNull();
+    }
+    expect(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {}),
+    ).toEqual({ writeEpoch: 18 });
+    expect(
+      await canonicalPersistenceFixtureCall(run, 'inspect', {
+        campaignId: 'campaign',
+      }),
+    ).toEqual({ campaignId: 'campaign' });
+  } finally {
+    isolateCases([]);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 it('runs the workspace-installed Convex fixture CLI without a package-manager subprocess', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'e2e-installed-cli-'));

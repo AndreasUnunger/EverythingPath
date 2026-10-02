@@ -22,8 +22,12 @@ const opened = () => run(closedHeaderEditor(saved), { type: 'open', saved });
 
 function submit(state: HeaderEditor, observed = saved) {
   const plan = planHeaderSave(state, observed);
-  if (plan.kind !== 'send') throw new Error(`expected writes, got ${plan.kind}`);
-  return { plan, state: reduce(state, { type: 'submit', writes: plan.writes }) };
+  if (plan.kind !== 'send')
+    throw new Error(`expected writes, got ${plan.kind}`);
+  return {
+    plan,
+    state: reduce(state, { type: 'submit', writes: plan.writes }),
+  };
 }
 
 describe('planning a header Save', () => {
@@ -91,8 +95,9 @@ describe('planning a header Save', () => {
       run(opened(), { type: 'change', field: 'description', value: 'x' }),
     );
     expect(planHeaderSave(state, saved)).toEqual({ kind: 'busy' });
-    expect(fieldFeedback(fieldView(state, saved, 'description'), 'description'))
-      .toBe('Saving description…');
+    expect(
+      fieldFeedback(fieldView(state, saved, 'description'), 'description'),
+    ).toBe('Saving description…');
     // Input is locked while its own write is pending.
     expect(
       reduce(state, { type: 'change', field: 'description', value: 'y' }),
@@ -127,39 +132,57 @@ describe('acknowledgements', () => {
   });
 
   test.each([
-    ['description accepted, then the date rejected', ['description', 'inGameDate']],
-    ['the date rejected, then description accepted', ['inGameDate', 'description']],
-  ] as const)('%s: reports each field and retries only the date', (_, order) => {
-    let state = both();
-    for (const field of order)
-      state =
-        field === 'description'
-          ? reduce(state, { type: 'accepted', field, value: 'Book 3.' })
-          : reduce(state, {
-              type: 'rejected',
-              field,
-              value: '2026-04-01',
-              message: 'Campaign editing is paused for maintenance. Please try again later.',
-            });
-    // The description is now saved on the server.
-    const observed = { ...saved, description: 'Book 3.' };
-    expect(state.open).toBe(true);
-    const description = fieldView(state, observed, 'description');
-    const date = fieldView(state, observed, 'inGameDate');
-    expect(fieldFeedback(description, 'description')).toBe('Description saved.');
-    expect(date).toMatchObject({ value: '2026-04-01', dirty: true });
-    expect(fieldFeedback(date, 'inGameDate')).toBe(
-      "In-game date wasn't saved: Campaign editing is paused for maintenance. Please try again later. Your date is kept. Save to try again.",
-    );
-    expect(planHeaderSave(state, observed)).toEqual({
-      kind: 'send',
-      writes: [{ field: 'inGameDate', value: '2026-04-01' }],
-    });
-  });
+    [
+      'description accepted, then the date rejected',
+      ['description', 'inGameDate'],
+    ],
+    [
+      'the date rejected, then description accepted',
+      ['inGameDate', 'description'],
+    ],
+  ] as const)(
+    '%s: reports each field and retries only the date',
+    (_, order) => {
+      let state = both();
+      for (const field of order)
+        state =
+          field === 'description'
+            ? reduce(state, { type: 'accepted', field, value: 'Book 3.' })
+            : reduce(state, {
+                type: 'rejected',
+                field,
+                value: '2026-04-01',
+                message:
+                  'Editing is paused for maintenance. Saved information remains available.',
+              });
+      // The description is now saved on the server.
+      const observed = { ...saved, description: 'Book 3.' };
+      expect(state.open).toBe(true);
+      const description = fieldView(state, observed, 'description');
+      const date = fieldView(state, observed, 'inGameDate');
+      expect(fieldFeedback(description, 'description')).toBe(
+        'Description saved.',
+      );
+      expect(date).toMatchObject({ value: '2026-04-01', dirty: true });
+      expect(fieldFeedback(date, 'inGameDate')).toBe(
+        "In-game date wasn't saved: Editing is paused for maintenance. Saved information remains available. Your date is kept. Save to try again.",
+      );
+      expect(planHeaderSave(state, observed)).toEqual({
+        kind: 'send',
+        writes: [{ field: 'inGameDate', value: '2026-04-01' }],
+      });
+    },
+  );
 
   test.each([
-    ['the date accepted, then description rejected', ['inGameDate', 'description']],
-    ['description rejected, then the date accepted', ['description', 'inGameDate']],
+    [
+      'the date accepted, then description rejected',
+      ['inGameDate', 'description'],
+    ],
+    [
+      'description rejected, then the date accepted',
+      ['description', 'inGameDate'],
+    ],
   ] as const)('%s: retries only the description', (_, order) => {
     let state = both();
     for (const field of order)
@@ -182,7 +205,11 @@ describe('acknowledgements', () => {
     });
     const retried = submit(state, observed).state;
     expect(
-      reduce(retried, { type: 'accepted', field: 'description', value: 'Book 3.' }),
+      reduce(retried, {
+        type: 'accepted',
+        field: 'description',
+        value: 'Book 3.',
+      }),
     ).toMatchObject({ open: false, saved: true });
   });
 
@@ -190,7 +217,12 @@ describe('acknowledgements', () => {
     const state = run(
       both(),
       { type: 'accepted', field: 'description', value: 'Book 3.' },
-      { type: 'rejected', field: 'inGameDate', value: '2026-04-01', message: null },
+      {
+        type: 'rejected',
+        field: 'inGameDate',
+        value: '2026-04-01',
+        message: null,
+      },
     );
     // Another player changes the description after it was accepted.
     const observed = { ...saved, description: 'Book 4, from the GM.' };
@@ -228,7 +260,12 @@ describe('acknowledgements', () => {
     const state = run(
       both(),
       { type: 'accepted', field: 'description', value: 'Book 3.' },
-      { type: 'rejected', field: 'inGameDate', value: '2026-04-01', message: null },
+      {
+        type: 'rejected',
+        field: 'inGameDate',
+        value: '2026-04-01',
+        message: null,
+      },
       { type: 'close' },
     );
     const observed = { ...saved, description: 'Book 3.' };

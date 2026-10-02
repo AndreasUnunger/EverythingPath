@@ -246,6 +246,11 @@ export async function fixtureCall(
     | 'cleanupCase',
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  const scopedArgs = withIsolationCanary(operation, args);
+  const fixtureArgs =
+    operation === 'inspectCase'
+      ? scopedArgs
+      : { ...scopedArgs, writeEpoch: await currentWriteEpoch(run) };
   const output = await command(
     `fixture ${operation}`,
     [
@@ -253,7 +258,7 @@ export async function fixtureCall(
       'convex',
       'run',
       `e2eFixtures:${operation}`,
-      JSON.stringify(withIsolationCanary(operation, args)),
+      JSON.stringify(fixtureArgs),
       '--preview-name',
       run.resources.previewName,
       '--env-file',
@@ -262,6 +267,27 @@ export async function fixtureCall(
     { cwd: run.workspace },
   );
   return parseFixtureResponse(operation, output);
+}
+
+async function currentWriteEpoch(run: Run) {
+  const output = await command(
+    'fixture write epoch',
+    [
+      'exec',
+      'convex',
+      'run',
+      'initialMigration:clientStatus',
+      '{}',
+      '--preview-name',
+      run.resources.previewName,
+      '--env-file',
+      run.envFile,
+    ],
+    { cwd: run.workspace },
+  );
+  return z
+    .object({ epoch: z.number().int().nonnegative() })
+    .parse(JSON.parse(output)).epoch;
 }
 
 export async function canonicalPersistenceFixtureCall(
@@ -278,6 +304,11 @@ export async function canonicalPersistenceFixtureCall(
     | 'inspect',
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  const scopedArgs = withIsolationCanary(operation, args);
+  const fixtureArgs =
+    operation === 'inspect'
+      ? scopedArgs
+      : { ...scopedArgs, writeEpoch: await currentWriteEpoch(run) };
   const output = await command(
     `canonical persistence fixture ${operation}`,
     [
@@ -285,7 +316,7 @@ export async function canonicalPersistenceFixtureCall(
       'convex',
       'run',
       `canonicalPersistenceFixtures:${operation}`,
-      JSON.stringify(withIsolationCanary(operation, args)),
+      JSON.stringify(fixtureArgs),
       '--preview-name',
       run.resources.previewName,
       '--env-file',

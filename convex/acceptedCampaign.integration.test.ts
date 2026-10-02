@@ -167,7 +167,9 @@ test('retained paused control still blocks writes without hiding campaign state'
       description: '',
       organizationId: 'org',
     }),
-  ).rejects.toThrow('Campaign editing is paused');
+  ).rejects.toThrow(
+    'Editing is paused for maintenance. Saved information remains available.',
+  );
   await expect(
     member.mutation(api.canonicalDraftPersistence.edit, {
       campaignId: key.campaignId,
@@ -179,7 +181,9 @@ test('retained paused control still blocks writes without hiding campaign state'
         edit: { kind: 'add_slot', slotId: 'blocked' },
       },
     }),
-  ).rejects.toThrow('Campaign editing is paused');
+  ).rejects.toThrow(
+    'Editing is paused for maintenance. Saved information remains available.',
+  );
   expect(
     await member.query(api.canonicalDraftPersistence.workspace, {
       campaignId: key.campaignId,

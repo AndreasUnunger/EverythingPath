@@ -1,12 +1,19 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery, query } from './_generated/server';
 import { readCutover } from './lib/campaignRuntime';
+import { readWriteGate } from './lib/writeGate';
 import { rejectRetiredWorkflow } from './lib/retiredWorkflow';
 
 export const status = query({
   args: {},
   returns: v.union(v.literal('paused'), v.literal('canonical')),
-  handler: async (ctx) => (await readCutover(ctx))?.status ?? 'canonical',
+  handler: async (ctx) => {
+    const gate = await readWriteGate(ctx);
+    const cutover = await readCutover(ctx);
+    return gate?.closed || cutover?.status === 'paused'
+      ? 'paused'
+      : 'canonical';
+  },
 });
 
 // Retained names reject stale operational clients as well as stale browsers.

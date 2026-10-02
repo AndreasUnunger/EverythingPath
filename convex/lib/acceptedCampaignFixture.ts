@@ -4,7 +4,7 @@ import type { MutationCtx } from '../_generated/server';
 import { acceptedCampaignSetup } from '../../tests/rules/accepted-campaign';
 
 export async function seedAcceptedCampaign(
-  ctx: MutationCtx,
+  ctx: MutationCtx & { writeEpoch?: number },
   existingCampaignId?: Id<'campaign'>,
 ) {
   if (!existingCampaignId) {
@@ -44,6 +44,7 @@ export async function seedAcceptedCampaign(
     draftId: string;
   } = await ctx.runMutation(api.canonicalSetup.initialize, {
     campaignId,
+    writeEpoch: ctx.writeEpoch,
     initializationId: `accepted:${campaignId}`,
     setup,
   });

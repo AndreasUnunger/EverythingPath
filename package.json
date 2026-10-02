@@ -29,7 +29,8 @@
     "acceptance:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-acceptance.ts",
     "lint:eslint": "node --max-old-space-size=4096 ./node_modules/eslint/bin/eslint.js .",
     "lint:unused": "knip",
-    "catalog:preview": "node --import tsx scripts/catalog-preview.ts"
+    "catalog:preview": "node --import tsx scripts/catalog-preview.ts",
+    "check:initial-migration-writers": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-initial-migration-writers.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",

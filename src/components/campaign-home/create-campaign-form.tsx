@@ -1,6 +1,7 @@
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { Button } from '~/components/ui/button';
 import {
   Form,
@@ -17,6 +18,7 @@ import {
   type CreateCampaignInput,
   type CreateCampaignValues,
 } from '~/lib/campaign-fields';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { refusalReason } from '~/lib/write-outcome';
 import type { CreateCampaign } from './use-create-campaign';
 
@@ -32,11 +34,13 @@ export function CreateCampaignForm({
   entry: 'new' | 'empty';
   onCancel: () => void;
 }) {
+  const maintenance = useInitialMigrationMaintenance();
   const form = useForm<CreateCampaignInput, unknown, CreateCampaignValues>({
     resolver: zodResolver(createCampaignSchema),
     defaultValues: { name: '', description: '' },
   });
   const pending = create.status.kind === 'pending';
+  const locked = pending || maintenance.readOnly;
   return (
     <div className="max-w-xl space-y-4">
       <h2 className="text-2xl">
@@ -52,7 +56,7 @@ export function CreateCampaignForm({
             await create.submit(values);
           })}
         >
-          <fieldset disabled={pending} className="min-w-0 space-y-4">
+          <fieldset disabled={locked} className="min-w-0 space-y-4">
             <FormField
               control={form.control}
               name="name"
@@ -84,7 +88,7 @@ export function CreateCampaignForm({
             <Button
               type="submit"
               className="min-h-11 md:min-h-9"
-              disabled={pending}
+              disabled={locked}
             >
               {pending ? 'Creating…' : 'Create'}
             </Button>
@@ -97,11 +101,12 @@ export function CreateCampaignForm({
             >
               Cancel
             </Button>
+            <MaintenanceReason notice={maintenance} />
           </div>
           {create.status.kind === 'rejected' && (
             <p role="alert" className="text-destructive text-sm">
-              The campaign wasn&apos;t created{refusalReason(create.status.message)}{' '}
-              Your entries are kept.
+              The campaign wasn&apos;t created
+              {refusalReason(create.status.message)} Your entries are kept.
             </p>
           )}
           {create.status.kind === 'unknown' && (

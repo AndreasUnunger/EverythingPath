@@ -819,7 +819,10 @@ on these names.
     `convex/migrations.ts` and `convex/legacyRetirement.ts`.
   - The internal functions of `convex/cutover.ts`.
   - `rejectRetiredWorkflow` in `convex/lib/retiredWorkflow.ts`.
-- **Keep:** `cutover.status`, which `maintenance-banner.tsx` uses, the
+- **Keep:** `cutover.status`, which has no application consumer but remains
+  covered by `acceptedCampaign.integration.test.ts` and
+  `initialMigration.integration.test.ts`. `MaintenanceBanner` now uses
+  `useInitialMigrationMaintenance`. Also keep the
   `readCutover` write gate in `convex/lib/campaignRuntime.ts` and the
   `campaignCutover` and initialization receipt tables. They are the maintenance
   gate and the audit evidence.
@@ -833,6 +836,10 @@ on these names.
 - **Size:** about 290 source lines and about 30 test lines.
 
 ### B6. Planned Character Sheet release cleanup (#240)
+
+The initial-release freeze and rejection policy are documented in the [write-gate runbook and writer inventory](initial-character-migration-write-gate.md). Existing retired cutover commands remain rejection stubs.
+
+`initialMigrationControl.acceptWebhooksAfter` remains an optional schema field for compatibility with existing control rows. No writer sets it and webhook delivery no longer reads it: after the Write Gate reopens, signed redeliveries use the affected record's provider timestamp for ordering.
 
 Planned by [Decide how the character builder release migrates safely](https://github.com/AndreasUnunger/EverythingPath/issues/240#issuecomment-5954578153); see [Migration and release](pf-character-sheet-data-model.md#migration-and-release). This is future cleanup, not a completed migration or a new production observation. The existing flat Character fields remain live until sheet authority is activated.
 

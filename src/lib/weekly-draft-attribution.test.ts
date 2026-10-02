@@ -307,7 +307,7 @@ test('safe maintenance detail accompanies failure and clears at the next edit, n
     await persistence.edit({ kind: 'event_chance', roll: roll(100, 30) }),
   ).toBe('failed');
   expect(persistence.getSnapshot().failureReason).toBe(
-    'Campaign editing is paused for maintenance. Please try again later.',
+    'Editing is paused for maintenance. Saved information remains available.',
   );
   failure = null;
   const saving = persistence.edit({
@@ -323,7 +323,7 @@ test('safe maintenance detail accompanies failure and clears at the next edit, n
   expect(persistence.getSnapshot().failureReason).toBeNull();
   for (const error of [
     new Error(
-      'Campaign editing is paused for maintenance. Please try again later.',
+      'Editing is paused for maintenance. Saved information remains available.',
     ),
     new DraftRejected('Private internal id secret'),
   ]) {
@@ -350,7 +350,7 @@ test('a failed Confirmation exposes the safe maintenance reason without claiming
     confirming: false,
     confirmation: null,
     failureReason:
-      'Campaign editing is paused for maintenance. Please try again later.',
+      'Editing is paused for maintenance. Saved information remains available.',
     observation: { status: 'open' },
   });
 });

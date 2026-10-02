@@ -85,7 +85,9 @@ test('createCampaign writes only for a signed-in member of the organization and 
   await pause(t);
   await expect(
     member.mutation(api.campaign.createCampaign, args),
-  ).rejects.toThrow('Campaign editing is paused');
+  ).rejects.toThrow(
+    'Editing is paused for maintenance. Saved information remains available.',
+  );
   const list = await member.query(api.campaign.getCampaigns, {
     organizationId: 'org',
   });
@@ -167,7 +169,9 @@ test('updateCampaignDescription rejects signed-out, outsider, mismatched, delete
   await pause(t);
   await expect(
     member.mutation(api.campaign.updateCampaignDescription, write()),
-  ).rejects.toThrow('Campaign editing is paused');
+  ).rejects.toThrow(
+    'Editing is paused for maintenance. Saved information remains available.',
+  );
   const [own, foreign] = await t.run(async (ctx) => [
     await ctx.db.get('campaign', campaignId),
     await ctx.db.get('campaign', foreignId),
@@ -187,10 +191,10 @@ test('updateCampaignInGameDate keeps its optional date-only contract and leaves 
     inGameDate: '2026-02-28',
     description: 'Book 2, Thursday group.',
   });
-  const cleared = await member.mutation(
-    api.campaign.updateCampaignInGameDate,
-    { campaignId, organizationId: 'org' },
-  );
+  const cleared = await member.mutation(api.campaign.updateCampaignInGameDate, {
+    campaignId,
+    organizationId: 'org',
+  });
   expect(cleared?.inGameDate).toBeUndefined();
   expect(cleared?.description).toBe('Book 2, Thursday group.');
   await expect(

@@ -39,6 +39,13 @@ vi.mock('@convex/_generated/api', () => ({
     canonicalLedger: { read: 'read', save: 'save' },
   },
 }));
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => ({
+    kind: 'ready',
+    readOnly: false,
+    message: '',
+  }),
+}));
 vi.mock('convex/react', () => ({
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {

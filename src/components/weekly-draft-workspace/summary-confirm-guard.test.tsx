@@ -27,6 +27,13 @@ const factory = vi.fn<(...args: unknown[]) => WorkspaceGateway | null>();
 vi.mock('./gateway', () => ({
   createConvexWorkspaceGateway: (...args: unknown[]) => factory(...args),
 }));
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => ({
+    kind: 'ready',
+    readOnly: false,
+    message: '',
+  }),
+}));
 vi.mock('convex/react', () => ({
   useConvex: () => ({}),
   useConvexAuth: () => ({ isLoading: false, isAuthenticated: true }),

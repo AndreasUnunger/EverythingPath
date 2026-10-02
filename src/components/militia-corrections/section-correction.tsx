@@ -1,13 +1,8 @@
 'use client';
-import {
-  Fragment,
-  useEffect,
-  useId,
-  useRef,
-  type ComponentType,
-} from 'react';
+import { Fragment, useEffect, useId, useRef, type ComponentType } from 'react';
 import { Controller, FormProvider } from 'react-hook-form';
 import { CircleAlert, TriangleAlert } from 'lucide-react';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import {
   PhoneStatusStrip,
@@ -31,6 +26,7 @@ import {
 } from '~/components/militia-setup/roster';
 import { SetupMilitiaValues } from '~/components/militia-setup/starting-point';
 import { SetupSettlements } from '~/components/militia-setup/world';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
@@ -377,6 +373,7 @@ function ReasonBar({
   const id = useId();
   const errorId = `${id}-error`;
   const { view, reason } = correction;
+  const maintenance = useInitialMigrationMaintenance();
   const editing = view.kind === 'editing';
   return (
     <div
@@ -418,7 +415,7 @@ function ReasonBar({
           type="submit"
           form={formId}
           className={action}
-          disabled={!editing}
+          disabled={!editing || maintenance.readOnly}
         >
           {view.kind === 'saving' ? SAVING_MESSAGE : 'Save correction'}
         </Button>
@@ -436,6 +433,7 @@ function ReasonBar({
             {SAVING_MESSAGE}
           </p>
         )}
+        <MaintenanceReason notice={maintenance} />
       </div>
     </div>
   );

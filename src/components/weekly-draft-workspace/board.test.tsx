@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { createMemoryDraftAuthority } from '~/lib/memory-draft-persistence';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
@@ -15,6 +15,8 @@ import type { Phase } from './types';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { useWeeklyDraftWorkspace } from './use-weekly-draft-workspace';
 import { WeeklyWorkspaceBoard } from './board';
+import { MaintenanceBanner } from '~/components/campaign-shell/maintenance-banner';
+import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import {
   pinnedConfirm,
   expectSameConfirm,
@@ -32,6 +34,14 @@ import {
 const factory = vi.fn<(...args: unknown[]) => WorkspaceGateway | null>();
 vi.mock('./gateway', () => ({
   createConvexWorkspaceGateway: (...args: unknown[]) => factory(...args),
+}));
+const maintenance = vi.fn<() => MigrationMaintenance>(() => ({
+  kind: 'ready',
+  readOnly: false,
+  message: '',
+}));
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => maintenance(),
 }));
 const convex = {};
 vi.mock('convex/react', () => ({
@@ -811,7 +821,7 @@ test('[feedback.failed] a rejected save is a red alert carrying only the safe se
   // The text lands in the alert that was already mounted.
   expect(failure()).toBe(alert);
   expect(failure()!.textContent).toBe(
-    'Changes could not be saved. The latest saved values are shown. Campaign editing is paused for maintenance. Please try again later.',
+    'Changes could not be saved. The latest saved values are shown. Editing is paused for maintenance. Saved information remains available.',
   );
   // Failure is a visible red alert (field validation alerts are separate),
   // at every size: no phone-only details button stands in for it.
@@ -876,4 +886,149 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   expect(
     within(notice()).getByRole('link', { name: 'Open in Finished weeks' }),
   ).toHaveAttribute('href', '/campaigns/campaign/history?week=4');
+});
+
+// ---- App-wide editing availability (#258). The shell's banner says why;
+// the board only disables its write controls and keeps the week readable.
+
+function withMaintenance(kind: MigrationMaintenance['kind'], message: string) {
+  maintenance.mockReturnValue({ kind, readOnly: kind !== 'ready', message });
+}
+afterEach(() => {
+  withMaintenance('ready', '');
+  vi.unstubAllGlobals();
+});
+/** The board beside the shell's banner, with every send to the authority counted. */
+function hostWithBanner(
+  gateway: WorkspaceGateway,
+  sends: (...args: unknown[]) => void,
+) {
+  factory.mockImplementation(() => ({
+    ...gateway,
+    transport: (...args) => {
+      const transport = gateway.transport(...args);
+      return {
+        ...transport,
+        send: (...sendArgs) => {
+          sends(...sendArgs);
+          return transport.send(...sendArgs);
+        },
+      };
+    },
+  }));
+  return (
+    <CampaignWorkspaceProvider
+      campaignId="campaign"
+      active
+      openingPhase="upkeep"
+    >
+      <MaintenanceBanner />
+      <WeeklyWorkspaceBoard campaignId="campaign" phase="upkeep" />
+    </CampaignWorkspaceProvider>
+  );
+}
+
+test('[maintenance.loading] while availability is checked the week is readable, its fields are off and phase navigation works', async () => {
+  withMaintenance('loading', 'Checking whether editing is available.');
+  const sends = vi.fn();
+  render(hostWithBanner(fixture(), sends));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(
+    screen.getByText('Checking whether editing is available.'),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
+  ).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Event' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Event' });
+  expect(
+    screen.getByRole('textbox', { name: 'Event chance roll' }),
+  ).toBeDisabled();
+  expect(sends).not.toHaveBeenCalled();
+});
+
+test('[maintenance.ready] with editing available there is no notice and a roll saves', async () => {
+  const sends = vi.fn();
+  render(hostWithBanner(fixture(), sends));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(screen.queryByText(/editing/i)).not.toBeInTheDocument();
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty roll' });
+  expect(die).toBeEnabled();
+  await act(async () => {
+    fireEvent.change(die, { target: { value: '7' } });
+    fireEvent.blur(die);
+  });
+  await waitFor(() => expect(feedback()).toBe('saved'));
+  expect(sends).toHaveBeenCalled();
+});
+
+test('[maintenance.paused] maintenance shows its message, keeps saved values visible and disables saving and Confirm with that reason', async () => {
+  withMaintenance('maintenance', 'Editing is paused for maintenance.');
+  const gateway = fixture({ confirmable: true });
+  factory.mockImplementation(() => gateway);
+  render(host({ phase: 'summary' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  expect(expectSameConfirm()).toBeDisabled();
+  expect(
+    screen.getAllByText('Editing is paused for maintenance.').length,
+  ).toBeGreaterThan(0);
+  expect(
+    screen.queryByRole('button', { name: /retry|reload/i }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Event' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Event' });
+  expect(
+    screen.getByRole('textbox', { name: 'Event chance roll' }),
+  ).toBeDisabled();
+});
+
+test('[maintenance.reload] a page that must reload stays disabled with a Reload page button; pressing it reloads once and sends nothing', async () => {
+  const sends = vi.fn();
+  const reload = vi.fn();
+  vi.stubGlobal('location', { ...window.location, reload });
+  const view = render(hostWithBanner(fixture(), sends));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(
+    screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
+  ).toBeEnabled();
+  withMaintenance(
+    'reload_required',
+    'Reload this page before saving. Unsaved changes will be discarded.',
+  );
+  view.rerender(hostWithBanner(fixture(), sends));
+  expect(
+    screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole('heading', { name: 'Week 4 · Upkeep' }),
+  ).toBeVisible();
+  expect(
+    screen.getByText(
+      'Reload this page before saving. Unsaved changes will be discarded.',
+    ),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
+  expect(reload).toHaveBeenCalledTimes(1);
+  expect(sends).not.toHaveBeenCalled();
+});
+
+test('[maintenance.unavailable] an unchecked availability keeps the saved week readable and offers Reload page', async () => {
+  withMaintenance(
+    'unavailable',
+    'Editing availability could not be checked. Reload to try again.',
+  );
+  const reload = vi.fn();
+  vi.stubGlobal('location', { ...window.location, reload });
+  render(hostWithBanner(fixture(), vi.fn()));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(
+    screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
+  ).toBeDisabled();
+  expect(
+    screen.getByText(
+      'Editing availability could not be checked. Reload to try again.',
+    ),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
+  expect(reload).toHaveBeenCalledTimes(1);
 });

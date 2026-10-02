@@ -59,11 +59,11 @@ test('[status.reason] a safe server reason follows the failure text inside the s
   render(
     <SaveFailureAlert
       feedback="failed"
-      failureReason="Campaign editing is paused for maintenance. Please try again later."
+      failureReason="Editing is paused for maintenance. Saved information remains available."
     />,
   );
   expect(failure()!.textContent).toBe(
-    'Changes could not be saved. The latest saved values are shown. Campaign editing is paused for maintenance. Please try again later.',
+    'Changes could not be saved. The latest saved values are shown. Editing is paused for maintenance. Saved information remains available.',
   );
 });
 

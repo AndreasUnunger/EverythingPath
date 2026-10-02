@@ -1,13 +1,12 @@
 import { ConvexError } from 'convex/values';
-import {
-  customCtx,
-  customMutation,
-} from 'convex-helpers/server/customFunctions';
+import { customMutation } from 'convex-helpers/server/customFunctions';
 import {
   mutation,
-  internalMutation,
+  type MutationCtx,
   type QueryCtx,
 } from '../_generated/server';
+import { writeGate } from './writeGate';
+import { migrationWriteMessages } from '../../src/lib/migration-write-messages';
 
 export async function readCutover(ctx: Pick<QueryCtx, 'db'>) {
   return await ctx.db
@@ -19,22 +18,21 @@ export async function readCutover(ctx: Pick<QueryCtx, 'db'>) {
 export async function requireCampaignWrites(ctx: Pick<QueryCtx, 'db'>) {
   const control = await readCutover(ctx);
   if (control?.status === 'paused')
-    throw new ConvexError(
-      'Campaign editing is paused for maintenance. Please try again later.',
-    );
+    throw new ConvexError({
+      code: 'MAINTENANCE',
+      message: migrationWriteMessages.maintenance,
+    });
 }
 
-const writable = customCtx(
-  async (ctx: Parameters<typeof requireCampaignWrites>[0]) => {
+const writable = {
+  ...writeGate,
+  input: async (ctx: MutationCtx, args: { writeEpoch?: number }) => {
+    const input = await writeGate.input(ctx, args);
     await requireCampaignWrites(ctx);
-    return {};
+    return input;
   },
-);
+};
 
-// Reading the same control row in every transaction also orders in-flight writes
-// against the pause. Operational functions intentionally use the raw builders.
+// Keep both maintenance checks in one customization so the write epoch stays
+// part of the inferred function arguments and handler context.
 export const campaignMutation = customMutation(mutation, writable);
-export const campaignInternalMutation = customMutation(
-  internalMutation,
-  writable,
-);

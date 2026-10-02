@@ -9,6 +9,8 @@ import { FantasyDatePicker } from '~/components/ui/fantasy-date-picker';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Textarea } from '~/components/ui/textarea';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { formatInGameDate } from '~/lib/campaign-fields';
 import { cn } from '~/lib/utils';
 import { CampaignHomeContent } from './campaign-home-content';
@@ -59,6 +61,7 @@ function FieldNotes({
 }
 
 function HeaderForm({ header }: { header: CampaignHeaderEditor }) {
+  const maintenance = useInitialMigrationMaintenance();
   const id = useId();
   const { description, inGameDate } = header.fields;
   const descriptionId = `${id}-description`;
@@ -74,7 +77,10 @@ function HeaderForm({ header }: { header: CampaignHeaderEditor }) {
         header.save();
       }}
     >
-      <fieldset disabled={header.pending} className="min-w-0 space-y-4">
+      <fieldset
+        disabled={header.pending || maintenance.readOnly}
+        className="min-w-0 space-y-4"
+      >
         <div className="grid gap-2">
           <Label htmlFor={descriptionId}>Description</Label>
           <Textarea
@@ -123,7 +129,11 @@ function HeaderForm({ header }: { header: CampaignHeaderEditor }) {
         </div>
       </fieldset>
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" className={action} disabled={header.pending}>
+        <Button
+          type="submit"
+          className={action}
+          disabled={header.pending || maintenance.readOnly}
+        >
           {header.pending ? 'Saving…' : 'Save'}
         </Button>
         <Button
@@ -135,6 +145,7 @@ function HeaderForm({ header }: { header: CampaignHeaderEditor }) {
         >
           Cancel
         </Button>
+        <MaintenanceReason notice={maintenance} />
       </div>
     </form>
   );
@@ -150,6 +161,7 @@ function CampaignPane({
   campaign: Doc<'campaign'>;
   organizationId: string;
 }) {
+  const maintenance = useInitialMigrationMaintenance();
   const header = useCampaignHeader(campaign, organizationId);
   const headingId = useId();
   const editButton = useRef<HTMLButtonElement>(null);
@@ -178,11 +190,13 @@ function CampaignPane({
               size="sm"
               aria-label="Edit campaign details"
               className={cn(action, 'ml-auto')}
+              disabled={maintenance.readOnly}
               onClick={header.edit}
             >
               <Pencil /> Edit
             </Button>
           )}
+          {header.editing ? null : <MaintenanceReason notice={maintenance} />}
         </div>
         {header.editing ? (
           <HeaderForm header={header} />

@@ -1,5 +1,7 @@
 'use client';
 import { ArrowRight, Flag } from 'lucide-react';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { WarningList } from './guided-parts';
 import { ReviewBody } from './guided-review';
@@ -32,19 +34,23 @@ export function ForwardButton({
   setup: GuidedSetup;
   className?: string;
 }) {
+  const maintenance = useInitialMigrationMaintenance();
   if (!setup.next)
     return (
-      <Button
-        type="button"
-        id={setup.ids.next}
-        size="lg"
-        onClick={setup.start}
-        disabled={setup.pending}
-        className={className}
-      >
-        <Flag aria-hidden />
-        {setup.pending ? 'Starting militia…' : 'Start militia week'}
-      </Button>
+      <>
+        <Button
+          type="button"
+          id={setup.ids.next}
+          size="lg"
+          onClick={setup.start}
+          disabled={setup.pending || maintenance.readOnly}
+          className={className}
+        >
+          <Flag aria-hidden />
+          {setup.pending ? 'Starting militia…' : 'Start militia week'}
+        </Button>
+        <MaintenanceReason notice={maintenance} />
+      </>
     );
   return (
     <Button

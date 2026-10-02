@@ -88,3 +88,29 @@ describe('write outcomes', () => {
     ).toEqual({ kind: 'unknown' });
   });
 });
+
+test('structured maintenance refusals expose only safe actionable copy', () => {
+  expect(
+    classifyWriteFailure(
+      new ConvexError({ code: 'RELOAD_REQUIRED', message: 'secret' }),
+    ),
+  ).toEqual({
+    kind: 'rejected',
+    message:
+      'This page is out of date. Reload to keep editing; unsaved changes will be discarded.',
+  });
+  expect(
+    classifyWriteFailure(
+      new ConvexError({ code: 'MAINTENANCE', message: 'secret' }),
+    ),
+  ).toEqual({
+    kind: 'rejected',
+    message:
+      'Editing is paused for maintenance. Saved information remains available.',
+  });
+  expect(
+    classifyWriteFailure(
+      new ConvexError({ code: 'UNKNOWN', message: 'secret' }),
+    ),
+  ).toEqual({ kind: 'rejected', message: null });
+});

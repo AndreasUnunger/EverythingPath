@@ -2,10 +2,8 @@ import { z } from 'zod';
 import { workspaceSourceSchema } from '../src/lib/weekly-workspace-source';
 import { requireScope } from './lib/canonicalDraftStorage';
 import { internal } from './_generated/api';
-import {
-  campaignInternalMutation as internalMutation,
-  campaignMutation as mutation,
-} from './lib/campaignRuntime';
+import { campaignMutation } from './lib/campaignRuntime';
+import { readWriteGate } from './lib/writeGate';
 import {
   acceptedWeeklyPreviewSchema,
   confirmationOperationSchema,
@@ -14,7 +12,7 @@ import {
 import { previewDraft, confirmDraft } from './lib/canonicalConfirmation';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { paginationOptsValidator } from 'convex/server';
-import { query } from './_generated/server';
+import { internalMutation, query } from './_generated/server';
 import {
   draftKeySchema,
   canonicalRecordValidator,
@@ -41,7 +39,7 @@ export const observe = query({
 const editArgs = draftKeySchema
   .omit({ draftId: true })
   .extend({ operation: draftOperationSchema });
-export const edit = mutation({
+export const edit = campaignMutation({
   args: zodOutputToConvex(editArgs),
   returns: zodOutputToConvex(draftReceiptSchema),
   handler: async (ctx, args) => {
@@ -113,7 +111,7 @@ export const preview = query({
     return await previewDraft(ctx, args);
   },
 });
-export const confirm = mutation({
+export const confirm = campaignMutation({
   args: zodOutputToConvex(
     draftKeySchema.extend({ operation: confirmationOperationSchema }),
   ),
@@ -127,7 +125,7 @@ export const confirm = mutation({
     await ctx.scheduler.runAfter(
       0,
       internal.canonicalDraftPersistence.retireClosedDraft,
-      { draftId: args.draftId, afterRevision: 0 },
+      { draftId: args.draftId, afterRevision: 0, writeEpoch: ctx.writeEpoch },
     );
     return receipt;
   },
@@ -136,9 +134,23 @@ export const confirm = mutation({
 // Closure immediately removes editable authority. Retire historical base payloads
 // and target tombstones in bounded transactions while retaining edit dedup receipts.
 export const retireClosedDraft = internalMutation({
-  args: { draftId: v.string(), afterRevision: v.number() },
+  args: {
+    draftId: v.string(),
+    afterRevision: v.number(),
+    writeEpoch: v.optional(v.number()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Accepted retirement is idempotent across epochs and Character authority.
+    // Preserve the job during maintenance without changing its draft data.
+    if ((await readWriteGate(ctx))?.closed) {
+      await ctx.scheduler.runAfter(
+        60_000,
+        internal.canonicalDraftPersistence.retireClosedDraft,
+        args,
+      );
+      return null;
+    }
     const row = await ctx.db
       .query('canonicalWeeklyDraft')
       .withIndex('by_draftId', (q) => q.eq('draftId', args.draftId))

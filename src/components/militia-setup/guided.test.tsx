@@ -10,10 +10,21 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
 import { GuidedMilitiaSetup } from './guided';
 import type { SetupCharacter } from './roster';
+import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
+
+const maintenance = vi.fn<() => MigrationMaintenance>(() => ({
+  kind: 'ready',
+  readOnly: false,
+  message: '',
+}));
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => maintenance(),
+}));
 
 const originalMatchMedia = window.matchMedia;
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
+  maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
 });
 
 const hero: SetupCharacter = {
@@ -82,6 +93,27 @@ const statuses = () => {
         `${text(button.getAttribute('aria-labelledby'))}: ${text(button.getAttribute('aria-describedby'))}`,
     );
 };
+
+test('starting a militia observes editing availability without a parent-provided notice', () => {
+  maintenance.mockReturnValue({
+    kind: 'unavailable',
+    readOnly: true,
+    message: 'Editing availability could not be checked. Reload to try again.',
+  });
+  const save = vi.fn();
+  render(<GuidedMilitiaSetup characters={[]} onSave={save} />);
+  openStep('Review & start');
+  expect(
+    screen.getByRole('button', { name: 'Start militia week' }),
+  ).toBeDisabled();
+  expect(
+    screen.getByText(
+      'Editing availability could not be checked. Reload to try again.',
+    ),
+  ).toBeVisible();
+  click('Start militia week');
+  expect(save).not.toHaveBeenCalled();
+});
 
 test('[setup.form] setup distinguishes missing and malformed numbers and accepts advisory deviations', async () => {
   const save = vi.fn().mockResolvedValue(undefined);

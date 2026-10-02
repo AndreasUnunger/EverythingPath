@@ -1,3 +1,4 @@
+import { migrationWriteMessages } from './migration-write-messages';
 import type { ConfirmationTransport } from './weekly-confirmation-contract';
 import { paginationResultValidator } from 'convex/server';
 import { v } from 'convex/values';
@@ -57,15 +58,22 @@ export type DraftTransport = Partial<ConfirmationTransport> & {
 };
 export class DraftTransportFailure extends Error {}
 export class DraftRejected extends Error {
-  static readonly maintenanceReason =
-    'Campaign editing is paused for maintenance. Please try again later.';
+  static readonly maintenanceReason = migrationWriteMessages.maintenance;
+  static readonly reloadReason = migrationWriteMessages.reload_required;
   readonly failureReason: string | null;
   constructor(
     message: string,
-    { maintenance = false }: { maintenance?: boolean } = {},
+    {
+      maintenance = false,
+      reloadRequired = false,
+    }: { maintenance?: boolean; reloadRequired?: boolean } = {},
   ) {
     super(message);
-    this.failureReason = maintenance ? DraftRejected.maintenanceReason : null;
+    this.failureReason = reloadRequired
+      ? DraftRejected.reloadReason
+      : maintenance
+        ? DraftRejected.maintenanceReason
+        : null;
   }
 }
 export type DraftTargetRevision = { target: string; revision: number };

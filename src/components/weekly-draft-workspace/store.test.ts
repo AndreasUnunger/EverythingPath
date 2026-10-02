@@ -777,7 +777,7 @@ test('safe maintenance failure remains readable and clears on the next accepted 
     expect(ready(workspace)).toMatchObject({
       feedback: 'failed',
       failureReason:
-        'Campaign editing is paused for maintenance. Please try again later.',
+        'Editing is paused for maintenance. Saved information remains available.',
       reviewRequired: true,
       editingDisabled: false,
     });

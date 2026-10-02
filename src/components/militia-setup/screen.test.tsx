@@ -44,6 +44,13 @@ vi.mock('@convex/_generated/api', () => ({
     },
   },
 }));
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => ({
+    kind: 'ready',
+    readOnly: false,
+    message: '',
+  }),
+}));
 vi.mock('convex/react', () => ({
   useMutation: (ref: string) =>
     ref === 'initialize'

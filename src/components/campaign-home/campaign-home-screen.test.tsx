@@ -9,6 +9,7 @@ import {
 import { ConvexError } from 'convex/values';
 import type { ComponentProps } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
+import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import type { Doc } from '@convex/_generated/dataModel';
 import type { CampaignWeek } from './use-campaign-week';
 import type { CampaignHomeContentState } from './use-campaign-home-content';
@@ -36,6 +37,14 @@ vi.mock('@convex/_generated/api', () => ({
       updateCampaignInGameDate: 'date',
     },
   },
+}));
+const maintenance = vi.fn<() => MigrationMaintenance>(() => ({
+  kind: 'ready',
+  readOnly: false,
+  message: '',
+}));
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => maintenance(),
 }));
 vi.mock('convex/react', () => ({
   useMutation: (name: string) => (args: Record<string, unknown>) =>
@@ -102,7 +111,8 @@ function show(campaignId?: string) {
   params.mockReturnValue(campaignId ? { campaignId } : {});
   return render(<CampaignHomeScreen />);
 }
-const rows = () => within(screen.getByRole('navigation', { name: 'Campaigns' }));
+const rows = () =>
+  within(screen.getByRole('navigation', { name: 'Campaigns' }));
 const selected = () =>
   rows()
     .getAllByRole('link')
@@ -244,7 +254,9 @@ test('an explicit unavailable id never falls back to another campaign', () => {
       name: "This campaign isn't available in Thursday table.",
     }),
   ).toBeVisible();
-  expect(screen.queryByRole('region', { name: 'Ironfang Invasion' })).toBeNull();
+  expect(
+    screen.queryByRole('region', { name: 'Ironfang Invasion' }),
+  ).toBeNull();
 });
 
 test('an empty organization offers the create form without a fake row', () => {
@@ -259,7 +271,9 @@ test('an empty organization offers the create form without a fake row', () => {
     target: { value: 'Draft' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.getByRole('textbox', { name: 'Campaign name' })).toHaveValue('');
+  expect(screen.getByRole('textbox', { name: 'Campaign name' })).toHaveValue(
+    '',
+  );
   expect(
     screen.getByRole('heading', { name: 'Create a campaign to get started.' }),
   ).toBeVisible();
@@ -289,7 +303,9 @@ test('create validates the name in the form, never with a browser popup', async 
   await submitCreate('A');
   expect(screen.getByText('Name must be at least 2 characters.')).toBeVisible();
   await submitCreate('x'.repeat(51));
-  expect(screen.getByText('Name must be 50 characters or fewer.')).toBeVisible();
+  expect(
+    screen.getByText('Name must be 50 characters or fewer.'),
+  ).toBeVisible();
   expect(calls.create).toBeUndefined();
   // Cancel returns to the previous selection.
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -309,7 +325,9 @@ test('create sends once, then opens the returned id even with a duplicate name',
   ]);
   expect(screen.getByRole('button', { name: 'Creating…' })).toBeDisabled();
   await act(async () => {
-    fireEvent.submit(screen.getByRole('button', { name: 'Creating…' }).closest('form')!);
+    fireEvent.submit(
+      screen.getByRole('button', { name: 'Creating…' }).closest('form')!,
+    );
   });
   expect(calls.create).toHaveLength(1);
 
@@ -340,12 +358,12 @@ test('a refused create keeps the entries; an unconfirmed one is not retried', as
   await act(async () =>
     calls.create![0]!.reject(
       new ConvexError(
-        'Campaign editing is paused for maintenance. Please try again later.',
+        'Editing is paused for maintenance. Saved information remains available.',
       ),
     ),
   );
   expect(screen.getByRole('alert')).toHaveTextContent(
-    "The campaign wasn't created: Campaign editing is paused for maintenance. Please try again later. Your entries are kept.",
+    "The campaign wasn't created: Editing is paused for maintenance. Saved information remains available. Your entries are kept.",
   );
   expect(screen.getByRole('textbox', { name: 'Campaign name' })).toHaveValue(
     'Night Watch',
@@ -357,7 +375,9 @@ test('a refused create keeps the entries; an unconfirmed one is not retried', as
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
   });
   await act(async () =>
-    calls.create![1]!.reject(new Error('ConvexClient has already been closed.')),
+    calls.create![1]!.reject(
+      new Error('ConvexClient has already been closed.'),
+    ),
   );
   expect(screen.getByRole('alert')).toHaveTextContent(
     "We couldn't confirm whether the campaign was created.",
@@ -368,7 +388,9 @@ test('a refused create keeps the entries; an unconfirmed one is not retried', as
 
 test('editing saves only the changed field and reports a partial save truthfully', async () => {
   const view = show('ironfang');
-  fireEvent.click(screen.getByRole('button', { name: 'Edit campaign details' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Edit campaign details' }),
+  );
   const description = screen.getByRole('textbox', { name: 'Description' });
   expect(description).toHaveFocus();
   expect(description).toHaveValue(
@@ -378,9 +400,13 @@ test('editing saves only the changed field and reports a partial save truthfully
   fireEvent.change(description, { target: { value: 'Discarded' } });
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(calls.description).toBeUndefined();
-  expect(screen.getByRole('button', { name: 'Edit campaign details' })).toHaveFocus();
+  expect(
+    screen.getByRole('button', { name: 'Edit campaign details' }),
+  ).toHaveFocus();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Edit campaign details' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Edit campaign details' }),
+  );
   fireEvent.change(screen.getByRole('textbox', { name: 'Description' }), {
     target: { value: '' },
   });
@@ -395,7 +421,9 @@ test('editing saves only the changed field and reports a partial save truthfully
   expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
   await act(async () => {
     calls.description![0]!.resolve({ ...ironfang, description: '' });
-    calls.date![0]!.reject(new ConvexError('No campaign exists for this organization'));
+    calls.date![0]!.reject(
+      new ConvexError('No campaign exists for this organization'),
+    );
   });
   ready([{ ...ironfang, description: '' }, second, wardens]);
   view.rerender(<CampaignHomeScreen />);
@@ -440,4 +468,27 @@ test('changing organization drops every local form and name from the old scope',
   expect(screen.queryByDisplayValue('Half typed')).toBeNull();
   expect(screen.queryByText('Ironfang Invasion')).toBeNull();
   expect(selected()[0]).toHaveTextContent('Their campaign');
+});
+
+test('while editing is paused the header stays readable, Edit and Create are off and each says why', () => {
+  maintenance.mockReturnValue({
+    kind: 'maintenance',
+    readOnly: true,
+    message: 'Editing is paused for maintenance.',
+  });
+  const view = show('ironfang');
+  expect(
+    screen.getByRole('heading', { name: 'Ironfang Invasion' }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Edit campaign details' }),
+  ).toBeDisabled();
+  expect(screen.getByText('Editing is paused for maintenance.')).toBeVisible();
+  ready([]);
+  params.mockReturnValue({});
+  view.rerender(<CampaignHomeScreen />);
+  expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  expect(screen.getByRole('textbox', { name: 'Campaign name' })).toBeDisabled();
+  expect(screen.getByText('Editing is paused for maintenance.')).toBeVisible();
+  maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
 });

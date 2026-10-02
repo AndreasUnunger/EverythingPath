@@ -5,6 +5,7 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { campaignPath } from '~/lib/campaign-routes';
 import {
   useWeeklyDraftWorkspace,
@@ -178,6 +179,7 @@ export function WeeklyWorkspaceBoard({
   onPhaseChange?: (phase: Phase) => void;
 }) {
   const auth = useConvexAuth();
+  const maintenance = useInitialMigrationMaintenance();
   const workspace = useWeeklyDraftWorkspace();
   const controller = useWorkspaceController();
   useBeforeUnloadWarning(controller?.store);
@@ -218,12 +220,20 @@ export function WeeklyWorkspaceBoard({
     );
   const view = workspace.phaseView;
   // Every weekly write control is disabled while this device's Confirmation
-  // is in flight and while a closed week is retained read-only until its
-  // successor is usable (WEEK-10); the store rejects those writes as well.
-  const disabled = workspace.editingDisabled;
+  // is in flight, while a closed week is retained read-only until its
+  // successor is usable (WEEK-10), and while app-wide editing is off (the
+  // shell's banner says why); the store and the client reject those writes
+  // as well.
+  const disabled = workspace.editingDisabled || maintenance.readOnly;
   // One Confirmation control, shown in the review block and pinned in the
   // frame's footer and phone strip on Review & confirm.
-  const confirmation = readConfirmControl(workspace);
+  const confirmation = maintenance.readOnly
+    ? {
+        ...readConfirmControl(workspace),
+        disabled: true,
+        reason: maintenance.message,
+      }
+    : readConfirmControl(workspace);
   return (
     // A test/diagnostic hook, not UI: `display: contents` leaves the frame's
     // flex layout untouched while the save state stays readable.

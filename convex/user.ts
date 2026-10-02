@@ -1,10 +1,6 @@
 import { ConvexError, v } from 'convex/values';
-import {
-  type MutationCtx,
-  type QueryCtx,
-  internalMutation,
-  query,
-} from './_generated/server';
+import { type MutationCtx, type QueryCtx, query } from './_generated/server';
+import { gatedWebhookMutation } from './lib/writeGate';
 import { roles } from './schema';
 
 async function getUserByTokenIdentifier(
@@ -13,7 +9,9 @@ async function getUserByTokenIdentifier(
 ) {
   return await ctx.db
     .query('user')
-    .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', tokenIdentifier))
+    .withIndex('by_tokenIdentifier', (q) =>
+      q.eq('tokenIdentifier', tokenIdentifier),
+    )
     .first();
 }
 
@@ -30,64 +28,101 @@ export async function getUser(
   return user;
 }
 
-export const createUser = internalMutation({
-  args: { tokenIdentifier: v.string(), name: v.string(), image: v.string() },
-  async handler(ctx, args) {
-    await ctx.db.insert('user', {
-      tokenIdentifier: args.tokenIdentifier,
-      orgIds: [],
-      name: args.name,
-      image: args.image,
-    });
+function isNewerWebhook(updatedAt?: number, storedUpdatedAt?: number) {
+  if (
+    updatedAt !== undefined &&
+    (!Number.isSafeInteger(updatedAt) || updatedAt < 0)
+  )
+    throw new ConvexError(
+      'Identity update timestamp must be a nonnegative integer.',
+    );
+  return (
+    storedUpdatedAt === undefined ||
+    (updatedAt !== undefined && updatedAt > storedUpdatedAt)
+  );
+}
+
+const profileArgs = {
+  tokenIdentifier: v.string(),
+  name: v.string(),
+  image: v.string(),
+  webhookUpdatedAt: v.optional(v.number()),
+};
+
+async function upsertProfile(
+  ctx: MutationCtx,
+  args: {
+    tokenIdentifier: string;
+    name: string;
+    image: string;
+    webhookUpdatedAt?: number;
   },
+) {
+  const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier);
+  if (!isNewerWebhook(args.webhookUpdatedAt, user?.webhookUpdatedAt))
+    return null;
+  if (user) await ctx.db.patch('user', user._id, args);
+  else await ctx.db.insert('user', { ...args, orgIds: [] });
+  return null;
+}
+
+export const createUser = gatedWebhookMutation({
+  args: profileArgs,
+  returns: v.null(),
+  handler: upsertProfile,
 });
 
-export const updateUser = internalMutation({
-  args: { tokenIdentifier: v.string(), name: v.string(), image: v.string() },
-  async handler(ctx, args) {
-    const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier);
-
-    if (!user) {
-      throw new ConvexError('no user with this token found');
-    }
-
-    await ctx.db.patch('user', user._id, {
-      name: args.name,
-      image: args.image,
-    });
-  },
+export const updateUser = gatedWebhookMutation({
+  args: profileArgs,
+  returns: v.null(),
+  handler: upsertProfile,
 });
 
-export const addOrgIdToUser = internalMutation({
-  args: { tokenIdentifier: v.string(), orgId: v.string(), role: roles },
-  async handler(ctx, args) {
-    const user = await getUser(ctx, args.tokenIdentifier);
+const membershipArgs = {
+  tokenIdentifier: v.string(),
+  orgId: v.string(),
+  role: roles,
+  webhookUpdatedAt: v.optional(v.number()),
+};
 
-    await ctx.db.patch('user', user._id, {
-      orgIds: [...user.orgIds, { orgId: args.orgId, role: args.role }],
-    });
+async function upsertMembership(
+  ctx: MutationCtx,
+  args: {
+    tokenIdentifier: string;
+    orgId: string;
+    role: 'admin' | 'member';
+    webhookUpdatedAt?: number;
   },
+) {
+  const user = await getUser(ctx, args.tokenIdentifier);
+  const existing = user.orgIds.find((org) => org.orgId === args.orgId);
+  if (!isNewerWebhook(args.webhookUpdatedAt, existing?.webhookUpdatedAt))
+    return null;
+  const membership = {
+    orgId: args.orgId,
+    role: args.role,
+    ...(args.webhookUpdatedAt === undefined
+      ? {}
+      : { webhookUpdatedAt: args.webhookUpdatedAt }),
+  };
+  await ctx.db.patch('user', user._id, {
+    orgIds: existing
+      ? user.orgIds.map((org) => (org.orgId === args.orgId ? membership : org))
+      : [...user.orgIds, membership],
+  });
+  return null;
+}
+
+export const addOrgIdToUser = gatedWebhookMutation({
+  args: membershipArgs,
+  returns: v.null(),
+  handler: upsertMembership,
 });
 
-export const updateRoleInOrgForUser = internalMutation({
-  args: { tokenIdentifier: v.string(), orgId: v.string(), role: roles },
-  async handler(ctx, args) {
-    const user = await getUser(ctx, args.tokenIdentifier);
-
-    const org = user.orgIds.find((org) => org.orgId === args.orgId);
-
-    if (!org) {
-      throw new ConvexError(
-        'expected an org on the user but was not found when updating',
-      );
-    }
-
-    org.role = args.role;
-
-    await ctx.db.patch('user', user._id, {
-      orgIds: user.orgIds,
-    });
-  },
+export const updateRoleInOrgForUser = gatedWebhookMutation({
+  args: membershipArgs,
+  returns: v.null(),
+  handler: upsertMembership,
 });
 
 export const getUserProfile = query({

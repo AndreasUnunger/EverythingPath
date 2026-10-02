@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Children, isValidElement, type ReactNode } from 'react';
+import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { CampaignShell } from './campaign-shell';
 import { PhoneStatusStrip } from './shell-slots';
 import { useCampaign } from './campaign-context';
@@ -19,7 +20,7 @@ import {
 const auth = vi.fn();
 const organization = vi.fn();
 const convexAuth = vi.fn();
-const cutover = vi.fn();
+const maintenance = vi.fn<() => MigrationMaintenance>();
 const campaigns = vi.fn();
 const pathname = vi.fn();
 const push = vi.fn();
@@ -78,8 +79,8 @@ vi.mock('convex/react', () => ({
   AuthLoading: ({ children }: { children: ReactNode }) =>
     convexAuth().isLoading ? children : null,
 }));
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: cutover() }),
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => maintenance(),
 }));
 vi.mock('~/components/weekly-draft-workspace/gateway', () => ({
   createConvexWorkspaceGateway: (...args: unknown[]) => gateway(...args),
@@ -166,7 +167,7 @@ function member() {
     organization: { id: 'org', name: 'Thursday table' },
   });
   convexAuth.mockReturnValue({ isLoading: false, isAuthenticated: true });
-  cutover.mockReturnValue('canonical');
+  maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
   campaigns.mockReturnValue({
     data: { state: 'ready', campaigns: [alpha, beta] },
     refetch: vi.fn(),
@@ -362,15 +363,58 @@ test('a session that could not start shows one failure with a page reload as its
   expect(reload).toHaveBeenCalledTimes(1);
 });
 
-test('maintenance shows a non-blocking banner while the page stays readable', () => {
-  cutover.mockReturnValue('paused');
+test('maintenance shows the notice once while the page and its navigation stay usable', () => {
+  maintenance.mockReturnValue({
+    kind: 'maintenance',
+    readOnly: true,
+    message: 'Editing is paused for maintenance.',
+  });
   render(shell('alpha'));
   expect(
+    screen.getAllByText('Editing is paused for maintenance.'),
+  ).toHaveLength(1);
+  expect(screen.getByText('Page for Alpha')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'Reload page' }),
+  ).not.toBeInTheDocument();
+  for (const link of screen.getAllByRole('link', { name: 'Finished weeks' }))
+    expect(link).toHaveAttribute('href', '/campaigns/alpha/history');
+  expect(
+    screen.getByRole('combobox', { name: 'Active campaign' }),
+  ).toBeEnabled();
+});
+
+test('while editing availability is checked the page loads and navigation works; a reload notice offers Reload page', () => {
+  maintenance.mockReturnValue({
+    kind: 'loading',
+    readOnly: true,
+    message: 'Checking whether editing is available.',
+  });
+  const view = render(shell('alpha'));
+  expect(
+    screen.getByText('Checking whether editing is available.'),
+  ).toBeVisible();
+  expect(screen.getByText('Page for Alpha')).toBeVisible();
+  const switcher = screen.getByRole('combobox', { name: 'Active campaign' });
+  fireEvent.change(switcher, { target: { value: 'beta' } });
+  expect(push).toHaveBeenLastCalledWith('/campaigns/beta');
+  const reload = vi.fn();
+  vi.stubGlobal('location', { ...window.location, reload });
+  maintenance.mockReturnValue({
+    kind: 'reload_required',
+    readOnly: true,
+    message:
+      'Reload this page before saving. Unsaved changes will be discarded.',
+  });
+  view.rerender(shell('alpha'));
+  expect(
     screen.getByText(
-      'Campaign editing is paused for maintenance. Please try again shortly.',
+      'Reload this page before saving. Unsaved changes will be discarded.',
     ),
   ).toBeVisible();
   expect(screen.getByText('Page for Alpha')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
+  expect(reload).toHaveBeenCalledTimes(1);
 });
 
 test('switching organization drops the old campaign before the new list resolves', () => {

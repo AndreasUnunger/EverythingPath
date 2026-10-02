@@ -20,6 +20,7 @@ import type * as cutover from "../cutover.js";
 import type * as data_spells from "../data/spells.js";
 import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
+import type * as initialMigration from "../initialMigration.js";
 import type * as legacyRetirement from "../legacyRetirement.js";
 import type * as lib_acceptedCampaignFixture from "../lib/acceptedCampaignFixture.js";
 import type * as lib_campaignRuntime from "../lib/campaignRuntime.js";
@@ -32,6 +33,7 @@ import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageVal
 import type * as lib_characterAccess from "../lib/characterAccess.js";
 import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
 import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
+import type * as lib_writeGate from "../lib/writeGate.js";
 import type * as migrations from "../migrations.js";
 import type * as militia from "../militia.js";
 import type * as spell from "../spell.js";
@@ -58,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "data/spells": typeof data_spells;
   e2eFixtures: typeof e2eFixtures;
   http: typeof http;
+  initialMigration: typeof initialMigration;
   legacyRetirement: typeof legacyRetirement;
   "lib/acceptedCampaignFixture": typeof lib_acceptedCampaignFixture;
   "lib/campaignRuntime": typeof lib_campaignRuntime;
@@ -70,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "lib/characterAccess": typeof lib_characterAccess;
   "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
   "lib/retiredWorkflow": typeof lib_retiredWorkflow;
+  "lib/writeGate": typeof lib_writeGate;
   migrations: typeof migrations;
   militia: typeof militia;
   spell: typeof spell;

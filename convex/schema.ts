@@ -149,6 +149,28 @@ export const militiaValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  initialMigrationControl: defineTable({
+    key: v.literal('character-sheet'),
+    epoch: v.number(),
+    closed: v.boolean(),
+    authority: v.union(v.literal('legacy'), v.literal('sheet')),
+    runId: v.id('initialMigrationRun'),
+    acceptWebhooksAfter: v.optional(v.number()),
+  }).index('by_key', ['key']),
+  initialMigrationRun: defineTable({
+    operationId: v.string(),
+    epoch: v.number(),
+    state: v.union(
+      v.literal('maintenance'),
+      v.literal('aborted'),
+      v.literal('activated'),
+    ),
+    frontendBuild: v.string(),
+    catalogManifest: v.string(),
+    startedAt: v.number(),
+    deadline: v.number(),
+    abortedAt: v.optional(v.number()),
+  }).index('by_operationId', ['operationId']),
   canonicalSourceCorrection: defineTable({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),
@@ -249,10 +271,12 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
+    webhookUpdatedAt: v.optional(v.number()),
     orgIds: v.array(
       v.object({
         orgId: v.string(),
         role: roles,
+        webhookUpdatedAt: v.optional(v.number()),
       }),
     ),
   }).index('by_tokenIdentifier', ['tokenIdentifier']),

@@ -1,9 +1,9 @@
 import { query } from './_generated/server';
+import { type MutationCtx } from './_generated/server';
 import {
-  mutation,
-  type MutationCtx,
-  internalMutation,
-} from './_generated/server';
+  gatedMutation,
+  gatedInternalMutation,
+} from './lib/writeGate';
 import { spellValidator } from './schema';
 import { TableAggregate } from '@convex-dev/aggregate';
 import { components } from './_generated/api';
@@ -37,7 +37,7 @@ export const getCount = query({
   },
 });
 
-export const addSpellMutation = mutation({
+export const addSpellMutation = gatedMutation({
   args: spellValidator,
   handler: async (ctx, spell) => {
     await addSpellMutationFunction(ctx, spell);
@@ -53,7 +53,7 @@ export async function addSpellMutationFunction(
   await aggregate.insert(ctx, doc!);
 }
 
-export const addNextHundredSpells = internalMutation({
+export const addNextHundredSpells = gatedInternalMutation({
   args: {},
   handler: async (ctx) => {
     const currentSpellCount = await aggregate.count(ctx);
@@ -72,7 +72,7 @@ export const addNextHundredSpells = internalMutation({
   },
 });
 
-export const rebuildSpellAggregate = internalMutation({
+export const rebuildSpellAggregate = gatedInternalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, { cursor }) => {
     const paginationOptions = { numItems: 100, cursor: cursor ?? null };
@@ -91,6 +91,7 @@ export const rebuildSpellAggregate = internalMutation({
     if (continueCursor !== null) {
       await ctx.scheduler.runAfter(0, internal.spell.rebuildSpellAggregate, {
         cursor: continueCursor,
+        writeEpoch: ctx.writeEpoch,
       });
     }
   },

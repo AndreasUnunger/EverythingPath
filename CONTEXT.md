@@ -246,6 +246,22 @@ A Character's total actual Hit Dice, computed from its Class Levels, race and Co
 Hit Dice a Character has from its race, a number the race fixes and that never advances. Every core race has none. They count toward Hit Dice but never toward character level, and never earn a favored class bonus.
 _Avoid_: racial levels, monster levels
 
+**Write Gate**:
+The shared permission to change recorded campaign, Character and supporting data during the initial Character Sheet release; closing it preserves the inputs for migration while saved data remains readable.
+_Avoid_: cutover gate (the retired weekly-board migration has its own gate)
+
+**Maintenance Window**:
+The budgeted period in which the Write Gate is closed for an initial Character Sheet migration attempt, ending when editing explicitly reopens after an abort or post-activation verification.
+_Avoid_: outage (saved data remains readable)
+
+**Write Epoch**:
+The generation attached to a loaded page and its changes, separating changes prepared before a Maintenance Window from edits made after reopening.
+_Avoid_: revision (a Weekly Draft Revision describes draft contents)
+
+**Migration Run**:
+One recorded attempt to move existing Characters to Character Sheet authority, with its own identity, release evidence, maintenance budget and outcome.
+_Avoid_: batch (one Migration Run may require many batches)
+
 ## Related documents
 
 - [Legacy compatibility inventory](docs/legacy-compatibility-inventory.md): code kept only for data shapes older than the current writers produce, and when each path can be removed.

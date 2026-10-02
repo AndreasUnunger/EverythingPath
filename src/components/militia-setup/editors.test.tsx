@@ -15,6 +15,14 @@ import { GuidedMilitiaSetup } from './guided';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
 import { SetupMilitiaValues, SetupModeChoice } from './starting-point';
 
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => ({
+    kind: 'ready',
+    readOnly: false,
+    message: '',
+  }),
+}));
+
 const hero: SetupCharacter = {
   characterId: 'hero',
   name: 'Hero',

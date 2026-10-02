@@ -1,6 +1,7 @@
 'use client';
 import { Archive, ArchiveRestore, TriangleAlert } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
@@ -26,6 +27,7 @@ import {
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
 import { CHARACTER_KINDS, formatCharacterKind } from '~/lib/character-kind';
+import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import type { CharacterFormValues } from './types';
 import type { CharacterRecordForm } from './use-character-record';
 
@@ -88,14 +90,17 @@ export function CharacterRecordDialogView({
   onOpenChange,
   recordForm,
   archiveWarning,
+  maintenance,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recordForm: CharacterRecordForm;
   archiveWarning: string | null;
+  maintenance: MigrationMaintenance;
 }) {
   const { form, record, submitError, pending } = recordForm;
   const busy = pending !== null;
+  const locked = busy || maintenance.readOnly;
   const archived = record?.isActive === false;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -239,13 +244,14 @@ export function CharacterRecordDialogView({
               </p>
             )}
 
+            <MaintenanceReason notice={maintenance} />
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
               {record && (
                 <Button
                   type="button"
                   variant="outline"
                   className={action}
-                  disabled={busy}
+                  disabled={locked}
                   onClick={() => recordForm.toggleArchive()}
                 >
                   {archived ? <ArchiveRestore /> : <Archive />}
@@ -268,7 +274,7 @@ export function CharacterRecordDialogView({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className={action} disabled={busy}>
+                <Button type="submit" className={action} disabled={locked}>
                   {pending === 'save' ? 'Saving…' : 'Save'}
                 </Button>
               </div>

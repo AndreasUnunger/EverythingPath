@@ -1,9 +1,9 @@
+import { gatedInternalMutation } from './lib/writeGate';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 import { v } from 'convex/values';
 import {
-  internalMutation,
   internalQuery,
   type MutationCtx,
   type QueryCtx,
@@ -173,7 +173,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
   }
 }
 
-export const seedIdentityProjection = internalMutation({
+export const seedIdentityProjection = gatedInternalMutation({
   args: scopeArgs,
   returns: v.null(),
   handler: async (ctx, scope) => {
@@ -227,7 +227,7 @@ export const seedIdentityProjection = internalMutation({
   },
 });
 
-export const resetCase = internalMutation({
+export const resetCase = gatedInternalMutation({
   args: { ...scopeArgs, ...isolationArgs, now: v.number() },
   returns: v.object({ campaignId: v.id('campaign'), campaignKey: v.string() }),
   handler: async (ctx, args) => {
@@ -442,7 +442,7 @@ export const inspectCase = internalQuery({
   },
 });
 
-export const cleanupCase = internalMutation({
+export const cleanupCase = gatedInternalMutation({
   args: scopeArgs,
   returns: v.null(),
   handler: async (ctx, scope) => {

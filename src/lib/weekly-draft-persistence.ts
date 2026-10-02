@@ -25,8 +25,9 @@ import type { WeeklyDraft, WeeklyDraftEdit } from './weekly-draft-contract';
 
 function safeFailureReason(error: unknown): string | null {
   return error instanceof DraftRejected &&
-    error.failureReason === DraftRejected.maintenanceReason
-    ? DraftRejected.maintenanceReason
+    (error.failureReason === DraftRejected.maintenanceReason ||
+      error.failureReason === DraftRejected.reloadReason)
+    ? error.failureReason
     : null;
 }
 
