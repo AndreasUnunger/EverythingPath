@@ -3,10 +3,9 @@ import type { ComponentProps } from 'react';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { CharacterSheetPage } from './character-sheet-page';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import {
   buildSheet,
-  characterId,
   emptyOwnerCandidates,
   type AbilityChange,
   type Adjustment,
@@ -108,20 +107,15 @@ const strengthDamage: AbilityChange = {
   points: 3,
 };
 
-function renderSheet() {
+function renderSheet(
+  blocks: Parameters<typeof CharacterSheetBlocks>[0]['blocks'],
+) {
   snapshot = buildSheet({
     sheetEntries: [shield],
     adjustments: [bullStrength],
     abilityChanges: [strengthDamage],
   });
-  render(
-    <CharacterSheetPage
-      organizationId="org"
-      characterId={characterId}
-      back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-      campaignName="Ironfang"
-    />,
-  );
+  render(<CharacterSheetBlocks blocks={blocks} />);
 }
 const region = (name: string) => screen.getByRole('region', { name });
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
@@ -159,7 +153,7 @@ test.each(widths)(
   'every block keeps its row controls and Add action on the $label, and they work',
   ({ wide }) => {
     stubViewport(wide);
-    renderSheet();
+    renderSheet(['abilityChanges', 'adjustments', 'entries']);
     expectRowControls('Strength damage');
     expectRowControls('Bull strength');
     expectRowControls('Shield');
@@ -195,7 +189,7 @@ test.each(widths)(
   'the entry editor on the $label keeps its kind cards, labeled fields and touch-sized inputs; the phone-only Modifier captions never replace the field names',
   ({ wide }) => {
     stubViewport(wide);
-    renderSheet();
+    renderSheet(['entries']);
     fireEvent.click(button('Edit Shield'));
     const editor = screen.getByRole('form', { name: 'Edit entry' });
     const kinds = within(editor).getByRole('radiogroup', { name: 'Kind' });
@@ -250,7 +244,7 @@ test.each(widths)(
   'the damage and drain editor on the $label stacks its kind cards, wraps the ability cards and keeps Points touch-sized',
   ({ wide }) => {
     stubViewport(wide);
-    renderSheet();
+    renderSheet(['abilityChanges']);
     fireEvent.click(button('Add ability damage or drain'));
     const editor = screen.getByRole('form', {
       name: 'New ability damage or drain',

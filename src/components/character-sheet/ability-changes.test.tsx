@@ -12,10 +12,9 @@ import type * as NavigationGuard from '~/components/campaign-shell/navigation-gu
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { defaultAbilityScores } from '~/lib/character-sheet';
-import { CharacterSheetPage } from './character-sheet-page';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import {
   buildSheet,
-  characterId,
   emptyOwnerCandidates,
   type AbilityChange,
 } from './character-sheet-test-fixture';
@@ -84,12 +83,7 @@ vi.mock(
 );
 
 const page = () => (
-  <CharacterSheetPage
-    organizationId="org"
-    characterId={characterId}
-    back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-    campaignName="Ironfang"
-  />
+  <CharacterSheetBlocks blocks={['scores', 'abilityChanges']} />
 );
 function renderSheet(initial: CharacterSheetSnapshot) {
   snapshot = initial;
@@ -105,9 +99,10 @@ const region = () =>
   screen.getByRole('region', { name: 'Ability damage and drain' });
 const scores = () => screen.getByRole('region', { name: 'Ability scores' });
 const row = (name: string) => within(region()).getByRole('listitem', { name });
-const button = (name: string | RegExp) => screen.getByRole('button', { name });
-const radio = (name: string) => screen.getByRole('radio', { name });
-const points = () => screen.getByRole('textbox', { name: 'Points' });
+const button = (name: string | RegExp) =>
+  within(region()).getByRole('button', { name });
+const radio = (name: string) => within(region()).getByRole('radio', { name });
+const points = () => within(region()).getByRole('textbox', { name: 'Points' });
 const statistic = (name: string) =>
   within(scores()).getByRole('button', { name: `${name}, breakdown` });
 // The permanent line under a differing row reads "<ability> Permanent 14 +2".

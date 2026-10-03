@@ -104,20 +104,21 @@ export const importedDetailSchema = z.discriminatedUnion('kind', [
         category: z.string(),
         bonus: z.number(),
         maxDex: z.number().nullable(),
-        acp: z.number(),
+        armorCheckPenalty: z.number().nonnegative(),
         asf: z.number(),
       })
       .optional(),
     magic: z
-      .object({ enhancement: z.number(), masterwork: z.boolean() })
+      .object({
+        enhancement: z.number().int().nonnegative(),
+        masterwork: z.boolean(),
+      })
       .optional(),
   }),
-  abilitySchema
-    .omit({ sourceKey: true })
-    .extend({
-      kind: z.literal('itemAbility'),
-      appliesTo: z.string().nullable(),
-    }),
+  abilitySchema.omit({ sourceKey: true }).extend({
+    kind: z.literal('itemAbility'),
+    appliesTo: z.string().nullable(),
+  }),
   z.object({ kind: z.literal('companionFeature'), ...companionFeature }),
   z.object({ kind: z.literal('companion'), ...companion }),
   z.object({ kind: z.literal('familiar'), ...companion }),

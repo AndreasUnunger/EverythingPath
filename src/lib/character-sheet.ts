@@ -2,6 +2,7 @@ import type { Infer, GenericId } from 'convex/values';
 import type { characterSheetEntryValidator } from '../../convex/schema';
 import { z } from 'zod';
 import { resolveCharacterSheetGrants } from './character-sheet-grants';
+import { resolveSkills } from './character-sheet-skills';
 import {
   advancementBudgets,
   advancementWarnings,
@@ -82,6 +83,10 @@ export const warningChecks = [
   'favoredClassCount',
   'favoredClassPrestige',
   'skillRankCap',
+  'skillRankBudget',
+  'skillRanksUnspent',
+  'skillRankBudgetUnresolved',
+  'armorCheckPenaltyUnresolved',
   'classVersions',
   'keptDormant',
 ] as const;
@@ -242,7 +247,11 @@ export type SheetCatalogEntryDetail =
       lastsOverOneDay?: boolean;
       defaultCasterLevel?: number;
     }
-  | { kind: 'item'; consumable?: boolean }
+  | {
+      kind: 'item';
+      consumable?: boolean;
+      armor?: { slot: 'armor' | 'shield'; armorCheckPenalty: number };
+    }
   | CharacterSheetClassDetail
   | { kind: 'class' }
   | { kind: 'base' | 'manual' | 'condition' | 'spell' };
@@ -656,6 +665,13 @@ function calculateSheetProjection(
     levels,
   );
   const abilities = calculateAbilities(breakdowns, abilityDamage);
+  const skillProjection = resolveSkills({
+    input,
+    advancement,
+    abilities,
+    breakdowns,
+    permanentOnly: options.permanentOnly,
+  });
   const hp =
     advancement.missingRacialHp ||
     levels.some((entry) => entry.state.hpGained === null)
@@ -698,6 +714,7 @@ function calculateSheetProjection(
       catalogEntries: input.catalogEntries,
     }),
     ...formulaWarnings,
+    ...skillProjection.warnings,
     ...grants.warnings,
   ].filter(
     (warning) =>
@@ -730,6 +747,7 @@ function calculateSheetProjection(
         entry.kind !== 'abilityDamage' &&
         entry.kind !== 'abilityDrain',
     ),
+    skills: skillProjection.skills,
     abilityModifierBreakdowns: calculateAbilityModifierBreakdowns(
       abilities,
       abilityDamage,
@@ -742,7 +760,7 @@ function calculateSheetProjection(
     pointBuy,
     warnings,
     warningsForAcceptance: [...warnings, ...dormantWarnings],
-    breakdowns,
+    breakdowns: { ...breakdowns, ...skillProjection.breakdowns },
     derivedStatistics: calculateDerivedStatistics(
       breakdowns,
       abilities,
@@ -1583,29 +1601,33 @@ export function resolveSheet(
   return resolveCalculation(modifiers, options).breakdowns;
 }
 
-function builtIn({
+export function builtIn({
   target,
   id,
   name,
   value,
+  sheetEntryId = `builtin:${id}`,
+  isBase = false,
 }: {
   target: ModifierTarget;
   id: string;
   name: string;
   value: number;
+  sheetEntryId?: string;
+  isBase?: boolean;
 }): SourcedModifier {
   return {
     target,
     value,
-    bonusType: 'untyped',
-    sheetEntryId: `builtin:${id}`,
+    bonusType: isBase ? 'base' : 'untyped',
+    sheetEntryId,
     entryName: name,
-    source: `builtin:${id}`,
+    source: sheetEntryId,
     builtIn: true,
   };
 }
 
-function composeStatistics({
+export function composeStatistics({
   statistics,
   builtIns,
   includes,

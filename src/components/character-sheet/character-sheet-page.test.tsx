@@ -21,6 +21,7 @@ import {
   type AbilityScores,
 } from '~/lib/character-sheet';
 import { CharacterSheetPage } from './character-sheet-page';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // The living sheet (#256): one Character's summary, Class Levels and base
@@ -286,6 +287,21 @@ function renderSheet(initial: CharacterSheetSnapshot) {
     },
   };
 }
+function renderBlocks(initial: CharacterSheetSnapshot) {
+  snapshot = initial;
+  const blocks = () => (
+    <CharacterSheetBlocks blocks={['scores', 'levels', 'summary']} />
+  );
+  const view = render(blocks());
+  return {
+    ...view,
+    show(next: CharacterSheetSnapshot) {
+      snapshot = next;
+      view.rerender(blocks());
+    },
+  };
+}
+
 function row(name: string) {
   return screen.getByRole('listitem', { name });
 }
@@ -409,7 +425,9 @@ test('maintenance keeps the sheet readable and navigation available while disabl
   expect(hpInput('Level 2')).toHaveValue('5');
   const levelUp = screen.getByRole('button', { name: 'Level up' });
   expect(levelUp).toBeDisabled();
-  const archive = screen.getByRole('button', { name: 'Archive character' });
+  const archive = campaignRow().getByRole('button', {
+    name: 'Archive character',
+  });
   expect(archive).toBeDisabled();
   expect(campaignRow().getByText(message)).toBeVisible();
   const back = screen.getByRole('link', { name: 'Characters & officers' });
@@ -496,7 +514,7 @@ test('loading keeps the frame and a legacy character without a sheet is not init
 });
 
 test('score fields tell an empty value from a malformed one, and unusual scores still save', async () => {
-  renderSheet(sheet());
+  renderBlocks(sheet());
   fireEvent.change(score('Strength'), { target: { value: '' } });
   fireEvent.change(score('Dexterity'), { target: { value: 'twelve' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save scores' }));
@@ -533,7 +551,7 @@ test('score fields tell an empty value from a malformed one, and unusual scores 
 });
 
 test('hit points accept blank, zero and fractions, and refuse text in place', async () => {
-  renderSheet(sheet({ levels: [{ id: 'a', hp: 8 }] }));
+  renderBlocks(sheet({ levels: [{ id: 'a', hp: 8 }] }));
   const input = hpInput('Level 1');
   expect(input).toHaveValue('8');
   fireEvent.change(input, { target: { value: 'oops' } });
@@ -556,16 +574,16 @@ test('hit points accept blank, zero and fractions, and refuse text in place', as
     await act(async () => {
       lastCall().resolve(null);
     });
-    expect(await within(row('Level 1')).findByRole('status')).toHaveTextContent(
-      'Hit points saved.',
-    );
+    expect(
+      await within(row('Level 1')).findByText('Hit points saved.'),
+    ).toHaveAttribute('role', 'status');
   }
   expect(calls).toHaveLength(3);
   expect(within(row('Level 1')).queryByRole('alert')).not.toBeInTheDocument();
 });
 
 test('a refused score save is reported beside the scores while a hit points save still completes, and the refused edit stays editable', async () => {
-  renderSheet(sheet({ levels: [{ id: 'a', hp: null }] }));
+  renderBlocks(sheet({ levels: [{ id: 'a', hp: null }] }));
   fireEvent.change(score('Strength'), { target: { value: '14' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save scores' }));
   await waitFor(() => expect(calls).toHaveLength(1));
@@ -585,9 +603,9 @@ test('a refused score save is reported beside the scores while a hit points save
   await act(async () => {
     calls[1]!.resolve(null);
   });
-  expect(await within(row('Level 1')).findByRole('status')).toHaveTextContent(
-    'Hit points saved.',
-  );
+  expect(
+    await within(row('Level 1')).findByText('Hit points saved.'),
+  ).toHaveAttribute('role', 'status');
   expect(within(scoresRegion()).getByRole('alert')).toBeVisible();
   expect(hpInput('Level 1')).toBeEnabled();
   // The scores can be corrected and saved again.
@@ -598,7 +616,7 @@ test('a refused score save is reported beside the scores while a hit points save
 });
 
 test("another player's scores update untouched fields and keep a dirty field with its error; an own echo is not another player", async () => {
-  const view = renderSheet(sheet());
+  const view = renderBlocks(sheet());
   fireEvent.change(score('Strength'), { target: { value: 'bad' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save scores' }));
   await within(scoresRegion()).findByText('Strength must be a number');
@@ -658,7 +676,7 @@ test("another player's scores update untouched fields and keep a dirty field wit
 });
 
 test('a draft, focus and error travel with their row through a reorder, and a save binds to the row, not its position', async () => {
-  const view = renderSheet(
+  const view = renderBlocks(
     sheet({
       levels: [
         { id: 'a', hp: 8 },
@@ -723,7 +741,7 @@ test('a draft, focus and error travel with their row through a reorder, and a sa
 });
 
 test('a deleted row takes its pending save with it, focus lands on its successor, and the last deletion leaves the advisory with Level up', async () => {
-  const view = renderSheet(
+  const view = renderBlocks(
     sheet({
       levels: [
         { id: 'a', hp: 8 },
@@ -815,7 +833,7 @@ test('a deleted row takes its pending save with it, focus lands on its successor
 });
 
 test('Level up appends a new row that only the appending device focuses; a remote append is announced and dismissable', async () => {
-  const view = renderSheet(sheet({ levels: [{ id: 'a', hp: 8 }] }));
+  const view = renderBlocks(sheet({ levels: [{ id: 'a', hp: 8 }] }));
   const levelUp = screen.getByRole('button', { name: 'Level up' });
   levelUp.focus();
   fireEvent.click(levelUp);
@@ -870,7 +888,7 @@ test('Level up appends a new row that only the appending device focuses; a remot
 });
 
 test('a refused structural change is reported beside the levels and the rows stay as they were', async () => {
-  renderSheet(
+  renderBlocks(
     sheet({
       levels: [
         { id: 'a', hp: 8 },
@@ -892,7 +910,7 @@ test('a refused structural change is reported beside the levels and the rows sta
 });
 
 test('Escape dismisses a level deletion and returns focus to its trash button without deleting', () => {
-  renderSheet(sheet());
+  renderBlocks(sheet());
   fireEvent.click(screen.getByRole('button', { name: 'Delete level 1' }));
   const keep = within(deleteQuestion(1)).getByRole('button', {
     name: 'Keep level 1',
@@ -913,7 +931,7 @@ test.each([
   '$dismiss during $state dismisses confirmation and focuses the row heading when trash is disabled',
   async ({ state, dismiss }) => {
     const initial = sheet();
-    const view = renderSheet(initial);
+    const view = renderBlocks(initial);
     fireEvent.click(screen.getByRole('button', { name: 'Delete level 1' }));
     if (state === 'maintenance') {
       maintenance.mockReturnValue({
@@ -950,7 +968,7 @@ test.each([
 
 test('maintenance starting during a deletion confirmation disables Delete and retains unsaved drafts', async () => {
   const initial = sheet();
-  const view = renderSheet(initial);
+  const view = renderBlocks(initial);
   fireEvent.change(score('Strength'), { target: { value: '14' } });
   fireEvent.change(hpInput('Level 1'), { target: { value: '8' } });
   fireEvent.click(screen.getByRole('button', { name: 'Delete level 1' }));
@@ -991,7 +1009,7 @@ test('maintenance starting during a deletion confirmation disables Delete and re
 });
 
 test('a refused deletion keeps its confirmation open with focus on an enabled answer', async () => {
-  renderSheet(sheet());
+  renderBlocks(sheet());
   fireEvent.click(screen.getByRole('button', { name: 'Delete level 1' }));
   const confirm = within(deleteQuestion(1)).getByRole('button', {
     name: 'Delete level 1',
@@ -1021,7 +1039,7 @@ test('a refused deletion keeps its confirmation open with focus on an enabled an
 });
 
 test('Enter in one editor submits only that editor', async () => {
-  renderSheet(sheet({ levels: [{ id: 'a', hp: null }] }));
+  renderBlocks(sheet({ levels: [{ id: 'a', hp: null }] }));
   fireEvent.change(score('Charisma'), { target: { value: '12' } });
   fireEvent.change(hpInput('Level 1'), { target: { value: '6' } });
   fireEvent.submit(hpInput('Level 1').closest('form')!);
@@ -1163,7 +1181,9 @@ test('a campaign sheet archives and restores without a question and never offers
     screen.queryByText('Only you can see this character.'),
   ).not.toBeInTheDocument();
   expect(screen.queryByText('Archived')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Archive character' }));
+  fireEvent.click(
+    campaignRow().getByRole('button', { name: 'Archive character' }),
+  );
   await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().name).toBe('archive');
   expect(lastCall().args).toMatchObject({
@@ -1172,7 +1192,7 @@ test('a campaign sheet archives and restores without a question and never offers
     organizationId: 'org',
   });
   expect(
-    screen.getByRole('button', { name: 'Archive character' }),
+    campaignRow().getByRole('button', { name: 'Archive character' }),
   ).toBeDisabled();
   expect(screen.queryByRole('group')).not.toBeInTheDocument();
   view.show(
@@ -1182,7 +1202,9 @@ test('a campaign sheet archives and restores without a question and never offers
   expect(campaignRow().getByText('Archived')).toBeVisible();
   expect(campaignRow().getByText('Character archived.')).toBeVisible();
   expect(score('Strength')).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Restore character' }));
+  fireEvent.click(
+    campaignRow().getByRole('button', { name: 'Restore character' }),
+  );
   await waitFor(() => expect(calls).toHaveLength(2));
   expect(lastCall().args).toMatchObject({ characterId, isActive: true });
   view.show(sheet({ lastOperationId: operationOf(lastCall()) }));
@@ -1190,7 +1212,7 @@ test('a campaign sheet archives and restores without a question and never offers
   expect(screen.queryByText('Archived')).not.toBeInTheDocument();
   expect(campaignRow().getByText('Character restored.')).toBeVisible();
   expect(
-    screen.getByRole('button', { name: 'Archive character' }),
+    campaignRow().getByRole('button', { name: 'Archive character' }),
   ).toBeEnabled();
   expect(navigate).not.toHaveBeenCalled();
 });
@@ -1202,7 +1224,9 @@ test.each([
   'a refused archive is reported beside its control and can be tried again: %s',
   async (reason) => {
     renderSheet(sheet());
-    fireEvent.click(screen.getByRole('button', { name: 'Archive character' }));
+    fireEvent.click(
+      campaignRow().getByRole('button', { name: 'Archive character' }),
+    );
     await waitFor(() => expect(calls).toHaveLength(1));
     await act(async () => lastCall().reject(new ConvexError(reason)));
     const refusal = await campaignRow().findByRole('alert');
@@ -1211,7 +1235,7 @@ test.each([
     expect(refusal).toHaveTextContent('Try again.');
     expect(refusal).not.toHaveTextContent(/demo|fixture/i);
     expect(
-      screen.getByRole('button', { name: 'Archive character' }),
+      campaignRow().getByRole('button', { name: 'Archive character' }),
     ).toBeEnabled();
     expect(within(levelsRegion()).queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('Archived')).not.toBeInTheDocument();
@@ -1234,7 +1258,7 @@ test('a campaign sheet opened without its campaign name states the membership in
     campaignRow().queryByText('Only you can see this character.'),
   ).not.toBeInTheDocument();
   expect(
-    screen.getByRole('button', { name: 'Archive character' }),
+    campaignRow().getByRole('button', { name: 'Archive character' }),
   ).toBeEnabled();
 });
 
@@ -1310,7 +1334,7 @@ test('a campaign sheet names its owner beside its archive state and assigns anot
   expect(campaignRow().getByText('Owner assigned.')).toBeVisible();
   expect(campaignRow().queryByRole('status', { name: /changed/ })).toBeNull();
   expect(
-    screen.getByRole('button', { name: 'Restore character' }),
+    campaignRow().getByRole('button', { name: 'Restore character' }),
   ).toBeEnabled();
 });
 
@@ -1476,7 +1500,7 @@ test('a refused Build out stays beside the action, and maintenance disables it w
 });
 
 test('a named class shows in its row and in its delete question', () => {
-  renderSheet(
+  renderBlocks(
     sheet({
       levels: [
         { id: 'a', hp: 10, className: 'Fighter' },

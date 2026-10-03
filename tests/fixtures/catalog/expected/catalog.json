@@ -251,7 +251,7 @@
           "category": "mediumArmor",
           "bonus": 3,
           "maxDex": 5,
-          "acp": 1,
+          "armorCheckPenalty": 1,
           "asf": 15
         },
         "magic": {
@@ -2264,7 +2264,7 @@
           "category": "mediumArmor",
           "bonus": 6,
           "maxDex": 3,
-          "acp": 4,
+          "armorCheckPenalty": 4,
           "asf": 25
         }
       },

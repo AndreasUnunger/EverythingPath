@@ -24,6 +24,11 @@ import {
   type Infer,
   type Validator,
 } from 'convex/values';
+import {
+  canonicalSkillKey,
+  sumRanksBySkill,
+  skillDefinitions,
+} from '../src/lib/character-sheet-skills';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { WithoutSystemFields } from 'convex/server';
@@ -155,6 +160,8 @@ const calculatedValidator = v.object({
       hitDice: v.number(),
       abilityIncreaseDue: v.boolean(),
       skillRankBudget: v.union(v.number(), v.null()),
+      skillRanksSpent: v.number(),
+      skillRanksRemaining: v.union(v.number(), v.null()),
       skillRankCap: v.number(),
       cumulativeSkillRanks: v.array(
         v.object({ skill: v.string(), ranks: v.number() }),
@@ -165,11 +172,23 @@ const calculatedValidator = v.object({
     }),
   ),
   budgets: v.object({
+    kind: v.literal('ordinary'),
+    intelligenceModifier: v.number(),
     generalFeats: v.number(),
     racialSkillRanks: v.union(v.number(), v.null()),
     skillRanks: v.union(v.number(), v.null()),
     skillRankCap: v.number(),
   }),
+  skills: v.array(
+    v.object({
+      key: v.union(...skillDefinitions.map(({ key }) => v.literal(key))),
+      name: v.string(),
+      ability: abilityValidator,
+      ranks: v.number(),
+      classSkill: v.boolean(),
+      armorCheckPenalty: v.number(),
+    }),
+  ),
   hp: v.union(v.number(), v.null()),
   creationSettings: creationSettingsValidator,
   pointBuy: v.union(
@@ -702,6 +721,8 @@ export const editClassLevel = campaignMutation({
       v.union(v.null(), ...abilityKeys.map((ability) => v.literal(ability))),
     ),
     skillRanks: v.optional(v.record(v.string(), v.number())),
+    skillRank: v.optional(v.object({ skill: v.string(), ranks: v.number() })),
+    proficiencyChoice: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   async handler(ctx, args) {
@@ -714,11 +735,32 @@ export const editClassLevel = campaignMutation({
       !args.favoredClassBonus.note.trim()
     )
       throw new ConvexError('Describe the other favored-class bonus');
-    for (const ranks of Object.values(args.skillRanks ?? {}))
+    if (args.skillRanks !== undefined && args.skillRank !== undefined)
+      throw new ConvexError('Save one skill or the full allocation, not both');
+    const allocation = args.skillRank
+      ? { [args.skillRank.skill]: args.skillRank.ranks }
+      : args.skillRanks;
+    const normalizedAllocation = allocation && sumRanksBySkill(allocation);
+    for (const [skill, ranks] of Object.entries(allocation ?? {})) {
+      if (!canonicalSkillKey(skill))
+        throw new ConvexError('Choose an available skill');
       requireNonnegativeInteger(ranks, 'Skill ranks');
+      if (!Number.isSafeInteger(ranks))
+        throw new ConvexError('Skill ranks must be a safe whole number');
+    }
+    const skillRanks = args.skillRank
+      ? {
+          ...sumRanksBySkill(entry.state.skillRanks ?? {}),
+          ...normalizedAllocation,
+        }
+      : normalizedAllocation;
+    for (const ranks of Object.values(skillRanks ?? {}))
+      if (!Number.isSafeInteger(ranks))
+        throw new ConvexError('Skill ranks must be a safe whole number');
     const selected = args.classEntryId
       ? requireClassDefinition(sheet, args.classEntryId)
       : null;
+    const proficiencyChoice = args.proficiencyChoice?.trim() ?? '';
     const changes = {
       ...(args.hpGained !== undefined ? { hpGained: args.hpGained } : {}),
       ...(args.classEntryId !== undefined
@@ -730,7 +772,13 @@ export const editClassLevel = campaignMutation({
       ...(args.abilityIncrease !== undefined
         ? { abilityIncrease: args.abilityIncrease }
         : {}),
-      ...(args.skillRanks !== undefined ? { skillRanks: args.skillRanks } : {}),
+      ...(skillRanks !== undefined ? { skillRanks } : {}),
+      ...(args.proficiencyChoice !== undefined
+        ? {
+            proficiencyChoice:
+              proficiencyChoice === '' ? null : proficiencyChoice,
+          }
+        : {}),
     };
     let changed = false;
     for (const row of sheet.entries) {
@@ -825,14 +873,16 @@ export const editCreationSettings = campaignMutation({
         'Point-buy budget',
       );
     requireNonnegativeInteger(settings.traitCount, 'Trait count');
-    for (const classId of args.favoredClassIds ?? [])
+    const favoredClassIds: Id<'catalogEntry'>[] = [];
+    for (const classId of args.favoredClassIds ?? []) {
+      if (!(await ctx.db.get('catalogEntry', classId))) continue;
       requireClassDefinition(sheet, classId);
+      favoredClassIds.push(classId);
+    }
     const state = {
       ...base.state,
       ...settings,
-      ...(args.favoredClassIds !== undefined
-        ? { favoredClassIds: args.favoredClassIds }
-        : {}),
+      ...(args.favoredClassIds !== undefined ? { favoredClassIds } : {}),
     };
     if (compareValues(base.state, state) === 0) return null;
     await ctx.db.patch('characterSheetEntry', base._id, { state });
@@ -1064,6 +1114,11 @@ function validateSheetEntryDetail(
   detail: typeof sheetEntryDetailValidator.type,
   casterLevel?: number,
 ) {
+  if (detail.kind === 'item' && detail.armor) {
+    requireFiniteNumber(detail.armor.armorCheckPenalty);
+    if (detail.armor.armorCheckPenalty < 0)
+      throw new ConvexError('Armor check penalty must be nonnegative');
+  }
   if (detail.kind === 'spellEffect') {
     requireNonnegativeInteger(
       detail.defaultCasterLevel,

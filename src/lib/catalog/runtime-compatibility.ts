@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:025e5d1fc55b749d6bbc15533d1457e4513ad795394fe9f14f38d97dbaa1d21a',
+    'sha256:cc474fdaf2c6250def0c92d4b9d290b396434c49abedcdf84c70cf685cf99abf',
 } as const;
 
 export const catalogCalculationV1Files = [
@@ -15,4 +15,5 @@ export const catalogCalculationV1Files = [
   'convex/lib/militiaCharacterFacts.ts',
   'src/lib/character-sheet-grants.ts',
   'src/lib/character-sheet-entries.ts',
+  'src/lib/character-sheet-skills.ts',
 ] as const;

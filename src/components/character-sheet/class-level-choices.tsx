@@ -231,26 +231,23 @@ export function AbilityIncreaseCell({
 /**
  * What became of the row's choices: saving, saved or refused beside them,
  * a Save for anything still unsaved (a refused save, a note not yet left),
- * another player's edit, and the rank warnings that have no field yet.
+ * and another player's edit. The level's rank warnings sit by its
+ * allocation in the Skills block.
  */
 export function ChoicesFeedback({
   level,
   editor,
-  warnings,
-  warningController,
   className,
-}: CellProps) {
+}: Omit<CellProps, 'warnings' | 'warningController'>) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useMaintenanceReasonId(maintenance);
   const isSaving = editor.status.kind === 'saving';
   const isDirty = editor.form.formState.isDirty;
-  const rankWarnings = listFieldWarnings(warnings, 'skillRanks');
   if (
     !isDirty &&
     !isSaving &&
     editor.status.kind === 'idle' &&
-    !editor.hasRemoteChange &&
-    rankWarnings.length === 0
+    !editor.hasRemoteChange
   )
     return null;
   return (
@@ -286,11 +283,6 @@ export function ChoicesFeedback({
         }
         subject={`level ${level} choices`}
         onDismiss={editor.dismissRemoteChange}
-      />
-      <InlineWarnings
-        warnings={rankWarnings}
-        controller={warningController}
-        className="w-full"
       />
     </div>
   );

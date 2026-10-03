@@ -58,6 +58,7 @@ export function equalClassLevels(
       left.state.classEntryId === right.state.classEntryId &&
       left.state.hpGained === right.state.hpGained &&
       left.state.abilityIncrease === right.state.abilityIncrease &&
+      left.state.proficiencyChoice === right.state.proficiencyChoice &&
       equalFavoredBonus(
         left.state.favoredClassBonus,
         right.state.favoredClassBonus,

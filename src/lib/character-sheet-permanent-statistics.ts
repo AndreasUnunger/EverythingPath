@@ -4,26 +4,6 @@ import {
   type CharacterSheetProjections,
 } from './character-sheet';
 
-// CRB Skills: the current permanent Intelligence applies to every recorded class level.
-export function calculateOrdinarySkillBudget(
-  projections: CharacterSheetProjections,
-  levels: readonly {
-    baseRanks: number;
-    racialRanks?: number;
-    favoredClassRanks?: number;
-  }[],
-) {
-  const intelligence = projections.permanent.abilities.intelligence.modifier;
-  return levels.reduce(
-    (total, level) =>
-      total +
-      Math.max(1, level.baseRanks + intelligence) +
-      (level.racialRanks ?? 0) +
-      (level.favoredClassRanks ?? 0),
-    0,
-  );
-}
-
 // #238: replacement selection uses current modifiers, bonus spells use that ability's permanent score.
 export function calculateBonusSpells(
   projections: CharacterSheetProjections,

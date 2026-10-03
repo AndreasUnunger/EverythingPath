@@ -310,7 +310,7 @@ function mapArmor(system: Record<string, unknown>) {
       category: readText({ value: system.equipmentSubtype }),
       bonus: readNumber({ value: armor.value, fallback: 0 }),
       maxDex: armor.dex ?? null,
-      acp: readNumber({ value: armor.acp, fallback: 0 }),
+      armorCheckPenalty: readNumber({ value: armor.acp, fallback: 0 }),
       asf: readNumber({ value: system.spellFailure, fallback: 0 }),
     },
   };

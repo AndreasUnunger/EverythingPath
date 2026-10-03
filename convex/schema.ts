@@ -248,7 +248,16 @@ export const sheetEntryDetailValidator = v.union(
     defaultCasterLevel: v.number(),
   }),
   v.object({ kind: v.literal('condition') }),
-  v.object({ kind: v.literal('item'), consumable: v.boolean() }),
+  v.object({
+    kind: v.literal('item'),
+    consumable: v.boolean(),
+    armor: v.optional(
+      v.object({
+        slot: v.union(v.literal('armor'), v.literal('shield')),
+        armorCheckPenalty: v.number(),
+      }),
+    ),
+  }),
   v.object({ kind: v.literal('spell') }),
 );
 export const abilityValidator = v.union(
@@ -487,6 +496,7 @@ export const characterSheetEntryValidator = v.union(
     state: v.object({
       kind: v.literal('item'),
       masterwork: v.optional(v.boolean()),
+      enhancement: v.optional(v.number()),
     }),
   }),
   v.object({
@@ -528,6 +538,7 @@ export const characterSheetEntryValidator = v.union(
       classEntryId: v.union(v.id('catalogEntry'), v.null()),
       favoredClassBonus: v.optional(favoredClassBonusValidator),
       skillRanks: v.optional(v.record(v.string(), v.number())),
+      proficiencyChoice: v.optional(v.union(v.string(), v.null())),
       abilityIncrease: v.optional(
         v.union(v.null(), ...abilityKeys.map((ability) => v.literal(ability))),
       ),

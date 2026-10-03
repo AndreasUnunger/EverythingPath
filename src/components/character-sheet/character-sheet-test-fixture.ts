@@ -35,6 +35,8 @@ export type Level = {
   classId?: ClassKey | null;
   favoredClassBonus?: FavoredClassBonus | null;
   abilityIncrease?: Ability | null;
+  skillRanks?: Record<string, number>;
+  proficiencyChoice?: string | null;
 };
 export type Adjustment = {
   id: string;
@@ -198,6 +200,12 @@ export function buildSheet({
           state: {
             kind: 'classLevel',
             classEntryId: level.classId ?? null,
+            ...(level.skillRanks !== undefined
+              ? { skillRanks: level.skillRanks }
+              : {}),
+            ...(level.proficiencyChoice !== undefined
+              ? { proficiencyChoice: level.proficiencyChoice }
+              : {}),
             position: index + 1,
             hpGained: level.hp,
             ...(level.favoredClassBonus !== undefined

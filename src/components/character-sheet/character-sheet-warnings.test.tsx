@@ -21,7 +21,7 @@ import {
   type CreationSettings,
   type SheetWarning,
 } from '~/lib/character-sheet';
-import { CharacterSheetPage } from './character-sheet-page';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Creation settings and inline warnings (#262): how the Character was made,
@@ -135,7 +135,6 @@ function sheet({
     {
       _id: baseEntryId,
       _creationTime: 1,
-      characterId,
       kind: 'base',
       active: true,
       catalogEntryId: catalogEntry._id,
@@ -146,7 +145,6 @@ function sheet({
         ({
           _id: level.id as Id<'characterSheetEntry'>,
           _creationTime: 2 + index,
-          characterId,
           kind: 'classLevel',
           active: true,
           state: {
@@ -197,8 +195,8 @@ function sheet({
     ),
     acceptedWarnings: accepted.map((warning, index) => ({
       _id: `accepted-${index}` as Id<'acceptedWarning'>,
-      _creationTime: 10 + index,
       characterId,
+      _creationTime: 10 + index,
       acceptedBy: 'other-player',
       acceptedAt: 10 + index,
       ...warning,
@@ -219,12 +217,7 @@ function calculatedWarning(snapshot: CharacterSheetSnapshot, check: string) {
 }
 
 const page = () => (
-  <CharacterSheetPage
-    organizationId="org"
-    characterId={characterId}
-    back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-    campaignName="Ironfang"
-  />
+  <CharacterSheetBlocks blocks={['scores', 'levels', 'settings', 'summary']} />
 );
 function renderSheet(initial: CharacterSheetSnapshot) {
   snapshot = initial;

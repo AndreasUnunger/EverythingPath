@@ -9,6 +9,11 @@ import {
   type SourcedModifier,
   type InputSourcedModifier,
 } from './character-sheet';
+import {
+  sumRanksBySkill,
+  ordinarySkillRanksPerLevel,
+  type SkillRankBudget,
+} from './character-sheet-skills';
 
 type Progression = Pick<CharacterSheetClassDetail, 'bab' | 'saves'>;
 
@@ -274,43 +279,60 @@ export function advancementBudgets({
 }) {
   const cumulativeRanks = new Map<string, number>();
   function addRanks(ranks: Record<string, number>) {
-    for (const [skill, ranksGained] of Object.entries(ranks))
+    for (const [skill, ranksGained] of Object.entries(sumRanksBySkill(ranks)))
       cumulativeRanks.set(
         skill,
         (cumulativeRanks.get(skill) ?? 0) + ranksGained,
       );
   }
+
   const racialSkillRanks =
     advancement.racialHitDice *
-    Math.max(1, advancement.racialSkillRanksPerHitDie + intelligence);
-  const classLevels = advancement.rows.map(
-    ({ entry, detail, classLevel }, index) => {
-      addRanks(entry.state.skillRanks ?? {});
-      const hitDice = advancement.racialHitDice + index + 1;
-      const cumulativeSkillRanks = [...cumulativeRanks].map(
-        ([skill, ranks]) => ({ skill, ranks }),
-      );
-      return {
-        entryId: entry._id,
-        position: entry.state.position,
-        classEntryId: entry.state.classEntryId,
-        classLevel,
-        hitDice,
-        abilityIncreaseDue:
-          milestones.has(entry.state.position) || milestones.has(hitDice),
-        skillRankBudget: detail
-          ? Math.max(1, detail.skillRanksPerLevel + intelligence) +
-            (entry.state.favoredClassBonus?.choice === 'skill' ? 1 : 0)
-          : null,
-        skillRankCap: hitDice,
-        cumulativeSkillRanks,
-        exceededSkillRankCaps: cumulativeSkillRanks.filter(
-          ({ ranks }) => ranks > hitDice,
-        ),
-      };
-    },
-  );
+    ordinarySkillRanksPerLevel({
+      baseRanks: advancement.racialSkillRanksPerHitDie,
+      intelligence,
+    });
+  const classLevels = advancement.rows.map(({ entry, detail, classLevel }) => {
+    addRanks(entry.state.skillRanks ?? {});
+    const hitDice = advancement.racialHitDice + entry.state.position;
+    const skillRankCap = advancement.racialHitDice + entry.state.position;
+    const cumulativeSkillRanks = [...cumulativeRanks].map(([skill, ranks]) => ({
+      skill,
+      ranks,
+    }));
+    const skillRankBudget = detail
+      ? ordinarySkillRanksPerLevel({
+          baseRanks: detail.skillRanksPerLevel,
+          intelligence,
+          favoredClassRanks:
+            entry.state.favoredClassBonus?.choice === 'skill' ? 1 : 0,
+        })
+      : null;
+    const skillRanksSpent = Object.values(
+      sumRanksBySkill(entry.state.skillRanks ?? {}),
+    ).reduce((sum, ranks) => sum + ranks, 0);
+    return {
+      entryId: entry._id,
+      position: entry.state.position,
+      classEntryId: entry.state.classEntryId,
+      classLevel,
+      hitDice,
+      abilityIncreaseDue:
+        milestones.has(entry.state.position) || milestones.has(hitDice),
+      skillRankBudget,
+      skillRanksSpent,
+      skillRanksRemaining:
+        skillRankBudget === null ? null : skillRankBudget - skillRanksSpent,
+      skillRankCap,
+      cumulativeSkillRanks,
+      exceededSkillRankCaps: cumulativeSkillRanks.filter(
+        ({ ranks }) => ranks > skillRankCap,
+      ),
+    };
+  });
   const budgets = {
+    kind: 'ordinary' as const,
+    intelligenceModifier: intelligence,
     generalFeats: Math.ceil(advancement.hitDice / 2),
     racialSkillRanks,
     skillRanks: classLevels.reduce<number | null>(
@@ -322,7 +344,49 @@ export function advancementBudgets({
     ),
     skillRankCap: advancement.hitDice,
   };
-  return { classLevels, budgets };
+  return { classLevels, budgets: budgets satisfies SkillRankBudget };
+}
+
+function levelRankBudgetWarning(
+  level: ReturnType<typeof advancementBudgets>['classLevels'][number],
+): SheetWarning | undefined {
+  const target = {
+    kind: 'classLevel' as const,
+    entryId: level.entryId,
+    field: 'skillRanks' as const,
+  };
+  const subject = level.entryId;
+  if (level.skillRankBudget === null)
+    return {
+      kind: 'unresolved',
+      check: 'skillRankBudgetUnresolved',
+      target,
+      subject,
+      message: 'Choose a class to calculate this level’s skill rank budget.',
+      fingerprint: JSON.stringify([level.classEntryId, null]),
+    };
+  const fingerprint = JSON.stringify([
+    level.skillRankBudget,
+    level.skillRanksSpent,
+  ]);
+  if (level.skillRanksRemaining !== null && level.skillRanksRemaining < 0)
+    return {
+      kind: 'rules',
+      check: 'skillRankBudget',
+      target,
+      subject,
+      fingerprint,
+      message: `Recorded ranks exceed this level’s ${level.skillRankBudget}-rank budget.`,
+    };
+  if (level.skillRanksRemaining !== null && level.skillRanksRemaining > 0)
+    return {
+      kind: 'incomplete',
+      check: 'skillRanksUnspent',
+      target,
+      subject,
+      fingerprint,
+      message: `${level.skillRanksRemaining} skill ${level.skillRanksRemaining === 1 ? 'rank remains' : 'ranks remain'} to allocate.`,
+    };
 }
 
 export function advancementWarnings({
@@ -504,12 +568,14 @@ export function advancementWarnings({
         message: `Recorded ranks exceed the ${metadata.skillRankCap}-rank limit at this level.`,
         facts: [
           entry.state.position,
-          metadata.hitDice,
+          metadata.skillRankCap,
           [...metadata.exceededSkillRankCaps].sort((a, b) =>
             a.skill.localeCompare(b.skill),
           ),
         ],
       });
+    const budgetWarning = levelRankBudgetWarning(metadata);
+    if (budgetWarning) warnings.push(budgetWarning);
   }
   return warnings;
 }

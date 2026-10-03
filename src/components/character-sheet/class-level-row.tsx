@@ -11,6 +11,7 @@ import {
   FavoredClassBonusCell,
 } from './class-level-choices';
 import { ClassLevelHitPoints } from './class-level-hit-points';
+import { ProficiencyChoiceCell } from './class-level-proficiency';
 import type {
   SheetWarningView,
   useCharacterSheet,
@@ -52,7 +53,9 @@ function findClass(
  * so its drafts, focus and field errors travel with it. Its label is its
  * current position. The class, favored class bonus and ability increase are
  * chosen in place and saved as chosen; hit points are typed and saved with
- * their own button. Each warning sits by the field it is about.
+ * their own button; a proficiency choice is typed under them and saved when
+ * left. Each warning sits by the field it is about; the level's rank
+ * allocation is spent and warned about in the Skills block.
  */
 export function ClassLevelRow({
   row,
@@ -157,8 +160,20 @@ export function ClassLevelRow({
           onMove={(position) => void moveLevel(row._id, position)}
           onDelete={onDelete}
         />
-        <ChoicesFeedback {...cellProps} className="col-span-2 md:col-span-6" />
+        <ChoicesFeedback
+          level={level}
+          editor={choices}
+          className="col-span-2 md:col-span-6"
+        />
       </Form>
+      <ProficiencyChoiceCell
+        level={level}
+        choice={row.state.proficiencyChoice}
+        save={(choice) =>
+          saveClassLevel(row._id, { proficiencyChoice: choice })
+        }
+        className="col-span-2 md:col-span-6"
+      />
     </li>
   );
 }

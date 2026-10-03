@@ -11,12 +11,8 @@ import type { ComponentProps } from 'react';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { CharacterSheetPage } from './character-sheet-page';
-import {
-  buildSheet,
-  characterId,
-  type Adjustment,
-} from './character-sheet-test-fixture';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
+import { buildSheet, type Adjustment } from './character-sheet-test-fixture';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Personal adjustments (#263): added, edited, switched off and on and
@@ -90,14 +86,7 @@ vi.mock(
   () => import('../weekly-draft-workspace/native-select-test-double'),
 );
 
-const page = () => (
-  <CharacterSheetPage
-    organizationId="org"
-    characterId={characterId}
-    back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-    campaignName="Ironfang"
-  />
-);
+const page = () => <CharacterSheetBlocks blocks={['scores', 'adjustments']} />;
 function renderSheet(initial: CharacterSheetSnapshot) {
   snapshot = initial;
   const view = render(page());
@@ -112,11 +101,17 @@ const region = () =>
   screen.getByRole('region', { name: 'Personal adjustments' });
 const row = (name: string) => within(region()).getByRole('listitem', { name });
 const editor = (kind: 'New' | 'Edit') =>
-  screen.getByRole('form', { name: `${kind} personal adjustment` });
-const field = (name: string) => screen.getByRole('textbox', { name });
-const picker = (name: string) => screen.getByRole('combobox', { name });
-const button = (name: string | RegExp) => screen.getByRole('button', { name });
-const strengthTotal = () => button(/^Strength \d+, breakdown$/);
+  within(region()).getByRole('form', { name: `${kind} personal adjustment` });
+const field = (name: string) => within(region()).getByRole('textbox', { name });
+const picker = (name: string) =>
+  within(region()).getByRole('combobox', { name });
+const button = (name: string | RegExp) =>
+  within(region()).getByRole('button', { name });
+const strengthTotal = () =>
+  within(screen.getByRole('region', { name: 'Ability scores' })).getByRole(
+    'button',
+    { name: /^Strength \d+, breakdown$/ },
+  );
 const baseStrength = () =>
   within(screen.getByRole('region', { name: 'Ability scores' })).getByRole(
     'textbox',

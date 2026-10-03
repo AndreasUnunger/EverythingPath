@@ -11,10 +11,9 @@ import type { ComponentProps } from 'react';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { CharacterSheetPage } from './character-sheet-page';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import {
   buildSheet,
-  characterId,
   emptyOwnerCandidates,
   type CatalogSheetEntry,
 } from './character-sheet-test-fixture';
@@ -82,14 +81,7 @@ vi.mock(
   () => import('../weekly-draft-workspace/native-select-test-double'),
 );
 
-const page = () => (
-  <CharacterSheetPage
-    organizationId="org"
-    characterId={characterId}
-    back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-    campaignName="Ironfang"
-  />
-);
+const page = () => <CharacterSheetBlocks blocks={['scores', 'entries']} />;
 function renderSheet(initial: CharacterSheetSnapshot) {
   snapshot = initial;
   const view = render(page());
@@ -103,15 +95,21 @@ function renderSheet(initial: CharacterSheetSnapshot) {
 const region = () => screen.getByRole('region', { name: 'Sheet entries' });
 const row = (name: string) => within(region()).getByRole('listitem', { name });
 const editor = (kind: 'New' | 'Edit') =>
-  screen.getByRole('form', { name: `${kind} entry` });
-const button = (name: string | RegExp) => screen.getByRole('button', { name });
-const radio = (name: string) => screen.getByRole('radio', { name });
-const field = (name: string) => screen.getByRole('textbox', { name });
+  within(region()).getByRole('form', { name: `${kind} entry` });
+const button = (name: string | RegExp) =>
+  within(region()).getByRole('button', { name });
+const radio = (name: string) => within(region()).getByRole('radio', { name });
+const field = (name: string) => within(region()).getByRole('textbox', { name });
 const queryField = (name: string) => screen.queryByRole('textbox', { name });
-const check = (name: string) => screen.getByRole('checkbox', { name });
-const picker = (name: string) => screen.getByRole('combobox', { name });
+const check = (name: string) =>
+  within(region()).getByRole('checkbox', { name });
+const picker = (name: string) =>
+  within(region()).getByRole('combobox', { name });
 const strength = (total: number) =>
-  screen.getByRole('button', { name: `Strength ${total}, breakdown` });
+  within(screen.getByRole('region', { name: 'Ability scores' })).getByRole(
+    'button',
+    { name: `Strength ${total}, breakdown` },
+  );
 function lastCall() {
   const call = calls.at(-1);
   if (!call) throw new Error('Expected a write');

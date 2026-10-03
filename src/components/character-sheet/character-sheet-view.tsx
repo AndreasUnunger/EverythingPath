@@ -8,7 +8,7 @@ import { BuildOutControl } from './build-out-control';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
-import { ClassLevels, type UnplacedSelection } from './class-levels';
+import { ClassLevels } from './class-levels';
 import { DefensesBlock } from './defenses-block';
 import { FavoredClassesEditor } from './favored-classes-editor';
 import { OffenseBlock } from './offense-block';
@@ -16,31 +16,15 @@ import { PersonalAdjustments } from './personal-adjustments';
 import { CreationSettingsEditor } from './creation-settings-editor';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
+import { Skills } from './skills';
 import type { useCharacterSheet } from './use-character-sheet';
+import {
+  describeIncompleteHp,
+  listUnplacedSelections,
+} from './character-sheet-view-helpers';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type ReadySheet = NonNullable<Controller['sheet']>;
-
-/** Why HP cannot be stated: the Class Levels still without hit points. */
-function describeIncompleteHp(levels: ReadySheet['levels']) {
-  const positions = levels
-    .filter((level) => level.state.hpGained === null)
-    .map((level) => level.state.position);
-  if (positions.length === 0) return null;
-  const list = positions.join(', ');
-  return positions.length === 1
-    ? `Not complete: Class Level ${list} has no hit points yet.`
-    : `Not complete: Class Levels ${list} have no hit points yet.`;
-}
-
-// A selection whose Class Level was deleted keeps its name; it is shown by
-// the levels, not moved to a successor.
-function listUnplacedSelections(sheet: ReadySheet): UnplacedSelection[] {
-  return sheet.unplacedSelections.map((selection) => ({
-    entryId: selection._id,
-    name: selection.name,
-  }));
-}
 
 // Existing metadata, shown; this slice has no sheet-side identity editor.
 // The name is in the summary row, so it is not repeated here. A minimal
@@ -141,8 +125,8 @@ function CampaignRow({
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Class Levels,
  * and Ability scores with their damage and drain in the left five of the
- * sheet's twelve columns, with personal adjustments, sheet entries, granted
- * and dormant entries and the creation settings beside them. Each calculation warning sits by its
+ * sheet's twelve columns, with the skills, personal adjustments, sheet entries,
+ * granted and dormant entries and the creation settings beside them. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
  * formula under its Modifier); only another player's acceptances are
  * announced for the sheet.
@@ -236,6 +220,7 @@ export function CharacterSheetView({
             />
           </div>
           <div className="flex min-w-0 flex-col gap-3 lg:col-span-7">
+            <Skills controller={controller} />
             <PersonalAdjustments
               rows={sheet.adjustments}
               actions={controller.adjustments}

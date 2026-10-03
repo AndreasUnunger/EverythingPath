@@ -1,8 +1,6 @@
 import { expect, test } from 'vitest';
-import {
-  calculateBonusSpells,
-  calculateOrdinarySkillBudget,
-} from './character-sheet-permanent-statistics';
+import { calculateBonusSpells } from './character-sheet-permanent-statistics';
+import { representativeClassCatalog } from '../../tests/fixtures/catalog/representative-class-progressions';
 import {
   abilityKeys,
   abilityTargets,
@@ -307,57 +305,91 @@ test('the same expression uses its own stage and projection in damage and HP con
   }
 });
 
-test('ordinary skill budgets use permanent Intelligence retroactively and apply the one-rank floor before extra ranks', () => {
-  // CRB skills: ranks per class level + Int, minimum 1; racial and favored ranks added separately.
-  const input = sheet(
-    [
-      {
-        _id: 'condition',
-        kind: 'condition',
-        active: true,
-        catalogEntryId: 'condition',
-        state: { kind: 'condition' },
+test.each([
+  { intelligence: 15, levelBudgets: [4, 11], racialBudget: 3, total: 18 },
+  { intelligence: 5, levelBudgets: [1, 6], racialBudget: 1, total: 8 },
+])(
+  'ordinary skill budgets use permanent Intelligence $intelligence retroactively and floor before favored ranks',
+  ({ intelligence, levelBudgets, racialBudget, total }) => {
+    // CRB Skills: ranks per class level + Int, minimum 1, then favored ranks;
+    // racial Hit Dice contribute their own rank budget.
+    const input = sheet(
+      [
+        {
+          _id: 'rogue-level',
+          kind: 'classLevel',
+          active: true,
+          state: {
+            kind: 'classLevel',
+            classEntryId: 'rogue',
+            position: 2,
+            hpGained: 5,
+            favoredClassBonus: { choice: 'skill' },
+          },
+        },
+        {
+          _id: 'condition',
+          kind: 'condition',
+          active: true,
+          catalogEntryId: 'condition',
+          state: { kind: 'condition' },
+        },
+      ],
+      [
+        ...representativeClassCatalog,
+        {
+          _id: 'condition',
+          ruleIdentity: 'condition',
+          detail: { kind: 'condition' },
+          modifiers: [
+            { target: 'ability.int', bonusType: 'enhancement', value: 8 },
+          ],
+        },
+      ],
+    );
+    const { current, permanent } = calculateCharacterSheetProjections({
+      ...input,
+      entries: input.entries.map((entry) =>
+        entry._id === 'level-row' && entry.kind === 'classLevel'
+          ? { ...entry, state: { ...entry.state, classEntryId: 'fighter' } }
+          : entry,
+      ),
+      catalogEntries: input.catalogEntries.map((catalog) =>
+        catalog._id === 'base'
+          ? {
+              ...catalog,
+              modifiers: catalog.modifiers.map((modifier) =>
+                modifier.target === 'ability.int'
+                  ? { ...modifier, value: intelligence }
+                  : modifier,
+              ),
+            }
+          : catalog,
+      ),
+      racialHitDice: {
+        count: 1,
+        hpGained: 5,
+        progression: {
+          bab: 'half',
+          saves: { fort: 'poor', ref: 'poor', will: 'poor' },
+          skillRanksPerHitDie: 1,
+        },
       },
-    ],
-    [
-      {
-        _id: 'condition',
-        ruleIdentity: 'condition',
-        detail: { kind: 'condition' },
-        modifiers: [
-          { target: 'ability.int', bonusType: 'enhancement', value: 8 },
-        ],
-      },
-    ],
-  );
-  const projections = calculateCharacterSheetProjections(input);
-  expect(
-    calculateOrdinarySkillBudget(projections, [
-      { baseRanks: 2 },
-      { baseRanks: 6, racialRanks: 1, favoredClassRanks: 1 },
-    ]),
-  ).toBe(14);
-  const low = calculateCharacterSheetProjections({
-    ...input,
-    catalogEntries: input.catalogEntries.map((catalog) =>
-      catalog._id === 'base'
-        ? {
-            ...catalog,
-            modifiers: catalog.modifiers.map((modifier) =>
-              modifier.target === 'ability.int'
-                ? { ...modifier, value: 5 }
-                : modifier,
-            ),
-          }
-        : catalog,
-    ),
-  });
-  expect(
-    calculateOrdinarySkillBudget(low, [
-      { baseRanks: 2, racialRanks: 1, favoredClassRanks: 1 },
-    ]),
-  ).toBe(3);
-});
+    });
+    expect(current.abilities.intelligence.modifier).not.toBe(
+      permanent.abilities.intelligence.modifier,
+    );
+    expect(current.classLevels.map((level) => level.skillRankBudget)).toEqual(
+      levelBudgets,
+    );
+    expect(current.budgets).toMatchObject({
+      kind: 'ordinary',
+      racialSkillRanks: racialBudget,
+      skillRanks: total,
+    });
+    expect(current.budgets).toEqual(permanent.budgets);
+  },
+);
 
 test('bonus spells select current replacement modifiers, then use permanent scores and only castable positive-level entries', () => {
   // CRB Table 1–3 and #238: temporary winning ability changes do not turn into permanent bonus spells.

@@ -11,11 +11,10 @@ import type { ComponentProps } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
-import { CharacterSheetPage } from './character-sheet-page';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import { calculateCharacterSheetProjections } from '~/lib/character-sheet';
 import {
   buildSheet,
-  characterId,
   emptyOwnerCandidates,
   findCalculatedWarning,
   type Adjustment,
@@ -100,11 +99,15 @@ vi.mock(
 );
 
 const page = () => (
-  <CharacterSheetPage
-    organizationId="org"
-    characterId={characterId}
-    back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-    campaignName="Ironfang"
+  <CharacterSheetBlocks
+    blocks={[
+      'scores',
+      'levels',
+      'favoredClasses',
+      'summary',
+      'defenses',
+      'offense',
+    ]}
   />
 );
 function renderSheet(initial: CharacterSheetSnapshot) {

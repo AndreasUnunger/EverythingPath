@@ -3,12 +3,8 @@ import type { ComponentProps } from 'react';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { CharacterSheetPage } from './character-sheet-page';
-import {
-  buildSheet,
-  characterId,
-  type Adjustment,
-} from './character-sheet-test-fixture';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
+import { buildSheet, type Adjustment } from './character-sheet-test-fixture';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Number breakdowns (#263): every sheet number explains its applied,
@@ -59,14 +55,7 @@ vi.mock(
 
 function renderSheet(initial: CharacterSheetSnapshot) {
   snapshot = initial;
-  render(
-    <CharacterSheetPage
-      organizationId="org"
-      characterId={characterId}
-      back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
-      campaignName="Ironfang"
-    />,
-  );
+  render(<CharacterSheetBlocks blocks={['scores', 'summary']} />);
 }
 // The trigger's name is "<label> <visible number>, breakdown" (WCAG 2.5.3).
 const trigger = (label: string) =>
