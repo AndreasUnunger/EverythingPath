@@ -14,6 +14,7 @@ export default function IndependentCharacterSheetRoute() {
       <CharacterSheetPage
         characterId={characterId}
         back={navigation.back}
+        origin={navigation.origin}
         campaignName={navigation.campaign?.campaignName}
       />
     </>

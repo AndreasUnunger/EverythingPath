@@ -26,6 +26,7 @@ const gatedBuilders = new Set([
 const characterTables = new Set([
   'character',
   'characterSheetEntry',
+  'companionRelationship',
   'catalogEntry',
   'acceptedWarning',
   'characterSpell',

@@ -1,6 +1,10 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
-import type { FunctionReturnType } from 'convex/server';
+import {
+  makeFunctionReference,
+  type FunctionArgs,
+  type FunctionReturnType,
+} from 'convex/server';
 import { expect, test } from 'vitest';
 import { api, internal } from './_generated/api';
 import schema from './schema';
@@ -585,6 +589,7 @@ test('a Character outside a campaign cannot be transferred even by its owner', a
     await ctx.db.patch('user', users.owner, { characterSheetDemo: true });
     await ctx.db.patch('character', scope.characterId, {
       campaignId: undefined,
+      sheetDemo: true,
     });
     await initializeCharacterSheet(ctx, {
       characterId: scope.characterId,
@@ -600,6 +605,21 @@ test('a Character outside a campaign cannot be transferred even by its owner', a
         operationId: 'private',
       }),
     ).rejects.toThrow('Character not found');
+  const missingCampaignBoundary = makeFunctionReference<
+    'mutation',
+    Omit<
+      FunctionArgs<typeof api.character.reassignOwner>,
+      'campaignId' | 'organizationId'
+    >,
+    null
+  >('character:reassignOwner');
+  await expect(
+    owner.mutation(missingCampaignBoundary, {
+      characterId: scope.characterId,
+      ownerUserId: users.member,
+      operationId: 'private-without-campaign',
+    }),
+  ).rejects.toThrow();
   expect(
     await owner.query(api.characterSheet.read, {
       characterId: scope.characterId,

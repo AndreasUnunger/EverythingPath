@@ -5,6 +5,7 @@ import { AbilityChanges } from './ability-changes';
 import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { BuildOutControl } from './build-out-control';
+import { CharacterCompanions } from './character-companions';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
@@ -126,7 +127,8 @@ function CampaignRow({
  * campaign row that scrolls with the body, then Character, Class Levels,
  * and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns, with the skills, personal adjustments, sheet entries,
- * granted and dormant entries and the creation settings beside them. Each calculation warning sits by its
+ * granted and dormant entries, Companions and the creation settings beside them.
+ * Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
  * formula under its Modifier); only another player's acceptances are
  * announced for the sheet.
@@ -240,6 +242,7 @@ export function CharacterSheetView({
               warnings={sheet.warnings}
               warningController={controller.warnings}
             />
+            <CharacterCompanions controller={controller.companions} />
             <CreationSettingsEditor
               settings={sheet.calculated.creationSettings}
               save={controller.saveCreationSettings}

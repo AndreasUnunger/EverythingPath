@@ -23,7 +23,9 @@ import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
+import { useCharacterCompanions } from './use-character-companions';
 import type { SaveStatus } from './save-status';
+import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import { buildCharacterSheetView } from './character-sheet-view-model';
 import { useBuildOutCharacter } from './use-build-out-character';
 import { equalClassLevels, equalAdjustments } from './sheet-state-comparison';
@@ -48,11 +50,15 @@ function warningKey(warning: SheetWarning) {
   return JSON.stringify([warning.check, warning.subject, warning.fingerprint]);
 }
 
-export function useCharacterSheet(scope: CharacterScope) {
+export function useCharacterSheet(
+  scope: CharacterScope,
+  origin?: CharacterSheetOrigin,
+) {
   const buildOut = useBuildOutCharacter(scope);
   const snapshot = useQuery(api.characterSheet.read, scope);
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
   const grants = useCharacterSheetGrants(scope, snapshot);
+  const companions = useCharacterCompanions(scope, snapshot, origin);
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);
   const addClassLevel = useMutation(api.characterSheet.addClassLevel);
@@ -208,6 +214,7 @@ export function useCharacterSheet(scope: CharacterScope) {
   return {
     ...entryWrites,
     grants,
+    companions,
     sheet,
     buildOut: {
       ...buildOut,

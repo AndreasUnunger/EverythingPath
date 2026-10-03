@@ -15,6 +15,7 @@ import {
   campaignPath,
   characterCreatePath,
   characterSheetPath,
+  type CharacterSheetOrigin,
 } from '~/lib/campaign-routes';
 
 function buildCharacterListRow(
@@ -38,15 +39,17 @@ export function useOwnedCharacters() {
   );
   const { organization } = useOrganization();
   const memberships = useOrganizationMemberships();
+  const origin: CharacterSheetOrigin = {
+    href: '/characters',
+    organization: organization
+      ? { kind: 'organization', id: organization.id }
+      : { kind: 'personal' },
+  };
   const groups = data?.map((group) => {
     const characters = group.characters.map((character) => ({
       ...buildCharacterListRow(character),
-      href: characterSheetPath(character._id, {
-        href: '/characters',
-        organization: organization
-          ? { kind: 'organization', id: organization.id }
-          : { kind: 'personal' },
-      }),
+      href: characterSheetPath(character._id, origin),
+      companions: { characterId: character._id, origin },
     }));
     if (group.kind === 'noCampaign')
       return { key: 'noCampaign', title: 'No campaign', characters };
@@ -92,19 +95,23 @@ export function useCampaignCharacters({
     campaigns?.state === 'ready'
       ? campaigns.campaigns.find((item) => item._id === campaignId)
       : undefined;
+  const origin: CharacterSheetOrigin = {
+    href: campaignPath(campaignId, 'characters'),
+    organization: { kind: 'organization', id: organizationId },
+  };
   return {
     characters: data?.map(
       ({ character, ownerName, owner, isOnRoster }) =>
         ({
           ...buildCharacterListRow(character),
           href: character.sheetMode
-            ? characterSheetPath(character._id, {
-                href: campaignPath(campaignId, 'characters'),
-                organization: { kind: 'organization', id: organizationId },
-              })
+            ? characterSheetPath(character._id, origin)
             : hasMilitia
               ? campaignPath(campaignId, 'officers')
               : undefined,
+          companions: character.sheetMode
+            ? { characterId: character._id, origin }
+            : undefined,
           id: character._id,
           ownerName,
           owner,

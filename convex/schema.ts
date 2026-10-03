@@ -175,6 +175,25 @@ export const grantKeyValidator = v.object({
   classLevel: v.optional(v.number()),
   entry: v.string(),
 });
+export const companionKindValidator = v.union(
+  v.literal('animalCompanion'),
+  v.literal('familiar'),
+  v.literal('cohort'),
+  v.literal('eidolon'),
+  v.literal('unchainedEidolon'),
+);
+export const companionSourceValidator = v.object({
+  key: v.string(),
+  label: v.string(),
+  enabled: v.boolean(),
+  sheetEntryId: v.optional(v.id('characterSheetEntry')),
+  grantKey: v.optional(grantKeyValidator),
+});
+export const companionStatusValidator = v.union(
+  v.literal('active'),
+  v.literal('interrupted'),
+  v.literal('replaced'),
+);
 export const selectionReferenceValidator = v.union(
   v.object({ kind: v.literal('grant'), grantKey: grantKeyValidator }),
   v.object({ kind: v.literal('entry'), entryId: v.id('characterSheetEntry') }),
@@ -724,6 +743,18 @@ export default defineSchema({
   character: defineTable(characterValidator)
     .index('by_campaignId', ['campaignId'])
     .index('by_ownerId', ['ownerId']),
+  companionRelationship: defineTable({
+    associatedCharacterId: v.id('character'),
+    companionCharacterId: v.id('character'),
+    kind: companionKindValidator,
+    sources: v.array(companionSourceValidator),
+    status: companionStatusValidator,
+    manuallyInterrupted: v.boolean(),
+    activatedAt: v.number(),
+    lastOperationId: v.string(),
+  })
+    .index('by_associatedCharacterId', ['associatedCharacterId'])
+    .index('by_companionCharacterId', ['companionCharacterId']),
   campaign: defineTable(campaignValidator)
     .index('by_organization', ['organizationId'])
     .index('by_e2eFixture_namespace_and_workerKey_and_caseKey', [

@@ -28,45 +28,114 @@ export type SheetEntryEditInput = Pick<
   'name' | 'modifiers' | 'detail' | 'casterLevel' | 'active'
 >;
 
-export function useEntryWriteStatus({
-  signature,
+type WriteObservation<T> = {
+  key: string;
+  operationId: string | null | undefined;
+  value: T;
+};
+
+export function useEntryWriteStatus<T = never>({
+  signature = null,
   operationId,
   subject,
+  scopeKey: scope = '',
+  observations,
+  isEqual,
 }: {
-  signature: string | null;
-  operationId: string | null | undefined;
+  signature?: string | null;
+  operationId?: string | null;
   subject: string;
+  scopeKey?: string;
+  observations?: WriteObservation<T>[] | null;
+  isEqual?: (before: T, after: T) => boolean;
 }) {
-  const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
-  const [previous, setPrevious] = useState({ signature, operationId });
-  const [hasRemoteChange, setHasRemoteChange] = useState(false);
+  const current = useRef({ scope, generation: 0 });
+  if (current.current.scope !== scope)
+    current.current = { scope, generation: current.current.generation + 1 };
+  const scopeKey = `${scope}/${current.current.generation}`;
+  const isCurrent = () =>
+    `${current.current.scope}/${current.current.generation}` === scopeKey;
+  const [statuses, setStatuses] = useState<{
+    scopeKey: string;
+    values: Record<string, SaveStatus>;
+  }>({ scopeKey, values: {} });
+  const [previous, setPrevious] = useState({
+    scopeKey,
+    signature,
+    operationId,
+    observations,
+  });
+  const [remoteScopeKey, setRemoteScopeKey] = useState<string | null>(null);
   const pending = useRef(new Set<string>());
-  if (previous.signature !== signature) {
-    setPrevious({ signature, operationId });
-    if (
-      previous.signature !== null &&
-      signature !== null &&
-      (!isOwnCharacterSheetOperation(operationId) ||
-        previous.operationId === operationId)
-    )
-      setHasRemoteChange(true);
+  const hasObservationChange =
+    observations !== undefined &&
+    previous.observations !== observations &&
+    (!observations ||
+      observations.length !== previous.observations?.length ||
+      observations.some((row, index) => {
+        const old = previous.observations?.[index];
+        return (
+          old?.key !== row.key ||
+          old.operationId !== row.operationId ||
+          !(isEqual?.(old.value, row.value) ?? Object.is(old.value, row.value))
+        );
+      }));
+  if (
+    previous.scopeKey !== scopeKey ||
+    previous.signature !== signature ||
+    hasObservationChange
+  ) {
+    setPrevious({ scopeKey, signature, operationId, observations });
+    if (previous.scopeKey === scopeKey) {
+      if (previous.observations && observations && isEqual) {
+        const before = new Map(
+          previous.observations.map((row) => [row.key, row]),
+        );
+        const hasRemoteChange = observations.some((row) => {
+          const old = before.get(row.key);
+          before.delete(row.key);
+          return (
+            (!old || !isEqual(old.value, row.value)) &&
+            (!isOwnCharacterSheetOperation(row.operationId) ||
+              old?.operationId === row.operationId)
+          );
+        });
+        if (hasRemoteChange || before.size > 0) setRemoteScopeKey(scopeKey);
+      } else if (
+        previous.signature !== null &&
+        signature !== null &&
+        (!isOwnCharacterSheetOperation(operationId) ||
+          previous.operationId === operationId)
+      ) {
+        setRemoteScopeKey(scopeKey);
+      }
+    }
+  }
+  function update(key: string, status: SaveStatus) {
+    if (!isCurrent()) return;
+    setStatuses((previous) => ({
+      scopeKey,
+      values: {
+        ...(previous.scopeKey === scopeKey ? previous.values : {}),
+        [key]: status,
+      },
+    }));
   }
   async function write(
     action: () => Promise<unknown>,
     { key = '', subject: entrySubject = subject } = {},
   ) {
-    if (pending.current.has(key)) return false;
-    pending.current.add(key);
-    const update = (status: SaveStatus) =>
-      setStatuses((current) => ({ ...current, [key]: status }));
-    update({ kind: 'saving' });
+    const pendingKey = `${scopeKey}/${key}`;
+    if (!isCurrent() || pending.current.has(pendingKey)) return false;
+    pending.current.add(pendingKey);
+    update(key, { kind: 'saving' });
     try {
       await action();
-      update({ kind: 'saved' });
+      update(key, { kind: 'saved' });
       return true;
     } catch (error) {
       const failure = classifyWriteFailure(error);
-      update({
+      update(key, {
         kind: 'error',
         message:
           failure.kind === 'rejected'
@@ -75,14 +144,22 @@ export function useEntryWriteStatus({
       });
       return false;
     } finally {
-      pending.current.delete(key);
+      pending.current.delete(pendingKey);
     }
   }
+  function statusFor(key: string): SaveStatus {
+    return statuses.scopeKey === scopeKey
+      ? (statuses.values[key] ?? { kind: 'idle' })
+      : { kind: 'idle' };
+  }
   return {
-    status: statuses[''] ?? { kind: 'idle' as const },
-    statusFor: (key: string): SaveStatus => statuses[key] ?? { kind: 'idle' },
-    hasRemoteChange,
-    dismissRemoteChange: () => setHasRemoteChange(false),
+    scopeKey,
+    isCurrent,
+    status: statusFor(''),
+    statusFor,
+    resetStatus: (key: string) => update(key, { kind: 'idle' }),
+    hasRemoteChange: remoteScopeKey === scopeKey,
+    dismissRemoteChange: () => setRemoteScopeKey(null),
     write,
   };
 }

@@ -24,39 +24,14 @@ type Call = {
   reject: (error: unknown) => void;
 };
 let calls: Call[] = [];
-vi.mock('@convex/_generated/api', () => ({
-  api: {
-    character: {
-      updateCharacter: 'kind',
-      createCharacter: 'legacyCreate',
-      archiveCharacter: 'archive',
-    },
-    characterSheet: {
-      read: 'read',
-      editBaseScores: 'scores',
-      editClassLevel: 'hp',
-      addClassLevel: 'add',
-      moveClassLevel: 'move',
-      deleteClassLevel: 'delete',
-      create: 'create',
-      buildOut: 'buildOut',
-      editCreationSettings: 'settings',
-      acceptWarning: 'accept',
-      reopenWarning: 'reopen',
-      createPersonalAdjustment: 'createAdjustment',
-      editPersonalAdjustment: 'editAdjustment',
-      removePersonalAdjustment: 'removeAdjustment',
-      createAbilityChange: 'createAbilityChange',
-      editAbilityChange: 'editAbilityChange',
-      removeAbilityChange: 'removeAbilityChange',
-      createSheetEntry: 'createSheetEntry',
-      editSheetEntry: 'editSheetEntry',
-      removeSheetEntry: 'removeSheetEntry',
-    },
-  },
-}));
+vi.mock('@convex/_generated/api', async () => {
+  const { createCharacterSheetApiMock } =
+    await import('./character-sheet-api-test-fixture');
+  return createCharacterSheetApiMock();
+});
 vi.mock('convex/react', () => ({
-  useQuery: () => snapshot,
+  useQuery: (name: string) =>
+    name === 'read' ? snapshot : name === 'companions' ? [] : undefined,
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });

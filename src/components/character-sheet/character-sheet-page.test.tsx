@@ -50,34 +50,20 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));
 
-vi.mock('@convex/_generated/api', () => ({
-  api: {
-    characterSheet: {
-      buildOut: 'buildOut',
-      read: 'read',
-      editBaseScores: 'scores',
-      editClassLevel: 'hp',
-      addClassLevel: 'add',
-      moveClassLevel: 'move',
-      deleteClassLevel: 'delete',
-      create: 'create',
-      archive: 'archive',
-      deletePrivate: 'deletePrivate',
-      editCreationSettings: 'settings',
-      acceptWarning: 'accept',
-      reopenWarning: 'reopen',
-    },
-    character: {
-      listOwnerCandidates: 'listOwnerCandidates',
-      reassignOwner: 'reassignOwner',
-    },
-  },
-}));
+vi.mock('@convex/_generated/api', async () => {
+  const { createCharacterSheetApiMock } =
+    await import('./character-sheet-api-test-fixture');
+  return createCharacterSheetApiMock();
+});
 vi.mock('convex/react', () => ({
   useQuery: (name: string, scope: Record<string, unknown> | 'skip') => {
+    if (scope === 'skip') return undefined;
+    if (name === 'companions') return [];
     if (name !== 'read') {
       unexpectedQuery(name, scope);
-      throw new Error('Unexpected subscription outside the sheet read.');
+      throw new Error(
+        'Unexpected subscription outside the sheet and relationship reads.',
+      );
     }
     readScope = scope;
     if (readError) throw readError;
@@ -1525,4 +1511,18 @@ test('a named class shows in its row and in its delete question', () => {
     }),
   ).toBeVisible();
   expect(screen.queryByRole('button', { name: /Build out/ })).toBeNull();
+});
+
+test('the sheet hosts the Companions section with its actions beside the other blocks', () => {
+  renderSheet(sheet());
+  const companions = screen.getByRole('region', { name: 'Companions' });
+  expect(
+    within(companions).getByText('No Companion Relationships.'),
+  ).toBeVisible();
+  expect(
+    within(companions).getByRole('button', { name: 'Link existing Character' }),
+  ).toBeEnabled();
+  expect(
+    within(companions).getByRole('button', { name: 'Create Companion' }),
+  ).toBeEnabled();
 });

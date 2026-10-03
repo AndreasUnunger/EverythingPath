@@ -41,30 +41,14 @@ const maintenance = vi.fn<() => MigrationMaintenance>();
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));
-vi.mock('@convex/_generated/api', () => ({
-  api: {
-    characterSheet: {
-      read: 'read',
-      editBaseScores: 'scores',
-      editClassLevel: 'hp',
-      addClassLevel: 'add',
-      moveClassLevel: 'move',
-      deleteClassLevel: 'delete',
-      create: 'create',
-      archive: 'archive',
-      deletePrivate: 'deletePrivate',
-      editCreationSettings: 'settings',
-      acceptWarning: 'accept',
-      reopenWarning: 'reopen',
-    },
-    character: {
-      listOwnerCandidates: 'listOwnerCandidates',
-      reassignOwner: 'reassignOwner',
-    },
-  },
-}));
+vi.mock('@convex/_generated/api', async () => {
+  const { createCharacterSheetApiMock } =
+    await import('./character-sheet-api-test-fixture');
+  return createCharacterSheetApiMock();
+});
 vi.mock('convex/react', () => ({
-  useQuery: (name: string) => (name === 'read' ? snapshot : undefined),
+  useQuery: (name: string) =>
+    name === 'read' ? snapshot : name === 'companions' ? [] : undefined,
   usePaginatedQuery: () => ({
     results: [],
     status: 'Exhausted',

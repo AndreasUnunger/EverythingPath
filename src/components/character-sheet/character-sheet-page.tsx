@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useNavigationGuard } from '~/components/campaign-shell/navigation-guard';
 import { Card } from '~/components/ui/card';
+import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import { CharacterLifecycle } from './character-lifecycle';
 import type { CharacterScope } from './character-scope';
 import type { Deletion } from './use-character-lifecycle';
@@ -17,6 +18,8 @@ import { useCharacterSheet } from './use-character-sheet';
 type PageProps = CharacterScope & {
   back: BackLink;
   campaignName?: string;
+  /** Where this sheet was opened from, so a linked sheet keeps the same Back. */
+  origin?: CharacterSheetOrigin;
 };
 
 // An existing Character whose sheet is not prepared: nothing is initialized
@@ -59,13 +62,13 @@ function SheetHost({
   characterId,
   back,
   campaignName,
+  origin,
   onDeletion,
 }: PageProps & { onDeletion: (deletion: Deletion) => void }) {
-  const controller = useCharacterSheet({
-    organizationId,
-    campaignId,
-    characterId,
-  });
+  const controller = useCharacterSheet(
+    { organizationId, campaignId, characterId },
+    origin,
+  );
   if (controller.sheet === undefined)
     return <CharacterSheetSkeleton back={back} />;
   if (controller.sheet === null) return <SheetUnavailable back={back} />;

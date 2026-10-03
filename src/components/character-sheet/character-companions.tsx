@@ -1,0 +1,97 @@
+'use client';
+import { useId } from 'react';
+import {
+  MaintenanceReason,
+  MaintenanceReasonScope,
+} from '~/components/campaign-shell/maintenance-reason';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
+import { cn } from '~/lib/utils';
+import { CharacterCompanionEditor } from './character-companion-editor';
+import type { CompanionsController } from './companion-props';
+import { CompanionRelationshipList } from './companion-relationship-list';
+import { CompanionSectionActions } from './companion-section-actions';
+import { CreatedCompanionNotice } from './created-companion-notice';
+import { Block, fieldLabel, RemoteNotice, SaveFeedback } from './sheet-parts';
+import { useFocusAfterEditorCloses } from './use-focus-after-editor-closes';
+
+type CharacterCompanionsProps = {
+  controller: CompanionsController;
+  /** Replaces the maintenance notice's own words beside disabled edits. */
+  maintenanceMessage?: string;
+};
+
+const emptyText = 'text-muted-foreground text-sm';
+
+/**
+ * The Companions section (#309): this Character's Companions and the
+ * Character it is a Companion of, current relationships first and former
+ * ones beneath, each with its Supporting Sources and permitted actions. The
+ * maintenance reason is stated once at the foot; every disabled control
+ * points at it. Nothing renders for an unavailable sheet.
+ */
+export function CharacterCompanions({
+  controller,
+  maintenanceMessage,
+}: CharacterCompanionsProps) {
+  const maintenance = useInitialMigrationMaintenance();
+  const reasonId = useId();
+  const focus = useFocusAfterEditorCloses(controller.editorKey);
+  if (!controller.isAvailable) return null;
+  const rows = controller.rows ?? [];
+  const current = rows.filter((row) => row.status === 'active');
+  const former = rows.filter((row) => row.status !== 'active');
+  const sectionStatus = (['create', 'link'] as const)
+    .map(controller.statusFor)
+    .find((status) => status.kind !== 'idle') ?? { kind: 'idle' as const };
+  const listProps = { controller, rememberOpener: focus.rememberOpener };
+  return (
+    <MaintenanceReasonScope id={reasonId}>
+      <div ref={focus.wrapper}>
+        <Block
+          title="Companions"
+          aside={<CompanionSectionActions {...listProps} />}
+        >
+          <RemoteNotice
+            isShown={controller.hasRemoteChange}
+            message="Companion Relationships updated by another player."
+            subject="companions"
+            onDismiss={controller.dismissRemoteChange}
+          />
+          <SaveFeedback
+            status={sectionStatus}
+            savedText="Saved"
+            savingText="Saving…"
+            shouldHideWhenIdle
+          />
+          <CreatedCompanionNotice controller={controller} />
+          {controller.editor && !('relationshipId' in controller.editor) ? (
+            <CharacterCompanionEditor controller={controller} />
+          ) : null}
+          {controller.isLoading ? (
+            <p role="status" className={emptyText}>
+              Loading companions…
+            </p>
+          ) : null}
+          {!controller.isLoading && rows.length === 0 ? (
+            <p className={emptyText}>No Companion Relationships.</p>
+          ) : null}
+          <CompanionRelationshipList rows={current} {...listProps} />
+          {former.length > 0 ? (
+            <>
+              <h3 className={cn(fieldLabel, 'mt-3')}>Former and interrupted</h3>
+              <CompanionRelationshipList rows={former} {...listProps} />
+            </>
+          ) : null}
+          <MaintenanceReason
+            id={reasonId}
+            notice={{
+              ...maintenance,
+              message: maintenanceMessage ?? maintenance.message,
+            }}
+            className="mt-2 text-xs"
+          />
+        </Block>
+      </div>
+    </MaintenanceReasonScope>
+  );
+}

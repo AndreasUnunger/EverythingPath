@@ -1,6 +1,10 @@
 import { resolveCharacterSheetGrants } from '../../src/lib/character-sheet-grants';
 import { ConvexError } from 'convex/values';
 import { representativeClassCatalog } from './representativeClassCatalog';
+import {
+  getCompanionSupportingEntryKeys,
+  reconcileCompanionRelationships,
+} from './companionRelationships';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { ReadCtx } from '../types';
@@ -158,8 +162,10 @@ export async function loadCharacterSheetFromAccess(
     }
   }
   if (!character.sheetMode) return null;
+  const data = await readCharacterSheetData(ctx, character);
   return {
-    ...(await readCharacterSheetData(ctx, character)),
+    ...data,
+    initialSupportingEntryKeys: getCompanionSupportingEntryKeys(data),
     campaign: campaign
       ? {
           campaignId: campaign._id,
@@ -228,6 +234,14 @@ export async function pruneWarningAcceptancesAndRecordChange(
     sheetUpdatedBy: sheet.actor,
   });
   await updateCanonicalCharacter(ctx, sheet.character._id);
+  sheet.calculated = calculated;
+  await reconcileCompanionRelationships(
+    ctx,
+    sheet.character._id,
+    operationId,
+    [sheet],
+    sheet.initialSupportingEntryKeys,
+  );
 }
 
 export async function updateCharacterArchive(
@@ -239,6 +253,7 @@ export async function updateCharacterArchive(
 ) {
   await ctx.db.patch('character', characterId, { isActive });
   await updateCanonicalCharacter(ctx, characterId);
+  await reconcileCompanionRelationships(ctx, characterId);
 }
 
 async function listRowsForDeletion<Row>(
@@ -254,6 +269,7 @@ async function listRowsForDeletion<Row>(
 export async function deleteCharacterSheet(
   ctx: MutationCtx,
   characterId: Id<'character'>,
+  operationId?: string,
 ) {
   for (const table of ['characterSheetEntry', 'catalogEntry'] as const) {
     const rows = await listRowsForDeletion(
@@ -281,4 +297,5 @@ export async function deleteCharacterSheet(
   );
   for (const spell of spells) await ctx.db.delete('characterSpell', spell._id);
   await ctx.db.delete('character', characterId);
+  await reconcileCompanionRelationships(ctx, characterId, operationId);
 }

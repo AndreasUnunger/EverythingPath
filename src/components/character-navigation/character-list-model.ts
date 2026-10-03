@@ -1,5 +1,12 @@
 import type { Id } from '@convex/_generated/dataModel';
+import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import type { CharacterOwner } from '~/lib/character-ownership';
+
+/** Where a row's Companion Relationships are read, and the sheet links' Back. */
+export type CompanionLinksSource = {
+  characterId: Id<'character'>;
+  origin: CharacterSheetOrigin;
+};
 
 export type OwnedCharacterListRow = {
   id: string;
@@ -8,6 +15,8 @@ export type OwnedCharacterListRow = {
   kind: string;
   active: boolean;
   href: string;
+  /** Present while the Character has a sheet to relate Companions to. */
+  companions?: CompanionLinksSource;
 };
 
 export type CampaignCharacterListRow = Omit<

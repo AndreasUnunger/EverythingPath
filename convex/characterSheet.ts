@@ -303,7 +303,11 @@ export const read = query({
     if (!characterId) throw new ConvexError('Character not found');
     const sheet = await loadCharacterSheet(ctx, { ...args, characterId });
     if (!sheet) return null;
-    const { actor: _actor, ...result } = sheet;
+    const {
+      actor: _actor,
+      initialSupportingEntryKeys: _initialSupportingEntryKeys,
+      ...result
+    } = sheet;
     const owners = await readCharacterOwners(
       ctx,
       [sheet.character],
@@ -988,7 +992,7 @@ export const deletePrivate = campaignMutation({
     const sheet = await loadWritableSheet(ctx, args);
     if (sheet.character.campaignId)
       throw new ConvexError('Archive campaign Characters instead');
-    await deleteCharacterSheet(ctx, args.characterId);
+    await deleteCharacterSheet(ctx, args.characterId, args.operationId);
     return null;
   },
 });

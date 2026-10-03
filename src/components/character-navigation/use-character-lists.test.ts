@@ -229,6 +229,7 @@ test('legacy campaign Characters have no sheet or ledger destination without a m
     }),
   );
   expect(view.result.current.characters?.[0]?.href).toBeUndefined();
+  expect(view.result.current.characters?.[0]?.companions).toBeUndefined();
 });
 
 test('prepared campaign Characters keep their independent sheet without a militia', () => {
@@ -250,6 +251,13 @@ test('prepared campaign Characters keep their independent sheet without a militi
   expect(view.result.current.characters?.[0]?.href).toBe(
     '/characters/hero?from=%2Fcampaigns%2Falpha%2Fcharacters&organizationId=other',
   );
+  expect(view.result.current.characters?.[0]?.companions).toEqual({
+    characterId: 'hero',
+    origin: {
+      href: '/campaigns/alpha/characters',
+      organization: { kind: 'organization', id: 'other' },
+    },
+  });
 });
 
 test('owned groups retain No campaign first, organization names and a personal origin even for campaign sheets', () => {
@@ -272,6 +280,10 @@ test('owned groups retain No campaign first, organization names and a personal o
   expect(view.result.current.groups?.[1]?.characters[0]).toMatchObject({
     kind: 'PC',
     href: '/characters/hero?from=%2Fcharacters&organizationId=',
+    companions: {
+      characterId: 'hero',
+      origin: { href: '/characters', organization: { kind: 'personal' } },
+    },
   });
   expect(view.result.current.newHref).toBe(
     '/characters/new?from=%2Fcharacters&organizationId=',

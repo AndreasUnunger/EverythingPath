@@ -37,7 +37,11 @@ export function InlineDeleteQuestion({
   /** Read out after each answer, so "Delete" and "Keep" name their target. */
   subject: string;
   /** The destructive answer's verb, when "Delete" is not the word. */
-  deleteLabel?: 'Delete' | 'Remove' | 'Discard saved state';
+  deleteLabel?:
+    | 'Delete'
+    | 'Remove'
+    | 'Discard saved state'
+    | 'Interrupt relationship';
   /** The harmless answer, when "Keep" already means something else here. */
   keepLabel?: string;
   /** Another write is pending: Delete waits for it. */

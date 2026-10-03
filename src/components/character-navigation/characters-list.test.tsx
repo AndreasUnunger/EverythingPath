@@ -1,5 +1,10 @@
 import type { Id } from '@convex/_generated/dataModel';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import type { CompanionRelationship } from '~/components/character-sheet/character-companions-view-model';
+import {
+  characterSheetPath,
+  type CharacterSheetOrigin,
+} from '~/lib/campaign-routes';
 import { OrganizationSwitchNotice } from './organization-switch-notice';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { CampaignCharactersView } from './campaign-characters-view';
@@ -10,8 +15,15 @@ const transport = vi.hoisted(() => ({
   isWide: true,
   readOnly: false,
   mutate: vi.fn(),
+  relationships: undefined as CompanionRelationship[] | undefined,
+  relationshipReads: [] as unknown[],
 }));
 vi.mock('convex/react', () => ({
+  useQuery: (_reference: unknown, args: unknown) => {
+    if (args === 'skip') return undefined;
+    transport.relationshipReads.push(args);
+    return transport.relationships;
+  },
   useMutation: () => transport.mutate,
   usePaginatedQuery: () => ({
     results: [{ userId: 'member', name: 'Bryn', isMine: true }],
@@ -37,6 +49,8 @@ beforeEach(() => {
   transport.isWide = true;
   transport.readOnly = false;
   transport.mutate.mockReset().mockResolvedValue(null);
+  transport.relationships = undefined;
+  transport.relationshipReads = [];
 });
 
 vi.mock('~/components/campaign-shell/navigation-guard', () => ({
@@ -524,3 +538,147 @@ test.each([true, false])(
     }
   },
 );
+
+const charactersOrigin: CharacterSheetOrigin = {
+  href: '/characters',
+  organization: { kind: 'personal' },
+};
+const whisper = {
+  relationshipId: 'rel-whisper' as Id<'companionRelationship'>,
+  role: 'companion',
+  kind: 'familiar',
+  status: 'active',
+  interruption: null,
+  endpoint: { characterId: 'owl' as Id<'character'>, name: 'Whisper' },
+  sources: [],
+  lastOperationId: 'seed',
+} satisfies CompanionRelationship;
+const hiddenLord = {
+  ...whisper,
+  relationshipId: 'rel-lord' as Id<'companionRelationship'>,
+  role: 'associated',
+  kind: 'cohort',
+  status: 'replaced',
+  endpoint: null,
+} satisfies CompanionRelationship;
+
+function companionsOwner(companions = true) {
+  return (
+    <OwnedCharactersView
+      groups={[
+        {
+          key: 'none',
+          title: 'No campaign',
+          characters: [
+            {
+              id: 'mira',
+              name: 'Mira',
+              level: 1,
+              kind: 'PC',
+              active: true,
+              href: '/characters/mira',
+              companions: companions
+                ? {
+                    characterId: 'mira' as Id<'character'>,
+                    origin: charactersOrigin,
+                  }
+                : undefined,
+            },
+          ],
+        },
+      ]}
+    />
+  );
+}
+
+test('a Character row discloses its Companion Relationships on request, linking accessible sheets and never naming an unavailable one', () => {
+  const view = render(companionsOwner());
+  const toggle = screen.getByRole('button', { name: 'Companions of Mira' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(transport.relationshipReads).toEqual([]);
+
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByRole('status')).toHaveTextContent('Loading companions…');
+  expect(transport.relationshipReads.at(-1)).toEqual({ characterId: 'mira' });
+
+  transport.relationships = [];
+  view.rerender(companionsOwner());
+  expect(screen.getByText('No Companion Relationships.')).toBeVisible();
+
+  transport.relationships = [whisper, hiddenLord];
+  view.rerender(companionsOwner());
+  const list = screen.getByRole('list', { name: 'Companions of Mira' });
+  expect(
+    within(list)
+      .getAllByRole('listitem')
+      .map((item) => item.getAttribute('aria-label')),
+  ).toEqual([
+    'Companion Whisper',
+    'Associated Character Character unavailable',
+  ]);
+  const companion = within(list).getByRole('listitem', {
+    name: 'Companion Whisper',
+  });
+  expect(within(companion).getByText('Familiar')).toBeVisible();
+  expect(within(companion).getByText('Active')).toBeVisible();
+  expect(
+    within(companion).getByRole('link', { name: 'Whisper' }),
+  ).toHaveAttribute('href', characterSheetPath('owl', charactersOrigin));
+  const hidden = within(list).getByRole('listitem', {
+    name: 'Associated Character Character unavailable',
+  });
+  expect(within(hidden).queryByRole('link')).toBeNull();
+  expect(within(hidden).getByText('Replaced')).toBeVisible();
+  expect(document.body.innerHTML).not.toMatch(/rel-lord|rel-whisper/);
+
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByRole('list', { name: 'Companions of Mira' })).toBeNull();
+
+  view.rerender(companionsOwner(false));
+  expect(screen.queryByRole('button', { name: /Companions/ })).toBeNull();
+});
+
+test('a campaign row offers Companions only for a Character with a sheet', () => {
+  const sheetless = {
+    id: 'legacy' as Id<'character'>,
+    name: 'Legacy hero',
+    level: 3,
+    kind: 'PC',
+    active: true,
+    ownershipAvailable: false,
+    ownerName: null,
+    owner: null,
+    isOnRoster: true,
+  };
+  render(
+    <CampaignCharactersView
+      scope={campaignScope}
+      campaignName="Kingmaker"
+      characters={[
+        sheetless,
+        {
+          ...sheetless,
+          id: 'alia' as Id<'character'>,
+          name: 'Alia',
+          href: '/characters/alia',
+          companions: {
+            characterId: 'alia' as Id<'character'>,
+            origin: charactersOrigin,
+          },
+        },
+      ]}
+    />,
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Companions of Legacy hero' }),
+  ).toBeNull();
+  transport.relationships = [whisper];
+  fireEvent.click(screen.getByRole('button', { name: 'Companions of Alia' }));
+  const alia = screen.getByRole('link', { name: 'Alia' }).closest('tr');
+  expect(alia).not.toBeNull();
+  expect(
+    within(alia as HTMLElement).getByRole('link', { name: 'Whisper' }),
+  ).toBeVisible();
+});

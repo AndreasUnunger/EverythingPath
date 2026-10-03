@@ -22,6 +22,7 @@ import {
   requireFixtureCampaign,
   updateCharacterArchive,
 } from './lib/characterSheet';
+import { reconcileCompanionRelationships } from './lib/companionRelationships';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
 import { editMilitiaOnlySheet } from './lib/characterMilitiaOnlySheet';
 import { characterMetadataKeys } from '../src/lib/character-ledger';
@@ -117,7 +118,12 @@ export const reassignOwner = mutation({
         sheet,
         operationId: args.operationId,
       });
-    }
+    } else
+      await reconcileCompanionRelationships(
+        ctx,
+        character._id,
+        args.operationId,
+      );
     return null;
   },
 });
@@ -397,7 +403,15 @@ export const updateCharacter = mutation({
           args.operationId ??
           `ledger:edit:${character._id}:${sheet.revision + 1}`,
       });
-    } else await updateCanonicalCharacter(ctx, args.characterId);
+    } else {
+      await updateCanonicalCharacter(ctx, args.characterId);
+      if (args.patch.isActive !== undefined)
+        await reconcileCompanionRelationships(
+          ctx,
+          args.characterId,
+          args.operationId,
+        );
+    }
     return null;
   },
 });

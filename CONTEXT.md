@@ -86,10 +86,14 @@ Everything a Character has (base ability scores, race, class levels, feats, gear
 _Avoid_: Character record (for the stats), stat block
 
 **Companion**:
-A Character linked to an associated Character as an animal companion, familiar, cohort, eidolon or unchained eidolon, with its own Character Sheet and a Character Owner who need not own the associated Character. Replacement or loss of the rules support for the relationship makes it inactive while preserving the companion's sheet and recorded choices; losing one contributing source does not erase surviving contributions.
+A Character linked to an associated Character as an animal companion, familiar, cohort, eidolon or unchained eidolon, with its own Character Sheet and a Character Owner who need not own the associated Character. Replacement or loss of the rules support for the relationship makes it inactive while preserving the companion's sheet and recorded choices; losing one supporting source does not erase surviving contributions.
 
 **Companion Relationship**:
 The link between a Companion and its associated Character, either active or retained as inactive. A Companion has at most one active associated Character; an associated Character can have multiple active Companions.
+
+**Supporting source**:
+A recorded contribution from an associated Character that supports a Companion Relationship. Losing one supporting source preserves the relationship while another still supports it.
+_Avoid_: granting source, Source (a Modifier's stacking origin)
 
 **Companion Progression**:
 The advancement a Companion receives through its granting rules, supplying actual Hit Dice and benefits without Class Levels. Those rules determine whether it replaces the creature's baseline Hit Dice; a familiar's effective Hit Dice are a separate rules value.

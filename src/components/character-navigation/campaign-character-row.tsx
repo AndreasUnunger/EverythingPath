@@ -5,6 +5,7 @@ import { useCharacterOwnership } from '~/components/character-sheet/use-characte
 import { useBreakpoint } from '~/components/use-breakpoint';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { cn } from '~/lib/utils';
+import { CharacterCompanionLinks } from './character-companion-links';
 import { cellClass } from './character-list-classes';
 import type { CampaignCharacterListRow } from './character-list-model';
 import { CharacterStateBadge } from './character-state-badge';
@@ -54,6 +55,14 @@ export function CampaignCharacterRow({
           </span>
         </span>
         {!isWide ? ownerControl : null}
+        {character.companions ? (
+          <div className="flex flex-wrap items-center">
+            <CharacterCompanionLinks
+              characterName={character.name}
+              source={character.companions}
+            />
+          </div>
+        ) : null}
       </td>
       <td className={cn(cellClass, 'hidden md:table-cell')}>
         {isWide ? ownerControl : null}
