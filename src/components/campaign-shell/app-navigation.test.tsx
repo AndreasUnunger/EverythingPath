@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { buildAppNavigation } from '~/lib/app-navigation';
 import { AppMilitiaRail } from './app-militia-rail';
@@ -47,6 +47,24 @@ function stubViewport(wide: boolean) {
   }));
 }
 
+function stubResizableViewport(initialWide: boolean) {
+  let wide = initialWide;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal('matchMedia', () => ({
+    matches: wide,
+    addEventListener: (_event: string, notify: () => void) =>
+      listeners.add(notify),
+    removeEventListener: (_event: string, notify: () => void) =>
+      listeners.delete(notify),
+  }));
+  return (nextWide: boolean) => {
+    act(() => {
+      wide = nextWide;
+      for (const notify of listeners) notify();
+    });
+  };
+}
+
 test('phone navigation keeps four areas and explains an absent militia', () => {
   const nav = buildAppNavigation({
     pathname: '/campaigns/c2',
@@ -91,7 +109,7 @@ test.each([
   'the rail names its pages at every width and the $label toggle reverses the presentation',
   ({ wide }) => {
     stubViewport(wide);
-    render(<AppMilitiaRail links={militiaPages} />);
+    render(<AppMilitiaRail links={militiaPages} expandedOnDesktop />);
     const rail = screen.getByRole('complementary', { name: 'Militia' });
     const pages = within(rail).getByRole('navigation', {
       name: 'Militia pages',
@@ -130,6 +148,78 @@ test.each([
     expect(toggle).toHaveAttribute('aria-expanded', String(!wide));
     expect(tagged()).toBe(!wide);
     expect(decorativeLabel()).toBe(wide);
+  },
+);
+
+test('the unpinned rail follows its page and viewport defaults', () => {
+  const resize = stubResizableViewport(true);
+  const nav = (section: string) =>
+    buildAppNavigation({
+      pathname: `/campaigns/c1/${section}`,
+      campaigns: [kingmaker],
+    });
+  const rail = (section: string) => {
+    const model = nav(section);
+    return (
+      <AppMilitiaRail
+        links={model.militiaPages}
+        expandedOnDesktop={model.militiaRailExpandedOnDesktop}
+      />
+    );
+  };
+  const view = render(rail('week'));
+  const toggle = screen.getByRole('button', { name: 'Militia navigation' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  resize(false);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  resize(true);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  view.rerender(rail('militia'));
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  resize(false);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  resize(true);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  view.rerender(rail('week'));
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+});
+
+test.each([
+  { section: 'week', chosen: 'true' },
+  { section: 'militia', chosen: 'false' },
+])(
+  'the $section rail keeps a player toggle through resizes and page changes until remount',
+  ({ section, chosen }) => {
+    const resize = stubResizableViewport(true);
+    const rail = (section: string) => {
+      const model = buildAppNavigation({
+        pathname: `/campaigns/c1/${section}`,
+        campaigns: [kingmaker],
+      });
+      return (
+        <AppMilitiaRail
+          links={model.militiaPages}
+          expandedOnDesktop={model.militiaRailExpandedOnDesktop}
+        />
+      );
+    };
+    const view = render(rail(section));
+    const toggle = screen.getByRole('button', { name: 'Militia navigation' });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', chosen);
+    resize(false);
+    expect(toggle).toHaveAttribute('aria-expanded', chosen);
+    resize(true);
+    expect(toggle).toHaveAttribute('aria-expanded', chosen);
+    for (const page of ['history', 'week', 'militia']) {
+      view.rerender(rail(page));
+      expect(toggle).toHaveAttribute('aria-expanded', chosen);
+    }
+    view.unmount();
+    render(rail(section));
+    expect(
+      screen.getByRole('button', { name: 'Militia navigation' }),
+    ).toHaveAttribute('aria-expanded', section === 'week' ? 'false' : 'true');
   },
 );
 
@@ -211,4 +301,67 @@ test('sheet phone navigation preserves its militia origin page and shows one act
   expect(
     within(areas).getByRole('link', { name: 'Characters' }),
   ).not.toHaveAttribute('aria-current');
+});
+
+test('the page strip keeps its current page visible as it appears, resizes and changes page', () => {
+  let notify: () => void = () => undefined;
+  const disconnect = vi.fn();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        notify = callback;
+      }
+      observe = vi.fn();
+      disconnect = disconnect;
+    },
+  );
+  const view = render(<AppPageStrip links={militiaPages} />);
+  const strip = screen.getByRole('navigation', { name: 'Pages' });
+  const current = within(strip).getByRole('link', { name: 'Week 12' });
+  let width = 0;
+  Object.defineProperty(strip, 'clientWidth', { get: () => width });
+  vi.spyOn(strip, 'getBoundingClientRect').mockImplementation(() =>
+    DOMRect.fromRect({ x: 0, width }),
+  );
+  vi.spyOn(current, 'getBoundingClientRect').mockImplementation(() =>
+    DOMRect.fromRect({ x: 500 - strip.scrollLeft, width: 200 }),
+  );
+
+  notify();
+  expect(strip.scrollLeft).toBe(0);
+  width = 300;
+  notify();
+  expect(strip.scrollLeft).toBe(400);
+  notify();
+  expect(strip.scrollLeft).toBe(400);
+  width = 200;
+  notify();
+  expect(strip.scrollLeft).toBe(500);
+  strip.scrollLeft = 600;
+  notify();
+  expect(strip.scrollLeft).toBe(500);
+  const officers = within(strip).getByRole('link', {
+    name: 'Characters & officers',
+  });
+  vi.spyOn(officers, 'getBoundingClientRect').mockImplementation(() =>
+    DOMRect.fromRect({ x: 100 - strip.scrollLeft, width: 100 }),
+  );
+  view.rerender(
+    <AppPageStrip
+      links={
+        buildAppNavigation({
+          pathname: '/campaigns/c1/officers',
+          campaigns: [kingmaker],
+          week: 12,
+        }).pageStrip
+      }
+    />,
+  );
+  expect(officers).toHaveAttribute('aria-current', 'page');
+  expect(strip.scrollLeft).toBe(100);
+  notify();
+  expect(strip.scrollLeft).toBe(100);
+  view.unmount();
+  expect(disconnect).toHaveBeenCalledTimes(2);
 });

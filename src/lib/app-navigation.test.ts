@@ -7,6 +7,38 @@ const campaigns = [
   { id: 'beta', name: 'Kingmaker', hasMilitia: true },
 ];
 
+test('the Week rail starts collapsed on desktop', () => {
+  const view = buildAppNavigation({
+    pathname: '/campaigns/alpha/week',
+    campaign,
+    campaigns,
+  });
+  expect(view.militiaRailExpandedOnDesktop).toBe(false);
+});
+
+test.each(['history', 'militia', 'officers', 'setup'])(
+  'the %s rail starts expanded on desktop',
+  (section) => {
+    const view = buildAppNavigation({
+      pathname: `/campaigns/alpha/${section}`,
+      campaign,
+      campaigns,
+    });
+    expect(view.militiaRailExpandedOnDesktop).toBe(true);
+  },
+);
+
+test('a sheet borrowing a Week origin does not inherit the bounded Week rail default', () => {
+  const view = buildAppNavigation({
+    pathname: '/characters/hero',
+    searchParams: 'from=%2Fcampaigns%2Falpha%2Fweek',
+    campaign,
+    campaigns,
+  });
+  expect(view.militiaRailExpandedOnDesktop).toBe(true);
+  expect(view.showMilitiaRail).toBe(false);
+});
+
 test('retains fixed phone tabs and returns to the last militia page in the selected campaign', () => {
   const memory = rememberNavigation(
     {},

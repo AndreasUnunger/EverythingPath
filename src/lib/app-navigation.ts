@@ -214,6 +214,8 @@ export function buildAppNavigation(
     isSheet,
     pageStrip,
     militiaLoading: selectedCampaign?.hasMilitia === 'loading',
+    militiaRailExpandedOnDesktop:
+      !campaign || pathname !== campaignPath(campaign.id, 'week'),
     showMilitiaRail:
       !isSheet &&
       activeTab === 'militia' &&

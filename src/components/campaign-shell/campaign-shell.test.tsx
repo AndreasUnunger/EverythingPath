@@ -811,19 +811,40 @@ test('only the week route gets the bounded desktop host; other sections keep doc
   expect(document.querySelector('[data-week-host]')).toBeNull();
 });
 
+test('the bounded Week desktop rail starts collapsed and other militia pages start expanded', () => {
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  pathname.mockReturnValue('/campaigns/alpha/week');
+  const view = render(shell('alpha'));
+  const toggle = screen.getByRole('button', { name: 'Militia navigation' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  for (const section of ['history', 'militia', 'officers', 'setup']) {
+    pathname.mockReturnValue(`/campaigns/alpha/${section}`);
+    view.rerender(shell('alpha'));
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  }
+  pathname.mockReturnValue('/campaigns/alpha/week');
+  view.rerender(shell('alpha'));
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('the phone bottom bar reserves its measured height as document scroll padding, follows resizes, and clears it once hidden or gone', () => {
   // jsdom has no ResizeObserver and no layout: stand in for both so the
   // bar can report a height, grow with its strip and collapse to hidden.
-  const observed: { target: Element; notify: () => void }[] = [];
+  const observed = new Map<Element, () => void>();
   vi.stubGlobal(
     'ResizeObserver',
     class {
       constructor(private readonly callback: () => void) {}
       observe(target: Element) {
-        observed.push({ target, notify: this.callback });
+        observed.set(target, this.callback);
       }
       disconnect() {
-        observed.length = 0;
+        for (const [target, notify] of observed)
+          if (notify === this.callback) observed.delete(target);
       }
     },
   );
@@ -833,10 +854,11 @@ test('the phone bottom bar reserves its measured height as document scroll paddi
     '[data-shell-slot="phone-status-strip"]',
   )!.parentElement!;
   Object.defineProperty(bar, 'offsetHeight', { get: () => height });
-  expect(observed.map((entry) => entry.target)).toEqual([bar]);
+  const notifyBar = observed.get(bar);
+  expect(notifyBar).toBeDefined();
   const resize = (to: number) => {
     height = to;
-    for (const entry of observed) entry.notify();
+    notifyBar?.();
   };
   const root = document.documentElement.style;
   resize(49);
@@ -849,7 +871,7 @@ test('the phone bottom bar reserves its measured height as document scroll paddi
   expect(root.scrollPaddingBottom).toBe('65px');
   view.unmount();
   expect(root.scrollPaddingBottom).toBe('');
-  expect(observed).toHaveLength(0);
+  expect(observed.size).toBe(0);
 });
 
 test('organization creation and management stay reachable through Clerk, and creation is offered without an organization', () => {

@@ -17,13 +17,19 @@ function subscribeWide(onChange: () => void) {
   return () => query?.removeEventListener('change', onChange);
 }
 
-// The militia's second level from tablet width. Labels show from 1280px or
-// when pinned open; below that it is an icon column, widened on touch so
-// each icon keeps a caption. Setup sits at the bottom under a divider.
-export function AppMilitiaRail({ links }: { links: NavigationLink[] }) {
+// The militia's second level from tablet width. The navigation model chooses
+// the desktop default; a toggle overrides it while this rail is mounted.
+// The icon column widens on touch so each icon keeps a caption.
+export function AppMilitiaRail({
+  links,
+  expandedOnDesktop,
+}: {
+  links: NavigationLink[];
+  expandedOnDesktop: boolean;
+}) {
   const wide = useSyncExternalStore(subscribeWide, isWide, () => false);
   const [pinned, setPinned] = useState<boolean | null>(null);
-  const expanded = pinned ?? wide;
+  const expanded = pinned ?? (wide && expandedOnDesktop);
   const pagesId = useId();
   return (
     <aside

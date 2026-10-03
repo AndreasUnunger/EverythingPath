@@ -89,7 +89,7 @@ async function expectScore(
 async function readRowId(row: Locator) {
   return (await row.getAttribute('id'))!;
 }
-// The summary row sits directly under the top bar at every scroll position.
+// The summary follows the Back row at rest and pins under the top bar on scroll.
 async function expectSummaryPinned(page: Page) {
   for (const y of [0, 400, 100_000]) {
     await page.evaluate((to) => window.scrollTo(0, to), y);
@@ -98,10 +98,16 @@ async function expectSummaryPinned(page: Page) {
       .boundingBox())!;
     const summary = (await findSummary(page).boundingBox())!;
     expect(header.y, 'the top bar stays at the top').toBeCloseTo(0, 0);
-    expect(
-      Math.abs(summary.y - (header.y + header.height)),
-      'the summary row sits immediately under the top bar',
-    ).toBeLessThanOrEqual(1);
+    if (y === 0)
+      expect(
+        summary.y,
+        'the summary row sits below the top bar',
+      ).toBeGreaterThanOrEqual(header.y + header.height - 1);
+    else
+      expect(
+        Math.abs(summary.y - (header.y + header.height)),
+        'the summary row sits immediately under the top bar',
+      ).toBeLessThanOrEqual(1);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
 }

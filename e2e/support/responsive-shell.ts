@@ -58,15 +58,21 @@ export async function expectNoHorizontalOverflow(page: Page) {
     ).toBeLessThanOrEqual(width + 1);
     const active = strip.locator('a[aria-current="page"]');
     await expect(active).toHaveCount(1);
-    const current = (await active.boundingBox())!;
-    expect(
-      current.x,
-      'current page starts inside the visible Pages strip',
-    ).toBeGreaterThanOrEqual(bounds.x - 1);
-    expect(
-      current.x + current.width,
-      'current page fits the visible Pages strip',
-    ).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+    await expect
+      .poll(
+        async () => {
+          const visible = await strip.boundingBox();
+          const current = await active.boundingBox();
+          return (
+            visible !== null &&
+            current !== null &&
+            current.x >= visible.x - 1 &&
+            current.x + current.width <= visible.x + visible.width + 1
+          );
+        },
+        { message: 'current page fits wholly inside the visible Pages strip' },
+      )
+      .toBe(true);
   }
 }
 

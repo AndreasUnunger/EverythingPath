@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   organizationId: 'origin',
   params: 'from=%2Fcharacters&organizationId=origin',
   authenticated: true,
+  readFailed: false,
   setActive: vi.fn(),
   push: vi.fn(),
   requestDeparture: vi.fn(),
@@ -21,9 +22,15 @@ vi.mock('@convex/_generated/api', () => ({
 }));
 vi.mock('convex/react', () => ({
   useConvexAuth: () => ({ isAuthenticated: state.authenticated }),
-  useQuery: (_: unknown, args: unknown): NavigationSnapshot => {
+}));
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+    const args = queryKey[2];
     state.query(args);
-    return { campaign: state.campaign };
+    return {
+      data: { campaign: state.campaign },
+      error: state.readFailed ? new Error('Character not found') : null,
+    };
   },
 }));
 vi.mock('@clerk/nextjs', () => ({
@@ -48,6 +55,7 @@ beforeEach(() => {
   };
   state.organizationId = 'origin';
   state.authenticated = true;
+  state.readFailed = false;
   state.params = 'from=%2Fcharacters&organizationId=origin';
   state.setActive.mockReset().mockResolvedValue(undefined);
   state.push.mockReset();
@@ -185,6 +193,15 @@ test('never reads a sheet or switches organizations before authentication', () =
   state.authenticated = false;
   renderHook(() => useCharacterSheetNavigation('hero'));
   expect(state.query).toHaveBeenCalledWith('skip');
+  expect(state.setActive).not.toHaveBeenCalled();
+});
+
+test('a failed sheet read ignores its cached campaign and keeps the origin available', () => {
+  state.readFailed = true;
+  const view = renderHook(() => useCharacterSheetNavigation('hero'));
+  expect(view.result.current.campaign).toBeUndefined();
+  expect(view.result.current.organizationSwitch.kind).toBe('idle');
+  expect(view.result.current.back.href).toBe('/characters');
   expect(state.setActive).not.toHaveBeenCalled();
 });
 

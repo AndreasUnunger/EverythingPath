@@ -138,6 +138,7 @@ export async function reviewSummaryWorkspace(
   await expect(
     page.getByRole('region', { name: '3 Event', exact: true }),
   ).not.toContainText('Theft · Event 1');
+  const baselineViewport = page.viewportSize() ?? { width: 1194, height: 834 };
   const baseline = await summaryResult(page).innerText();
   let form = await start(page, 'Militia value');
   await expect(button(form, 'Treasury')).toHaveAttribute(
@@ -201,6 +202,8 @@ export async function reviewSummaryWorkspace(
     ['desktop', 1440, 900],
   ] as const) {
     await page.setViewportSize({ width, height });
+    if (name !== 'phone')
+      await expect(summaryResult(page).getByRole('table')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     // Down at the four adjustments, Confirm week is still at hand.
     await expectPinnedConfirm(page);
@@ -279,8 +282,8 @@ export async function reviewSummaryWorkspace(
   // Compare the displayed pre-adjustment Result with the restored one, back
   // on the default changed-only presentation.
   await showAllResultValues(page, false);
+  await page.setViewportSize(baselineViewport);
   await expect(final).toHaveText(baseline, { useInnerText: true });
-  await page.setViewportSize({ width: 1194, height: 834 });
 }
 
 /** Settlement variant uses the owned fixture that actually contains settlements. */

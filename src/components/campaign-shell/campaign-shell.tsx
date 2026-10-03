@@ -195,7 +195,12 @@ function CampaignShellContent({
           }}
         >
           <div className="flex min-h-0 flex-1">
-            {rail ? <AppMilitiaRail links={nav.militiaPages} /> : null}
+            {rail ? (
+              <AppMilitiaRail
+                links={nav.militiaPages}
+                expandedOnDesktop={nav.militiaRailExpandedOnDesktop}
+              />
+            ) : null}
             <div
               data-week-host={week || undefined}
               data-rail-host={rail || undefined}

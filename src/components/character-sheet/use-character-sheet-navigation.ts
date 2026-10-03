@@ -1,8 +1,10 @@
 'use client';
 
 import { api } from '@convex/_generated/api';
+import { convexQuery } from '@convex-dev/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useOrganization, useOrganizationList } from '@clerk/nextjs';
-import { useConvexAuth, useQuery } from 'convex/react';
+import { useConvexAuth } from 'convex/react';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -26,12 +28,17 @@ export function useCharacterSheetNavigation(characterId?: string) {
   const origin = readCharacterSheetOrigin(params);
   const back = resolveCharacterSheetBack(origin);
   const auth = useConvexAuth();
-  const snapshot = useQuery(
-    api.characterSheet.read,
-    characterId && auth.isAuthenticated ? { characterId } : 'skip',
-  );
+  const snapshot = useQuery({
+    ...convexQuery(
+      api.characterSheet.read,
+      characterId && auth.isAuthenticated ? { characterId } : 'skip',
+    ),
+    throwOnError: false,
+  });
   const campaign =
-    auth.isAuthenticated && characterId ? snapshot?.campaign : undefined;
+    auth.isAuthenticated && characterId && !snapshot.error
+      ? snapshot.data?.campaign
+      : undefined;
   const { organization } = useOrganization();
   const { isLoaded, setActive } = useOrganizationList();
   const guard = useNavigationGuard();
