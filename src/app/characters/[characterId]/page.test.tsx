@@ -3,7 +3,6 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
   within,
 } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -11,7 +10,7 @@ import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import { Component, useState, type ReactNode } from 'react';
+import { Component, useState, type ComponentProps, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { NavigationGuardProvider } from '~/components/campaign-shell/navigation-guard';
 import {
@@ -20,6 +19,7 @@ import {
   emptyOwnerCandidates,
 } from '~/components/character-sheet/character-sheet-test-fixture';
 import type { CharacterSheetSnapshot } from '~/components/character-sheet/use-character-sheet';
+import type { CharacterSheetView } from '~/components/character-sheet/character-sheet-view';
 import IndependentCharacterError from '../error';
 import IndependentCharacterSheetRoute from './page';
 
@@ -33,8 +33,9 @@ let readError: Error | null;
 
 vi.mock('convex/react', () => ({
   useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
-  useQuery: (_name: unknown, args: unknown) => {
+  useQuery: (name: FunctionReference<'query'>, args: unknown) => {
     if (args === 'skip') return undefined;
+    if (getFunctionName(name) === 'companionRelationships:list') return [];
     if (readError) throw readError;
     return snapshot;
   },
@@ -64,6 +65,13 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
     readOnly: false,
     message: '',
   }),
+}));
+
+// Keep the real lifecycle controls and route host without unrelated sheet editors.
+vi.mock('~/components/character-sheet/character-sheet-view', () => ({
+  CharacterSheetView: ({
+    lifecycle,
+  }: Pick<ComponentProps<typeof CharacterSheetView>, 'lifecycle'>) => lifecycle,
 }));
 
 // Next replaces the route subtree with its error page when a read throws.
@@ -144,13 +152,13 @@ function renderRoute() {
 }
 
 test('a private deletion returns to Characters when the sheet disappears before the deletion reply', async () => {
-  let confirmDeletion: (() => void) | undefined;
-  transport.deletePrivate.mockImplementation(
-    () =>
-      new Promise<void>((resolve) => {
-        confirmDeletion = resolve;
-      }),
-  );
+  let confirmDeletion: () => void = () => {
+    throw new Error('The deletion reply is not ready.');
+  };
+  const deletionReply = new Promise<void>((resolve) => {
+    confirmDeletion = resolve;
+  });
+  transport.deletePrivate.mockReturnValue(deletionReply);
   const route = renderRoute();
   fireEvent.click(screen.getByRole('button', { name: 'Delete character' }));
   fireEvent.click(
@@ -158,21 +166,26 @@ test('a private deletion returns to Characters when the sheet disappears before 
       screen.getByRole('group', { name: 'Delete Private hero?' }),
     ).getByRole('button', { name: 'Delete Private hero' }),
   );
+  expect(transport.deletePrivate).toHaveBeenCalledOnce();
   await route.failRead();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent(
     'Deleting Private hero…',
   );
   expect(transport.push).not.toHaveBeenCalled();
-  await act(async () => confirmDeletion?.());
-  await waitFor(() =>
-    expect(screen.getByRole('heading', { name: 'Characters' })).toBeVisible(),
-  );
+  await act(async () => {
+    confirmDeletion();
+    await deletionReply;
+  });
+  expect(screen.getByRole('heading', { name: 'Characters' })).toBeVisible();
   expect(transport.push).toHaveBeenCalledExactlyOnceWith('/characters');
 });
 
 test('a failed sheet read without a deletion still shows the route error with a usable origin link', async () => {
   const route = renderRoute();
+  expect(
+    screen.getByRole('button', { name: 'Delete character' }),
+  ).toBeVisible();
   await route.failRead();
   expect(screen.getByRole('alert')).toHaveTextContent(
     'The character sheet could not be loaded.',
