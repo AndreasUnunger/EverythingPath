@@ -2,7 +2,7 @@
 
 import { v } from 'convex/values';
 import { defineSchema, defineTable } from 'convex/server';
-import { expect, test } from 'vitest';
+import { beforeAll, expect, test } from 'vitest';
 import { query } from '../convex/_generated/server';
 import schema from '../convex/schema';
 
@@ -14,6 +14,24 @@ const modules = import.meta.glob<Record<string, unknown>>([
   '!../convex/**/convex.config.{ts,js}',
   '!../convex/**/auth.config.{ts,js}',
 ]);
+const loadedModules: [string, Record<string, unknown>][] = [];
+
+beforeAll(async () => {
+  for (const [modulePath, load] of Object.entries(modules)) {
+    // Mirror Convex entrypoint exclusions, including tests and configuration.
+    const basename = modulePath.slice(modulePath.lastIndexOf('/') + 1);
+    if (
+      basename.split('.').length !== 2 ||
+      basename.startsWith('.') ||
+      basename.startsWith('#') ||
+      modulePath.includes(' ') ||
+      basename === 'schema.ts' ||
+      basename === 'schema.js'
+    )
+      continue;
+    loadedModules.push([modulePath, await load()]);
+  }
+}, 60_000);
 
 function validatorJson(validator: unknown): unknown {
   if (
@@ -61,23 +79,11 @@ function invalidValidators(validator: unknown, path: string): string[] {
   ];
 }
 
-test('all registered Convex functions and schema tables export supported validator metadata', async () => {
+test('all registered Convex functions and schema tables export supported validator metadata', () => {
   // Deployment consumes these exports; convex-test does not validate their shape.
   const checked: string[] = [];
   const invalid: string[] = [];
-  for (const [modulePath, load] of Object.entries(modules)) {
-    // Mirror Convex entrypoint exclusions, including tests and configuration.
-    const basename = modulePath.slice(modulePath.lastIndexOf('/') + 1);
-    if (
-      basename.split('.').length !== 2 ||
-      basename.startsWith('.') ||
-      basename.startsWith('#') ||
-      modulePath.includes(' ') ||
-      basename === 'schema.ts' ||
-      basename === 'schema.js'
-    )
-      continue;
-    const module = await load();
+  for (const [modulePath, module] of loadedModules) {
     for (const [name, registeredFunction] of Object.entries(module)) {
       if (
         registeredFunction === null ||
