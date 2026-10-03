@@ -3,8 +3,466 @@ import { convexTest } from 'convex-test';
 import { expect, test } from 'vitest';
 import { api } from './_generated/api';
 import schema from './schema';
+import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
+import { readCharacterSheetData } from './lib/preparedCharacterSheet';
+import { calculateMilitiaCharacterFacts } from './lib/militiaCharacterFacts';
 
 const modules = import.meta.glob('./**/*.ts');
+
+test.each([
+  { hitDice: 7, racialHitDice: 0 },
+  { hitDice: 2, racialHitDice: 3 },
+])(
+  'militia facts keep racial HD independent of actual HD: $hitDice actual, $racialHitDice racial',
+  async ({ hitDice, racialHitDice }) => {
+    const { t, scope } = await fixture();
+    const facts = await t.run(async (ctx) => {
+      const character = await ctx.db.get('character', scope.characterId);
+      if (!character) throw new Error('Missing character');
+      const sheet = await readCharacterSheetData(ctx, character);
+      return await calculateMilitiaCharacterFacts(ctx, character, {
+        ...sheet,
+        permanentCalculated: {
+          ...sheet.permanentCalculated,
+          hitDice,
+          racialHitDice,
+        },
+      });
+    });
+    expect(facts.level).toBe(1);
+    if (racialHitDice === 0) expect(facts).not.toHaveProperty('racialHitDice');
+    else expect(facts.racialHitDice).toBe(3);
+  },
+);
+
+test.each([0, 3])(
+  'HP and ranks saved with the form’s null progression preserve a %s-HD race definition',
+  async (racialHitDice) => {
+    const { t, owner, scope, catalog } = await fixture();
+    if (racialHitDice > 0)
+      await t.run((ctx) =>
+        ctx.db.patch('catalogEntry', catalog.human, {
+          detail: {
+            kind: 'race',
+            racialTraits: [catalog.ability],
+            racialHitDice,
+          },
+        }),
+      );
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: catalog.human,
+      operationId: 'race',
+    });
+    const before = await owner.query(api.characterSheet.read, scope);
+    const race = before?.entries.find((entry) => entry.kind === 'race');
+    if (!race) throw new Error('Missing race');
+    const payload = {
+      ...scope,
+      entryId: race._id,
+      racialHitDice,
+      racialProgression: null,
+      racialHpGained: 7,
+      racialSkillRanks: { per: 1 },
+      operationId: 'hp-and-ranks',
+    };
+    await owner.mutation(api.characterSheet.editRaceStatistics, payload);
+    const saved = await owner.query(api.characterSheet.read, scope);
+    expect(
+      saved?.entries.find((entry) => entry._id === race._id),
+    ).toMatchObject({
+      catalogEntryId: catalog.human,
+      state: { racialHpGained: 7, racialSkillRanks: { per: 1 } },
+    });
+    expect(
+      saved?.entries.find((entry) => entry._id === race._id),
+    ).not.toHaveProperty('catalogOverride');
+    expect(saved?.catalogEntries).toEqual(before?.catalogEntries);
+    await owner.mutation(api.characterSheet.editRaceStatistics, {
+      ...payload,
+      operationId: 'same-hp-and-ranks',
+    });
+    const repeated = await owner.query(api.characterSheet.read, scope);
+    expect(repeated?.revision).toBe(saved?.revision);
+    expect(repeated?.catalogEntries).toEqual(before?.catalogEntries);
+  },
+);
+
+test('members save custom fixed racial HD and editable progression without inventing Class Levels', async () => {
+  const { owner, member, scope, catalog } = await fixture();
+  await member.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: catalog.human,
+    operationId: 'race',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const race = before?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  await member.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 3,
+    racialProgression: {
+      creatureType: 'Dragon',
+      hitDie: 10,
+      bab: 'full',
+      saves: { fort: 'good', ref: 'good', will: 'good' },
+      skillRanksPerHitDie: 6,
+      classSkills: ['per'],
+    },
+    racialHpGained: 17,
+    racialSkillRanks: { per: 3 },
+    operationId: 'custom',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(saved?.calculated).toMatchObject({ level: 1, hitDice: 4, hp: null });
+  const savedRace = saved?.entries.find((entry) => entry._id === race._id);
+  if (savedRace?.kind !== 'race') throw new Error('Missing customized race');
+  expect(savedRace.catalogEntryId).not.toBe(catalog.human);
+  expect(
+    saved?.catalogEntries.find(
+      (entry) => entry._id === savedRace.catalogEntryId,
+    ),
+  ).toMatchObject({
+    ruleIdentity: 'test-human',
+    detail: {
+      racialTraits: [catalog.ability],
+      racialHitDice: 3,
+      racialProgression: {
+        creatureType: 'Dragon',
+        hitDie: 10,
+        classSkills: ['per'],
+      },
+    },
+  });
+  expect(
+    saved?.catalogEntries.find((entry) => entry._id === catalog.human)?.detail,
+  ).toEqual({ kind: 'race', racialTraits: [catalog.ability] });
+  expect(saved?.entries.filter((entry) => entry.kind === 'classLevel')).toEqual(
+    before?.entries.filter((entry) => entry.kind === 'classLevel'),
+  );
+  expect(saved?.entries.find((entry) => entry._id === race._id)).toMatchObject({
+    state: { racialHpGained: 17, racialSkillRanks: { per: 3 } },
+  });
+});
+
+test('reselecting the original race removes unused statistics copies and preserves its recorded state', async () => {
+  const { owner, scope, catalog } = await fixture();
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: catalog.human,
+    operationId: 'race',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const race = before?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  for (const racialHitDice of [1, 2, 3]) {
+    await owner.mutation(api.characterSheet.editRaceStatistics, {
+      ...scope,
+      entryId: race._id,
+      racialHitDice,
+      racialHpGained: 7,
+      racialSkillRanks: { per: 1 },
+      operationId: `custom-${racialHitDice}`,
+    });
+    const customized = await owner.query(api.characterSheet.read, scope);
+    expect(customized?.catalogEntries).toHaveLength(
+      (before?.catalogEntries.length ?? 0) + 1,
+    );
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: catalog.human,
+      operationId: `original-${racialHitDice}`,
+    });
+    const restored = await owner.query(api.characterSheet.read, scope);
+    expect(restored?.catalogEntries).toEqual(before?.catalogEntries);
+    expect(
+      restored?.entries.find((entry) => entry._id === race._id),
+    ).toMatchObject({
+      catalogEntryId: catalog.human,
+      state: { racialHpGained: 7, racialSkillRanks: { per: 1 } },
+    });
+  }
+});
+
+test('prepared racial HD refresh current militia facts while character level stays separate', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  const seeded = await owner.run((ctx) =>
+    seedAcceptedCampaign(ctx, scope.campaignId),
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: catalog.human,
+    operationId: 'race',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const race = initial?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 3,
+    operationId: 'hd',
+  });
+  const ledger = await owner.query(api.canonicalLedger.read, {
+    campaignId: scope.campaignId,
+    militiaId: seeded.key.militiaId,
+  });
+  expect(ledger.state.militiaSnapshot.characters).toContainEqual(
+    expect.objectContaining({
+      characterId: scope.characterId,
+      level: 1,
+      racialHitDice: 3,
+    }),
+  );
+  await t.run((ctx) =>
+    ctx.db.patch('campaign', scope.campaignId, { e2eFixture: undefined }),
+  );
+  await owner.mutation(api.character.updateCharacter, {
+    organizationId: 'org',
+    characterId: scope.characterId,
+    patch: { level: 7 },
+    operationId: 'production-legacy',
+  });
+  const production = await owner.query(api.canonicalLedger.read, {
+    campaignId: scope.campaignId,
+    militiaId: seeded.key.militiaId,
+  });
+  const facts = production.state.militiaSnapshot.characters.find(
+    (character) => character.characterId === scope.characterId,
+  );
+  expect(facts?.level).toBe(7);
+  expect(facts).not.toHaveProperty('racialHitDice');
+});
+
+test.each(['inactive race', 'replacement', 'catalog dependency', 'condition'])(
+  'reselecting a race retains statistics copies used by a %s',
+  async (reference) => {
+    const { t, owner, scope, catalog } = await fixture();
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: catalog.human,
+      operationId: 'race',
+    });
+    const initial = await owner.query(api.characterSheet.read, scope);
+    const race = initial?.entries.find((entry) => entry.kind === 'race');
+    if (!race) throw new Error('Missing race');
+    await owner.mutation(api.characterSheet.editRaceStatistics, {
+      ...scope,
+      entryId: race._id,
+      racialHitDice: 2,
+      operationId: 'custom',
+    });
+    const customized = await owner.query(api.characterSheet.read, scope);
+    const copiedRace = customized?.entries.find(
+      (entry) => entry._id === race._id,
+    );
+    if (copiedRace?.kind !== 'race') throw new Error('Missing customized race');
+    const copyId = copiedRace.catalogEntryId;
+    await t.run(async (ctx) => {
+      if (reference === 'inactive race')
+        await ctx.db.insert('characterSheetEntry', {
+          characterId: scope.characterId,
+          kind: 'race',
+          active: false,
+          catalogEntryId: copyId,
+          state: { kind: 'race' },
+        });
+      if (reference === 'replacement')
+        await ctx.db.insert('characterSheetEntry', {
+          characterId: scope.characterId,
+          kind: 'racialTrait',
+          active: false,
+          catalogEntryId: catalog.alternate,
+          state: { kind: 'racialTrait', replaces: [copyId] },
+        });
+      if (reference === 'catalog dependency')
+        await ctx.db.patch('catalogEntry', catalog.alternate, {
+          detail: {
+            kind: 'racialTrait',
+            raceEntryIds: [catalog.human, copyId],
+            replaces: [catalog.ability],
+          },
+        });
+      if (reference === 'condition')
+        await ctx.db.patch('catalogEntry', catalog.alternate, {
+          modifiers: [
+            {
+              target: 'ability.str',
+              value: 2,
+              bonusType: 'racial',
+              condition: { whileActive: copyId },
+            },
+          ],
+        });
+    });
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: catalog.human,
+      operationId: 'original',
+    });
+    const restored = await owner.query(api.characterSheet.read, scope);
+    expect(
+      restored?.catalogEntries.find((entry) => entry._id === copyId),
+    ).toMatchObject({
+      racialStatisticsCopy: true,
+      detail: { racialHitDice: 2 },
+    });
+    expect(
+      restored?.entries.find((entry) => entry._id === race._id),
+    ).toMatchObject({
+      catalogEntryId: catalog.human,
+    });
+  },
+);
+
+test.each<{ ranks: Record<string, number>; message: string }>([
+  { ranks: { Perception: 2 }, message: 'Choose a valid skill' },
+  { ranks: { 'skill.unknown': 1 }, message: 'Choose a valid skill' },
+  { ranks: { per: 1, 'skill.per': 2 }, message: 'Choose each skill once' },
+])(
+  'racial ranks reject unknown or repeated skills ($ranks)',
+  async ({ ranks, message }) => {
+    const { owner, scope, catalog } = await fixture();
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: catalog.human,
+      operationId: 'race',
+    });
+    const before = await owner.query(api.characterSheet.read, scope);
+    const race = before?.entries.find((entry) => entry.kind === 'race');
+    if (!race) throw new Error('Missing race');
+    await expect(
+      owner.mutation(api.characterSheet.editRaceStatistics, {
+        ...scope,
+        entryId: race._id,
+        racialSkillRanks: ranks,
+        operationId: 'invalid-ranks',
+      }),
+    ).rejects.toThrow(message);
+    const after = await owner.query(api.characterSheet.read, scope);
+    expect(after?.entries).toEqual(before?.entries);
+    expect(after?.catalogEntries).toEqual(before?.catalogEntries);
+    expect(after?.revision).toBe(before?.revision);
+  },
+);
+
+test.each([
+  {
+    classSkills: Array.from({ length: 257 }, () => 'per'),
+    message: 'Choose at most 256 class skills',
+  },
+  { classSkills: [' '], message: 'Choose a named class skill' },
+])(
+  'racial progression validates class-skill count and names separately ($message)',
+  async ({ classSkills, message }) => {
+    const { owner, scope, catalog } = await fixture();
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: catalog.human,
+      operationId: 'race',
+    });
+    const before = await owner.query(api.characterSheet.read, scope);
+    const race = before?.entries.find((entry) => entry.kind === 'race');
+    if (!race) throw new Error('Missing race');
+    await expect(
+      owner.mutation(api.characterSheet.editRaceStatistics, {
+        ...scope,
+        entryId: race._id,
+        racialProgression: {
+          creatureType: 'Dragon',
+          hitDie: 12,
+          bab: 'full',
+          saves: { fort: 'good', ref: 'good', will: 'good' },
+          skillRanksPerHitDie: 6,
+          classSkills,
+        },
+        operationId: 'invalid-class-skills',
+      }),
+    ).rejects.toThrow(message);
+    const after = await owner.query(api.characterSheet.read, scope);
+    expect(after?.catalogEntries).toEqual(before?.catalogEntries);
+    expect(after?.revision).toBe(before?.revision);
+  },
+);
+
+test('racial progression edits preserve the custom copy and prune warnings while zero HD and missing progression remain valid', async () => {
+  const { owner, scope, catalog } = await fixture();
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: catalog.human,
+    operationId: 'race',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const race = initial?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 1,
+    racialSkillRanks: { per: 2 },
+    operationId: 'over-cap',
+  });
+  const overCap = await owner.query(api.characterSheet.read, scope);
+  const warning = overCap?.calculated.warnings.find(
+    (warning) => warning.check === 'racialSkillRankCap',
+  );
+  const customized = overCap?.entries.find((entry) => entry._id === race._id);
+  if (!warning || customized?.kind !== 'race')
+    throw new Error('Missing warning or race');
+  expect(overCap?.calculated.warnings).toContainEqual(
+    expect.objectContaining({
+      check: 'racialProgressionMissing',
+      kind: 'unresolved',
+    }),
+  );
+  expect(customized.state.racialHpGained).toBeUndefined();
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+    operationId: 'accept',
+  });
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 2,
+    racialProgression: {
+      creatureType: 'Custom',
+      hitDie: 7,
+      bab: 'half',
+      saves: { fort: 'poor', ref: 'good', will: 'poor' },
+      skillRanksPerHitDie: 9,
+      classSkills: ['per'],
+    },
+    operationId: 'custom-progression',
+  });
+  const resolved = await owner.query(api.characterSheet.read, scope);
+  expect(
+    resolved?.entries.find((entry) => entry._id === race._id),
+  ).toMatchObject({ catalogEntryId: customized.catalogEntryId });
+  expect(resolved?.acceptedWarnings).not.toContainEqual(
+    expect.objectContaining({ check: 'racialSkillRankCap' }),
+  );
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 0,
+    racialProgression: null,
+    operationId: 'zero',
+  });
+  const zero = await owner.query(api.characterSheet.read, scope);
+  expect(zero?.calculated).toMatchObject({ level: 1, hitDice: 1 });
+  expect(
+    zero?.catalogEntries.find(
+      (entry) => entry._id === customized.catalogEntryId,
+    )?.detail,
+  ).not.toHaveProperty('racialProgression');
+  expect(zero?.entries.find((entry) => entry._id === race._id)).toMatchObject({
+    state: { racialSkillRanks: { per: 2 } },
+  });
+});
 
 async function fixture() {
   const t = convexTest(schema, modules);
@@ -313,12 +771,14 @@ test('changing or clearing a selected racial ability preserves its recorded choi
       operationId: ability ?? 'clear',
     });
     const sheet = await owner.query(api.characterSheet.read, scope);
-    expect(sheet?.entries.find((entry) => entry._id === entryId)).toMatchObject({
-      kind: 'racialTrait',
-      choiceOrder: 0,
-      gainedAtClassLevel: classLevelId,
-      state: { kind: 'racialTrait', choice: ability },
-    });
+    expect(sheet?.entries.find((entry) => entry._id === entryId)).toMatchObject(
+      {
+        kind: 'racialTrait',
+        choiceOrder: 0,
+        gainedAtClassLevel: classLevelId,
+        state: { kind: 'racialTrait', choice: ability },
+      },
+    );
   }
 });
 
@@ -562,6 +1022,15 @@ test('all race writers enforce membership, Character-scoped references, and migr
           ...common,
           entryId: raceId,
           racialHpGained: 8,
+          racialHitDice: 2,
+          racialProgression: {
+            creatureType: 'Custom type',
+            hitDie: 8,
+            bab: 'half',
+            saves: { fort: 'poor', ref: 'poor', will: 'good' },
+            skillRanksPerHitDie: 2,
+            classSkills: [],
+          },
         }),
     ];
   }
@@ -581,6 +1050,15 @@ test('all race writers enforce membership, Character-scoped references, and migr
       characterId: otherCharacterId,
       catalogEntryId: catalog.human,
       operationId: 'foreign-race',
+    }),
+  ).rejects.toThrow('does not belong');
+  await expect(
+    owner.mutation(api.characterSheet.editRaceStatistics, {
+      ...scope,
+      characterId: otherCharacterId,
+      entryId: raceId,
+      racialHitDice: 2,
+      operationId: 'foreign-racial-hd',
     }),
   ).rejects.toThrow('does not belong');
   await expect(

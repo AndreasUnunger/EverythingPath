@@ -124,6 +124,7 @@ Multiple officers can fill the same role, but their bonuses do not stack (except
 
 - On successful Drill Militia Loyalty check, training gained increases by commandant Hit Dice.
 - Application departure (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): a commandant's Hit Dice are the roster's explicit Hit Dice override, zero included, or else the character's level; Hit Dice are no longer required before the week. Weeks confirmed under earlier Ruleset Versions keep their recorded training.
+- Prepared application change ([#205](https://github.com/AndreasUnunger/EverythingPath/issues/205), [#312](https://github.com/AndreasUnunger/EverythingPath/issues/312), reserved Ruleset Version 10): a commandant without an override uses Class Levels plus fixed racial Hit Dice from ordinary permanent Character Sheet facts. An explicit zero override still counts as zero. Frozen snapshots without racial facts use zero racial Hit Dice. This change is prepared only in isolated fixture campaigns; production retains legacy Character authority and active Ruleset Version 9 until the initial Character Sheet cutover activates version 10 and requires a fresh weekly review. Old records retain their frozen facts and versions.
 
 ### Marshal
 

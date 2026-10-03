@@ -51,7 +51,7 @@ function mapProgression(system: Record<string, unknown>) {
 function mapRace({ record: { system } }: DetailContext) {
   return {
     kind: 'race' as const,
-    racialHitDice: readNumber({ value: system.racialHitDice, fallback: 0 }),
+    racialHitDice: 0,
     creatureTypes: readStrings(system.creatureTypes),
     creatureSubtypes: readStrings(system.creatureSubtypes),
   };

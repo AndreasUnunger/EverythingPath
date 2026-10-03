@@ -4,8 +4,10 @@ import {
   proficiencyKey,
 } from '../src/lib/character-sheet-proficiencies';
 import {
+  copyCatalogDefinition,
   findPreferredCampaignCopy,
   preserveCuratedModifierFields,
+  projectCampaignCopies,
   requireEditableCharacterDefinition,
 } from './lib/catalogCopies';
 import {
@@ -61,6 +63,7 @@ import schema, {
   grantKeyValidator,
   selectionSourceValidator,
   manualProficiencyValidator,
+  racialProgressionValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -235,6 +238,7 @@ const calculatedValidator = v.object({
   }),
   level: v.number(),
   hitDice: v.number(),
+  racialHitDice: v.number(),
   classLevels: v.array(
     v.object({
       entryId: v.string(),
@@ -731,18 +735,19 @@ export const editPersonalAdjustment = campaignMutation({
 function isCatalogDefinitionReferenced(
   sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
   catalogEntryId: Id<'catalogEntry'>,
-  removedEntryId: Id<'characterSheetEntry'>,
+  {
+    removedEntryId,
+    includeConditionReferences = false,
+  }: {
+    removedEntryId?: Id<'characterSheetEntry'>;
+    includeConditionReferences?: boolean;
+  } = {},
 ) {
   if (
     sheet.entries.some(
       (entry) =>
         entry._id !== removedEntryId &&
-        (('catalogEntryId' in entry &&
-          entry.catalogEntryId === catalogEntryId) ||
-          (entry.kind === 'classLevel' &&
-            entry.state.classEntryId === catalogEntryId) ||
-          (entry.kind === 'base' &&
-            entry.state.favoredClassIds?.includes(catalogEntryId))),
+        sheetEntryReferencesCatalog(entry, catalogEntryId),
     )
   )
     return true;
@@ -750,7 +755,9 @@ function isCatalogDefinitionReferenced(
     (definition) =>
       definition._id !== catalogEntryId &&
       listCatalogDependencies(definition).some(
-        ({ id, kind }) => kind !== 'condition' && id === catalogEntryId,
+        ({ id, kind }) =>
+          (includeConditionReferences || kind !== 'condition') &&
+          id === catalogEntryId,
       ),
   );
 }
@@ -766,7 +773,9 @@ async function removeCatalogSelection(
   if (
     definition?.scope === 'character' &&
     definition.characterId === sheet.character._id &&
-    !isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, entry._id)
+    !isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, {
+      removedEntryId: entry._id,
+    })
   ) {
     await ctx.db.delete('catalogEntry', entry.catalogEntryId);
     sheet.catalogEntries = sheet.catalogEntries.filter(
@@ -1597,6 +1606,47 @@ function requireCatalogSheetDefinition(
     throw new ConvexError('Choose a feature or Selection');
   return { ...definition, kind: definition.detail.kind };
 }
+function sheetEntryReferencesCatalog(
+  entry: Doc<'characterSheetEntry'>,
+  catalogEntryId: Id<'catalogEntry'>,
+) {
+  if ('catalogEntryId' in entry && entry.catalogEntryId === catalogEntryId)
+    return true;
+  if (entry.kind === 'classLevel')
+    return entry.state.classEntryId === catalogEntryId;
+  if (entry.kind === 'base')
+    return entry.state.favoredClassIds?.includes(catalogEntryId) ?? false;
+  if (
+    entry.kind === 'racialTrait' &&
+    entry.state.replaces?.includes(catalogEntryId)
+  )
+    return true;
+  return 'choice' in entry.state && entry.state.choice === catalogEntryId;
+}
+async function deleteUnusedRaceStatisticsCopies(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+) {
+  for (const definition of sheet.catalogEntries) {
+    if (
+      definition.detail.kind !== 'race' ||
+      definition.scope !== 'character' ||
+      definition.characterId !== sheet.character._id ||
+      !definition.racialStatisticsCopy
+    )
+      continue;
+    if (
+      isCatalogDefinitionReferenced(sheet, definition._id, {
+        includeConditionReferences: true,
+      })
+    )
+      continue;
+    await ctx.db.delete('catalogEntry', definition._id);
+    sheet.catalogEntries = sheet.catalogEntries.filter(
+      (entry) => entry._id !== definition._id,
+    );
+  }
+}
 async function persistRecordedEntry(
   ctx: MutationCtx,
   sheet: WritableSheet,
@@ -2177,10 +2227,15 @@ export const selectRace = campaignMutation({
     ) {
       await ctx.db.patch('characterSheetEntry', selected._id, {
         catalogEntryId: definition._id,
+        catalogOverride: undefined,
       });
       sheet.entries = sheet.entries.map((entry) =>
         entry._id === selected._id && entry.kind === 'race'
-          ? { ...entry, catalogEntryId: definition._id }
+          ? {
+              ...entry,
+              catalogEntryId: definition._id,
+              catalogOverride: undefined,
+            }
           : entry,
       );
       changed = true;
@@ -2195,11 +2250,13 @@ export const selectRace = campaignMutation({
       });
       changed = true;
     }
-    if (changed)
+    if (changed) {
+      await deleteUnusedRaceStatisticsCopies(ctx, sheet);
       await pruneWarningAcceptancesAndRecordChange(ctx, {
         sheet,
         operationId: args.operationId,
       });
+    }
     return null;
   },
 });
@@ -2409,28 +2466,131 @@ function requireRacialAbilityScoreChoice(
     throw new ConvexError('Choose a valid ability score');
 }
 
-export const editRaceStatistics = campaignMutation({
-  args: {
-    ...rowScope,
-    racialHpGained: v.optional(v.union(v.number(), v.null())),
-    racialSkillRanks: v.optional(v.record(v.string(), v.number())),
+function requireRacialProgression(
+  progression: Infer<typeof racialProgressionValidator> | null | undefined,
+) {
+  if (progression == null) return;
+  if (!progression.creatureType.trim())
+    throw new ConvexError('Creature type is required');
+  requireSafeWholeNumber(progression.hitDie, 'Hit Die');
+  if (progression.hitDie === 0)
+    throw new ConvexError('Hit Die must be a whole number of 1 or more');
+  requireNonnegativeInteger(
+    progression.skillRanksPerHitDie,
+    'Skill ranks per Hit Die',
+  );
+  if (progression.classSkills.length > 256)
+    throw new ConvexError('Choose at most 256 class skills');
+  if (progression.classSkills.some((skill) => !skill.trim()))
+    throw new ConvexError('Choose a named class skill');
+}
+function requireRacialSkillRanks(ranks: Record<string, number> | undefined) {
+  if (ranks === undefined) return;
+  if (Object.keys(ranks).length > 256)
+    throw new ConvexError('Choose at most 256 skills');
+  const skills = new Set<string>();
+  for (const [skill, count] of Object.entries(ranks)) {
+    if (!skill.trim()) throw new ConvexError('Choose a skill');
+    const key = canonicalSkillKey(skill);
+    if (!key) throw new ConvexError('Choose a valid skill');
+    if (skills.has(key)) throw new ConvexError('Choose each skill once');
+    skills.add(key);
+    requireNonnegativeInteger(count, 'Racial skill ranks');
+  }
+}
+const raceStatisticsValidator = v.object({
+  racialHitDice: v.optional(v.number()),
+  racialProgression: v.optional(v.union(racialProgressionValidator, v.null())),
+  racialHpGained: v.optional(v.union(v.number(), v.null())),
+  racialSkillRanks: v.optional(v.record(v.string(), v.number())),
+});
+type RaceStatistics = Infer<typeof raceStatisticsValidator>;
+type RaceDetail = Extract<Doc<'catalogEntry'>['detail'], { kind: 'race' }>;
+function updatedRaceDetail(detail: RaceDetail, changes: RaceStatistics) {
+  const { racialProgression: previousProgression, ...previousDetail } = detail;
+  const progression =
+    changes.racialProgression === undefined
+      ? previousProgression
+      : changes.racialProgression;
+  return {
+    ...previousDetail,
+    ...(changes.racialHitDice !== undefined &&
+    changes.racialHitDice !== (detail.racialHitDice ?? 0)
+      ? { racialHitDice: changes.racialHitDice }
+      : {}),
+    ...(progression != null ? { racialProgression: progression } : {}),
+  };
+}
+async function createRaceStatisticsCopy(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+  definition: ReturnType<typeof requireCatalogSheetDefinition>,
+  detail: RaceDetail,
+) {
+  await deleteUnusedRaceStatisticsCopies(ctx, sheet);
+  if (
+    sheet.catalogEntries.filter(
+      (entry) =>
+        entry.scope === 'character' &&
+        entry.characterId === sheet.character._id,
+    ).length >= maxCharacterChildRows
+  )
+    throw new ConvexError('Character sheet is too large');
+  return copyCatalogDefinition(
+    ctx,
+    definition,
+    { scope: 'character', characterId: sheet.character._id },
+    { racialStatisticsCopy: true, detail },
+  );
+}
+async function writeRaceStatisticsDefinition(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+  {
+    definition,
+    detail,
+    hasOverride,
+  }: {
+    definition: ReturnType<typeof requireCatalogSheetDefinition>;
+    detail: RaceDetail;
+    hasOverride: boolean;
   },
+) {
+  const catalogEntryId = hasOverride
+    ? definition._id
+    : await createRaceStatisticsCopy(ctx, sheet, definition, detail);
+  if (hasOverride)
+    await ctx.db.patch('catalogEntry', catalogEntryId, { detail });
+  const updatedDefinition = await ctx.db.get('catalogEntry', catalogEntryId);
+  if (!updatedDefinition)
+    throw new ConvexError('Race definition is unavailable');
+  sheet.catalogEntries = projectCampaignCopies([
+    ...sheet.catalogEntries.filter((entry) => entry._id !== catalogEntryId),
+    updatedDefinition,
+  ]);
+  return catalogEntryId;
+}
+
+export const editRaceStatistics = campaignMutation({
+  args: { ...rowScope, ...raceStatisticsValidator.fields },
   returns: v.null(),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const previous = sheet.entries.find((entry) => entry._id === args.entryId);
     if (previous?.kind !== 'race' || previous.grantKey)
       throw new ConvexError('Race does not belong to this Character');
+    const definition = requireCatalogSheetDefinition(
+      sheet,
+      previous.catalogEntryId,
+    );
+    if (definition.detail.kind !== 'race')
+      throw new ConvexError('Race definition is unavailable');
+    if (args.racialHitDice !== undefined)
+      requireSafeWholeNumber(args.racialHitDice, 'Racial Hit Dice');
+    requireRacialProgression(args.racialProgression);
     if (args.racialHpGained != null)
       requireNonnegativeInteger(args.racialHpGained, 'Racial hit points');
-    if (args.racialSkillRanks !== undefined) {
-      if (Object.keys(args.racialSkillRanks).length > 256)
-        throw new ConvexError('Choose at most 256 skills');
-      for (const [skill, ranks] of Object.entries(args.racialSkillRanks)) {
-        if (!skill.trim()) throw new ConvexError('Choose a skill');
-        requireNonnegativeInteger(ranks, 'Racial skill ranks');
-      }
-    }
+    requireRacialSkillRanks(args.racialSkillRanks);
     const state = {
       ...previous.state,
       ...(args.racialHpGained !== undefined
@@ -2440,10 +2600,37 @@ export const editRaceStatistics = campaignMutation({
         ? { racialSkillRanks: args.racialSkillRanks }
         : {}),
     };
-    if (compareValues(state, previous.state) === 0) return null;
-    await ctx.db.patch('characterSheetEntry', previous._id, { state });
+    const persistedDefinition = await ctx.db.get(
+      'catalogEntry',
+      definition._id,
+    );
+    if (persistedDefinition?.detail.kind !== 'race')
+      throw new ConvexError('Race definition is unavailable');
+    const detail = updatedRaceDetail(persistedDefinition.detail, args);
+    const definitionChanged =
+      compareValues(detail, persistedDefinition.detail) !== 0;
+    if (compareValues(state, previous.state) === 0 && !definitionChanged)
+      return null;
+    const catalogEntryId = definitionChanged
+      ? await writeRaceStatisticsDefinition(ctx, sheet, {
+          definition,
+          detail,
+          hasOverride:
+            definition.scope === 'character' &&
+            definition.characterId === sheet.character._id &&
+            (definition.racialStatisticsCopy === true ||
+              definition.copiedFrom !== undefined ||
+              previous.catalogOverride === true),
+        })
+      : definition._id;
+    const patch = {
+      state,
+      catalogEntryId,
+      ...(definitionChanged ? { catalogOverride: true as const } : {}),
+    };
+    await ctx.db.patch('characterSheetEntry', previous._id, patch);
     sheet.entries = sheet.entries.map((entry) =>
-      entry._id === previous._id ? { ...previous, state } : entry,
+      entry._id === previous._id ? { ...previous, ...patch } : entry,
     );
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,

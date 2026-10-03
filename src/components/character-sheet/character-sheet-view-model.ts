@@ -16,7 +16,10 @@ import type {
   SheetWarningView,
 } from './use-character-sheet';
 
-export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
+export function buildCharacterSheetView(
+  snapshot: CharacterSheetSnapshot,
+  catalogChoices: CharacterSheetSnapshot['catalogEntries'] = [],
+) {
   const calculated = {
     ...snapshot.calculated,
     breakdowns: parseCharacterSheetBreakdowns(snapshot.calculated.breakdowns),
@@ -71,7 +74,7 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
       snapshot.catalogEntries,
       classLevelIds,
     ),
-    races: buildCharacterSheetRacesView(snapshot),
+    races: buildCharacterSheetRacesView(snapshot, catalogChoices),
     raceStatistics: buildRaceStatisticsView(snapshot),
     raceNames: listRaceNames(snapshot),
     abilityChanges: currentEntries.filter(

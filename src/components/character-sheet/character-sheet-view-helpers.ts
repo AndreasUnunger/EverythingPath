@@ -3,16 +3,32 @@ import type { useCharacterSheet } from './use-character-sheet';
 
 type ReadySheet = NonNullable<ReturnType<typeof useCharacterSheet>['sheet']>;
 
-/** Why HP cannot be stated: the Class Levels still without hit points. */
-export function describeIncompleteHp(levels: ReadySheet['levels']) {
+/**
+ * Why HP cannot be stated: racial Hit Dice and the Class Levels still
+ * without hit points.
+ */
+export function describeIncompleteHp({
+  levels,
+  raceStatistics,
+}: Pick<ReadySheet, 'levels' | 'raceStatistics'>) {
   const positions = levels
     .filter((level) => level.state.hpGained === null)
     .map((level) => level.state.position);
-  if (positions.length === 0) return null;
+  const isRacialMissing =
+    raceStatistics !== null &&
+    raceStatistics.racialHitDice > 0 &&
+    raceStatistics.racialHpGained === null;
+  if (positions.length === 0)
+    return isRacialMissing
+      ? 'Not complete: racial Hit Dice have no hit points yet.'
+      : null;
   const list = positions.join(', ');
-  return positions.length === 1
-    ? `Not complete: Class Level ${list} has no hit points yet.`
-    : `Not complete: Class Levels ${list} have no hit points yet.`;
+  const classLevels =
+    positions.length === 1 ? `Class Level ${list}` : `Class Levels ${list}`;
+  if (isRacialMissing)
+    return `Not complete: racial Hit Dice and ${classLevels} have no hit points yet.`;
+  const verb = positions.length === 1 ? 'has' : 'have';
+  return `Not complete: ${classLevels} ${verb} no hit points yet.`;
 }
 
 // A selection whose Class Level was deleted keeps its name; it is shown by

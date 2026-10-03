@@ -21,5 +21,13 @@ export const ROLE_AWARE_OFFICERS_RULESET_VERSION = 8;
  */
 export const ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION =
   ROLE_AWARE_OFFICERS_RULESET_VERSION + 1;
+/**
+ * Prepared Character Sheets supply fixed racial Hit Dice alongside Class
+ * Levels (#312). Commandants use their sum unless the roster overrides it,
+ * zero included; old frozen snapshots have zero racial Hit Dice. Reserved for
+ * initial Character Sheet cutover (#240): preparation keeps version 9 active.
+ */
+export const COMPUTED_HIT_DICE_RULESET_VERSION =
+  ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION + 1;
 export const CANONICAL_WEEKLY_RULESET_VERSION =
   ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION;

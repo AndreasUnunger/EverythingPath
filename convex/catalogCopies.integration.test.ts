@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { api } from './_generated/api';
 import schema from './schema';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
+import { buildCharacterSheetRacesView } from '../src/components/character-sheet/character-sheet-races-view-model';
 
 const modules = import.meta.glob('./**/*.ts');
 async function fixture() {
@@ -58,6 +59,375 @@ const definition = {
   sources: [],
   detail: { kind: 'feat' },
 } as const;
+
+test.each(['global', 'campaign', 'campaign with recorded override'] as const)(
+  'racial statistics from a %s race create one private Catalog Copy with provenance',
+  async (raceScope) => {
+    const { t, owner, member, scope } = await fixture();
+    const originalId = await t.run((ctx) =>
+      ctx.db.insert('catalogEntry', {
+        ...definition,
+        scope: 'global',
+        name: 'Shared race',
+        sources: [],
+        ruleIdentity: 'shared-race',
+        sourceKey: 'shared-race-source',
+        modifiers: [],
+        detail: { kind: 'race', racialTraits: [], racialHitDice: 0 },
+      }),
+    );
+    await owner.mutation(api.characterSheet.selectRace, {
+      ...scope,
+      catalogEntryId: originalId,
+      operationId: 'select-race',
+    });
+    const sourceId =
+      raceScope !== 'global'
+        ? await member.mutation(api.catalogCopies.customizeForCampaign, {
+            ...scope,
+            catalogEntryId: originalId,
+            operationId: 'customize-race',
+          })
+        : originalId;
+    const before = await owner.query(api.characterSheet.read, scope);
+    const race = before?.entries.find((entry) => entry.kind === 'race');
+    if (!race) throw new Error('Missing race');
+    if (raceScope === 'campaign with recorded override')
+      await t.run((ctx) =>
+        ctx.db.patch('characterSheetEntry', race._id, {
+          catalogOverride: true,
+        }),
+      );
+    await member.mutation(api.characterSheet.editRaceStatistics, {
+      ...scope,
+      entryId: race._id,
+      racialHitDice: 2,
+      operationId: 'racial-hd',
+    });
+    const saved = await owner.query(api.characterSheet.read, scope);
+    const savedRace = saved?.entries.find((entry) => entry._id === race._id);
+    if (savedRace?.kind !== 'race') throw new Error('Missing saved race');
+    const copy = saved?.catalogEntries.find(
+      (entry) => entry._id === savedRace.catalogEntryId,
+    );
+    expect(copy).toMatchObject({
+      scope: 'character',
+      characterId: scope.characterId,
+      racialStatisticsCopy: true,
+      copiedFrom: sourceId,
+      copiedFromFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      ruleIdentity: 'shared-race',
+      sourceKey: 'shared-race-source',
+      detail: { racialHitDice: 2 },
+    });
+    expect(copy).not.toHaveProperty('campaignId');
+    expect(copy).not.toHaveProperty('campaignPreference');
+    const picker = await member.query(api.catalogCopies.list, scope);
+    expect(picker.some((row) => row._id === savedRace.catalogEntryId)).toBe(
+      false,
+    );
+    expect(picker.find((row) => row._id === sourceId)).toMatchObject({
+      detail: { racialHitDice: 0 },
+    });
+    if (!saved) throw new Error('Missing saved sheet');
+    const races = buildCharacterSheetRacesView(saved, picker);
+    expect(races.raceOptions).toContainEqual(
+      expect.objectContaining({ catalogEntryId: sourceId }),
+    );
+    expect(races.selectedRaceId).toBe(sourceId);
+    await expect(
+      member.mutation(api.catalogCopies.detach, {
+        ...scope,
+        target: { kind: 'entry', entryId: race._id },
+        operationId: 'detach-statistics',
+      }),
+    ).rejects.toThrow('Character-specific');
+    const unchanged = await owner.query(api.characterSheet.read, scope);
+    expect(unchanged?.catalogEntries).toEqual(saved?.catalogEntries);
+    expect(unchanged?.revision).toBe(saved?.revision);
+  },
+);
+
+test('editing a detached race reuses its Catalog Copy and keeps it available after race changes', async () => {
+  const { t, owner, scope } = await fixture();
+  const originalId = await t.run((ctx) =>
+    ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      name: 'Shared race',
+      sources: [],
+      ruleIdentity: 'shared-race',
+      modifiers: [],
+      detail: { kind: 'race', racialTraits: [] },
+    }),
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: originalId,
+    operationId: 'select-race',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const race = initial?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  const copyId = await owner.mutation(api.catalogCopies.detach, {
+    ...scope,
+    target: { kind: 'entry', entryId: race._id },
+    operationId: 'detach-race',
+  });
+  const detached = await owner.query(api.characterSheet.read, scope);
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 2,
+    racialHpGained: 8,
+    operationId: 'racial-hd',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(saved?.entries.find((entry) => entry._id === race._id)).toMatchObject({
+    catalogEntryId: copyId,
+    state: { racialHpGained: 8 },
+  });
+  expect(saved?.catalogEntries).toHaveLength(
+    detached?.catalogEntries.length ?? 0,
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: originalId,
+    operationId: 'original-race',
+  });
+  const picker = await owner.query(api.catalogCopies.list, scope);
+  expect(picker.find((row) => row._id === copyId)).toMatchObject({
+    copiedFrom: originalId,
+    scope: 'character',
+    detail: { racialHitDice: 2 },
+  });
+  expect(picker.find((row) => row._id === copyId)).not.toHaveProperty(
+    'racialStatisticsCopy',
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: copyId,
+    operationId: 'restore-detached',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated,
+  ).toMatchObject({
+    hitDice: 3,
+    level: 1,
+  });
+});
+
+test('a racial statistics copy freezes persisted race fields while global trait dependencies stay live', async () => {
+  const { t, owner, scope } = await fixture();
+  const seeded = await owner.run((ctx) =>
+    seedAcceptedCampaign(ctx, scope.campaignId),
+  );
+  const catalog = await t.run(async (ctx) => {
+    const traitId = await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      ruleIdentity: 'shared-trait',
+      modifiers: [...definition.modifiers],
+      sources: [],
+      detail: { kind: 'racialTrait', raceEntryIds: [], replaces: [] },
+    });
+    const raceId = await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      ruleIdentity: 'shared-race',
+      sources: [],
+      modifiers: [],
+      detail: { kind: 'race', racialTraits: [traitId] },
+    });
+    return { traitId, raceId };
+  });
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: catalog.raceId,
+    operationId: 'select-race',
+  });
+  const traitCopyId = await owner.mutation(
+    api.catalogCopies.customizeForCampaign,
+    {
+      ...scope,
+      catalogEntryId: catalog.traitId,
+      operationId: 'customize-trait',
+    },
+  );
+  await owner.mutation(api.catalogCopies.editDefinition, {
+    ...scope,
+    catalogEntryId: traitCopyId,
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 6 }],
+    operationId: 'edit-trait',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const race = before?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 2,
+    operationId: 'racial-hd',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  const savedRace = saved?.entries.find((entry) => entry._id === race._id);
+  if (savedRace?.kind !== 'race') throw new Error('Missing saved race');
+  expect(
+    saved?.catalogEntries.find((row) => row._id === savedRace.catalogEntryId),
+  ).toMatchObject({
+    detail: { racialTraits: [catalog.traitId], racialHitDice: 2 },
+  });
+  expect(saved?.calculated.abilities.strength.score).toBe(16);
+  const ledger = await owner.query(api.canonicalLedger.read, {
+    campaignId: scope.campaignId,
+    militiaId: seeded.key.militiaId,
+  });
+  expect(
+    ledger.state.militiaSnapshot.characters.find(
+      (character) => character.characterId === scope.characterId,
+    ),
+  ).toMatchObject({ racialHitDice: 2, strength: 16 });
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', catalog.traitId, {
+      name: 'Published trait name',
+    }),
+  );
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.catalogEntries.find(
+      (row) => row._id === catalog.traitId,
+    ),
+  ).toMatchObject({ name: 'Published trait name' });
+});
+
+test('saving racial statistics to the campaign catalog keeps the race selectable after changing races', async () => {
+  const { t, owner, member, scope } = await fixture();
+  const originalId = await t.run((ctx) =>
+    ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      ruleIdentity: 'shared-race',
+      modifiers: [],
+      sources: [],
+      detail: { kind: 'race', racialTraits: [] },
+    }),
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: originalId,
+    operationId: 'select-race',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const race = initial?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 2,
+    operationId: 'racial-hd',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  const savedRace = saved?.entries.find((entry) => entry._id === race._id);
+  if (savedRace?.kind !== 'race') throw new Error('Missing saved race');
+  await owner.mutation(api.catalogCopies.saveToCatalog, {
+    ...scope,
+    catalogEntryId: savedRace.catalogEntryId,
+    operationId: 'save-race',
+  });
+  const picker = await member.query(api.catalogCopies.list, scope);
+  const sharedCopy = picker.find((row) => row._id === savedRace.catalogEntryId);
+  expect(sharedCopy).toMatchObject({
+    scope: 'campaign',
+    campaignId: scope.campaignId,
+    detail: { racialHitDice: 2 },
+  });
+  expect(sharedCopy).not.toHaveProperty('racialStatisticsCopy');
+  expect(sharedCopy).not.toHaveProperty('campaignPreference');
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: originalId,
+    operationId: 'original-race',
+  });
+  expect(await member.query(api.catalogCopies.list, scope)).toContainEqual(
+    sharedCopy,
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: savedRace.catalogEntryId,
+    operationId: 'shared-race',
+  });
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 3,
+    operationId: 'character-racial-hd',
+  });
+  expect(await member.query(api.catalogCopies.list, scope)).toContainEqual(
+    sharedCopy,
+  );
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated.hitDice,
+  ).toBe(4);
+});
+
+test('referenced shared definitions do not consume the racial statistics copy limit', async () => {
+  const { t, owner, scope } = await fixture();
+  const raceId = await t.run(async (ctx) => {
+    const local = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) =>
+        q.eq('characterId', scope.characterId),
+      )
+      .take(4096);
+    for (let index = local.length; index < 4095; index++)
+      await ctx.db.insert('catalogEntry', {
+        ...definition,
+        scope: 'character',
+        characterId: scope.characterId,
+        ruleIdentity: `unused-local-${index}`,
+        sources: [],
+        modifiers: [],
+      });
+    const traits = [];
+    for (let index = 0; index < 16; index++)
+      traits.push(
+        await ctx.db.insert('catalogEntry', {
+          ...definition,
+          scope: 'global',
+          ruleIdentity: `shared-trait-${index}`,
+          sources: [],
+          modifiers: [],
+          detail: { kind: 'racialTrait', raceEntryIds: [], replaces: [] },
+        }),
+      );
+    return ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      ruleIdentity: 'shared-race',
+      sources: [],
+      modifiers: [],
+      detail: { kind: 'race', racialTraits: traits },
+    });
+  });
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: raceId,
+    operationId: 'select-race',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const race = before?.entries.find((entry) => entry.kind === 'race');
+  if (!race) throw new Error('Missing race');
+  await owner.mutation(api.characterSheet.editRaceStatistics, {
+    ...scope,
+    entryId: race._id,
+    racialHitDice: 2,
+    operationId: 'racial-hd',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(saved?.calculated).toMatchObject({ level: 1, hitDice: 3 });
+  expect(
+    saved?.catalogEntries.filter((row) => row.scope === 'character'),
+  ).toHaveLength(4096);
+});
 
 test('shared races, Racial Traits and equipment retain Catalog Copies and recorded state', async () => {
   const { t, owner, member, scope } = await fixture();
@@ -1750,8 +2120,9 @@ test('editing a detached item through its row retains curated stacking fields an
       },
     ],
   });
-  const edited = (await owner.query(api.characterSheet.read, scope))
-    ?.catalogEntries.find((row) => row._id === copyId);
+  const edited = (
+    await owner.query(api.characterSheet.read, scope)
+  )?.catalogEntries.find((row) => row._id === copyId);
   expect(edited).toMatchObject({
     name: 'My Elixir of the Peaks',
     scope: 'character',

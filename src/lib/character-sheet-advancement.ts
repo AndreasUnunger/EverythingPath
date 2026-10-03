@@ -14,6 +14,7 @@ import {
   ordinarySkillRanksPerLevel,
   type SkillRankBudget,
 } from './character-sheet-skills';
+import type { ResolvedSheetEntry } from './character-sheet-grants';
 
 type Progression = Pick<CharacterSheetClassDetail, 'bab' | 'saves'>;
 
@@ -268,10 +269,19 @@ export function resolveAdvancement(input: CharacterSheetInput) {
     hitDice: racial.racialHitDice + levels.length,
     missingRacialHp: racial.missingRacialHp,
     missingRacialProgression: racial.missingRacialProgression,
-    racialRecordedRanks: input.entries
-      .filter((entry) => entry.kind === 'race')
-      .flatMap((entry) => Object.entries(entry.state.racialSkillRanks ?? {})),
+    racialRecordedRanks:
+      racial.racialHitDice > 0
+        ? input.entries
+            .filter((entry) => entry.kind === 'race')
+            .flatMap((entry) =>
+              Object.entries(entry.state.racialSkillRanks ?? {}),
+            )
+        : [],
     racialSkillRanksPerHitDie: racial.racialSkillRanksPerHitDie,
+    racialClassSkills:
+      racial.racialHitDice > 0
+        ? (input.racialHitDice?.progression?.classSkills ?? [])
+        : [],
     modifiers: [
       ...classModifiersFor(classes),
       ...racial.modifiers,
@@ -282,6 +292,40 @@ export function resolveAdvancement(input: CharacterSheetInput) {
 }
 
 const milestones = new Set([4, 8, 12, 16, 20]);
+
+function hasCompleteAbilityIncreases(
+  advancement: ReturnType<typeof resolveAdvancement>,
+) {
+  return [0, advancement.racialHitDice].some((offset) =>
+    advancement.levels.every(
+      (entry) =>
+        !milestones.has(entry.state.position + offset) ||
+        Boolean(entry.state.abilityIncrease),
+    ),
+  );
+}
+
+export function generalFeatWarnings(
+  rows: readonly ResolvedSheetEntry[],
+  budget: number,
+): SheetWarning[] {
+  const feats = rows.filter(
+    (row) =>
+      row.counting &&
+      row.origin === 'selection' &&
+      row.entry.kind === 'feat' &&
+      !row.entry.selectionSource,
+  );
+  if (feats.length <= budget) return [];
+  return feats.map(({ entry }) => ({
+    kind: 'rules',
+    check: 'generalFeatBudget',
+    subject: entry._id,
+    target: { kind: 'entry', entryId: entry._id },
+    fingerprint: JSON.stringify([budget, feats.length]),
+    message: `${feats.length} ordinary feats exceed the ${budget}-feat Hit Dice budget.`,
+  }));
+}
 
 export function advancementBudgets({
   advancement,
@@ -423,6 +467,7 @@ export function advancementWarnings({
   catalogEntries: readonly CharacterSheetCatalogEntry[];
 }): SheetWarning[] {
   const warnings: SheetWarning[] = [];
+  const hasCompleteMilestoneReading = hasCompleteAbilityIncreases(advancement);
   const versions = new Map<string, Set<string>>();
   for (const { catalog, detail } of advancement.rows) {
     if (!catalog || !detail) continue;
@@ -533,7 +578,11 @@ export function advancementWarnings({
         message: `Hit points gained exceed the d${detail.hitDie} maximum.`,
         facts: [detail.hitDie, entry.state.hpGained],
       });
-    if (!entry.state.abilityIncrease && metadata.abilityIncreaseDue)
+    if (
+      !hasCompleteMilestoneReading &&
+      !entry.state.abilityIncrease &&
+      metadata.abilityIncreaseDue
+    )
       warn({
         kind: 'incomplete',
         check: 'abilityIncreaseMissing',

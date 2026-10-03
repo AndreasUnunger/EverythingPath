@@ -115,7 +115,9 @@ export function CharacterSheetRaces({
         rowId: calculated.racial.raceEntryId,
       })
     : [];
-  const showsStatistics = statistics !== null && statistics.racialHitDice > 0;
+  // Every selected race can be given Hit Dice of its own, so its editor
+  // shows at zero too; it then also carries the race's own warnings.
+  const showsStatistics = statistics !== null;
   const rowProps = {
     actions: rowActions,
     registerRow: focus.registerRow,

@@ -176,7 +176,7 @@ export function CharacterSheetView({
           <SheetSummary
             name={sheet.character.name}
             calculated={sheet.calculated}
-            incompleteHpReason={describeIncompleteHp(sheet.levels)}
+            incompleteHpReason={describeIncompleteHp(sheet)}
           />
           <CampaignRow
             character={sheet.character}

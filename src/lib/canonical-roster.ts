@@ -3,6 +3,10 @@ import { TEAM_IDS, TEAM_STATUSES } from './militia-domain';
 import { identitySchema } from './weekly-draft-facts';
 import { getTeamManagerLimit } from './team-manager-rules';
 import { characterKindSchema } from './character-kind';
+import {
+  CANONICAL_WEEKLY_RULESET_VERSION,
+  COMPUTED_HIT_DICE_RULESET_VERSION,
+} from './ruleset-versions';
 
 export const OFFICER_ROLES = [
   'ambassador',
@@ -16,7 +20,7 @@ export const rosterPersonSchema = z.strictObject({
   characterId: identitySchema,
   // Stored mirror of the record kind.
   kind: characterKindSchema,
-  // An optional override; blank means the rules use the record's level.
+  // An optional override; blank means the rules compute the character's Hit Dice.
   hitDice: z.number().int().nonnegative().nullable(),
 });
 export const rosterTeamSchema = z.strictObject({
@@ -89,12 +93,17 @@ export const canonicalRosterSchema = canonicalRosterDataSchema.superRefine(
 export type CanonicalRoster = z.infer<typeof canonicalRosterSchema>;
 
 // A roster person's Hit Dice: the explicit override, zero included, or else
-// the character record's level.
+// The selected weekly rules add fixed racial Hit Dice from version 10.
 export function getEffectiveHitDice(
   person: Pick<CanonicalRoster['people'][number], 'hitDice'>,
-  character: { level: number },
+  character: { level: number; racialHitDice?: number },
+  rulesetVersion = CANONICAL_WEEKLY_RULESET_VERSION,
 ) {
-  return person.hitDice ?? character.level;
+  const racialHitDice =
+    rulesetVersion >= COMPUTED_HIT_DICE_RULESET_VERSION
+      ? (character.racialHitDice ?? 0)
+      : 0;
+  return person.hitDice ?? character.level + racialHitDice;
 }
 export type RosterCharacter = {
   characterId: string;

@@ -59,6 +59,10 @@ export function useCharacterSheet(
 ) {
   const buildOut = useBuildOutCharacter(scope);
   const snapshot = useQuery(api.characterSheet.read, scope);
+  const catalogChoices = useQuery(
+    api.catalogCopies.list,
+    snapshot ? { ...scope, characterId: snapshot.character._id } : 'skip',
+  );
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
   const equipmentWrites = useCharacterSheetEquipment(scope, snapshot);
   const grants = useCharacterSheetGrants(scope, snapshot);
@@ -100,7 +104,9 @@ export function useCharacterSheet(
   const [appendedEntryId, setAppendedEntryId] =
     useState<Id<'characterSheetEntry'> | null>(null);
   const [hasRemoteChange, setHasRemoteChange] = useState(false);
-  const sheet = snapshot ? buildCharacterSheetView(snapshot) : snapshot;
+  const sheet = snapshot
+    ? buildCharacterSheetView(snapshot, catalogChoices)
+    : snapshot;
   const warningStates = sheet
     ? Object.fromEntries(
         sheet.warnings.map((warning) => [

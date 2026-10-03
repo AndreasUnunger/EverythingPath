@@ -12,6 +12,7 @@ const writes = vi.hoisted(() => ({
   replacements: vi.fn(),
   grant: vi.fn(),
   selection: vi.fn(),
+  statistics: vi.fn(),
 }));
 vi.mock('convex/react', () => ({
   useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
@@ -22,6 +23,7 @@ vi.mock('convex/react', () => ({
       'characterSheet:setRacialTraitReplacements': writes.replacements,
       'characterSheet:editGrantState': writes.grant,
       'characterSheet:editSelection': writes.selection,
+      'characterSheet:editRaceStatistics': writes.statistics,
     })[getFunctionName(reference)],
 }));
 beforeEach(() =>
@@ -29,6 +31,72 @@ beforeEach(() =>
     write.mockReset().mockResolvedValue(null),
   ),
 );
+
+test('HP and rank writes preserve the form’s exact null progression payload', async () => {
+  const snapshot = buildSheet();
+  const entryId = snapshot.entries[0]?._id;
+  if (!entryId) throw new Error('Missing sheet entry');
+  const { result } = renderHook(() =>
+    useCharacterSheetRaces({ characterId: snapshot.character._id }, snapshot),
+  );
+  await act(async () => {
+    expect(
+      await result.current.editStatistics(entryId, {
+        racialHitDice: 0,
+        racialHpGained: 12,
+        racialSkillRanks: { per: 2 },
+        racialProgression: null,
+      }),
+    ).toBe(true);
+  });
+  expect(writes.statistics).toHaveBeenCalledWith({
+    characterId: snapshot.character._id,
+    operationId: expect.any(String),
+    entryId,
+    racialHitDice: 0,
+    racialHpGained: 12,
+    racialSkillRanks: { per: 2 },
+    racialProgression: null,
+  });
+});
+
+test('racial statistics save the edited progression and zero-HD count together with local acknowledgement', async () => {
+  const snapshot = buildSheet();
+  const entryId = snapshot.entries[0]?._id;
+  if (!entryId) throw new Error('Missing sheet entry');
+  const view = renderHook(() =>
+    useCharacterSheetRaces({ characterId: snapshot.character._id }, snapshot),
+  );
+  await act(async () => {
+    expect(
+      await view.result.current.editStatistics(entryId, {
+        racialHitDice: 0,
+        racialHpGained: null,
+        racialProgression: {
+          creatureType: 'Custom type',
+          hitDie: 7,
+          bab: 'half',
+          saves: { fort: 'poor', ref: 'good', will: 'poor' },
+          skillRanksPerHitDie: 9,
+          classSkills: ['per'],
+        },
+      }),
+    ).toBe(true);
+  });
+  expect(writes.statistics).toHaveBeenCalledWith(
+    expect.objectContaining({
+      entryId,
+      racialHitDice: 0,
+      racialHpGained: null,
+      racialProgression: expect.objectContaining({
+        creatureType: 'Custom type',
+        hitDie: 7,
+        classSkills: ['per'],
+      }),
+    }),
+  );
+  expect(view.result.current.statusFor(entryId)).toEqual({ kind: 'saved' });
+});
 
 test('race and ability controls acknowledge saving independently using durable Grant Keys', async () => {
   let finish: (() => void) | undefined;

@@ -193,7 +193,14 @@ test('a human starts without its +2, prompted in blue, and chooses or clears it 
   expect(
     screen.getByText('No ability score adjustment from race is counting.'),
   ).toBeVisible();
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  // The choice has no free-text editor; the only text fields are the
+  // race's own Hit Dice.
+  const statisticsForm = screen.getByRole('form', { name: 'Racial Hit Dice' });
+  expect(
+    screen
+      .getAllByRole('textbox')
+      .filter((field) => !statisticsForm.contains(field)),
+  ).toHaveLength(0);
 
   fireEvent.change(ability, { target: { value: 'constitution' } });
   const grantKey = { source: 'human', entry: 'human-ability' };
@@ -424,7 +431,9 @@ test("an empty catalog, a refused race save and another player's change are stat
 test('racial Hit Dice start with unknown hit points, refuse malformed numbers and empty ranks, and save what was typed', async () => {
   renderRaces(buildSheet({ race: { key: 'human', hitDice: 3 } }));
   const form = screen.getByRole('form', { name: 'Racial Hit Dice' });
-  expect(within(form).getByText('3 racial Hit Dice')).toBeVisible();
+  expect(
+    within(form).getByRole('textbox', { name: 'Racial Hit Dice' }),
+  ).toHaveValue('3');
   const hitPoints = within(form).getByRole('textbox', {
     name: 'Racial hit points',
   });
@@ -434,17 +443,17 @@ test('racial Hit Dice start with unknown hit points, refuse malformed numbers an
   fireEvent.change(hitPoints, { target: { value: 'abc' } });
   fireEvent.submit(form);
   expect(await within(form).findByRole('alert')).toHaveTextContent(
-    'Racial hit points must be a whole number of 0 or more',
+    'Racial hit points must be a number',
   );
   expect(writes).toHaveLength(0);
 
   fireEvent.change(hitPoints, { target: { value: '' } });
   fireEvent.click(within(form).getByRole('button', { name: 'Add skill' }));
-  fireEvent.change(within(form).getByRole('textbox', { name: 'Skill 1' }), {
-    target: { value: 'Perception' },
+  fireEvent.change(within(form).getByRole('combobox', { name: 'Skill 1' }), {
+    target: { value: 'per' },
   });
   fireEvent.submit(form);
-  expect(await within(form).findByText('Ranks are required')).toHaveAttribute(
+  expect(await within(form).findByText('Ranks is required')).toHaveAttribute(
     'role',
     'alert',
   );
@@ -453,9 +462,7 @@ test('racial Hit Dice start with unknown hit points, refuse malformed numbers an
   });
   fireEvent.change(ranks, { target: { value: 'x' } });
   fireEvent.submit(form);
-  expect(
-    await within(form).findByText('Ranks must be a whole number of 0 or more'),
-  ).toBeVisible();
+  expect(await within(form).findByText('Ranks must be a number')).toBeVisible();
   fireEvent.change(ranks, { target: { value: '2' } });
   fireEvent.submit(form);
   await act(() => Promise.resolve());
@@ -463,7 +470,7 @@ test('racial Hit Dice start with unknown hit points, refuse malformed numbers an
     name: 'editStatistics',
     args: [
       'race-entry',
-      { racialHpGained: null, racialSkillRanks: { Perception: 2 } },
+      { racialHpGained: null, racialSkillRanks: { per: 2 } },
     ],
   });
 });
@@ -505,11 +512,11 @@ test('racial Hit Dice follow saved values, and switching races starts the new ra
 
   view.rerender(
     buildSheet({
-      race: { ...human, racialHpGained: 9, racialSkillRanks: { Climb: 2 } },
+      race: { ...human, racialHpGained: 9, racialSkillRanks: { clm: 2 } },
     }),
   );
   expect(hitPoints()).toHaveValue('9');
-  expect(screen.getByRole('textbox', { name: 'Skill 1' })).toHaveValue('Climb');
+  expect(screen.getByRole('combobox', { name: 'Skill 1' })).toHaveValue('clm');
 
   fireEvent.change(hitPoints(), { target: { value: '5' } });
   view.rerender(
@@ -517,7 +524,7 @@ test('racial Hit Dice follow saved values, and switching races starts the new ra
   );
   expect(hitPoints()).toHaveValue('');
   expect(
-    screen.queryByRole('textbox', { name: 'Skill 1' }),
+    screen.queryByRole('combobox', { name: 'Skill 1' }),
   ).not.toBeInTheDocument();
   fireEvent.submit(screen.getByRole('form', { name: 'Racial Hit Dice' }));
   await act(() => Promise.resolve());

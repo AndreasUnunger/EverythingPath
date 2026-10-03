@@ -31,9 +31,12 @@ export async function calculateMilitiaCharacterFacts(
       ? await loadPreparedCharacterSheet(ctx, character)
       : preparedSheet;
   const calculated = sheet?.permanentCalculated;
+  const racialHitDice = calculated?.racialHitDice ?? 0;
   const facts = {
     characterId: character._id,
     level: calculated?.level ?? character.level,
+    // Preserve the legacy facts shape for zero racial HD and frozen snapshots.
+    ...(racialHitDice ? { racialHitDice } : {}),
     strength: calculated?.abilities.strength.score ?? character.strength,
     dexterity: calculated?.abilities.dexterity.score ?? character.dexterity,
     constitution:

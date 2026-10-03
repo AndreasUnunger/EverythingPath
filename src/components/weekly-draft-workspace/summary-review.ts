@@ -4,6 +4,7 @@ import type {
 } from '~/lib/canonical-weekly-resolution';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
+import { COMPUTED_HIT_DICE_RULESET_VERSION } from '~/lib/ruleset-versions';
 import {
   appendNote,
   applyPlan,
@@ -704,7 +705,14 @@ function resultFacts(
   return {
     nextWeek: final?.week ?? draft.week + 1,
     complete: baseline !== null && final !== null,
-    rows: compareWeekStates({ now, baseline, final, names }),
+    rows: compareWeekStates({
+      now,
+      baseline,
+      final,
+      names,
+      includeRacialHitDice:
+        preview.rulesetVersion >= COMPUTED_HIT_DICE_RULESET_VERSION,
+    }),
   };
 }
 

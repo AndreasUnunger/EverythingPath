@@ -1,9 +1,11 @@
 import { abilityModifier } from './ability-scores';
 import { getEffectiveHitDice, type CanonicalRoster } from './canonical-roster';
+import { CANONICAL_WEEKLY_RULESET_VERSION } from './ruleset-versions';
 
 export type FoundationCharacter = {
   characterId: string;
   level: number;
+  racialHitDice?: number;
   strength: number;
   dexterity: number;
   constitution: number;
@@ -44,6 +46,7 @@ export function projectOfficers(
   roster: CanonicalRoster,
   characters: FoundationCharacter[],
   focus: string | null,
+  rulesetVersion = CANONICAL_WEEKLY_RULESET_VERSION,
 ) {
   const requirements: string[] = [];
   const warnings: string[] = [];
@@ -81,7 +84,10 @@ export function projectOfficers(
     const person = roster.people.find(
       (x) => x.characterId === character.characterId,
     );
-    return total + (person ? getEffectiveHitDice(person, character) : 0);
+    return (
+      total +
+      (person ? getEffectiveHitDice(person, character, rulesetVersion) : 0)
+    );
   }, 0);
   const secondary = (check: OrganizationCheck) =>
     focus && check !== focus.toLowerCase() && overseers.length ? 1 : 0;

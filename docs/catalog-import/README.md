@@ -53,6 +53,8 @@ The #257 registry records `reviewStatus` and provenance for unreviewed seed text
 
 ## Extraction interface and scope
 
+The Character Sheet uses a small typed table for the thirteen editable creature-type progressions. The production `src/lib/catalog/data/resources.json` contains attribution resources, not creature-type records; the imported progressions currently live in pinned test fixtures and the Node-only importer. Importing the full fixture or parser into the client would add unrelated content or server dependencies. The import parity test checks each seed against its pinned resource. Stable creature-type tags identify choices; editable progression names use display names such as "Magical Beast". Older saved tags are shown as display names and save in that form, while custom names are retained.
+
 The Node-only module at `scripts/catalog/import.ts` exposes:
 
 ```ts

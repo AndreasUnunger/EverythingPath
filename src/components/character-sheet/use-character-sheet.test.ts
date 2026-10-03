@@ -18,6 +18,7 @@ import {
 } from './use-character-sheet';
 
 let snapshot: CharacterSheetSnapshot | null | undefined;
+let catalogChoices: CharacterSheetSnapshot['catalogEntries'] | undefined;
 type Call = {
   name: string;
   args: Record<string, unknown>;
@@ -32,7 +33,13 @@ vi.mock('@convex/_generated/api', async () => {
 });
 vi.mock('convex/react', () => ({
   useQuery: (name: string) =>
-    name === 'read' ? snapshot : name === 'companions' ? [] : undefined,
+    name === 'read'
+      ? snapshot
+      : name === 'catalogList'
+        ? catalogChoices
+        : name === 'companions'
+          ? []
+          : undefined,
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });
@@ -205,6 +212,56 @@ async function fixture(acceptPointBuy = false) {
 beforeEach(() => {
   calls = [];
   snapshot = undefined;
+  catalogChoices = undefined;
+});
+
+test('the race picker selects the available shared race while its statistics copy stays on the sheet', () => {
+  const initial = buildSheet({ race: { key: 'human', hitDice: 2 } });
+  const original = initial.catalogEntries.find(
+    (entry) => entry.detail.kind === 'race' && entry.ruleIdentity === 'human',
+  );
+  const otherRace = initial.catalogEntries.find(
+    (entry) => entry.detail.kind === 'race' && entry.ruleIdentity !== 'human',
+  );
+  if (!original || !otherRace) throw new Error('Missing race definitions');
+  const copy = {
+    ...original,
+    _id: otherRace._id,
+    racialStatisticsCopy: true as const,
+    copiedFrom: original._id,
+  };
+  snapshot = {
+    ...initial,
+    catalogEntries: [
+      ...initial.catalogEntries.filter(
+        (entry) => entry._id !== original._id && entry._id !== copy._id,
+      ),
+      copy,
+    ],
+    entries: initial.entries.map((entry) =>
+      entry.kind === 'race'
+        ? { ...entry, catalogEntryId: copy._id, catalogOverride: true }
+        : entry,
+    ),
+  };
+  catalogChoices = [
+    { ...original, scope: 'global', characterId: undefined },
+  ];
+  const view = renderHook(() =>
+    useCharacterSheet({ characterId: initial.character._id }),
+  );
+  expect(view.result.current.sheet?.races.raceOptions).toContainEqual(
+    expect.objectContaining({ catalogEntryId: original._id }),
+  );
+  expect(view.result.current.sheet?.races.raceOptions).not.toContainEqual(
+    expect.objectContaining({ catalogEntryId: copy._id }),
+  );
+  expect(view.result.current.sheet?.races.selectedRaceId).toBe(original._id);
+  expect(view.result.current.sheet?.raceStatistics?.racialHitDice).toBe(2);
+  expect(view.result.current.sheet?.calculated).toMatchObject({
+    hitDice: initial.calculated.hitDice,
+    level: initial.calculated.level,
+  });
 });
 
 test('the shared controller exposes race selection and ability choices with campaign scope and separate acknowledgements', async () => {

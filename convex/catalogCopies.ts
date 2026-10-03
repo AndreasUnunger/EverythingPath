@@ -12,6 +12,8 @@ import {
 } from '../src/lib/character-sheet-grants';
 import { remapCatalogReferences } from '../src/lib/catalog-copy-references';
 import {
+  calculateDefinitionFingerprint,
+  copyCatalogDefinition,
   findPreferredCampaignCopy,
   preserveCuratedModifierFields,
   projectCampaignCopies,
@@ -20,7 +22,6 @@ import {
 import { legacyCharacterMutation } from './lib/campaignRuntime';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { releaseFingerprint } from '../src/lib/catalog/release-schema';
 import { hasAccessToOrg } from './user';
 import { requireCompatibleActiveRelease } from './lib/catalogReleaseCompatibility';
 import { requireCharacterAccess } from './lib/characterAccess';
@@ -61,6 +62,7 @@ const definitionValidator = v.union(
         'copiedFrom',
         'copiedFromFingerprint',
         'campaignPreference',
+        'racialStatisticsCopy',
         'ruleIdentity',
       )
       .extend({
@@ -213,6 +215,7 @@ export const list = query({
       .filter(
         (row) =>
           row.detail.kind !== 'base' &&
+          !(row.scope === 'character' && row.racialStatisticsCopy) &&
           !(row.scope === 'global' && replacedIds.has(row._id)),
       )
       .slice(0, maxCatalogBrowserRows);
@@ -250,6 +253,7 @@ export const saveToCatalog = legacyCharacterMutation({
         scope: 'campaign',
         campaignId: sheet.campaign.campaignId,
         characterId: undefined,
+        racialStatisticsCopy: undefined,
       },
       definition._id,
     );
@@ -260,6 +264,7 @@ export const saveToCatalog = legacyCharacterMutation({
             scope: 'campaign',
             campaignId: sheet.campaign?.campaignId,
             characterId: undefined,
+            racialStatisticsCopy: undefined,
           }
         : row,
     );
@@ -271,50 +276,6 @@ export const saveToCatalog = legacyCharacterMutation({
   },
 });
 
-async function calculateDefinitionFingerprint(definition: Doc<'catalogEntry'>) {
-  const {
-    _id,
-    _creationTime,
-    scope: _scope,
-    characterId: _characterId,
-    campaignId: _campaignId,
-    copiedFrom: _copiedFrom,
-    copiedFromFingerprint: _copiedFromFingerprint,
-    campaignPreference: _campaignPreference,
-    ...body
-  } = definition;
-  return releaseFingerprint(body);
-}
-async function copyDefinition(
-  ctx: MutationCtx,
-  definition: Doc<'catalogEntry'>,
-  destination:
-    | { scope: 'character'; characterId: Id<'character'> }
-    | { scope: 'campaign'; campaignId: Id<'campaign'> },
-) {
-  const original = await ctx.db.get('catalogEntry', definition._id);
-  if (!original) throw new ConvexError('Catalog Entry is unavailable');
-  const {
-    _id,
-    _creationTime,
-    scope: _scope,
-    characterId: _characterId,
-    campaignId: _campaignId,
-    campaignPreference: _campaignPreference,
-    ...body
-  } = original;
-  return writeCatalogDefinition(ctx, {
-    ...body,
-    ...destination,
-    ...(destination.scope === 'campaign'
-      ? { campaignPreference: true as const }
-      : {}),
-    copiedFrom: definition._id,
-    copiedFromFingerprint: await calculateDefinitionFingerprint(original),
-    ruleIdentity: definition.ruleIdentity,
-    sourceKey: definition.sourceKey ?? definition.ruleIdentity,
-  });
-}
 async function loadCampaignSheets(
   ctx: MutationCtx,
   initialSheet: LoadedCharacterSheet,
@@ -464,7 +425,7 @@ export const customizeForCampaign = legacyCharacterMutation({
     });
     if (existing) return existing._id;
     const sheets = await loadCampaignSheets(ctx, sheet, args);
-    const copyId = await copyDefinition(ctx, definition, {
+    const copyId = await copyCatalogDefinition(ctx, definition, {
       scope: 'campaign',
       campaignId: sheet.campaign.campaignId,
     });
@@ -697,7 +658,7 @@ export const detach = legacyCharacterMutation({
       throw new ConvexError(
         'Character-specific definitions cannot be detached',
       );
-    const copyId = await copyDefinition(ctx, definition, {
+    const copyId = await copyCatalogDefinition(ctx, definition, {
       scope: 'character',
       characterId: args.characterId,
     });

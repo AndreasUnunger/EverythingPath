@@ -3,7 +3,10 @@
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
-import type { Ability } from '~/lib/character-sheet';
+import type {
+  Ability,
+  CharacterSheetRacialProgression,
+} from '~/lib/character-sheet';
 import { createCharacterSheetOperationId } from '~/lib/character-sheet-operations';
 import type { CharacterScope } from './character-scope';
 import type { GrantEntryTarget } from './character-sheet-grants-view-model';
@@ -83,12 +86,19 @@ export function useCharacterSheetRaces(
     editStatistics: (
       entryId: Id<'characterSheetEntry'>,
       input: {
+        racialHitDice?: number;
+        racialProgression?: CharacterSheetRacialProgression | null;
         racialHpGained?: number | null;
         racialSkillRanks?: Record<string, number>;
       },
     ) =>
       state.write(
-        () => editRaceStatistics({ ...operation(), entryId, ...input }),
+        () =>
+          editRaceStatistics({
+            ...operation(),
+            entryId,
+            ...input,
+          }),
         { key: entryId, subject: 'Racial statistics' },
       ),
     selectRace: (catalogEntryId: Id<'catalogEntry'> | null) =>

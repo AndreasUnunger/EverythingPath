@@ -866,3 +866,32 @@ test.each(['deleted', 'legacy'])(
     });
   },
 );
+
+test('racial Hit Dice count toward Hit Dice but not Level, ability increases accept the character-level reading, and missing racial hit points leave HP not complete', () => {
+  const levels: Level[] = ['a', 'b', 'c'].map((id) => ({
+    id,
+    hp: 6,
+    classId: 'fighter',
+  }));
+  renderSheet(buildSheet({ race: { key: 'human', hitDice: 1 }, levels }));
+  const summaryValue = (label: string) =>
+    screen.getByText(label, { selector: 'dt' }).nextElementSibling;
+  expect(summaryValue('Level')).toHaveTextContent('3');
+  expect(summaryValue('Hit Dice')).toHaveTextContent('4');
+
+  expect(
+    within(row(3)).queryByText('Choose an ability increase.'),
+  ).not.toBeInTheDocument();
+  expect(abilityPicker(3)).not.toHaveClass('ring-sky-400/80');
+  expect(
+    within(row(2)).queryByText('Choose an ability increase.'),
+  ).not.toBeInTheDocument();
+
+  const hp = screen.getByRole('button', { name: 'HP not complete, breakdown' });
+  fireEvent.click(hp);
+  expect(
+    within(screen.getByRole('group', { name: 'HP breakdown' })).getByText(
+      'Not complete: racial Hit Dice have no hit points yet.',
+    ),
+  ).toBeVisible();
+});

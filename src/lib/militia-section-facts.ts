@@ -591,6 +591,7 @@ export function officerFacts(
 export function rosterFacts(
   snapshot: Snapshot,
   characters: CharacterNames,
+  rulesetVersion?: number,
 ): EntryFacts {
   const names = namer(snapshot, characters);
   const entries = snapshot.roster.people.map((person) => {
@@ -604,7 +605,7 @@ export function rosterFacts(
       .filter((team) => team.managerCharacterId === person.characterId)
       .map((team) => team.name);
     const hitDice = character
-      ? String(getEffectiveHitDice(person, character))
+      ? String(getEffectiveHitDice(person, character, rulesetVersion))
       : 'Not recorded';
     return {
       key: person.characterId,

@@ -283,6 +283,7 @@ export function officerBoard({
   names,
   focus,
   pending,
+  rulesetVersion,
 }: {
   roster: CanonicalRoster;
   /** The rules facts of the campaign's characters. */
@@ -290,13 +291,16 @@ export function officerBoard({
   names: ReadonlyMap<string, string>;
   focus: Focus | null;
   pending: readonly PendingRoleChange[];
+  rulesetVersion?: number;
 }): RoleCard[] {
-  const officers = projectOfficers(roster, characters, focus);
+  const officers = projectOfficers(roster, characters, focus, rulesetVersion);
   const byId = new Map(characters.map((x) => [x.characterId, x]));
   const people = new Map(roster.people.map((x) => [x.characterId, x]));
   const hitDice = (holder: PresentHolder) => {
     const person = people.get(holder.characterId);
-    return person ? getEffectiveHitDice(person, holder.facts) : 0;
+    return person
+      ? getEffectiveHitDice(person, holder.facts, rulesetVersion)
+      : 0;
   };
   const secondary = focus
     ? (['loyalty', 'secrecy', 'security'] as const)
@@ -375,12 +379,14 @@ export function characterRows({
   records,
   roster,
   characters,
+  rulesetVersion,
 }: {
   records: readonly BoardRecord[];
   /** The accepted roster; null before the militia is set up. */
   roster: CanonicalRoster | null;
   /** The rules facts of the campaign's characters. */
   characters: readonly FoundationCharacter[];
+  rulesetVersion?: number;
 }): CharacterRow[] {
   const facts = new Map(characters.map((x) => [x.characterId, x]));
   const warnings = roster
@@ -412,7 +418,9 @@ export function characterRows({
         kind: record.kind,
         archived: record.isActive === false,
         onRoster: person !== undefined,
-        hitDice: person ? getEffectiveHitDice(person, rules) : record.level,
+        hitDice: person
+          ? getEffectiveHitDice(person, rules, rulesetVersion)
+          : record.level,
         roles: roster ? heldRoles(roster.officers, record._id) : [],
         manages:
           roster && person

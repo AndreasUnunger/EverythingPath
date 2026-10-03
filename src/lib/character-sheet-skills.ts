@@ -86,7 +86,7 @@ export function ordinarySkillRanksPerLevel({
   );
 }
 
-const skillKeyPrefix = 'skill.';
+export const skillKeyPrefix = 'skill.';
 
 export function canonicalSkillKey(key: string): SkillTarget | undefined {
   return skillDefinitions.find(
@@ -114,17 +114,22 @@ function rankContributions(advancement: ReturnType<typeof resolveAdvancement>) {
 
 function classSkills(advancement: ReturnType<typeof resolveAdvancement>) {
   return new Set(
-    advancement.rows.flatMap(({ detail }) =>
-      (detail?.classSkills ?? []).flatMap((skill) => {
-        const key = canonicalSkillKey(skill);
-        return key ? [key] : [];
-      }),
-    ),
+    [
+      ...advancement.racialClassSkills,
+      ...advancement.rows.flatMap(({ detail }) => detail?.classSkills ?? []),
+    ].flatMap((skill) => {
+      const key = canonicalSkillKey(skill);
+      return key ? [key] : [];
+    }),
   );
 }
 
 function appliesArmorCheckPenalty(ability: Ability) {
   return ability === 'strength' || ability === 'dexterity';
+}
+
+function rankModifier(source: Parameters<typeof builtIn>[0]) {
+  return source.value ? [builtIn({ ...source, isBase: true })] : [];
 }
 
 export function resolveSkills({
@@ -139,24 +144,29 @@ export function resolveSkills({
   equipment: ReturnType<typeof resolveEquipment>;
 }) {
   const rankedLevels = rankContributions(advancement);
+  const racialRanks = sumRanksBySkill(
+    Object.fromEntries(advancement.racialRecordedRanks),
+  );
   const availableClassSkills = classSkills(advancement);
   const skillBreakdowns: Partial<Record<SkillTarget, ResolvedStatistic>> = {};
   const skills = skillDefinitions.map(({ key, name, ability }) => {
-    const rankModifiers: SourcedModifier[] = rankedLevels.flatMap((level) => {
-      const ranks = level.ranks[key] ?? 0;
-      return ranks
-        ? [
-            builtIn({
-              target: key,
-              id: level.entryId,
-              sheetEntryId: level.entryId,
-              name: `Class Level ${level.position} ranks`,
-              value: ranks,
-              isBase: true,
-            }),
-          ]
-        : [];
-    });
+    const rankModifiers: SourcedModifier[] = [
+      ...rankModifier({
+        target: key,
+        id: 'racial-ranks',
+        name: 'Racial ranks',
+        value: racialRanks[key] ?? 0,
+      }),
+      ...rankedLevels.flatMap((level) =>
+        rankModifier({
+          target: key,
+          id: level.entryId,
+          sheetEntryId: level.entryId,
+          name: `Class Level ${level.position} ranks`,
+          value: level.ranks[key] ?? 0,
+        }),
+      ),
+    ];
     const ranks = rankModifiers.reduce(
       (sum, modifier) => sum + modifier.value,
       0,

@@ -7,6 +7,7 @@ import {
   type Ability,
   type AbilityScores,
   type CharacterSheetCatalogEntry,
+  type CharacterSheetRacialProgression,
   type FavoredClassBonus,
   type Modifier,
   type SheetWarning,
@@ -89,6 +90,8 @@ export type Race = {
   active?: boolean;
   /** Racial Hit Dice on the definition; the representative races have none. */
   hitDice?: number;
+  /** The definition's racial Hit Dice progression, when it has one. */
+  progression?: CharacterSheetRacialProgression;
   racialHpGained?: number | null;
   racialSkillRanks?: Record<string, number>;
 };
@@ -208,8 +211,19 @@ export function buildSheet({
         (entry) =>
           ({
             ...entry,
-            ...(entry._id === race?.key && race.hitDice !== undefined
-              ? { detail: { ...entry.detail, racialHitDice: race.hitDice } }
+            ...(entry._id === race?.key &&
+            (race.hitDice !== undefined || race.progression)
+              ? {
+                  detail: {
+                    ...entry.detail,
+                    ...(race.hitDice !== undefined
+                      ? { racialHitDice: race.hitDice }
+                      : {}),
+                    ...(race.progression
+                      ? { racialProgression: race.progression }
+                      : {}),
+                  },
+                }
               : {}),
             _creationTime: 4,
             scope: 'character',

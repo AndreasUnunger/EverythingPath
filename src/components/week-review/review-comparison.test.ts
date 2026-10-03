@@ -223,6 +223,33 @@ describe('[SUM-06] Result comparison', () => {
     expect(shownRows(rows, false)).toEqual([]);
   });
 
+  test.each([
+    { includeRacialHitDice: false, expected: 'Player character · 5 Hit Dice' },
+    { includeRacialHitDice: true, expected: 'Player character · 9 Hit Dice' },
+  ])(
+    'result comparison includes racial HD when requested: $includeRacialHitDice, preserving an explicit zero override',
+    ({ includeRacialHitDice, expected }) => {
+      const now = state();
+      const baseline = state();
+      baseline.militiaSnapshot.characters[0]!.racialHitDice = 4;
+      const final = structuredClone(baseline);
+      final.militiaSnapshot.roster.people[0]!.hitDice = 0;
+      const rows = compareWeekStates({
+        now,
+        baseline,
+        final,
+        names,
+        includeRacialHitDice,
+      });
+      expect(row(rows, 'Ilsa')).toMatchObject({
+        now: { text: 'Player character · 5 Hit Dice' },
+        baseline: { text: expected },
+        final: { text: 'Player character · 0 Hit Dice' },
+        changed: true,
+      });
+    },
+  );
+
   test('a state part a record cannot read leaves its values unrecorded, never None or unchanged', () => {
     const final = state(5);
     final.militiaSnapshot.treasuryCopper = 4000;

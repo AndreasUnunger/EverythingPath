@@ -1,3 +1,4 @@
+import { releaseFingerprint } from '../../src/lib/catalog/release-schema';
 import { validate } from 'convex-helpers/validators';
 import {
   catalogEntryValidator,
@@ -200,6 +201,59 @@ export async function writeCatalogDefinition(
   return ctx.db.insert('catalogEntry', definition);
 }
 
+export async function calculateDefinitionFingerprint(
+  definition: Doc<'catalogEntry'>,
+) {
+  const {
+    _id,
+    _creationTime,
+    scope: _scope,
+    characterId: _characterId,
+    campaignId: _campaignId,
+    copiedFrom: _copiedFrom,
+    copiedFromFingerprint: _copiedFromFingerprint,
+    campaignPreference: _campaignPreference,
+    racialStatisticsCopy: _racialStatisticsCopy,
+    ...body
+  } = definition;
+  return releaseFingerprint(body);
+}
+export async function copyCatalogDefinition(
+  ctx: MutationCtx,
+  definition: Doc<'catalogEntry'>,
+  destination:
+    | { scope: 'character'; characterId: Id<'character'> }
+    | { scope: 'campaign'; campaignId: Id<'campaign'> },
+  changes: Partial<
+    Pick<Doc<'catalogEntry'>, 'detail' | 'racialStatisticsCopy'>
+  > = {},
+) {
+  const original = await ctx.db.get('catalogEntry', definition._id);
+  if (!original) throw new ConvexError('Catalog Entry is unavailable');
+  const {
+    _id,
+    _creationTime,
+    scope: _scope,
+    characterId: _characterId,
+    campaignId: _campaignId,
+    campaignPreference: _campaignPreference,
+    racialStatisticsCopy: _racialStatisticsCopy,
+    ...body
+  } = original;
+  return writeCatalogDefinition(ctx, {
+    ...body,
+    ...destination,
+    ...changes,
+    ...(destination.scope === 'campaign'
+      ? { campaignPreference: true as const }
+      : {}),
+    copiedFrom: definition._id,
+    copiedFromFingerprint: await calculateDefinitionFingerprint(original),
+    ruleIdentity: definition.ruleIdentity,
+    sourceKey: definition.sourceKey ?? definition.ruleIdentity,
+  });
+}
+
 type CatalogModifier = Infer<typeof catalogModifierValidator>;
 
 export function preserveCuratedModifierFields<
@@ -213,10 +267,8 @@ export function preserveCuratedModifierFields<
     stacksWithinEntry: _exception,
     ...editable
   }: CatalogModifier) => editable;
-  const modifierIdentity = ({
-    value: _value,
-    ...identity
-  }: CatalogModifier) => identity;
+  const modifierIdentity = ({ value: _value, ...identity }: CatalogModifier) =>
+    identity;
   // Reserve unchanged facts before pairing numeric edits, so a reorder cannot
   // move a curated exception onto a different bonus with the same identity.
   const matches = modifiers.map((modifier) => {

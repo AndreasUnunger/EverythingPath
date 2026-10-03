@@ -1,8 +1,38 @@
 import { expect, test } from 'vitest';
 import {
   canonicalRosterSchema,
+  getEffectiveHitDice,
   rosterWarningDescriptors,
 } from './canonical-roster';
+
+test.each([
+  { rulesetVersion: 9, expected: 5 },
+  { rulesetVersion: 10, expected: 8 },
+  { rulesetVersion: 11, expected: 8 },
+])(
+  'Hit Dice use the selected weekly rules at version $rulesetVersion',
+  ({ rulesetVersion, expected }) => {
+    const character = { level: 5, racialHitDice: 3 };
+    expect(
+      getEffectiveHitDice({ hitDice: null }, character, rulesetVersion),
+    ).toBe(expected);
+    expect(getEffectiveHitDice({ hitDice: 0 }, character, rulesetVersion)).toBe(
+      0,
+    );
+    expect(getEffectiveHitDice({ hitDice: 7 }, character, rulesetVersion)).toBe(
+      7,
+    );
+    expect(
+      getEffectiveHitDice({ hitDice: null }, { level: 5 }, rulesetVersion),
+    ).toBe(5);
+  },
+);
+
+test('unversioned current Hit Dice retain version 9 behavior until cutover', () => {
+  expect(
+    getEffectiveHitDice({ hitDice: null }, { level: 5, racialHitDice: 3 }),
+  ).toBe(5);
+});
 
 test('[roster.identities] repeated teams keep independent conditions, exemptions and managers', () => {
   const roster = canonicalRosterSchema.parse({

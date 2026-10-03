@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolve, join } from 'node:path';
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { creatureTypeProgressionSeeds } from '../../src/lib/character-sheet-creature-types';
+import { skillNames } from '../../scripts/catalog/values';
 import {
   importCatalog,
   draftCatalogCuration,
@@ -42,6 +44,59 @@ async function copyFixtures() {
 }
 
 describe('pinned catalog extraction', () => {
+  it('starts imported playable races at zero racial HD even when upstream supplies a count', async () => {
+    const root = await copyFixtures();
+    const path = join(root, 'pf1/packs/races/human.e6IaBxKgMxy1yKlr.yaml');
+    const source = await readFile(path, 'utf8');
+    await writeFile(
+      path,
+      source.replace('system:\n', 'system:\n  racialHitDice: 4\n'),
+    );
+    const result = await importCatalog({
+      systemPath: join(root, 'pf1'),
+      contentPath: join(root, 'pf1-content'),
+      remaps: [],
+    });
+    expect(
+      result.catalog.entries.find(
+        (entry) => entry.externalKey === 'pf1/e6IaBxKgMxy1yKlr',
+      )?.detail,
+    ).toMatchObject({
+      kind: 'race',
+      racialHitDice: 0,
+    });
+  });
+
+  it('seeds all thirteen creature-type progressions from the pinned imported resources', async () => {
+    const result = await importCatalog({
+      systemPath: system,
+      contentPath: content,
+      remaps: [],
+    });
+    const resources = result.catalog.resources.filter(
+      (resource) => resource.detail.kind === 'creatureType',
+    );
+    expect(resources).toHaveLength(13);
+    for (const seed of creatureTypeProgressionSeeds) {
+      const resource = resources.find(
+        (entry) => entry.externalKey === seed.sourceKey,
+      );
+      expect(resource, seed.name).toBeDefined();
+      const detail = resource!.detail;
+      expect(detail, seed.name).toMatchObject({
+        kind: 'creatureType',
+        tag: seed.creatureType,
+        hitDie: seed.progression.hitDie,
+        bab: seed.progression.bab,
+        saves: seed.progression.saves,
+        skillRanksPerHitDie: seed.progression.skillRanksPerHitDie,
+        classSkills: seed.progression.classSkills
+          .map((skill) => skillNames[skill] ?? skill)
+          .sort(),
+      });
+    }
+  });
+
   it('extracts inspectable entries with pack-independent identity and deterministic output', async () => {
     const result = await importCatalog({
       systemPath: system,

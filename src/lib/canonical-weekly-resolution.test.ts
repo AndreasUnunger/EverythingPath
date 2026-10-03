@@ -16,6 +16,7 @@ import { roll, upkeepFixture } from '../../tests/rules/upkeep-fixture';
 import { createWeeklyDraft } from './weekly-draft';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import type { UpkeepSnapshot } from './rules-upkeep';
+import { COMPUTED_HIT_DICE_RULESET_VERSION } from './ruleset-versions';
 
 function fixture() {
   const { draft, snapshot } = persistentEventFixture('low_morale');
@@ -28,6 +29,67 @@ function resolve(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     militiaSnapshot: snapshot,
   });
 }
+
+test('a version 9 weekly Drill retains level-only Hit Dice until cutover', () => {
+  const { draft, snapshot } = upkeepFixture();
+  draft.context = { ...draft.context, firstMilitiaWeek: true };
+  draft.event.chanceRoll = roll(100, 100);
+  snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });
+  snapshot.roster.people[0]!.hitDice = null;
+  const character = { ...snapshot.characters[0]!, racialHitDice: 4 };
+  snapshot.characters = [character];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: roll(20, 10), training: roll(6, 2, 5) },
+  };
+  const result = resolve(draft, snapshot);
+  expect(result.rulesetVersion).toBe(9);
+  expect(result.outcome!.militiaSnapshot.training).toBe(47);
+  expect(result.outcome!.militiaSnapshot.characters[0]!.level).toBe(10);
+  snapshot.roster.people[0]!.hitDice = 0;
+  expect(resolve(draft, snapshot).outcome!.militiaSnapshot.training).toBe(37);
+  snapshot.roster.people[0]!.hitDice = 6;
+  expect(resolve(draft, snapshot).outcome!.militiaSnapshot.training).toBe(43);
+});
+
+test('computed Hit Dice has a reserved Ruleset Version while production previews and records remain on version 9', () => {
+  // #240/#312: cutover activates the changed rules and requires a fresh review.
+  expect(COMPUTED_HIT_DICE_RULESET_VERSION).toBe(10);
+  const result = resolveCanonicalWeeklyDraft(fixture());
+  expect(result.rulesetVersion).toBe(9);
+  expect(
+    prepareCanonicalResolutionRecord(result, 'legacy-version').rulesetVersion,
+  ).toBe(9);
+});
+
+test('old frozen snapshots keep zero racial Hit Dice when the current Character gains racial facts', () => {
+  // PRD #251 frozen-history contract: omitted racial facts never consult a live sheet.
+  const { draft, snapshot } = upkeepFixture();
+  draft.context = { ...draft.context, firstMilitiaWeek: true };
+  draft.event.chanceRoll = roll(100, 100);
+  snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });
+  snapshot.roster.people[0]!.hitDice = null;
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: roll(20, 10), training: roll(6, 2, 5) },
+  };
+  const record = prepareCanonicalResolutionRecord(
+    resolve(draft, snapshot),
+    'frozen',
+  );
+  snapshot.characters[0]!.racialHitDice = 4;
+  const frozen = resolveCanonicalWeeklyDraft({
+    revision: record.source,
+    militiaSnapshot: record.sourceMilitiaSnapshot,
+  });
+  expect(frozen.outcome!.militiaSnapshot.training).toBe(47);
+  expect(record.sourceMilitiaSnapshot.characters[0]).not.toHaveProperty(
+    'racialHitDice',
+  );
+  expect(snapshot.characters[0]!.racialHitDice).toBe(4);
+});
 
 test('[rules.P78.selected-references] historical operations and selected consumables reject foreign identities', () => {
   const input = fixture();

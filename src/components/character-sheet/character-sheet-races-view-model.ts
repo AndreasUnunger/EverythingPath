@@ -1,11 +1,36 @@
 import { isRacialTraitApplicable } from '~/lib/character-sheet-racial';
+import { creatureTypeProgressionSeeds } from '~/lib/character-sheet-creature-types';
 import { buildCharacterSheetGrantsView } from './character-sheet-grants-view-model';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 /** Catalog options and resolver rows keep presentation independent of persistence. */
-export function buildCharacterSheetRacesView(snapshot: CharacterSheetSnapshot) {
-  const raceOptions = snapshot.catalogEntries.flatMap((entry) =>
-    entry.detail.kind === 'race'
+export function buildCharacterSheetRacesView(
+  snapshot: CharacterSheetSnapshot,
+  choices: CharacterSheetSnapshot['catalogEntries'] = [],
+) {
+  const catalogEntries = [
+    ...new Map(
+      [...choices, ...snapshot.catalogEntries].map((entry) => [
+        entry._id,
+        entry,
+      ]),
+    ).values(),
+  ];
+  const statisticsCopyIds = new Set(
+    snapshot.entries.flatMap((entry) =>
+      entry.kind === 'race' &&
+      entry.catalogOverride &&
+      !catalogEntries.find(
+        (definition) => definition._id === entry.catalogEntryId,
+      )?.copiedFrom
+        ? [entry.catalogEntryId]
+        : [],
+    ),
+  );
+  const raceOptions = catalogEntries.flatMap((entry) =>
+    entry.detail.kind === 'race' &&
+    !entry.racialStatisticsCopy &&
+    !statisticsCopyIds.has(entry._id)
       ? [
           {
             catalogEntryId: entry._id,
@@ -21,25 +46,34 @@ export function buildCharacterSheetRacesView(snapshot: CharacterSheetSnapshot) {
   );
   const currentRaceId =
     currentRace?.kind === 'race' ? currentRace.catalogEntryId : null;
-  const currentDefinition = snapshot.catalogEntries.find(
+  const currentDefinition = catalogEntries.find(
     (entry) => entry._id === currentRaceId,
   );
+  const selectedRaceId = raceOptions.some(
+    (option) => option.catalogEntryId === currentRaceId,
+  )
+    ? currentRaceId
+    : (catalogEntries.find(
+        (entry) =>
+          entry.ruleIdentity === currentDefinition?.ruleIdentity &&
+          raceOptions.some((option) => option.catalogEntryId === entry._id),
+      )?._id ?? currentRaceId);
   const standards =
     currentDefinition?.detail.kind === 'race'
       ? currentDefinition.detail.racialTraits
       : [];
   const allStandardIdentities = new Set(
-    snapshot.catalogEntries.flatMap((race) =>
+    catalogEntries.flatMap((race) =>
       race.detail.kind === 'race'
         ? race.detail.racialTraits.map(
             (id) =>
-              snapshot.catalogEntries.find((entry) => entry._id === id)
+              catalogEntries.find((entry) => entry._id === id)
                 ?.ruleIdentity ?? id,
           )
         : [],
     ),
   );
-  const traitOptions = snapshot.catalogEntries.flatMap((definition) => {
+  const traitOptions = catalogEntries.flatMap((definition) => {
     if (
       definition.detail.kind !== 'racialTrait' ||
       allStandardIdentities.has(definition.ruleIdentity)
@@ -71,12 +105,12 @@ export function buildCharacterSheetRacesView(snapshot: CharacterSheetSnapshot) {
         applicable: isRacialTraitApplicable(
           snapshot.calculated.racial,
           definition,
-          snapshot.catalogEntries,
+          catalogEntries,
         ),
         replacementIds,
         replacementNames: replacementIds.map(
           (id) =>
-            snapshot.catalogEntries.find((entry) => entry._id === id)?.name ??
+            catalogEntries.find((entry) => entry._id === id)?.name ??
             'Unavailable trait',
         ),
         unresolvedReplacements: definition.detail.unresolvedReplacements ?? [],
@@ -129,12 +163,12 @@ export function buildCharacterSheetRacesView(snapshot: CharacterSheetSnapshot) {
   );
   return {
     raceOptions,
-    selectedRaceId: currentRaceId ?? null,
+    selectedRaceId: selectedRaceId ?? null,
     traitOptions,
     standardOptions: standards.map((catalogEntryId) => ({
       catalogEntryId,
       name:
-        snapshot.catalogEntries.find((entry) => entry._id === catalogEntryId)
+        catalogEntries.find((entry) => entry._id === catalogEntryId)
           ?.name ?? 'Unavailable trait',
     })),
     choiceRows,
@@ -169,6 +203,14 @@ export function buildRaceStatisticsView(snapshot: CharacterSheetSnapshot) {
     entryId: race._id,
     racialHitDice: detail?.racialHitDice ?? 0,
     hitDie: detail?.racialProgression?.hitDie ?? null,
+    progression: detail?.racialProgression ?? null,
+    creatureTypeOptions: creatureTypeProgressionSeeds.map((seed) => ({
+      value: seed.creatureType,
+      label: seed.name,
+    })),
+    characterLevel: snapshot.calculated.level,
+    actualHitDice: snapshot.calculated.hitDice,
+    featBudget: snapshot.calculated.budgets.generalFeats,
     racialHpGained: race.state.racialHpGained ?? null,
     racialSkillRanks: race.state.racialSkillRanks ?? {},
   };

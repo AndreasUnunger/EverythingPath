@@ -26,6 +26,8 @@ export const militiaSnapshotSchema = z
       z.strictObject({
         characterId: identitySchema,
         level: z.number().int(),
+        // Frozen snapshots without racial facts retain zero racial Hit Dice.
+        racialHitDice: z.number().int().nonnegative().optional(),
         strength: z.number().int(),
         dexterity: z.number().int(),
         constitution: z.number().int(),

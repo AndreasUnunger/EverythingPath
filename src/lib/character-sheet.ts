@@ -27,6 +27,7 @@ import {
 import {
   advancementBudgets,
   advancementWarnings,
+  generalFeatWarnings,
   resolveAdvancement,
 } from './character-sheet-advancement';
 import {
@@ -111,6 +112,7 @@ export const warningChecks = [
   'racialProgressionMissing',
   'racialSkillRankCap',
   'racialSkillRankBudget',
+  'generalFeatBudget',
   'proficiencyPrerequisite',
   'oneHandedExotic',
   'equipmentEnhancement',
@@ -260,6 +262,15 @@ export function creationSettingsFor(
   };
 }
 
+export type CharacterSheetRacialProgression = {
+  creatureType: string;
+  hitDie: number;
+  bab: CharacterSheetClassDetail['bab'];
+  saves: CharacterSheetClassDetail['saves'];
+  skillRanksPerHitDie: number;
+  classSkills: string[];
+};
+
 export type SheetCatalogEntryDetail =
   | {
       kind: 'race';
@@ -269,14 +280,7 @@ export type SheetCatalogEntryDetail =
       creatureTypes?: readonly string[];
       creatureSubtypes?: readonly string[];
       racialHitDice?: number;
-      racialProgression?: {
-        creatureType: string;
-        hitDie: number;
-        bab: CharacterSheetClassDetail['bab'];
-        saves: CharacterSheetClassDetail['saves'];
-        skillRanksPerHitDie: number;
-        classSkills: readonly string[];
-      };
+      racialProgression?: CharacterSheetRacialProgression;
     }
   | {
       kind: 'racialTrait';
@@ -361,6 +365,7 @@ export type CharacterSheetInput = {
     hpGained: number | null;
     progression?: Pick<CharacterSheetClassDetail, 'bab' | 'saves'> & {
       skillRanksPerHitDie: number;
+      classSkills?: readonly string[];
     };
   };
 };
@@ -993,6 +998,10 @@ function calculateSheetProjection(
       grants.allEntries,
       advancementResult.budgets.racialSkillRanks,
     ),
+    ...generalFeatWarnings(
+      grants.allEntries,
+      advancementResult.budgets.generalFeats,
+    ),
   ].filter(
     (warning) =>
       input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
@@ -1049,6 +1058,7 @@ function calculateSheetProjection(
       abilityDamage,
     ),
     level: levels.length,
+    racialHitDice: advancement.racialHitDice,
     hitDice: advancement.hitDice,
     ...advancementResult,
     hp,

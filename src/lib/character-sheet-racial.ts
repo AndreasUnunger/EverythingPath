@@ -1,5 +1,5 @@
 import { abilityKeys } from './character-sheet';
-import { sumRanksBySkill } from './character-sheet-skills';
+import { skillDefinitions, sumRanksBySkill } from './character-sheet-skills';
 import type {
   CharacterSheetInput,
   ProficiencyGrant,
@@ -109,7 +109,7 @@ export function racialTraitWarnings(
   if (race) {
     const hitDice = detail?.racialHitDice ?? 0;
     const ranks = Object.entries(
-      sumRanksBySkill(race.state.racialSkillRanks ?? {}),
+      sumRanksBySkill(hitDice > 0 ? (race.state.racialSkillRanks ?? {}) : {}),
     ).sort(([a], [b]) => a.localeCompare(b));
     for (const [skill, count] of ranks) {
       if (count <= hitDice) continue;
@@ -119,7 +119,7 @@ export function racialTraitWarnings(
         target: { kind: 'entry', entryId: race._id },
         subject: `${race._id}:${skill}`,
         fingerprint: JSON.stringify([skill, count, hitDice]),
-        message: `Racial ${skill} ranks exceed ${hitDice} racial Hit Dice.`,
+        message: `Racial ${skillDefinitions.find((definition) => definition.key === skill)?.name ?? 'skill'} ranks exceed ${hitDice} racial Hit Dice.`,
       });
     }
     if (

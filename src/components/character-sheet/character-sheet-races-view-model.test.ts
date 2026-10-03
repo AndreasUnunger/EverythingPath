@@ -1,7 +1,10 @@
 import { expect, test } from 'vitest';
 import { calculateCharacterSheet } from '~/lib/character-sheet';
 import { buildSheet } from './character-sheet-test-fixture';
-import { buildCharacterSheetRacesView } from './character-sheet-races-view-model';
+import {
+  buildCharacterSheetRacesView,
+  buildRaceStatisticsView,
+} from './character-sheet-races-view-model';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 function fixture() {
@@ -113,6 +116,25 @@ function fixture() {
   };
 }
 
+test('a selected zero-HD race still exposes editable progression and distinct level, actual HD and feat budget facts', () => {
+  const snapshot = fixture();
+  expect(buildRaceStatisticsView(snapshot)).toMatchObject({
+    racialHitDice: 0,
+    progression: null,
+    racialHpGained: null,
+    characterLevel: 0,
+    actualHitDice: 0,
+    featBudget: 0,
+    creatureTypeOptions: expect.arrayContaining([
+      { value: 'dragon', label: 'Dragon' },
+      { value: 'monstrousHumanoid', label: 'Monstrous Humanoid' },
+    ]),
+  });
+  expect(buildRaceStatisticsView(snapshot)?.creatureTypeOptions).toHaveLength(
+    13,
+  );
+});
+
 test('a Catalog Copy offers the original race’s independent subrace options without marking unselected options dormant', () => {
   const snapshot = fixture();
   const view = buildCharacterSheetRacesView(snapshot);
@@ -149,6 +171,58 @@ test('race equivalence choices on a feat are available through its Selection tar
     raceChoices: ['human', 'orc'],
     choice: 'human',
   });
+});
+
+test.each([true, false])(
+  'statistics copies stay out of the race picker while selected or retained (%s)',
+  (isSelected) => {
+    const snapshot = fixture();
+    const original = snapshot.catalogEntries.find(
+      (entry) =>
+        entry.detail.kind === 'race' && entry._id !== snapshot.ids.copy,
+    );
+    if (!original) throw new Error('Missing original race');
+    snapshot.catalogEntries = snapshot.catalogEntries.map((entry) =>
+      entry._id === snapshot.ids.copy
+        ? { ...entry, racialStatisticsCopy: true }
+        : entry,
+    );
+    snapshot.entries = snapshot.entries.map((entry) =>
+      entry.kind === 'race'
+        ? {
+            ...entry,
+            catalogEntryId: isSelected ? snapshot.ids.copy : original._id,
+            ...(isSelected ? { catalogOverride: true } : {}),
+          }
+        : entry,
+    );
+    const view = buildCharacterSheetRacesView(snapshot);
+    expect(view.raceOptions.map((option) => option.catalogEntryId)).toEqual([
+      original._id,
+    ]);
+    expect(view.selectedRaceId).toBe(original._id);
+  },
+);
+
+test('a detached race remains selectable after its racial statistics are edited', () => {
+  const snapshot = fixture();
+  const original = snapshot.catalogEntries.find(
+    (entry) => entry.detail.kind === 'race' && entry._id !== snapshot.ids.copy,
+  );
+  if (!original) throw new Error('Missing original race');
+  snapshot.catalogEntries = snapshot.catalogEntries.map((entry) =>
+    entry._id === snapshot.ids.copy
+      ? { ...entry, copiedFrom: original._id }
+      : entry,
+  );
+  snapshot.entries = snapshot.entries.map((entry) =>
+    entry.kind === 'race' ? { ...entry, catalogOverride: true } : entry,
+  );
+  const view = buildCharacterSheetRacesView(snapshot);
+  expect(view.raceOptions).toContainEqual(
+    expect.objectContaining({ catalogEntryId: snapshot.ids.copy }),
+  );
+  expect(view.selectedRaceId).toBe(snapshot.ids.copy);
 });
 
 test('the alternate picker excludes all known standards even when a Catalog Copy changes its standard list', () => {

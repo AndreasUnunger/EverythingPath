@@ -1,91 +1,31 @@
 'use client';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, X } from 'lucide-react';
-import { useFieldArray, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { useMaintenanceReasonId } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '~/components/ui/form';
-import { Input } from '~/components/ui/input';
-import { nonnegativeIntegerField } from './numeric-form-fields';
+import { Form } from '~/components/ui/form';
 import type { RaceStatisticsView } from './character-sheet-races-view-model';
 import { InlineWarnings } from './inline-warning';
-import { action, fieldLabel, SaveFeedback } from './sheet-parts';
+import { RacialHitDiceFacts } from './racial-hit-dice-facts';
+import { RacialProgressionFields } from './racial-progression-fields';
+import { RacialSkillRankRows } from './racial-skill-rank-rows';
+import { RacialStatisticsTextField } from './racial-statistics-text-field';
+import { action, fieldLabel, RemoteNotice, SaveFeedback } from './sheet-parts';
 import type {
   SheetWarningView,
   useCharacterSheet,
 } from './use-character-sheet';
+import { useRacialStatisticsForm } from './use-racial-statistics-form';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 
-const hitPointsField = nonnegativeIntegerField('Racial hit points', {
-  optional: true,
-  numberMessage: 'Racial hit points must be a whole number of 0 or more',
-});
-const ranksField = nonnegativeIntegerField('Ranks', {
-  requiredMessage: 'Ranks are required',
-  numberMessage: 'Ranks must be a whole number of 0 or more',
-});
-const schema = z.object({
-  racialHpGained: hitPointsField,
-  ranks: z
-    .array(
-      z.object({
-        skill: z.string().refine((skill) => skill.trim() !== '', {
-          message: 'Skill is required',
-        }),
-        ranks: ranksField,
-      }),
-    )
-    .superRefine((rows, context) => {
-      const seen = new Set<string>();
-      rows.forEach((row, index) => {
-        const skill = row.skill.trim().toLowerCase();
-        if (skill && seen.has(skill))
-          context.addIssue({
-            code: 'custom',
-            path: [index, 'skill'],
-            message: 'Each skill once',
-          });
-        seen.add(skill);
-      });
-    }),
-});
-type Values = z.infer<typeof schema>;
-
-function valuesFrom(statistics: RaceStatisticsView): Values {
-  return {
-    racialHpGained:
-      statistics.racialHpGained === null
-        ? ''
-        : String(statistics.racialHpGained),
-    ranks: Object.entries(statistics.racialSkillRanks).map(
-      ([skill, ranks]) => ({ skill, ranks: String(ranks) }),
-    ),
-  };
-}
-
-function describeHitDice(statistics: RaceStatisticsView) {
-  const dice = statistics.racialHitDice === 1 ? 'Hit Die' : 'Hit Dice';
-  const die = statistics.hitDie === null ? '' : ` (d${statistics.hitDie})`;
-  return `${statistics.racialHitDice} racial ${dice}${die}`;
-}
-
-const inputClass = 'h-10 font-mono text-sm md:h-8';
-
 /**
- * A race with Hit Dice of its own: the hit points they gave, as one plain
- * number that starts unknown and is never filled in, and the skill ranks
- * they bought, skill by skill. Saved together with their own button; the
- * budget and cap warnings sit under the ranks they are about.
+ * The selected race's Hit Dice of its own (#312), shown for every race so a
+ * race without any can be given some: how many, how they advance, the hit
+ * points they gave as one plain number that starts unknown and is never
+ * filled in, and the skill ranks they bought. Character level, actual Hit
+ * Dice and the feat budget read separately above. Everything saves together
+ * with its own button; the warnings sit beside what they are about and the
+ * rules ones keep their Accept.
  */
 export function RacialStatisticsEditor({
   statistics,
@@ -100,171 +40,100 @@ export function RacialStatisticsEditor({
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useMaintenanceReasonId(maintenance);
-  // Saved values from anywhere replace the draft; the caller keys this form
-  // on the race's row, so another race never inherits it.
-  const form = useForm<Values>({
-    resolver: zodResolver(schema),
-    values: valuesFrom(statistics),
-  });
-  const ranks = useFieldArray({ control: form.control, name: 'ranks' });
-  const status = actions.statusFor(statistics.entryId);
-  const isSaving = status.kind === 'saving';
-  const isDisabled = isSaving || maintenance.readOnly;
-
-  async function save(values: Values) {
-    const hitPoints = values.racialHpGained.trim();
-    const isSaved = await actions.editStatistics(statistics.entryId, {
-      racialHpGained: hitPoints === '' ? null : Number(hitPoints),
-      racialSkillRanks: Object.fromEntries(
-        values.ranks.map((row) => [row.skill.trim(), Number(row.ranks)]),
-      ),
-    });
-    if (isSaved) form.reset(values);
-  }
+  const editor = useRacialStatisticsForm(statistics, (input) =>
+    actions.editStatistics(statistics.entryId, input),
+  );
+  // The race's own write knows why a save was refused; the form only that
+  // it was.
+  const writeStatus = actions.statusFor(statistics.entryId);
+  const status = writeStatus.kind === 'error' ? writeStatus : editor.status;
+  const isSaving =
+    editor.status.kind === 'saving' || writeStatus.kind === 'saving';
+  const isReadOnly = maintenance.readOnly;
+  const progressionWarnings = warnings.filter(
+    (warning) => warning.check === 'racialProgressionMissing',
+  );
+  const otherWarnings = warnings.filter(
+    (warning) => warning.check !== 'racialProgressionMissing',
+  );
+  const isHpMissing =
+    statistics.racialHitDice > 0 && statistics.racialHpGained === null;
 
   return (
-    <Form {...form}>
+    <Form {...editor.form}>
       <form
         noValidate
         aria-label="Racial Hit Dice"
-        className="flex flex-col gap-2"
+        className="border-foreground/10 flex flex-col gap-3 border-y py-2"
         onSubmit={(event) => {
           event.preventDefault();
-          if (isDisabled) return;
-          void form.handleSubmit(save)();
+          if (isSaving || isReadOnly) return;
+          void editor.save();
         }}
       >
-        <div className="flex flex-wrap items-baseline gap-x-2">
+        <div className="flex flex-col gap-1">
           <p className={fieldLabel}>Racial Hit Dice</p>
-          <p className="text-muted-foreground text-xs">
-            {describeHitDice(statistics)}
-          </p>
+          <RacialHitDiceFacts statistics={statistics} />
+          <RemoteNotice
+            isShown={editor.hasRemoteChange}
+            message={
+              editor.form.formState.isDirty
+                ? 'Updated by another player. Your edits are kept.'
+                : 'Updated by another player.'
+            }
+            subject="racial Hit Dice"
+            onDismiss={editor.dismissRemoteChange}
+          />
         </div>
-        <FormField
-          control={form.control}
-          name="racialHpGained"
-          render={({ field, fieldState }) => (
-            <FormItem className="gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <FormLabel className="font-mono text-sm font-normal">
-                  Racial hit points
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    disabled={maintenance.readOnly}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="Enter racial hit points"
-                    className={`${inputClass} w-56`}
-                  />
-                </FormControl>
-              </div>
-              <FormMessage
-                role={fieldState.error ? 'alert' : undefined}
-                className="max-w-sm"
-              />
-            </FormItem>
-          )}
+        <div className="grid grid-cols-2 items-start gap-x-3 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+          <RacialStatisticsTextField
+            form={editor.form}
+            name="racialHitDice"
+            label="Racial Hit Dice"
+            isNumeric
+            disabled={isReadOnly}
+          />
+          <RacialStatisticsTextField
+            form={editor.form}
+            name="racialHpGained"
+            label="Racial hit points"
+            placeholder="Enter racial hit points"
+            isNumeric
+            disabled={isReadOnly}
+            note={
+              isHpMissing ? (
+                <p className="text-muted-foreground text-xs">
+                  Not recorded yet, so HP is not complete.
+                </p>
+              ) : null
+            }
+          />
+        </div>
+        <RacialProgressionFields
+          editor={editor}
+          creatureTypeOptions={statistics.creatureTypeOptions}
+          warnings={progressionWarnings}
+          warningController={warningController}
+          disabled={isReadOnly}
+          reasonId={reasonId}
         />
-        <div className="flex flex-col gap-1.5">
-          <p className={fieldLabel}>Racial skill ranks</p>
-          {ranks.fields.length === 0 ? (
-            <p className="text-muted-foreground text-xs">
-              No skill ranks recorded for the racial Hit Dice.
-            </p>
-          ) : null}
-          {ranks.fields.map((row, index) => (
-            <div
-              key={row.id}
-              className="flex flex-wrap items-start gap-x-2 gap-y-1"
-            >
-              <FormField
-                control={form.control}
-                name={`ranks.${index}.skill`}
-                render={({ field, fieldState }) => (
-                  <FormItem className="min-w-40 flex-1 gap-1">
-                    <FormLabel className="sr-only">Skill {index + 1}</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        disabled={maintenance.readOnly}
-                        type="text"
-                        autoComplete="off"
-                        placeholder="Skill"
-                        className={inputClass}
-                      />
-                    </FormControl>
-                    <FormMessage
-                      role={fieldState.error ? 'alert' : undefined}
-                    />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name={`ranks.${index}.ranks`}
-                render={({ field, fieldState }) => (
-                  <FormItem className="w-24 gap-1">
-                    <FormLabel className="sr-only">
-                      Ranks for skill {index + 1}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        disabled={maintenance.readOnly}
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        placeholder="Ranks"
-                        className={`${inputClass} text-center`}
-                      />
-                    </FormControl>
-                    <FormMessage
-                      role={fieldState.error ? 'alert' : undefined}
-                    />
-                  </FormItem>
-                )}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-10 md:size-8"
-                disabled={maintenance.readOnly}
-                onClick={() => ranks.remove(index)}
-              >
-                <X aria-hidden className="size-4" />
-                <span className="sr-only">Remove skill {index + 1}</span>
-              </Button>
-            </div>
-          ))}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className={action}
-              disabled={maintenance.readOnly}
-              onClick={() => ranks.append({ skill: '', ranks: '' })}
-            >
-              <Plus aria-hidden className="size-4" />
-              Add skill
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className={action}
-              aria-describedby={reasonId}
-              disabled={isDisabled}
-            >
-              {isSaving ? 'Saving…' : 'Save racial Hit Dice'}
-            </Button>
-            <SaveFeedback status={status} savedText="Racial Hit Dice saved." />
-          </div>
-          <InlineWarnings warnings={warnings} controller={warningController} />
+        <RacialSkillRankRows editor={editor} disabled={isReadOnly} />
+        <InlineWarnings
+          warnings={otherWarnings}
+          controller={warningController}
+        />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className={action}
+            aria-describedby={reasonId}
+            disabled={isSaving || isReadOnly}
+          >
+            {isSaving ? 'Saving…' : 'Save racial Hit Dice'}
+          </Button>
+          <SaveFeedback status={status} savedText="Racial Hit Dice saved." />
         </div>
       </form>
     </Form>

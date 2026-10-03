@@ -76,7 +76,7 @@ function SheetBlocks({
 }) {
   const sheet = controller.sheet;
   if (!sheet) return null;
-  const incompleteHpReason = describeIncompleteHp(sheet.levels);
+  const incompleteHpReason = describeIncompleteHp(sheet);
   return (
     <BreakdownResolverProvider
       spellcastings={sheet.calculated.spellcastings}

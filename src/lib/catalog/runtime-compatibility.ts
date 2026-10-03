@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:786419b05306d7a49758654158105a8d98369370d2f733adeb3f5a8cd6a10850',
+    'sha256:dc6fdd110c738d4b029221502a057c5282f8346c97189b333518e860f3ebe91a',
 } as const;
 
 export const catalogCalculationV1Files = [

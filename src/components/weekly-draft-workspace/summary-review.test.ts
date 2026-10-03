@@ -8,7 +8,11 @@ import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import { phaseView } from './phase-view';
 
-function review(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
+function review(
+  draft: WeeklyDraft,
+  snapshot: UpkeepSnapshot,
+  rulesetVersion = 9,
+) {
   const source = workspaceSourceSchema.parse({
     key: {
       campaignId: 'campaign',
@@ -27,6 +31,7 @@ function review(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     revision: draft,
     militiaSnapshot: source.snapshot,
   });
+  preview.rulesetVersion = rulesetVersion;
   const view = phaseView('summary', draft, source, preview);
   if (view.phase !== 'summary') throw new Error('Expected Summary');
   return { view, preview, facts: view.review };
@@ -40,6 +45,24 @@ const item = (
   index: number,
   title: string,
 ) => section(facts, index).items.find((entry) => entry.title === title)!;
+
+test.each([
+  { rulesetVersion: 9, expected: 'Player character · 10 Hit Dice' },
+  { rulesetVersion: 10, expected: 'Player character · 13 Hit Dice' },
+])(
+  'live result comparison reads its preview version $rulesetVersion',
+  ({ rulesetVersion, expected }) => {
+    const { draft, snapshot } = upkeepFixture();
+    snapshot.roster.people[0]!.hitDice = null;
+    snapshot.characters[0]!.racialHitDice = 3;
+    const { facts } = review(draft, snapshot, rulesetVersion);
+    expect(
+      facts.result.rows.find(
+        (entry) => entry.group === 'Roster' && entry.label === 'Aubrin',
+      )?.now,
+    ).toMatchObject({ text: expected });
+  },
+);
 
 describe('[SUM-10] live six-section consequences', () => {
   test('four expanded phase sections follow rules order with plan-derived chips, check details and item-local facts', () => {

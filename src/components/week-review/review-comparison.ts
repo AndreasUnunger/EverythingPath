@@ -212,14 +212,18 @@ function settlementFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
   });
 }
 
-function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+function rosterFacts(
+  snapshot: Snapshot,
+  names: ReviewNames,
+  includeRacialHitDice: boolean,
+): Fact[] {
   const people = snapshot.roster.people.map((person) =>
     fact(
       `person:${person.characterId}`,
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      `${personKinds[person.kind]} · ${hitDiceText(snapshot, person)}`,
+      `${personKinds[person.kind]} · ${hitDiceText(snapshot, person, includeRacialHitDice)}`,
       'Not on roster',
     ),
   );
@@ -236,16 +240,21 @@ function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
 }
 
 // The effective Hit Dice the rules use (`getEffectiveHitDice`, which this
-// renderer may not import): the override, or else the level of the character
-// in this same state.
+// renderer may not import), according to the preview or record's rules.
 function hitDiceText(
   snapshot: Snapshot,
   person: Snapshot['roster']['people'][number],
+  includeRacialHitDice: boolean,
 ) {
   const character = snapshot.characters.find(
     (entry) => entry.characterId === person.characterId,
   );
-  const hitDice = person.hitDice ?? character?.level ?? null;
+  const hitDice =
+    person.hitDice ??
+    (character
+      ? character.level +
+        (includeRacialHitDice ? (character.racialHitDice ?? 0) : 0)
+      : null);
   return hitDice === null ? 'Hit Dice not set' : `${hitDice} Hit Dice`;
 }
 
@@ -460,7 +469,11 @@ function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
 }
 
 /** Every comparable fact of one state, in Result row order. */
-function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
+function stateFacts(
+  state: ComparedState,
+  names: ReviewNames,
+  includeRacialHitDice: boolean,
+): Fact[] {
   const snapshot = state.militiaSnapshot;
   const context = state.context;
   return [
@@ -469,7 +482,7 @@ function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
           ...militiaFacts(snapshot),
           ...teamFacts(snapshot, names),
           ...settlementFacts(snapshot, names),
-          ...rosterFacts(snapshot, names),
+          ...rosterFacts(snapshot, names, includeRacialHitDice),
           ...bonusFacts(snapshot, names),
           ...economyFacts(snapshot, names),
           ...conditionAndBenefitFacts(snapshot, names),
@@ -578,6 +591,7 @@ export function compareWeekStates({
   final,
   names,
   unrecorded,
+  includeRacialHitDice = false,
 }: {
   now: ComparedState | null;
   baseline: ComparedState | null;
@@ -585,13 +599,17 @@ export function compareWeekStates({
   names: ReviewNames;
   /** Text of an unknown value; a frozen record says it was not recorded. */
   unrecorded?: string;
+  includeRacialHitDice?: boolean;
 }): ResultRow[] {
   const columns = [now, baseline, final].map((state) =>
     state
       ? {
           state,
           facts: new Map(
-            stateFacts(state, names).map((fact) => [fact.key, fact]),
+            stateFacts(state, names, includeRacialHitDice).map((fact) => [
+              fact.key,
+              fact,
+            ]),
           ),
         }
       : null,

@@ -36,6 +36,9 @@ vi.mock('convex/react', () => ({
   useQuery: (name: FunctionReference<'query'>, args: unknown) => {
     if (args === 'skip') return undefined;
     if (getFunctionName(name) === 'companionRelationships:list') return [];
+    if (getFunctionName(name) === 'catalogCopies:list') {
+      return snapshot.catalogEntries;
+    }
     if (readError) throw readError;
     return snapshot;
   },

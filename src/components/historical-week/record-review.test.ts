@@ -349,15 +349,20 @@ test('[rules.HIST-05.propaganda-permission-version] a record confirmed before as
 
 // The roster Result rows of a record whose `ally` (level 4) has the given
 // Hit Dice override and whose PC keeps an explicit 10.
-function recordedHitDice(allyHitDice: number | null) {
+function recordedHitDice(
+  allyHitDice: number | null,
+  rulesetVersion = 9,
+  racialHitDice = 0,
+) {
   const input = managerWeek('npc', true, 16);
   input.militiaSnapshot.roster.people[1]!.hitDice = allyHitDice;
   input.militiaSnapshot.characters[1]!.level = 4;
+  input.militiaSnapshot.characters[1]!.racialHitDice = racialHitDice;
   const record = prepareCanonicalResolutionRecord(
     resolveCanonicalWeeklyDraft(input),
     'hit-dice-record',
   );
-  return recordWeekReview(record)
+  return recordWeekReview({ ...record, rulesetVersion })
     .result.rows.filter((entry) => entry.group === 'Roster')
     .flatMap((entry) =>
       entry.now.kind === 'value' && entry.now.text.includes('Hit Dice')
@@ -374,6 +379,12 @@ test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the rec
   // An explicit override always wins, and zero stays zero.
   expect(recordedHitDice(7)).toContain('NPC · 7 Hit Dice');
   expect(recordedHitDice(0)).toContain('NPC · 0 Hit Dice');
+});
+
+test('frozen roster Hit Dice use the Resolution Record version even when it records racial HD', () => {
+  expect(recordedHitDice(null, 9, 3)).toContain('NPC · 4 Hit Dice');
+  expect(recordedHitDice(null, 10, 3)).toContain('NPC · 7 Hit Dice');
+  expect(recordedHitDice(0, 10, 3)).toContain('NPC · 0 Hit Dice');
 });
 
 test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, backend, React or rules resolver', () => {

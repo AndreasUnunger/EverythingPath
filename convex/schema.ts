@@ -277,6 +277,7 @@ const catalogEntryFields = v.object({
   copiedFrom: v.optional(v.id('catalogEntry')),
   copiedFromFingerprint: v.optional(v.string()),
   campaignPreference: v.optional(v.literal(true)),
+  racialStatisticsCopy: v.optional(v.literal(true)),
   countsAsRaces: v.optional(
     v.union(v.array(v.string()), v.object({ oneOf: v.array(v.string()) })),
   ),
@@ -358,6 +359,22 @@ export const abilityChangeKindValidator = v.union(
   v.literal('abilityDamage'),
   v.literal('abilityDrain'),
 );
+export const racialProgressionValidator = v.object({
+  creatureType: v.string(),
+  hitDie: v.number(),
+  bab: v.union(
+    v.literal('full'),
+    v.literal('threeQuarters'),
+    v.literal('half'),
+  ),
+  saves: v.object({
+    fort: v.union(v.literal('good'), v.literal('poor')),
+    ref: v.union(v.literal('good'), v.literal('poor')),
+    will: v.union(v.literal('good'), v.literal('poor')),
+  }),
+  skillRanksPerHitDie: v.number(),
+  classSkills: v.array(v.string()),
+});
 export const catalogEntryValidator = v.union(
   catalogEntryFields.extend({
     modifiers: v.array(catalogModifierValidator),
@@ -372,24 +389,7 @@ export const catalogEntryValidator = v.union(
         creatureTypes: v.optional(v.array(v.string())),
         creatureSubtypes: v.optional(v.array(v.string())),
         racialHitDice: v.optional(v.number()),
-        racialProgression: v.optional(
-          v.object({
-            creatureType: v.string(),
-            hitDie: v.number(),
-            bab: v.union(
-              v.literal('full'),
-              v.literal('threeQuarters'),
-              v.literal('half'),
-            ),
-            saves: v.object({
-              fort: v.union(v.literal('good'), v.literal('poor')),
-              ref: v.union(v.literal('good'), v.literal('poor')),
-              will: v.union(v.literal('good'), v.literal('poor')),
-            }),
-            skillRanksPerHitDie: v.number(),
-            classSkills: v.array(v.string()),
-          }),
-        ),
+        racialProgression: v.optional(racialProgressionValidator),
       }),
       v.object({
         kind: v.literal('racialTrait'),

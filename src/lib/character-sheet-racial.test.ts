@@ -58,6 +58,52 @@ function sheet(): CharacterSheetInput {
   };
 }
 
+// #220/#222: racial and class ranks add; a racial class skill earns +3 once.
+test('racial ranks and creature-type class skills contribute to the ordinary skill total', () => {
+  const input = sheet();
+  input.catalogEntries = input.catalogEntries.map((entry) =>
+    entry._id === 'human'
+      ? {
+          ...entry,
+          detail: {
+            kind: 'race',
+            racialTraits: [],
+            racialHitDice: 3,
+            racialProgression: {
+              creatureType: 'aberration',
+              hitDie: 8,
+              bab: 'threeQuarters',
+              saves: { fort: 'poor', ref: 'poor', will: 'good' },
+              skillRanksPerHitDie: 4,
+              classSkills: ['per'],
+            },
+          },
+        }
+      : entry,
+  );
+  input.entries = input.entries.map((entry) =>
+    entry.kind === 'race'
+      ? {
+          ...entry,
+          state: {
+            ...entry.state,
+            racialHpGained: 11,
+            racialSkillRanks: { per: 2, 'skill.per': 1, clm: 1 },
+          },
+        }
+      : entry,
+  );
+  const result = calculateCharacterSheet(input);
+  expect(
+    result.skills.find((skill) => skill.key === 'skill.per'),
+  ).toMatchObject({
+    ranks: 3,
+    classSkill: true,
+  });
+  expect(result.breakdowns['skill.per'].total).toBe(6);
+  expect(result.breakdowns['skill.clm'].total).toBe(1);
+});
+
 // CRB pp. 25, 27, 28: +2 to one ability; #232 keeps this separate from base scores.
 test('an unchosen racial ability-score choice contributes nothing, then changes only the chosen ability and never point buy', () => {
   const input = sheet();
@@ -891,7 +937,7 @@ test('same-named traits from different races never infer a runtime replacement',
 // CRB Intelligence retroactively determines the ordinary racial rank budget.
 test.each([
   [2, true, { per: 2, 'skill.per': 1, clm: 2 }, 4, true],
-  [0, true, { per: 1 }, 0, true],
+  [0, true, { per: 1 }, 0, false],
   [2, false, { per: 2, clm: 2, swm: 2 }, null, false],
 ] as const)(
   'racial rank allocation warns against its computed budget with %s Hit Dice and known progression %s',
