@@ -6,17 +6,18 @@ import {
   defaultAbilityScores,
   type Ability,
   type AbilityScores,
+  type FavoredClassBonus,
   type Modifier,
   type SheetWarning,
 } from '~/lib/character-sheet';
+import { representativeClassCatalog } from '../../../tests/fixtures/catalog/representative-class-progressions';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // A read snapshot for the living sheet's component tests: base scores, Class
-// Levels, personal adjustments, ability damage and drain and sheet entries,
-// calculated by the public resolver.
+// Levels with their choices, the representative classes, personal
+// adjustments and accepted warnings, calculated by the public resolver.
 
 export const characterId = 'character-1' as Id<'character'>;
-
 // The campaign row calls the owner-candidate hook even while its picker is
 // closed. Tests of other sheet controls keep that skipped query empty.
 export function emptyOwnerCandidates() {
@@ -27,12 +28,21 @@ export function emptyOwnerCandidates() {
   };
 }
 
-export type Level = { id: string; hp: number | null };
+export type ClassKey = (typeof representativeClassCatalog)[number]['_id'];
+export type Level = {
+  id: string;
+  hp: number | null;
+  classId?: ClassKey | null;
+  favoredClassBonus?: FavoredClassBonus | null;
+  abilityIncrease?: Ability | null;
+};
 export type Adjustment = {
   id: string;
   name: string;
   active?: boolean;
   modifiers: Modifier[];
+  /** The Class Level this selection was gained at, which may be gone. */
+  gainedAtClassLevel?: string;
 };
 export type AbilityChange = {
   id: string;
@@ -66,12 +76,29 @@ function entryState(entry: CatalogSheetEntry) {
   };
 }
 
+/** The calculated warning for one check, to accept it as the sheet states it. */
+export function findCalculatedWarning(
+  snapshot: CharacterSheetSnapshot,
+  check: SheetWarning['check'],
+  subject?: string,
+) {
+  const warning = snapshot.calculated.warnings.find(
+    (candidate) =>
+      candidate.check === check &&
+      (subject === undefined || candidate.subject === subject),
+  );
+  if (!warning) throw new Error(`Expected a ${check} warning`);
+  return warning;
+}
+
 export function buildSheet({
   scores = defaultAbilityScores,
   levels = [{ id: 'level-1', hp: null }],
   adjustments = [],
   abilityChanges = [],
   sheetEntries = [],
+  hasClasses = levels.some((level) => level.classId),
+  favoredClassIds = [],
   accepted = [],
   lastOperationId = 'seed',
   name = 'Kesh',
@@ -81,6 +108,8 @@ export function buildSheet({
   adjustments?: Adjustment[];
   abilityChanges?: AbilityChange[];
   sheetEntries?: CatalogSheetEntry[];
+  hasClasses?: boolean;
+  favoredClassIds?: ClassKey[];
   accepted?: Accepted[];
   lastOperationId?: string;
   name?: string;
@@ -102,6 +131,19 @@ export function buildSheet({
       value: scores[ability],
     })),
   };
+  const classCatalogs = hasClasses
+    ? representativeClassCatalog.map(
+        (entry) =>
+          ({
+            ...entry,
+            _creationTime: 3,
+            scope: 'character',
+            characterId,
+            stacksWithItself: false,
+            sources: [],
+          }) as unknown as CatalogEntry,
+      )
+    : [];
   const adjustmentCatalogs = adjustments.map(
     (adjustment) =>
       ({
@@ -140,7 +182,10 @@ export function buildSheet({
       kind: 'base',
       active: true,
       catalogEntryId: baseCatalog._id,
-      state: { kind: 'base' },
+      state: {
+        kind: 'base',
+        ...(favoredClassIds.length > 0 ? { favoredClassIds } : {}),
+      },
     } as Entry,
     ...levels.map(
       (level, index) =>
@@ -152,9 +197,15 @@ export function buildSheet({
           active: true,
           state: {
             kind: 'classLevel',
-            classEntryId: null,
+            classEntryId: level.classId ?? null,
             position: index + 1,
             hpGained: level.hp,
+            ...(level.favoredClassBonus !== undefined
+              ? { favoredClassBonus: level.favoredClassBonus }
+              : {}),
+            ...(level.abilityIncrease !== undefined
+              ? { abilityIncrease: level.abilityIncrease }
+              : {}),
           },
         }) as Entry,
     ),
@@ -168,6 +219,9 @@ export function buildSheet({
           active: adjustment.active ?? true,
           catalogEntryId: `${adjustment.id}-catalog` as Id<'catalogEntry'>,
           state: { kind: 'manual' },
+          ...(adjustment.gainedAtClassLevel
+            ? { gainedAtClassLevel: adjustment.gainedAtClassLevel }
+            : {}),
         }) as Entry,
     ),
     ...abilityChanges.map(
@@ -198,7 +252,12 @@ export function buildSheet({
         }) as Entry,
     ),
   ];
-  const catalogEntries = [baseCatalog, ...adjustmentCatalogs, ...entryCatalogs];
+  const catalogEntries = [
+    baseCatalog,
+    ...classCatalogs,
+    ...adjustmentCatalogs,
+    ...entryCatalogs,
+  ];
   return {
     owner: null,
     campaign: {

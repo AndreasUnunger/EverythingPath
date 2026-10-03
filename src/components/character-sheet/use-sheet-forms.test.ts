@@ -5,6 +5,7 @@ import type { CreationSettings } from '~/lib/character-sheet';
 import {
   useBaseScoresForm,
   useClassLevelForm,
+  useClassLevelChoicesForm,
   useCreationSettingsForm,
 } from './use-sheet-forms';
 
@@ -850,4 +851,156 @@ test('a saved rolled interval preserves the point-buy budget after reopening the
   expect(reopened.result.current.form.getValues('pointBuyBudget')).toBe('27');
   await act(async () => reopened.result.current.save());
   expect(settings.abilityMethod).toEqual({ kind: 'pointBuy', budget: 27 });
+});
+
+test('class choice form saves only changed row choices and validates class references before saving', async () => {
+  const classId = 'fighter';
+  const changes: unknown[] = [];
+  const view = renderHook(() =>
+    useClassLevelChoicesForm({
+      classEntryId: null,
+      classChoices: [{ _id: classId, name: 'Fighter' }],
+      favoredClassBonus: null,
+      abilityIncrease: null,
+      save: async (value) => {
+        changes.push(value);
+      },
+    }),
+  );
+  act(() =>
+    view.result.current.form.setValue('classEntryId', 'unknown', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(view.result.current.form.formState.errors.classEntryId?.message).toBe(
+    'Choose an available class',
+  );
+  expect(changes).toEqual([]);
+  act(() => {
+    view.result.current.form.setValue('classEntryId', classId, {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('favoredClassBonus', 'alt', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('favoredClassNote', 'Extra spell', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('abilityIncrease', 'intelligence', {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(changes).toEqual([
+    {
+      classEntryId: classId,
+      favoredClassBonus: { choice: 'alt', note: 'Extra spell' },
+      abilityIncrease: 'intelligence',
+    },
+  ]);
+});
+
+test('alternative favored-class notes preserve numeric-looking text as prose', async () => {
+  const changes: unknown[] = [];
+  const view = renderHook(() =>
+    useClassLevelChoicesForm({
+      classEntryId: null,
+      classChoices: [],
+      favoredClassBonus: { choice: 'alt', note: '001' },
+      abilityIncrease: null,
+      save: async (value) => {
+        changes.push(value);
+      },
+    }),
+  );
+  act(() =>
+    view.result.current.form.setValue('favoredClassNote', '1', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => {
+    await view.result.current.save();
+  });
+  expect(changes).toEqual([
+    { favoredClassBonus: { choice: 'alt', note: '1' } },
+  ]);
+});
+
+test.each(['', '   '])(
+  'Other favored-class bonus requires a nonempty note (%j)',
+  async (note) => {
+    const changes: unknown[] = [];
+    const view = renderHook(() =>
+      useClassLevelChoicesForm({
+        classEntryId: null,
+        classChoices: [],
+        favoredClassBonus: null,
+        abilityIncrease: null,
+        save: async (value) => {
+          changes.push(value);
+        },
+      }),
+    );
+    act(() => {
+      view.result.current.form.setValue('favoredClassBonus', 'alt', {
+        shouldDirty: true,
+      });
+      view.result.current.form.setValue('favoredClassNote', note, {
+        shouldDirty: true,
+      });
+    });
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(
+      view.result.current.form.formState.errors.favoredClassNote?.message,
+    ).toBe('Describe the alternative favored class bonus');
+    expect(changes).toEqual([]);
+    act(() => {
+      view.result.current.form.setValue('favoredClassNote', 'Extra spell', {
+        shouldDirty: true,
+      });
+    });
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(changes).toEqual([
+      { favoredClassBonus: { choice: 'alt', note: 'Extra spell' } },
+    ]);
+  },
+);
+
+test('an unavailable recorded class does not block other choices or silently replace the stored reference', async () => {
+  const writes: unknown[] = [];
+  const view = renderHook(() =>
+    useClassLevelChoicesForm({
+      classEntryId: 'deleted-class',
+      classChoices: [{ _id: 'fighter', name: 'Fighter' }],
+      favoredClassBonus: null,
+      abilityIncrease: null,
+      save: async (changes) => {
+        writes.push(changes);
+      },
+    }),
+  );
+  expect(view.result.current.form.getValues('classEntryId')).toBe('');
+  act(() =>
+    view.result.current.form.setValue('abilityIncrease', 'strength', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => view.result.current.save());
+  expect(writes).toEqual([{ abilityIncrease: 'strength' }]);
+  act(() =>
+    view.result.current.form.setValue('classEntryId', 'fighter', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => view.result.current.save());
+  expect(writes.at(-1)).toEqual({ classEntryId: 'fighter' });
 });

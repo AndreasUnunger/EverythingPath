@@ -25,6 +25,12 @@ import { useCharacterSheetEntries } from './use-character-sheet-entries';
 import type { SaveStatus } from './save-status';
 import { buildCharacterSheetView } from './character-sheet-view-model';
 import { useBuildOutCharacter } from './use-build-out-character';
+import { equalClassLevels, equalAdjustments } from './sheet-state-comparison';
+
+export type ClassLevelChanges = Omit<
+  FunctionArgs<typeof api.characterSheet.editClassLevel>,
+  'characterId' | 'organizationId' | 'campaignId' | 'operationId' | 'entryId'
+>;
 
 export type CharacterSheetSnapshot = NonNullable<
   FunctionReturnType<typeof api.characterSheet.read>
@@ -113,40 +119,30 @@ export function useCharacterSheet(scope: CharacterScope) {
     )
       expectedWarnings.current.delete(key);
   }
-  const ordered = sheet?.levels;
-  const signature = ordered?.map((entry) => entry._id).join(',') ?? null;
-  const [previous, setPrevious] = useState(signature);
-  const levelChange = detectRemoteSheetChange({
-    previous: previous === null ? null : { levels: previous },
-    next: signature === null ? null : { levels: signature },
-    expectedOperations: new Map(),
-    isOwnOperation: isOwnCharacterSheetOperation(snapshot?.lastOperationId),
-  });
-  if (levelChange.changed) {
-    setPrevious(signature);
-    if (levelChange.hasRemoteChange) setHasRemoteChange(true);
+  const ordered = sheet?.levels ?? null;
+  const [previousLevels, setPreviousLevels] = useState(ordered);
+  if (!equalClassLevels(previousLevels, ordered)) {
+    setPreviousLevels(ordered);
+    if (
+      previousLevels &&
+      ordered &&
+      !isOwnCharacterSheetOperation(snapshot?.lastOperationId)
+    )
+      setHasRemoteChange(true);
   }
 
   const [hasRemoteAdjustmentChange, setHasRemoteAdjustmentChange] =
     useState(false);
-  const adjustmentSignature = sheet ? JSON.stringify(sheet.adjustments) : null;
-  const [previousAdjustments, setPreviousAdjustments] =
-    useState(adjustmentSignature);
-  const adjustmentChange = detectRemoteSheetChange({
-    previous:
-      previousAdjustments === null
-        ? null
-        : { adjustments: previousAdjustments },
-    next:
-      adjustmentSignature === null
-        ? null
-        : { adjustments: adjustmentSignature },
-    expectedOperations: new Map(),
-    isOwnOperation: isOwnCharacterSheetOperation(snapshot?.lastOperationId),
-  });
-  if (adjustmentChange.changed) {
-    setPreviousAdjustments(adjustmentSignature);
-    if (adjustmentChange.hasRemoteChange) setHasRemoteAdjustmentChange(true);
+  const adjustments = sheet?.adjustments ?? null;
+  const [previousAdjustments, setPreviousAdjustments] = useState(adjustments);
+  if (!equalAdjustments(previousAdjustments, adjustments)) {
+    setPreviousAdjustments(adjustments);
+    if (
+      previousAdjustments &&
+      adjustments &&
+      !isOwnCharacterSheetOperation(snapshot?.lastOperationId)
+    )
+      setHasRemoteAdjustmentChange(true);
   }
 
   function createOperation() {
@@ -264,20 +260,47 @@ export function useCharacterSheet(scope: CharacterScope) {
       dismissRemoteChange: () => setHasRemoteWarnings(false),
     },
     saveHitPoints,
+    saveClassLevel: (
+      entryId: Id<'characterSheetEntry'>,
+      changes: ClassLevelChanges,
+    ) => editClassLevel({ ...createOperation(), entryId, ...changes }),
+    saveFavoredClasses: (favoredClassIds: Id<'catalogEntry'>[]) =>
+      editCreationSettings({
+        ...createOperation(),
+        settings: {},
+        favoredClassIds,
+      }),
     levels: {
       status,
       hasRemoteChange,
       appendedEntryId,
       dismissRemoteChange: () => setHasRemoteChange(false),
       acknowledgeAppend: () => setAppendedEntryId(null),
-      add: () =>
+      insert: (position: number) =>
         guardedWrite({
           busy: isBusy,
           setStatus,
           subject: 'Class Levels',
           inspect: 'the levels',
           write: async () => {
-            setAppendedEntryId(await addClassLevel(createOperation()));
+            setAppendedEntryId(
+              await addClassLevel({ ...createOperation(), position }),
+            );
+          },
+        }),
+      add: (classEntryId?: Id<'catalogEntry'> | null) =>
+        guardedWrite({
+          busy: isBusy,
+          setStatus,
+          subject: 'Class Levels',
+          inspect: 'the levels',
+          write: async () => {
+            setAppendedEntryId(
+              await addClassLevel({
+                ...createOperation(),
+                ...(classEntryId !== undefined ? { classEntryId } : {}),
+              }),
+            );
           },
         }),
       move: (entryId: Id<'characterSheetEntry'>, position: number) =>

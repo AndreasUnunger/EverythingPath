@@ -7,7 +7,10 @@ import { BreakdownResolverProvider } from './breakdown-resolver';
 import { BuildOutControl } from './build-out-control';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
-import { ClassLevels } from './class-levels';
+import { ClassLevels, type UnplacedSelection } from './class-levels';
+import { DefensesBlock } from './defenses-block';
+import { FavoredClassesEditor } from './favored-classes-editor';
+import { OffenseBlock } from './offense-block';
 import { PersonalAdjustments } from './personal-adjustments';
 import { CreationSettingsEditor } from './creation-settings-editor';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
@@ -29,6 +32,17 @@ function describeIncompleteHp(levels: ReadySheet['levels']) {
     : `Not complete: Class Levels ${list} have no hit points yet.`;
 }
 
+// A selection whose Class Level was deleted keeps its name; it is shown by
+// the levels, not moved to a successor.
+function listUnplacedSelections(sheet: ReadySheet): UnplacedSelection[] {
+  return sheet.unplacedSelections.map((selection) => ({
+    entryId: selection._id,
+    name:
+      sheet.adjustments.find((row) => row.entryId === selection._id)?.name ??
+      'Selection',
+  }));
+}
+
 // Existing metadata, shown; this slice has no sheet-side identity editor.
 // The name is in the summary row, so it is not repeated here. A minimal
 // Character offers its one-way Build out here, once.
@@ -36,10 +50,12 @@ function CharacterBlock({
   kind,
   notes,
   buildOut,
+  favoredClasses,
 }: {
   kind: CharacterKind;
   notes: string;
   buildOut: Controller['buildOut'];
+  favoredClasses: ReactNode;
 }) {
   return (
     <Block
@@ -60,6 +76,7 @@ function CharacterBlock({
           </dd>
         </div>
       </dl>
+      <div className="mt-2">{favoredClasses}</div>
     </Block>
   );
 }
@@ -173,20 +190,33 @@ export function CharacterSheetView({
               kind={sheet.character.kind}
               notes={sheet.character.description}
               buildOut={controller.buildOut}
+              favoredClasses={
+                <FavoredClassesEditor
+                  classChoices={sheet.classChoices}
+                  favoredClassIds={sheet.favoredClassIds}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                  save={controller.saveFavoredClasses}
+                />
+              }
             />
           </div>
           <div className="min-w-0 lg:col-span-12">
             <ClassLevels
               rows={sheet.levels}
+              metadata={sheet.calculated.classLevels}
+              classChoices={sheet.classChoices}
+              unplacedSelections={listUnplacedSelections(sheet)}
               warnings={sheet.warnings}
               advisory={sheet.warning}
               showMissingChoices={sheet.showMissingChoices}
               warningController={controller.warnings}
               levels={controller.levels}
               saveHitPoints={controller.saveHitPoints}
+              saveClassLevel={controller.saveClassLevel}
             />
           </div>
-          <div className="flex min-w-0 flex-col gap-3 lg:col-span-5">
+          <div className="min-w-0 space-y-3 lg:col-span-5">
             <BaseScoresEditor
               scores={sheet.baseScores}
               abilities={sheet.calculated.abilities}
@@ -199,6 +229,8 @@ export function CharacterSheetView({
               permanent={sheet.permanentCalculated.abilities}
               save={controller.saveBaseScores}
             />
+            <DefensesBlock statistics={sheet.calculated.derivedStatistics} />
+            <OffenseBlock statistics={sheet.calculated.derivedStatistics} />
             <AbilityChanges
               rows={sheet.abilityChanges}
               actions={controller.abilityChanges}

@@ -4,6 +4,7 @@ import type { MutationCtx } from '../_generated/server';
 import {
   abilityKeys,
   abilityTargets,
+  calculateCharacterSheetProjections,
   type AbilityScores,
 } from '../../src/lib/character-sheet';
 import {
@@ -117,6 +118,16 @@ export async function editMilitiaOnlySheet(
       'Edit level and ability scores on the Character Sheet',
     );
   const levelsChanged = await resizeClassLevels(ctx, args, sheet);
+  if (levelsChanged) {
+    const projections = calculateCharacterSheetProjections({
+      entries: sheet.entries,
+      catalogEntries: sheet.catalogEntries,
+      characterKind: sheet.character.kind,
+      sheetMode: sheet.character.sheetMode,
+    });
+    sheet.calculated = projections.current;
+    sheet.permanentCalculated = projections.permanent;
+  }
   const scoresChanged = await shiftBaseScores(ctx, args, sheet);
   return { sheet, changed: levelsChanged || scoresChanged };
 }

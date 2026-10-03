@@ -309,7 +309,27 @@ test('blanking an overridden caster level restores the default, and a Spell Effe
   expect(field('Caster level')).toHaveValue('6');
 });
 
-test('an Item is consumable or lasting, a Condition needs nothing more, and a recorded Spell grants no Modifiers; every field has a name', async () => {
+/** Saves the new entry, settles its write as `entryId` and shows `next`. */
+async function settleNewEntry(
+  view: ReturnType<typeof renderSheet>,
+  entryId: string,
+  next: CatalogSheetEntry[],
+) {
+  await act(async () => {
+    lastCall().resolve(entryId);
+  });
+  view.show(
+    buildSheet({
+      sheetEntries: next,
+      lastOperationId: operationOf(lastCall()),
+    }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: 'New entry' })).toBeNull(),
+  );
+}
+
+test('an Item is consumable or lasting and has no caster level; every field has a name', async () => {
   const view = renderSheet(buildSheet());
   fireEvent.click(button('Add entry'));
   fireEvent.click(radio('Item'));
@@ -334,29 +354,21 @@ test('an Item is consumable or lasting, a Condition needs nothing more, and a re
     detail: { kind: 'item', consumable: true },
   });
   expect(lastCall().args).not.toHaveProperty('casterLevel');
-  await act(async () => {
-    lastCall().resolve('entry-3');
-  });
   const potion: CatalogSheetEntry = {
     id: 'entry-3',
     name: 'Potion of heroism',
     detail: { kind: 'item', consumable: true },
     modifiers: [{ target: 'saves', bonusType: 'morale', value: 2 }],
   };
-  view.show(
-    buildSheet({
-      sheetEntries: [potion],
-      lastOperationId: operationOf(lastCall()),
-    }),
-  );
-  await waitFor(() =>
-    expect(screen.queryByRole('form', { name: 'New entry' })).toBeNull(),
-  );
+  await settleNewEntry(view, 'entry-3', [potion]);
   expect(
     within(row('Potion of heroism')).getByText('Consumable item'),
   ).toBeVisible();
   expect(within(row('Potion of heroism')).getByText('Temporary')).toBeVisible();
+});
 
+test('a new entry starts as a Condition, which needs nothing more and is Temporary', async () => {
+  const view = renderSheet(buildSheet());
   fireEvent.click(button('Add entry'));
   expect(radio('Condition')).toBeChecked();
   expect(within(editor('New')).queryByRole('checkbox')).not.toBeInTheDocument();
@@ -366,13 +378,10 @@ test('an Item is consumable or lasting, a Condition needs nothing more, and a re
   });
   fireEvent.change(field('Modifier 1 value'), { target: { value: '-2' } });
   fireEvent.click(button('Save entry'));
-  await waitFor(() => expect(calls).toHaveLength(2));
+  await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().args).toMatchObject({
     name: 'Shaken',
     detail: { kind: 'condition' },
-  });
-  await act(async () => {
-    lastCall().resolve('entry-4');
   });
   const shaken: CatalogSheetEntry = {
     id: 'entry-4',
@@ -380,18 +389,13 @@ test('an Item is consumable or lasting, a Condition needs nothing more, and a re
     detail: { kind: 'condition' },
     modifiers: [{ target: 'saves', bonusType: 'untyped', value: -2 }],
   };
-  view.show(
-    buildSheet({
-      sheetEntries: [potion, shaken],
-      lastOperationId: operationOf(lastCall()),
-    }),
-  );
-  await waitFor(() =>
-    expect(screen.queryByRole('form', { name: 'New entry' })).toBeNull(),
-  );
+  await settleNewEntry(view, 'entry-4', [shaken]);
   expect(within(row('Shaken')).getByText('Condition')).toBeVisible();
   expect(within(row('Shaken')).getByText('Temporary')).toBeVisible();
+});
 
+test('a recorded Spell grants no Modifiers and is not Temporary', async () => {
+  const view = renderSheet(buildSheet());
   fireEvent.click(button('Add entry'));
   fireEvent.click(radio('Spell'));
   expect(radio('Spell')).toHaveAccessibleDescription(/Grants no Modifiers/);
@@ -401,14 +405,11 @@ test('an Item is consumable or lasting, a Condition needs nothing more, and a re
   ).toBeVisible();
   fireEvent.change(field('Name'), { target: { value: 'Magic missile' } });
   fireEvent.click(button('Save entry'));
-  await waitFor(() => expect(calls).toHaveLength(3));
+  await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().args).toMatchObject({
     name: 'Magic missile',
     detail: { kind: 'spell' },
     modifiers: [],
-  });
-  await act(async () => {
-    lastCall().resolve('entry-5');
   });
   const missile: CatalogSheetEntry = {
     id: 'entry-5',
@@ -416,12 +417,7 @@ test('an Item is consumable or lasting, a Condition needs nothing more, and a re
     detail: { kind: 'spell' },
     modifiers: [],
   };
-  view.show(
-    buildSheet({
-      sheetEntries: [potion, shaken, missile],
-      lastOperationId: operationOf(lastCall()),
-    }),
-  );
+  await settleNewEntry(view, 'entry-5', [missile]);
   expect(within(row('Magic missile')).getByText('Spell')).toBeVisible();
   expect(row('Magic missile')).toHaveTextContent('Grants no Modifiers.');
   expect(

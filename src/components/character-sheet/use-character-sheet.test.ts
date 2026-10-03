@@ -1,3 +1,4 @@
+import { useClassLevelChoicesForm } from './use-sheet-forms';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { convexTest } from 'convex-test';
 import { beforeEach, expect, test, vi } from 'vitest';
@@ -1118,4 +1119,191 @@ test('Character Sheet Entries and ability changes expose save acknowledgements a
     await pending;
   });
   expect(view.result.current.sheetEntries.status.kind).toBe('saved');
+});
+
+test('level-up and insertion return a scroll target to the initiating device only and keep HP out of the command', async () => {
+  snapshot = await fixture();
+  const initial = snapshot;
+  const view = renderHook(() =>
+    useCharacterSheet({
+      organizationId: 'org',
+      characterId: initial.character._id,
+    }),
+  );
+  const classEntryId = initial.baseScoresEntry._id;
+  const levelId = view.result.current.sheet?.levels[0]?._id;
+  if (!levelId) throw new Error('Missing row');
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = view.result.current.levels.add(classEntryId);
+  });
+  expect(calls[0]?.args).toMatchObject({ classEntryId });
+  expect(calls[0]?.args).not.toHaveProperty('hpGained');
+  await act(async () => {
+    calls[0]?.resolve(levelId);
+    await pending;
+  });
+  expect(view.result.current.levels.appendedEntryId).toBe(levelId);
+  act(() => view.result.current.levels.acknowledgeAppend());
+  expect(view.result.current.levels.appendedEntryId).toBeNull();
+  snapshot = { ...initial, revision: 2, lastOperationId: 'remote-level-up' };
+  view.rerender();
+  expect(view.result.current.levels.appendedEntryId).toBeNull();
+  act(() => {
+    pending = view.result.current.levels.insert(1);
+  });
+  expect(calls[1]?.args).toMatchObject({ position: 1 });
+  await act(async () => {
+    calls[1]?.resolve(levelId);
+    await pending;
+  });
+  expect(view.result.current.levels.appendedEntryId).toBe(levelId);
+});
+
+test('a rejected choice-form mutation retains the draft and retries it through the sheet writer', async () => {
+  snapshot = await fixture();
+  const first = snapshot.entries.find((entry) => entry.kind === 'classLevel');
+  if (!first) throw new Error('Missing row');
+  const view = renderHook(() => {
+    const controller = useCharacterSheet({
+      organizationId: 'org',
+      characterId: first.characterId,
+    });
+    const row = controller.sheet?.levels.find(
+      (entry) => entry._id === first._id,
+    );
+    const choices = useClassLevelChoicesForm({
+      classEntryId: row?.state.classEntryId ?? null,
+      classChoices: controller.sheet?.classChoices ?? [],
+      favoredClassBonus: row?.state.favoredClassBonus,
+      abilityIncrease: row?.state.abilityIncrease,
+      save: async (changes) => {
+        await controller.saveClassLevel(first._id, changes);
+      },
+    });
+    return { controller, choices };
+  });
+  act(() =>
+    view.result.current.choices.form.setValue('abilityIncrease', 'strength', {
+      shouldDirty: true,
+    }),
+  );
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = view.result.current.choices.save();
+  });
+  await waitFor(() => expect(calls).toHaveLength(1));
+  await act(async () => {
+    calls[0]?.reject(new ConvexError('Editing is paused'));
+    await pending;
+  });
+  expect(view.result.current.choices.status.kind).toBe('error');
+  expect(view.result.current.choices.form.getValues('abilityIncrease')).toBe(
+    'strength',
+  );
+  act(() => {
+    pending = view.result.current.choices.save();
+  });
+  await waitFor(() => expect(calls).toHaveLength(2));
+  expect(calls[1]?.args).toMatchObject({
+    entryId: first._id,
+    abilityIncrease: 'strength',
+  });
+  await act(async () => {
+    calls[1]?.resolve(null);
+    await pending;
+  });
+  expect(view.result.current.choices.status.kind).toBe('saved');
+});
+
+test('a selection linked to a deleted Class Level is exposed as unplaced without moving to its successor', async () => {
+  snapshot = await fixture();
+  const initial = snapshot;
+  const first = initial.entries.find((entry) => entry.kind === 'classLevel');
+  const selection = initial.entries.find((entry) => entry.kind === 'manual');
+  if (!first || !selection) throw new Error('Missing fixtures');
+  snapshot = {
+    ...initial,
+    entries: initial.entries.map((entry) =>
+      entry._id === selection._id && entry.kind === 'manual'
+        ? { ...entry, gainedAtClassLevel: first._id }
+        : entry,
+    ),
+  };
+  const view = renderHook(() =>
+    useCharacterSheet({
+      organizationId: 'org',
+      characterId: initial.character._id,
+    }),
+  );
+  expect(view.result.current.sheet?.unplacedSelections).toEqual([]);
+  snapshot = {
+    ...snapshot,
+    revision: 2,
+    lastOperationId: 'delete-level',
+    entries: snapshot.entries
+      .filter((entry) => entry._id !== first._id)
+      .map((entry) =>
+        entry.kind === 'classLevel'
+          ? { ...entry, state: { ...entry.state, position: 1 } }
+          : entry,
+      ),
+  };
+  view.rerender();
+  expect(view.result.current.sheet?.unplacedSelections).toMatchObject([
+    { _id: selection._id, gainedAtClassLevel: first._id },
+  ]);
+});
+
+function isManualCatalogEntry(
+  entry: CharacterSheetSnapshot['catalogEntries'][number],
+): entry is Extract<
+  CharacterSheetSnapshot['catalogEntries'][number],
+  { detail: { kind: 'manual' } }
+> {
+  return entry.detail.kind === 'manual';
+}
+
+test('equivalent level and adjustment data stays quiet when property order changes', async () => {
+  snapshot = await fixture();
+  const initial = snapshot;
+  const view = renderHook(() =>
+    useCharacterSheet({
+      organizationId: 'org',
+      characterId: initial.character._id,
+    }),
+  );
+  snapshot = {
+    ...initial,
+    revision: 2,
+    lastOperationId: 'other-player:equivalent-data',
+    entries: initial.entries.map((entry) => {
+      if (entry.kind !== 'classLevel') return entry;
+      return {
+        ...entry,
+        state: {
+          hpGained: entry.state.hpGained,
+          position: entry.state.position,
+          classEntryId: entry.state.classEntryId,
+          kind: entry.state.kind,
+        },
+      };
+    }),
+    catalogEntries: initial.catalogEntries.map(
+      (entry): CharacterSheetSnapshot['catalogEntries'][number] => {
+        if (!isManualCatalogEntry(entry)) return entry;
+        return {
+          ...entry,
+          modifiers: entry.modifiers.map((modifier) => ({
+            value: modifier.value,
+            bonusType: modifier.bonusType,
+            target: modifier.target,
+          })),
+        };
+      },
+    ),
+  };
+  view.rerender();
+  expect(view.result.current.levels.hasRemoteChange).toBe(false);
+  expect(view.result.current.adjustments.hasRemoteChange).toBe(false);
 });

@@ -1,5 +1,5 @@
 import { ConvexError } from 'convex/values';
-import type { Doc } from '../_generated/dataModel';
+import type { Doc, Id } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import {
   abilityKeys,
@@ -98,30 +98,51 @@ export async function readCharacterSheetData(
   )
     throw new ConvexError('Base scores do not belong to this Character');
   const catalogEntries: Doc<'catalogEntry'>[] = [baseScoresEntry];
+  async function readClassDefinition(
+    classEntryId: Id<'catalogEntry'>,
+    message = 'Class does not belong to this Character',
+  ) {
+    const local = definitions.find((row) => row._id === classEntryId);
+    if (local?.detail.kind === 'class') return local;
+    // Missing definitions remain Unspecified. Existing foreign references still fail.
+    const referenced = await ctx.db.get('catalogEntry', classEntryId);
+    if (referenced) throw new ConvexError(message);
+    return null;
+  }
+  for (const definition of definitions) {
+    if (definition.detail.kind !== 'class') continue;
+    if ('counterpartOf' in definition.detail && definition.detail.counterpartOf)
+      await readClassDefinition(
+        definition.detail.counterpartOf,
+        'Class counterpart does not belong to this Character',
+      );
+    catalogEntries.push(definition);
+  }
+  for (const classId of base?.state.favoredClassIds ?? [])
+    await readClassDefinition(classId);
   for (const entry of entries) {
     if (
       entry.kind === 'base' ||
       entry.kind === 'abilityDamage' ||
-      entry.kind === 'abilityDrain' ||
-      (entry.kind === 'classLevel' && entry.state.classEntryId === null)
+      entry.kind === 'abilityDrain'
     )
       continue;
-    const definitionId =
-      entry.kind === 'classLevel'
-        ? entry.state.classEntryId
-        : entry.catalogEntryId;
-    const definition = definitions.find((row) => row._id === definitionId);
-    const expectedKind = entry.kind === 'classLevel' ? 'class' : entry.kind;
+    if (entry.kind === 'classLevel') {
+      if (entry.state.classEntryId !== null)
+        await readClassDefinition(entry.state.classEntryId);
+      continue;
+    }
+    const definition = definitions.find(
+      (row) => row._id === entry.catalogEntryId,
+    );
     if (
       definition?.characterId !== character._id ||
-      definition.detail.kind !== expectedKind
+      definition.detail.kind !== entry.kind
     )
       throw new ConvexError(
-        entry.kind === 'classLevel'
-          ? 'Class definition does not belong to this Character'
-          : entry.kind === 'manual'
-            ? 'Personal adjustment does not belong to this Character'
-            : 'Catalog Entry does not belong to this Character',
+        entry.kind === 'manual'
+          ? 'Personal adjustment does not belong to this Character'
+          : 'Catalog Entry does not belong to this Character',
       );
     if (!catalogEntries.some((row) => row._id === definition._id))
       catalogEntries.push(definition);

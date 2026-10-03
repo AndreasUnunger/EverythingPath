@@ -24,9 +24,23 @@ import { SituationMarker } from './situation-marker';
 import type { useCharacterSheet } from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
-export type BreakdownTarget = keyof NonNullable<
-  Controller['sheet']
->['calculated']['breakdowns'];
+type Calculated = NonNullable<Controller['sheet']>['calculated'];
+type DerivedKey = keyof Calculated['derivedStatistics'];
+/** A leaf breakdown, or a derived statistic composed from several. */
+export type BreakdownTarget =
+  | keyof Calculated['breakdowns']
+  | `derived:${DerivedKey}`;
+
+function findPreviewStatistic(
+  calculated: Pick<Calculated, 'breakdowns' | 'derivedStatistics'>,
+  target: BreakdownTarget,
+) {
+  if (target.startsWith('derived:'))
+    return calculated.derivedStatistics[
+      target.slice('derived:'.length) as DerivedKey
+    ];
+  return calculated.breakdowns[target as keyof Calculated['breakdowns']];
+}
 
 const contributionKey = (contribution: SourcedModifier, index: number) =>
   `${contribution.sheetEntryId}|${contribution.bonusType}|${contribution.value}|${index}`;
@@ -115,9 +129,8 @@ function SituationPreview({
   target: BreakdownTarget;
   resolver: BreakdownResolver;
 }) {
-  const inSituation = resolver.previewSituation(group.selection)?.breakdowns[
-    target
-  ];
+  const preview = resolver.previewSituation(group.selection);
+  const inSituation = preview ? findPreviewStatistic(preview, target) : null;
   const change = inSituation
     ? diffSituation({ group, ordinary: statistic, inSituation })
     : null;

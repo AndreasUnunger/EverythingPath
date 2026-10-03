@@ -144,7 +144,20 @@ beforeEach(() => {
   snapshot = undefined;
 });
 
-test('a value is typed once as a number or a formula: a formula saves as text and counts through the resolver, a stored formula opens in formula mode, and the toggle back saves a number', async () => {
+// Arcane strike: a Strength Modifier whose value is a formula of the level.
+const scaling: Adjustment = {
+  id: 'adj-2',
+  name: 'Arcane strike',
+  modifiers: [
+    {
+      target: 'ability.str',
+      bonusType: 'untyped',
+      value: { formula: '@level * 2' },
+    },
+  ],
+};
+
+test('a value is typed once as a number or a formula: an empty formula is refused in place, and a formula saves as text and counts through the resolver', async () => {
   const view = renderSheet(buildSheet());
   fireEvent.click(button('Add personal adjustment'));
   fireEvent.change(field('Name'), { target: { value: 'Arcane strike' } });
@@ -178,17 +191,6 @@ test('a value is typed once as a number or a formula: a formula saves as text an
   await act(async () => {
     lastCall().resolve('adj-2');
   });
-  const scaling: Adjustment = {
-    id: 'adj-2',
-    name: 'Arcane strike',
-    modifiers: [
-      {
-        target: 'ability.str',
-        bonusType: 'untyped',
-        value: { formula: '@level * 2' },
-      },
-    ],
-  };
   view.show(
     buildSheet({
       adjustments: [scaling],
@@ -203,14 +205,17 @@ test('a value is typed once as a number or a formula: a formula saves as text an
   expect(row('Arcane strike')).toHaveTextContent('@level * 2 to Strength');
   expect(strength(12)).toBeVisible();
   expect(screen.queryByText(/contributes nothing/)).not.toBeInTheDocument();
+});
 
+test('a stored formula opens in formula mode, and the toggle back saves a number', async () => {
+  renderSheet(buildSheet({ adjustments: [scaling] }));
   fireEvent.click(button('Edit Arcane strike'));
   expect(field('Modifier 1 value')).toHaveValue('@level * 2');
   expect(formulaToggle()).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(formulaToggle());
   fireEvent.change(field('Modifier 1 value'), { target: { value: '3' } });
   fireEvent.click(button('Save adjustment'));
-  await waitFor(() => expect(calls).toHaveLength(2));
+  await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().name).toBe('editAdjustment');
   expect(lastCall().args).toMatchObject({
     entryId: 'adj-2',

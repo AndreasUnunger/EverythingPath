@@ -27,7 +27,7 @@ export const sheetEntryKindLabels: Record<SheetEntryKind, string> = {
 };
 // How each kind counts (data model, "Temporary Effects"): what the card says.
 const kindDescriptions: Record<SheetEntryKind, string> = {
-  spellEffect: 'A running spell. Temporary unless it lasts more than one day.',
+  spellEffect: 'A Spell Effect. Temporary unless it lasts more than one day.',
   condition: 'Temporary.',
   item: 'Permanent unless consumable.',
   spell: 'A recorded Spell. Grants no Modifiers.',

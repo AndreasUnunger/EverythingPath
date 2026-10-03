@@ -1,4 +1,5 @@
 import { ConvexError } from 'convex/values';
+import { representativeClassCatalog } from './representativeClassCatalog';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { ReadCtx } from '../types';
@@ -106,6 +107,14 @@ export async function initializeCharacterSheet(
       ...defaultCreationSettings,
     },
   });
+  // Isolated prepared sheets carry representative classes, not a Catalog Release.
+  for (const definition of representativeClassCatalog) {
+    await ctx.db.insert('catalogEntry', {
+      ...definition,
+      characterId,
+      scope: 'character',
+    });
+  }
   for (let position = 1; position <= level; position++)
     await insertClassLevel(ctx, characterId, position);
   await ctx.db.patch('character', characterId, {

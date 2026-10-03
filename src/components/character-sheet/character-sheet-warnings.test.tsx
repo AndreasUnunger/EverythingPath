@@ -268,8 +268,10 @@ function saveSettings() {
 function hpSummary() {
   return screen.getByText('HP', { selector: 'dt' }).nextElementSibling;
 }
-function unspecifiedChip(level: number) {
-  return within(row(`Level ${level}`)).getByText('Unspecified');
+function classPicker(level: number) {
+  return within(row(`Level ${level}`)).getByRole('combobox', {
+    name: `Class at level ${level}`,
+  });
 }
 const noReasonAsked = () => {
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -306,7 +308,7 @@ test('a new sheet shows the creation defaults and its point counter; the choices
   expect(
     within(row('Level 1')).getByText('Enter hit points gained.'),
   ).toHaveClass('text-sky-300');
-  expect(unspecifiedChip(1)).toHaveClass('ring-sky-400/80');
+  expect(classPicker(1)).toHaveClass('ring-sky-400/80');
   expect(hpSummary()).toHaveTextContent('not complete');
   expect(
     screen.getByText('Hit points need the HP gained at every Class Level.'),
@@ -670,7 +672,7 @@ test('hit points below 1 warn in their row with Accept; accepting changes no num
     screen.getByText('Hit points need the HP gained at every Class Level.'),
   ).toBeVisible();
   for (const level of [1, 2]) {
-    expect(unspecifiedChip(level)).toHaveClass('ring-sky-400/80');
+    expect(classPicker(level)).toHaveClass('ring-sky-400/80');
     expect(
       within(row(`Level ${level}`)).getByText('Choose a class.'),
     ).toBeVisible();
@@ -717,9 +719,12 @@ test('maintenance disables the creation settings and every warning action with a
   expect(accepts).toHaveLength(2);
   for (const accept of accepts) {
     expect(accept).toBeDisabled();
-    expect(accept.parentElement).toHaveTextContent(message);
+    expect(accept).toHaveAccessibleDescription(
+      new RegExp(`${message.replace('.', '\\.')}$`),
+    );
     fireEvent.click(accept);
   }
+  expect(within(levelsRegion()).getAllByText(message)).toHaveLength(1);
   await act(async () => {
     fireEvent.submit(screen.getByRole('form', { name: 'Creation settings' }));
   });

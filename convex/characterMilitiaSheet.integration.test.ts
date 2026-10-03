@@ -1334,3 +1334,35 @@ test('level growth respects existing personal adjustments before Setup', async (
     calculated: { level: 4094 },
   });
 });
+
+test('combined ledger level and score edits account for ability increases removed with trailing rows', async () => {
+  const { t, owner, member, scope, listArgs, militiaScope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const trailing = initial?.entries
+    .filter((row) => row.kind === 'classLevel')
+    .at(-1);
+  if (!trailing || !initial) throw new Error('Missing Class Level');
+  await t.run((ctx) =>
+    ctx.db.patch('characterSheetEntry', trailing._id, {
+      state: { ...trailing.state, abilityIncrease: 'strength' },
+    }),
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  expect(before?.permanentCalculated.abilities.strength.score).toBe(13);
+  await member.mutation(api.character.updateCharacter, {
+    ...scope,
+    patch: { level: 3, strength: 15 },
+    confirmedRemovedLevelIds: [trailing._id],
+    expectedSheetRevision: before?.revision,
+  });
+  const record = (
+    await owner.query(api.character.listByCampaign, listArgs)
+  ).find((row) => row._id === scope.characterId);
+  expect(record).toMatchObject({ level: 3, strength: 15 });
+  const ledger = await owner.query(api.canonicalLedger.read, militiaScope);
+  expect(
+    ledger.state.militiaSnapshot.characters.find(
+      (row) => row.characterId === scope.characterId,
+    ),
+  ).toMatchObject({ level: 3, strength: 15 });
+});

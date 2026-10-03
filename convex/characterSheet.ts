@@ -16,6 +16,7 @@ import schema, {
   abilityValidator,
   abilityChangeKindValidator,
   sheetEntryDetailValidator,
+  favoredClassBonusValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -32,13 +33,13 @@ import {
   defaultAbilityScores,
   creationSettingsFor,
   modifierConditionSchema,
+  characterSheetWarningSchema,
   type Modifier,
   type BaseModifier,
 } from '../src/lib/character-sheet';
 import {
   deleteCharacterSheet,
   initializeCharacterSheet,
-  insertClassLevel,
   isManualCatalogEntry,
   loadCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
@@ -83,6 +84,30 @@ const calculatedValidator = v.object({
   }),
   level: v.number(),
   hitDice: v.number(),
+  classLevels: v.array(
+    v.object({
+      entryId: v.string(),
+      position: v.number(),
+      classEntryId: v.union(v.string(), v.null()),
+      classLevel: v.union(v.number(), v.null()),
+      hitDice: v.number(),
+      abilityIncreaseDue: v.boolean(),
+      skillRankBudget: v.union(v.number(), v.null()),
+      skillRankCap: v.number(),
+      cumulativeSkillRanks: v.array(
+        v.object({ skill: v.string(), ranks: v.number() }),
+      ),
+      exceededSkillRankCaps: v.array(
+        v.object({ skill: v.string(), ranks: v.number() }),
+      ),
+    }),
+  ),
+  budgets: v.object({
+    generalFeats: v.number(),
+    racialSkillRanks: v.union(v.number(), v.null()),
+    skillRanks: v.union(v.number(), v.null()),
+    skillRankCap: v.number(),
+  }),
   hp: v.union(v.number(), v.null()),
   creationSettings: creationSettingsValidator,
   pointBuy: v.union(
@@ -91,46 +116,16 @@ const calculatedValidator = v.object({
       spent: v.union(v.number(), v.null()),
     }),
   ),
-  warnings: v.array(
-    v.object({
-      kind: v.union(
-        v.literal('incomplete'),
-        v.literal('unresolved'),
-        v.literal('rules'),
-      ),
-      check: v.union(
-        v.literal('class'),
-        v.literal('hpGainedMissing'),
-        v.literal('hpGainedBelowMinimum'),
-        v.literal('totalHpUnresolved'),
-        v.literal('levelZero'),
-        v.literal('pointBuy'),
-        v.literal('unsupportedFormula'),
-        v.literal('formulaDependency'),
-      ),
-      target: v.union(
-        v.object({
-          kind: v.literal('modifier'),
-          entryId: v.string(),
-          modifierIndex: v.number(),
-        }),
-        v.object({ kind: v.literal('pointBuy') }),
-        v.object({
-          kind: v.literal('classLevel'),
-          entryId: v.string(),
-          field: v.union(v.literal('class'), v.literal('hpGained')),
-        }),
-        v.object({ kind: v.literal('hitPoints') }),
-        v.object({ kind: v.literal('classLevels') }),
-      ),
-      subject: v.string(),
-      fingerprint: v.string(),
-      message: v.string(),
-    }),
-  ),
+  warnings: v.array(zodOutputToConvex(characterSheetWarningSchema)),
   breakdowns: v.record(v.string(), breakdownValidator),
   abilityModifierBreakdowns: v.record(v.string(), breakdownValidator),
   derivedStatistics: v.object({
+    bab: breakdownValidator,
+    fortitude: breakdownValidator,
+    reflex: breakdownValidator,
+    will: breakdownValidator,
+    initiative: breakdownValidator,
+    cmb: breakdownValidator,
     ac: breakdownValidator,
     touchAc: breakdownValidator,
     flatFootedAc: breakdownValidator,
@@ -272,6 +267,20 @@ function getClassLevel(
     throw new ConvexError('Class Level does not belong to this Character');
   return entry;
 }
+function requireClassDefinition(
+  sheet: NonNullable<Awaited<ReturnType<typeof loadCharacterSheet>>>,
+  classEntryId: Id<'catalogEntry'>,
+) {
+  const definition = sheet.catalogEntries.find(
+    (entry) => entry._id === classEntryId,
+  );
+  if (
+    definition?.detail.kind !== 'class' ||
+    definition.characterId !== sheet.character._id
+  )
+    throw new ConvexError('Class does not belong to this Character');
+  return definition;
+}
 async function renumberClassLevels(
   ctx: MutationCtx,
   levels: ReturnType<typeof getClassLevel>[],
@@ -343,10 +352,16 @@ function validatePersonalAdjustment({
   }
 }
 export const createPersonalAdjustment = campaignMutation({
-  args: { ...writeScope, ...personalAdjustmentFields },
+  args: {
+    ...writeScope,
+    ...personalAdjustmentFields,
+    gainedAtClassLevel: v.optional(v.id('characterSheetEntry')),
+  },
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
+    if (args.gainedAtClassLevel !== undefined)
+      getClassLevel(sheet, args.gainedAtClassLevel);
     validatePersonalAdjustment({
       sheet,
       name: args.name,
@@ -370,6 +385,9 @@ export const createPersonalAdjustment = campaignMutation({
     const entryId = await ctx.db.insert('characterSheetEntry', {
       characterId: args.characterId,
       kind: 'manual',
+      ...(args.gainedAtClassLevel !== undefined
+        ? { gainedAtClassLevel: args.gainedAtClassLevel }
+        : {}),
       active: true,
       catalogEntryId,
       state: { kind: 'manual' },
@@ -520,18 +538,56 @@ export const editBaseScores = campaignMutation({
   },
 });
 export const addClassLevel = campaignMutation({
-  args: writeScope,
+  args: {
+    ...writeScope,
+    position: v.optional(v.number()),
+    classEntryId: v.optional(v.union(v.id('catalogEntry'), v.null())),
+  },
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
+    const levels = sheet.entries.filter((entry) => entry.kind === 'classLevel');
+    const position = args.position ?? levels.length + 1;
+    if (
+      !Number.isInteger(position) ||
+      position < 1 ||
+      position > levels.length + 1
+    )
+      throw new ConvexError('Choose a valid Class Level position');
+    const selected = args.classEntryId
+      ? requireClassDefinition(sheet, args.classEntryId)
+      : null;
+    const chosen = selected
+      ? levels.find(
+          (entry) =>
+            entry.state.classEntryId &&
+            sheet.catalogEntries.find(
+              (definition) => definition._id === entry.state.classEntryId,
+            )?.ruleIdentity === selected.ruleIdentity,
+        )?.state.classEntryId
+      : null;
     if (sheet.entries.length >= maxCharacterChildRows)
       throw new ConvexError('Character sheet is too large');
-    const entry = await insertClassLevel(
-      ctx,
-      args.characterId,
-      sheet.entries.filter((row) => row.kind === 'classLevel').length + 1,
-    );
-    sheet.entries.push(entry);
+    const entryId = await ctx.db.insert('characterSheetEntry', {
+      characterId: args.characterId,
+      kind: 'classLevel',
+      active: true,
+      state: {
+        kind: 'classLevel',
+        classEntryId: chosen ?? args.classEntryId ?? null,
+        position,
+        hpGained: null,
+      },
+    });
+    const entry = await ctx.db.get('characterSheetEntry', entryId);
+    if (!entry) throw new ConvexError('Class Level is unavailable');
+    if (entry.kind !== 'classLevel')
+      throw new ConvexError('Class Level is unavailable');
+    levels.splice(position - 1, 0, entry);
+    sheet.entries = [
+      ...sheet.entries.filter((item) => item.kind !== 'classLevel'),
+      ...(await renumberClassLevels(ctx, levels)),
+    ];
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -540,18 +596,63 @@ export const addClassLevel = campaignMutation({
   },
 });
 export const editClassLevel = campaignMutation({
-  args: { ...rowScope, hpGained: v.union(v.number(), v.null()) },
+  args: {
+    ...rowScope,
+    hpGained: v.optional(v.union(v.number(), v.null())),
+    classEntryId: v.optional(v.union(v.id('catalogEntry'), v.null())),
+    favoredClassBonus: v.optional(favoredClassBonusValidator),
+    abilityIncrease: v.optional(
+      v.union(v.null(), ...abilityKeys.map((ability) => v.literal(ability))),
+    ),
+    skillRanks: v.optional(v.record(v.string(), v.number())),
+  },
   returns: v.null(),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const entry = getClassLevel(sheet, args.entryId);
-    if (args.hpGained !== null) requireFiniteNumber(args.hpGained);
-    if (entry.state.hpGained === args.hpGained) return null;
-    const state = { ...entry.state, hpGained: args.hpGained };
-    await ctx.db.patch('characterSheetEntry', entry._id, { state });
-    sheet.entries = sheet.entries.map((row) =>
-      row._id === entry._id ? { ...entry, state } : row,
-    );
+    if (args.hpGained !== undefined && args.hpGained !== null)
+      requireFiniteNumber(args.hpGained);
+    if (
+      args.favoredClassBonus?.choice === 'alt' &&
+      !args.favoredClassBonus.note.trim()
+    )
+      throw new ConvexError('Describe the other favored-class bonus');
+    for (const ranks of Object.values(args.skillRanks ?? {}))
+      requireNonnegativeInteger(ranks, 'Skill ranks');
+    const selected = args.classEntryId
+      ? requireClassDefinition(sheet, args.classEntryId)
+      : null;
+    const changes = {
+      ...(args.hpGained !== undefined ? { hpGained: args.hpGained } : {}),
+      ...(args.classEntryId !== undefined
+        ? { classEntryId: args.classEntryId }
+        : {}),
+      ...(args.favoredClassBonus !== undefined
+        ? { favoredClassBonus: args.favoredClassBonus }
+        : {}),
+      ...(args.abilityIncrease !== undefined
+        ? { abilityIncrease: args.abilityIncrease }
+        : {}),
+      ...(args.skillRanks !== undefined ? { skillRanks: args.skillRanks } : {}),
+    };
+    let changed = false;
+    for (const row of sheet.entries) {
+      if (row.kind !== 'classLevel') continue;
+      const rowClass = sheet.catalogEntries.find(
+        (definition) => definition._id === row.state.classEntryId,
+      );
+      const switchesDefinition =
+        selected && selected.ruleIdentity === rowClass?.ruleIdentity;
+      let state = row.state;
+      if (row._id === entry._id) state = { ...row.state, ...changes };
+      else if (switchesDefinition)
+        state = { ...row.state, classEntryId: selected._id };
+      if (compareValues(state, row.state) === 0) continue;
+      changed = true;
+      await ctx.db.patch('characterSheetEntry', row._id, { state });
+      row.state = state;
+    }
+    if (!changed) return null;
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -609,7 +710,11 @@ export const deleteClassLevel = campaignMutation({
 });
 
 export const editCreationSettings = campaignMutation({
-  args: { ...writeScope, settings: creationSettingsValidator.partial() },
+  args: {
+    ...writeScope,
+    settings: creationSettingsValidator.partial(),
+    favoredClassIds: v.optional(v.array(v.id('catalogEntry'))),
+  },
   returns: v.null(),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
@@ -623,8 +728,16 @@ export const editCreationSettings = campaignMutation({
         'Point-buy budget',
       );
     requireNonnegativeInteger(settings.traitCount, 'Trait count');
-    if (JSON.stringify(previous) === JSON.stringify(settings)) return null;
-    const state = { ...base.state, ...settings };
+    for (const classId of args.favoredClassIds ?? [])
+      requireClassDefinition(sheet, classId);
+    const state = {
+      ...base.state,
+      ...settings,
+      ...(args.favoredClassIds !== undefined
+        ? { favoredClassIds: args.favoredClassIds }
+        : {}),
+    };
+    if (compareValues(base.state, state) === 0) return null;
     await ctx.db.patch('characterSheetEntry', base._id, { state });
     sheet.entries = sheet.entries.map((entry) =>
       entry._id === base._id ? { ...base, state } : entry,
@@ -748,7 +861,7 @@ export const createAbilityChange = campaignMutation({
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     requireNonnegativeInteger(args.points, 'Ability change');
-    if (sheet.entries.length >= 4096)
+    if (sheet.entries.length >= maxCharacterChildRows)
       throw new ConvexError('Character sheet is too large');
     const state = { ability: args.ability, points: args.points };
     const entryId = await ctx.db.insert(
@@ -880,7 +993,7 @@ export const createSheetEntry = campaignMutation({
       modifiers: args.modifiers,
     });
     validateSheetEntryDetail(args.detail, args.casterLevel);
-    if (sheet.entries.length >= 4096)
+    if (sheet.entries.length >= maxCharacterChildRows)
       throw new ConvexError('Character sheet is too large');
     const catalogEntryId = await ctx.db.insert('catalogEntry', {
       scope: 'character',

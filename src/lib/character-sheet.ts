@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+  advancementBudgets,
+  advancementWarnings,
+  resolveAdvancement,
+} from './character-sheet-advancement';
+import {
   evaluateFormula,
   FormulaError,
   parseFormula,
@@ -56,27 +61,56 @@ export const defaultCreationSettings = {
   traitCount: 2,
   campaignTraitRequired: false,
 } satisfies CreationSettings;
-export type SheetWarning = {
-  kind: 'incomplete' | 'unresolved' | 'rules';
-  check:
-    | 'class'
-    | 'hpGainedMissing'
-    | 'hpGainedBelowMinimum'
-    | 'totalHpUnresolved'
-    | 'levelZero'
-    | 'pointBuy'
-    | 'unsupportedFormula'
-    | 'formulaDependency';
-  target:
-    | { kind: 'pointBuy' }
-    | { kind: 'classLevel'; entryId: string; field: 'class' | 'hpGained' }
-    | { kind: 'hitPoints' }
-    | { kind: 'classLevels' }
-    | { kind: 'modifier'; entryId: string; modifierIndex: number };
-  subject: string;
-  fingerprint: string;
-  message: string;
-};
+export const warningChecks = [
+  'class',
+  'hpGainedMissing',
+  'hpGainedBelowMinimum',
+  'hpGainedAboveMaximum',
+  'firstLevelHpNotMaximum',
+  'totalHpUnresolved',
+  'levelZero',
+  'pointBuy',
+  'unsupportedFormula',
+  'formulaDependency',
+  'abilityIncreaseMissing',
+  'abilityIncreaseMilestone',
+  'favoredClassBonusMissing',
+  'favoredClassBonusNotFavored',
+  'favoredClassCount',
+  'favoredClassPrestige',
+  'skillRankCap',
+  'classVersions',
+] as const;
+export const characterSheetWarningSchema = z.object({
+  kind: z.enum(['incomplete', 'unresolved', 'rules']),
+  check: z.enum(warningChecks),
+  target: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('pointBuy') }),
+    z.object({
+      kind: z.literal('classLevel'),
+      entryId: z.string(),
+      field: z.enum([
+        'class',
+        'hpGained',
+        'abilityIncrease',
+        'favoredClassBonus',
+        'skillRanks',
+      ]),
+    }),
+    z.object({ kind: z.literal('hitPoints') }),
+    z.object({ kind: z.literal('classLevels') }),
+    z.object({ kind: z.literal('favoredClasses') }),
+    z.object({
+      kind: z.literal('modifier'),
+      entryId: z.string(),
+      modifierIndex: z.number(),
+    }),
+  ]),
+  subject: z.string(),
+  fingerprint: z.string(),
+  message: z.string(),
+});
+export type SheetWarning = z.infer<typeof characterSheetWarningSchema>;
 // CRB Table 1–1: Ability Score Costs.
 const pointBuyCosts = new Map([
   [7, -4],
@@ -109,12 +143,40 @@ export function calculatePointBuy({
     : costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0);
   return { spent };
 }
+export type FavoredClassBonus =
+  | { choice: 'hp' }
+  | { choice: 'skill' }
+  | { choice: 'alt'; note: string };
+export type CharacterSheetClassDetail = {
+  kind: 'class';
+  classKind: 'base' | 'prestige' | 'npc';
+  counterpartOf?: string;
+  hitDie: number;
+  bab: 'full' | 'threeQuarters' | 'half';
+  saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
+  skillRanksPerLevel: number;
+  classSkills?: readonly string[];
+  featuresByLevel?: readonly { classLevel: number; catalogEntryId: string }[];
+  picksByLevel?: readonly { classLevel: number; list: string; count: number }[];
+};
+export type CharacterSheetCatalogEntry = {
+  _id: string;
+  name?: string;
+  ruleIdentity: string;
+  sourceKey?: string;
+  stacksWithItself?: boolean;
+  modifiers: readonly Modifier[];
+  detail?: SheetCatalogEntryDetail;
+};
 export type SheetEntry = { _id: string } & (
   | {
       kind: 'base';
       active: true;
       catalogEntryId: string;
-      state: { kind: 'base' } & Partial<CreationSettings>;
+      state: {
+        kind: 'base';
+        favoredClassIds?: readonly string[];
+      } & Partial<CreationSettings>;
     }
   | {
       kind: 'manual';
@@ -151,6 +213,9 @@ export type SheetEntry = { _id: string } & (
         classEntryId: string | null;
         position: number;
         hpGained: number | null;
+        favoredClassBonus?: FavoredClassBonus | null;
+        abilityIncrease?: Ability | null;
+        skillRanks?: Record<string, number>;
       };
     }
 );
@@ -170,7 +235,9 @@ export function creationSettingsFor(
 export type SheetCatalogEntryDetail =
   | { kind: 'spellEffect'; lastsOverOneDay?: boolean }
   | { kind: 'item'; consumable?: boolean }
-  | { kind: 'base' | 'manual' | 'class' | 'condition' | 'spell' };
+  | CharacterSheetClassDetail
+  | { kind: 'class' }
+  | { kind: 'base' | 'manual' | 'condition' | 'spell' };
 
 export function isTemporaryEffect(
   entry: Pick<SheetEntry, 'kind'>,
@@ -191,15 +258,15 @@ export type CharacterSheetInput = {
   sheetMode?: 'militiaOnly' | 'full';
   characterKind: 'pc' | 'npc';
   entries: readonly SheetEntry[];
-  catalogEntries: readonly {
-    _id: string;
-    name?: string;
-    ruleIdentity: string;
-    sourceKey?: string;
-    stacksWithItself?: boolean;
-    modifiers: readonly Modifier[];
-    detail?: SheetCatalogEntryDetail;
-  }[];
+  catalogEntries: readonly CharacterSheetCatalogEntry[];
+  favoredClassCount?: number;
+  racialHitDice?: {
+    count: number;
+    hpGained: number | null;
+    progression: Pick<CharacterSheetClassDetail, 'bab' | 'saves'> & {
+      skillRanksPerHitDie: number;
+    };
+  };
 };
 
 type ClassLevelEntry = Extract<SheetEntry, { kind: 'classLevel' }>;
@@ -293,22 +360,35 @@ function abilityChangesFor(
   return { abilityDamage, drainModifiers };
 }
 
-function characterLevelInputs(levels: readonly ClassLevelEntry[]) {
-  return { level: levels.length, hitDice: levels.length };
+function characterLevelInputs(
+  advancement: ReturnType<typeof resolveAdvancement>,
+) {
+  return {
+    level: advancement.levels.length,
+    hitDice: advancement.hitDice,
+    classLevels: advancement.classLevelCounts,
+  };
 }
 
 function calculationContext(
   { entries, catalogEntries }: CharacterSheetInput,
-  levels: readonly ClassLevelEntry[],
+  advancement: ReturnType<typeof resolveAdvancement>,
   abilityDamage: Partial<Record<Ability, number>>,
   options: ResolveOptions,
 ): ResolveOptions {
   return {
     ...options,
-    ...characterLevelInputs(levels),
+    ...characterLevelInputs(advancement),
     abilityDamage,
     activeCatalogEntryIds: entries.flatMap((entry) => {
-      if (!entry.active || !('catalogEntryId' in entry)) return [];
+      if (!entry.active) return [];
+      if (entry.kind === 'classLevel')
+        return advancement.rows.some(
+          (row) => row.entry._id === entry._id && row.catalog,
+        ) && entry.state.classEntryId
+          ? [entry.state.classEntryId]
+          : [];
+      if (!('catalogEntryId' in entry)) return [];
       const catalog = catalogEntries.find(
         (item) => item._id === entry.catalogEntryId,
       );
@@ -407,28 +487,15 @@ function builtInHpModifiers(
   breakdowns: Record<LeafTarget, ResolvedStatistic>,
   options: ResolveOptions,
 ): SourcedModifier[] {
-  const modifiers: SourcedModifier[] = levels.flatMap((entry) =>
-    entry.state.hpGained === null
-      ? []
-      : [
-          {
-            target: 'hp',
-            bonusType: 'untyped',
-            value: entry.state.hpGained,
-            sheetEntryId: entry._id,
-            entryName: `Class Level ${entry.state.position}`,
-            source: `hp:${entry._id}`,
-            builtIn: true,
-          },
-        ],
-  );
-  if (levels.length)
+  const modifiers: SourcedModifier[] = [];
+  const hitDice = options.hitDice ?? levels.length;
+  if (hitDice)
     modifiers.push({
       target: 'hp',
       bonusType: 'untyped',
       value:
         abilityValue('constitution', breakdowns, options.abilityDamage ?? {})
-          .modifier * levels.length,
+          .modifier * hitDice,
       sheetEntryId: 'builtin:constitution-hp',
       entryName: 'Constitution',
       source: 'constitution-hp',
@@ -437,33 +504,157 @@ function builtInHpModifiers(
   return modifiers;
 }
 
+function permanentIntelligenceFor(
+  input: CharacterSheetInput,
+  advancement: ReturnType<typeof resolveAdvancement>,
+  options: ResolveOptions,
+  formulaCache: FormulaCache,
+) {
+  const permanentOptions = { ...options, permanentOnly: true };
+  const { drainModifiers } = abilityChangesFor(input.entries, permanentOptions);
+  const modifiers = [
+    ...sourceCatalogModifiers(input, permanentOptions),
+    ...drainModifiers,
+    ...advancement.modifiers,
+  ].filter((modifier) => modifier.target === 'ability.int');
+  const breakdowns = emptyBreakdowns();
+  const intelligence = resolveTarget(
+    'ability.int',
+    modifiers,
+    calculationContext(input, advancement, {}, permanentOptions),
+    breakdowns,
+    formulaCache,
+    [],
+  );
+  return Math.floor((intelligence.total - 10) / 2);
+}
+
+function usesDexterityForCmb(size: ResolveOptions['size'] = 'medium') {
+  return size === 'fine' || size === 'diminutive' || size === 'tiny';
+}
+
+function calculateDerivedStatistics(
+  breakdowns: Record<LeafTarget, ResolvedStatistic>,
+  abilities: ReturnType<typeof calculateAbilities>,
+  options: ResolveOptions,
+) {
+  const specialSize = specialSizeModifiers[options.size ?? 'medium'];
+  const derivedStatistics = deriveDefenses({
+    breakdowns,
+    strength: abilities.strength.modifier,
+    dexterity: abilities.dexterity.modifier,
+    specialSize,
+    maxDexterityBonus: options.armorMaxDexterityBonus,
+  });
+  function dependentStatistic(
+    target: LeafTarget,
+    ability: Ability,
+    name: string,
+  ) {
+    return composeStatistics({
+      statistics: [breakdowns[target]],
+      builtIns: [
+        builtIn({
+          target,
+          id: `${target}-ability`,
+          name,
+          value: abilities[ability].modifier,
+        }),
+      ],
+      includes: () => true,
+      name: target,
+    });
+  }
+  return {
+    ...derivedStatistics,
+    bab: breakdowns.bab,
+    fortitude: dependentStatistic('save.fort', 'constitution', 'Constitution'),
+    reflex: dependentStatistic('save.ref', 'dexterity', 'Dexterity'),
+    will: dependentStatistic('save.will', 'wisdom', 'Wisdom'),
+    initiative: dependentStatistic('init', 'dexterity', 'Dexterity'),
+    cmb: composeStatistics({
+      statistics: [breakdowns.bab, breakdowns.cmb],
+      builtIns: [
+        builtIn({
+          target: 'cmb',
+          id: 'cmb-ability',
+          name: usesDexterityForCmb(options.size) ? 'Dexterity' : 'Strength',
+          value: usesDexterityForCmb(options.size)
+            ? abilities.dexterity.modifier
+            : abilities.strength.modifier,
+        }),
+        ...(specialSize
+          ? [
+              builtIn({
+                target: 'cmb',
+                id: 'size-cmb',
+                name: 'Size',
+                value: specialSize,
+              }),
+            ]
+          : []),
+      ],
+      includes: () => true,
+      name: 'CMB',
+    }),
+  };
+}
+
 function calculateSheetProjection(
   input: CharacterSheetInput,
   options: ResolveOptions,
   formulaCache: FormulaCache,
   { base, baseModifiers } = baseScoresFor(input),
+  permanentIntelligence?: number,
 ) {
   const sourced = sourceCatalogModifiers(input, options);
-  const levels = input.entries.filter((entry) => entry.kind === 'classLevel');
+  const advancement = resolveAdvancement(input);
+  const { levels } = advancement;
   const { abilityDamage, drainModifiers } = abilityChangesFor(
     input.entries,
     options,
   );
-  const context = calculationContext(input, levels, abilityDamage, options);
+  const context = calculationContext(
+    input,
+    advancement,
+    abilityDamage,
+    options,
+  );
+  const size = specialSizeModifiers[options.size ?? 'medium'];
+  if (size)
+    sourced.push({
+      ...builtIn({
+        target: 'ac.other',
+        id: 'size-ac',
+        name: 'Size',
+        value: -size,
+      }),
+      bonusType: 'size',
+    });
   const { breakdowns, warnings: formulaWarnings } = resolveCalculation(
-    [...sourced, ...drainModifiers],
+    [...sourced, ...drainModifiers, ...advancement.modifiers],
     context,
     formulaCache,
     levels,
   );
   const abilities = calculateAbilities(breakdowns, abilityDamage);
-  const hp = levels.some((entry) => entry.state.hpGained === null)
-    ? null
-    : breakdowns.hp.total;
+  const hp =
+    advancement.missingRacialHp ||
+    levels.some((entry) => entry.state.hpGained === null)
+      ? null
+      : breakdowns.hp.total;
   const creationSettings = creationSettingsFor(base);
   const pointBuy = calculatePointBuy({
     baseModifiers,
     abilityMethod: creationSettings.abilityMethod,
+  });
+  const advancementResult = advancementBudgets({
+    advancement,
+    intelligence:
+      permanentIntelligence ??
+      (options.permanentOnly
+        ? abilities.intelligence.modifier
+        : permanentIntelligenceFor(input, advancement, options, formulaCache)),
   });
   return {
     abilities,
@@ -471,7 +662,9 @@ function calculateSheetProjection(
       abilities,
       abilityDamage,
     ),
-    ...characterLevelInputs(levels),
+    level: levels.length,
+    hitDice: advancement.hitDice,
+    ...advancementResult,
     hp,
     creationSettings,
     pointBuy,
@@ -485,17 +678,25 @@ function calculateSheetProjection(
         pointBuy,
         hp,
       }),
+      ...advancementWarnings({
+        characterKind: input.characterKind,
+        advancement,
+        classLevels: advancementResult.classLevels,
+        favoredClassIds: base.state.favoredClassIds ?? [],
+        favoredClassCount: input.favoredClassCount ?? 1,
+        catalogEntries: input.catalogEntries,
+      }),
       ...formulaWarnings,
     ].filter(
       (warning) =>
         input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
     ),
     breakdowns,
-    derivedStatistics: deriveDefenses({
+    derivedStatistics: calculateDerivedStatistics(
       breakdowns,
-      strength: abilities.strength.modifier,
-      dexterity: abilities.dexterity.modifier,
-    }),
+      abilities,
+      options,
+    ),
   };
 }
 
@@ -534,19 +735,21 @@ export function calculateCharacterSheetProjections(
   const { projectionInputs, ...shared } = options;
   const formulaCache: FormulaCache = new Map();
   const baseScores = baseScoresFor(input);
+  const permanent = calculateSheetProjection(
+    input,
+    { ...shared, ...projectionInputs?.permanent, permanentOnly: true },
+    formulaCache,
+    baseScores,
+  );
   return {
     current: calculateSheetProjection(
       input,
       { ...shared, ...projectionInputs?.current },
       formulaCache,
       baseScores,
+      permanent.abilities.intelligence.modifier,
     ),
-    permanent: calculateSheetProjection(
-      input,
-      { ...shared, ...projectionInputs?.permanent, permanentOnly: true },
-      formulaCache,
-      baseScores,
-    ),
+    permanent,
   };
 }
 
@@ -941,7 +1144,20 @@ function resolveStatistic(modifiers: SourcedModifier[]): ResolvedStatistic {
   };
 }
 
+const specialSizeModifiers = {
+  fine: -8,
+  diminutive: -4,
+  tiny: -2,
+  small: -1,
+  medium: 0,
+  large: 1,
+  huge: 2,
+  gargantuan: 4,
+  colossal: 8,
+};
 export type ResolveOptions = {
+  size?: keyof typeof specialSizeModifiers;
+  armorMaxDexterityBonus?: number;
   permanentOnly?: boolean;
   level?: number;
   hitDice?: number;
@@ -1323,7 +1539,7 @@ function builtIn({
   value,
 }: {
   target: ModifierTarget;
-  id: 'base-ac' | 'base-cmd' | 'strength' | 'dexterity';
+  id: string;
   name: string;
   value: number;
 }): SourcedModifier {
@@ -1403,10 +1619,14 @@ function deriveDefenses({
   breakdowns,
   strength,
   dexterity,
+  specialSize,
+  maxDexterityBonus,
 }: {
   breakdowns: Record<LeafTarget, ResolvedStatistic>;
   strength: number;
   dexterity: number;
+  specialSize: number;
+  maxDexterityBonus?: number;
 }) {
   const acLeaves = [
     breakdowns['ac.armor'],
@@ -1420,7 +1640,7 @@ function deriveDefenses({
       target: 'ac.other',
       id: 'dexterity',
       name: 'Dexterity',
-      value: dexterity,
+      value: Math.min(dexterity, maxDexterityBonus ?? Infinity),
     }),
   ];
   const losesDexBonus = (item: SourcedModifier) =>
@@ -1477,6 +1697,16 @@ function deriveDefenses({
       name: 'Dexterity',
       value: dexterity,
     }),
+    ...(specialSize
+      ? [
+          builtIn({
+            target: 'cmd',
+            id: 'size-cmd',
+            name: 'Size',
+            value: specialSize,
+          }),
+        ]
+      : []),
   ];
   const cmd = stackCmd(
     composeStatistics({

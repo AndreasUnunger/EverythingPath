@@ -1,193 +1,105 @@
 'use client';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
-import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { Button } from '~/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '~/components/ui/form';
-import { Input } from '~/components/ui/input';
+import { useId } from 'react';
+import { Form } from '~/components/ui/form';
 import { cn } from '~/lib/utils';
-import { InlineDeleteQuestion } from './inline-delete-question';
-import { InlineWarnings } from './inline-warning';
+import type { ChoiceOption } from './choice-select';
+import { ClassLevelActions } from './class-level-actions';
 import {
-  chip,
-  fieldLabel,
-  missingChoice,
-  RemoteNotice,
-  SaveFeedback,
-} from './sheet-parts';
+  AbilityIncreaseCell,
+  ChoicesFeedback,
+  ClassChoiceCell,
+  FavoredClassBonusCell,
+} from './class-level-choices';
+import { ClassLevelHitPoints } from './class-level-hit-points';
 import type {
   SheetWarningView,
   useCharacterSheet,
 } from './use-character-sheet';
-import { useClassLevelForm } from './use-sheet-forms';
+import { useClassLevelChoicesForm } from './use-sheet-forms';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
-type LevelRow = NonNullable<Controller['sheet']>['levels'][number];
-
-function listFieldWarnings(
-  warnings: SheetWarningView[],
-  field: 'class' | 'hpGained',
-) {
-  return warnings.filter(
-    (warning) =>
-      warning.target.kind === 'classLevel' && warning.target.field === field,
-  );
-}
+type ReadySheet = NonNullable<Controller['sheet']>;
+type LevelRow = ReadySheet['levels'][number];
+type LevelMetadata = ReadySheet['calculated']['classLevels'][number];
 
 /** The row's DOM anchor: found again after an append or a deletion. */
 export function getLevelAnchorId(entryId: string) {
   return `sheet-level-${entryId}`;
 }
 
-/** Level · Class · Hit points · actions, from tablet width. */
+/** Level · Class · Hit points · Favored · Ability · actions, from tablet width. */
 export const levelColumns =
-  'md:grid-cols-[5.5rem_7.5rem_minmax(0,1fr)_auto] md:gap-x-3';
+  'md:grid-cols-[4.5rem_minmax(8rem,10rem)_minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto] md:gap-x-3';
 
+const cell = 'col-span-2 md:col-span-1 md:row-start-1';
 const actionsCell =
-  'col-start-2 row-start-1 flex items-center justify-end md:col-start-4';
-const rowButton = 'size-11 md:size-8';
+  'col-start-2 row-start-1 flex items-center justify-end md:col-start-6';
 
-// A level's own actions; moves are disabled only at the ends of the list
-// and while another structural change is pending.
-function LevelActions({
-  level,
-  levelName,
-  headingId,
-  isFirst,
-  isLast,
-  isBusy,
-  onMove,
-  onDelete,
-}: {
-  level: number;
-  /** The row's class name, so the question names what is deleted. */
-  levelName: string;
-  headingId: string;
-  isFirst: boolean;
-  isLast: boolean;
-  isBusy: boolean;
-  onMove: (position: number) => void;
-  onDelete: () => void;
-}) {
-  const maintenance = useInitialMigrationMaintenance();
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const deleteTrigger = useRef<HTMLButtonElement>(null);
-  if (isConfirmingDelete)
-    return (
-      <InlineDeleteQuestion
-        question={`Delete ${levelName} (level ${level})?`}
-        subject={`level ${level}`}
-        isBusy={isBusy}
-        className={actionsCell}
-        onDelete={onDelete}
-        onKeep={() => {
-          flushSync(() => setIsConfirmingDelete(false));
-          const trigger = deleteTrigger.current;
-          if (trigger && !trigger.disabled) trigger.focus();
-          else document.getElementById(headingId)?.focus();
-        }}
-      />
-    );
-  return (
-    <div className={actionsCell}>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className={rowButton}
-        aria-label={`Move level ${level} up`}
-        disabled={isFirst || isBusy || maintenance.readOnly}
-        onClick={() => {
-          if (maintenance.readOnly) return;
-          onMove(level - 1);
-        }}
-      >
-        <ArrowUp />
-      </Button>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className={rowButton}
-        aria-label={`Move level ${level} down`}
-        disabled={isLast || isBusy || maintenance.readOnly}
-        onClick={() => {
-          if (maintenance.readOnly) return;
-          onMove(level + 1);
-        }}
-      >
-        <ArrowDown />
-      </Button>
-      <Button
-        ref={deleteTrigger}
-        type="button"
-        size="icon"
-        variant="ghost"
-        data-delete-level
-        className={cn(
-          rowButton,
-          'text-muted-foreground hover:text-destructive',
-        )}
-        aria-label={`Delete level ${level}`}
-        disabled={isBusy || maintenance.readOnly}
-        onClick={() => {
-          if (maintenance.readOnly) return;
-          setIsConfirmingDelete(true);
-        }}
-      >
-        <Trash2 />
-      </Button>
-    </div>
-  );
+function findClass(
+  classChoices: ReadySheet['classChoices'],
+  id: string | null,
+) {
+  const classChoice = classChoices.find((choice) => choice._id === id);
+  if (classChoice?.detail.kind !== 'class') return null;
+  return {
+    name: classChoice.name,
+    hitDie: 'hitDie' in classChoice.detail ? classChoice.detail.hitDie : null,
+  };
 }
 
 /**
  * One Class Level, mounted once per stable entry and kept through reorders
- * so its typed hit points, focus and field error travel with it. Its label
- * is its current position. The row's own warnings sit by the field they
- * are about: the class still to choose, the hit points still to enter or
- * below the rule. A minimal sheet outlines no missing class.
+ * so its drafts, focus and field errors travel with it. Its label is its
+ * current position. The class, favored class bonus and ability increase are
+ * chosen in place and saved as chosen; hit points are typed and saved with
+ * their own button. Each warning sits by the field it is about.
  */
 export function ClassLevelRow({
   row,
   index,
   count,
+  metadata,
+  classChoices,
   warnings,
   warningController,
   saveHitPoints,
+  saveClassLevel,
   isChangingLevels,
-  showMissingChoices,
   moveLevel,
+  insertLevel,
   onDelete,
 }: {
   row: LevelRow;
   index: number;
   count: number;
+  metadata: LevelMetadata | undefined;
+  classChoices: ReadySheet['classChoices'];
   warnings: SheetWarningView[];
   warningController: Controller['warnings'];
   saveHitPoints: Controller['saveHitPoints'];
+  saveClassLevel: Controller['saveClassLevel'];
   isChangingLevels: boolean;
-  showMissingChoices: boolean;
   moveLevel: Controller['levels']['move'];
+  insertLevel: Controller['levels']['insert'];
   onDelete: () => void;
 }) {
-  const maintenance = useInitialMigrationMaintenance();
   const level = index + 1;
   const headingId = useId();
-  const editor = useClassLevelForm({
-    hpGained: row.state.hpGained,
-    save: (hpGained) => saveHitPoints(row._id, hpGained),
+  const chosenClass = findClass(classChoices, row.state.classEntryId);
+  const classOptions: ChoiceOption[] = classChoices.map((choice) => ({
+    value: choice._id,
+    label: choice.name,
+  }));
+  const choices = useClassLevelChoicesForm({
+    classEntryId: row.state.classEntryId,
+    classChoices,
+    favoredClassBonus: row.state.favoredClassBonus,
+    abilityIncrease: row.state.abilityIncrease,
+    save: async (changes) => {
+      await saveClassLevel(row._id, changes);
+    },
   });
-  const isSaving = editor.status.kind === 'saving';
+  const cellProps = { level, editor: choices, warnings, warningController };
   return (
     <li
       id={getLevelAnchorId(row._id)}
@@ -204,100 +116,49 @@ export function ClassLevelRow({
       >
         Level {level}
       </h3>
-      <div className="col-span-2 flex flex-col gap-1 md:col-span-1 md:col-start-2 md:row-start-1 md:py-1.5">
-        <p className="flex items-center gap-2">
-          <span className={cn(fieldLabel, 'md:sr-only')}>Class</span>
-          <span
-            className={cn(
-              chip,
-              showMissingChoices && row.isUnspecified && missingChoice,
-            )}
-          >
-            {row.className}
-          </span>
-        </p>
-        <InlineWarnings
-          warnings={listFieldWarnings(warnings, 'class')}
-          controller={warningController}
+      <Form {...choices.form}>
+        <ClassChoiceCell
+          {...cellProps}
+          classOptions={classOptions}
+          classLabel={
+            chosenClass && metadata?.classLevel
+              ? `${chosenClass.name} ${metadata.classLevel}`
+              : null
+          }
+          className={cn(cell, 'md:col-start-2')}
         />
-      </div>
-      <Form {...editor.form}>
-        <form
-          noValidate
-          aria-label={`Level ${level} hit points`}
-          className="col-span-2 flex flex-wrap items-start gap-x-3 gap-y-1 md:col-span-1 md:col-start-3 md:row-start-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (maintenance.readOnly) return;
-            void editor.save();
-          }}
-        >
-          <FormField
-            control={editor.form.control}
-            name="hpGained"
-            render={({ field, fieldState }) => (
-              <FormItem className="gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <FormLabel className="font-mono text-sm font-normal">
-                    Hit points{' '}
-                    <span className="sr-only">gained at level {level}</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      disabled={maintenance.readOnly}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      className="h-10 w-20 text-center font-mono md:h-8"
-                    />
-                  </FormControl>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-10 md:min-h-8"
-                    disabled={isSaving || maintenance.readOnly}
-                  >
-                    {isSaving ? 'Saving…' : 'Save hit points'}
-                  </Button>
-                </div>
-                <FormMessage
-                  role={fieldState.error ? 'alert' : undefined}
-                  className="max-w-sm"
-                />
-              </FormItem>
-            )}
-          />
-          <SaveFeedback status={editor.status} savedText="Hit points saved." />
-          <MaintenanceReason notice={maintenance} />
-          <RemoteNotice
-            isShown={editor.hasRemoteChange}
-            message={
-              editor.form.formState.isDirty
-                ? 'Updated by another player. Your edits are kept.'
-                : 'Updated by another player.'
-            }
-            subject={`level ${level} hit points`}
-            onDismiss={editor.dismissRemoteChange}
-          />
-          <InlineWarnings
-            warnings={listFieldWarnings(warnings, 'hpGained')}
-            controller={warningController}
-            className="w-full"
-          />
-        </form>
+        <ClassLevelHitPoints
+          level={level}
+          hpGained={row.state.hpGained}
+          hitDie={chosenClass?.hitDie ?? null}
+          warnings={warnings}
+          warningController={warningController}
+          save={(hpGained) => saveHitPoints(row._id, hpGained)}
+          className={cn(cell, 'md:col-start-3')}
+        />
+        <FavoredClassBonusCell
+          {...cellProps}
+          className={cn(cell, 'md:col-start-4')}
+        />
+        <AbilityIncreaseCell
+          {...cellProps}
+          isDue={metadata?.abilityIncreaseDue ?? false}
+          className={cn(cell, 'md:col-start-5')}
+        />
+        <ClassLevelActions
+          level={level}
+          className={chosenClass?.name ?? 'Unspecified'}
+          headingId={headingId}
+          isFirst={index === 0}
+          isLast={index === count - 1}
+          isBusy={isChangingLevels}
+          cellClassName={actionsCell}
+          onInsertBefore={() => void insertLevel(level)}
+          onMove={(position) => void moveLevel(row._id, position)}
+          onDelete={onDelete}
+        />
+        <ChoicesFeedback {...cellProps} className="col-span-2 md:col-span-6" />
       </Form>
-      <LevelActions
-        level={level}
-        levelName={row.className}
-        headingId={headingId}
-        isFirst={index === 0}
-        isLast={index === count - 1}
-        isBusy={isChangingLevels}
-        onMove={(position) => void moveLevel(row._id, position)}
-        onDelete={onDelete}
-      />
     </li>
   );
 }

@@ -137,20 +137,51 @@ beforeEach(() => {
   snapshot = undefined;
 });
 
-test('damage is entered from cards with whole points, leaves the score and lowers the modifier beside its permanent value; drain lowers the score and is permanent', async () => {
-  const view = renderSheet(buildSheet({ scores: strong }));
+/** The open editor for a new entry. */
+function openNewEditor() {
+  fireEvent.click(button('Add ability damage or drain'));
+  return screen.getByRole('form', { name: 'New ability damage or drain' });
+}
+
+/** Saves the open editor and waits for its one write. */
+async function saveOpenEditor() {
+  const expected = calls.length + 1;
+  fireEvent.click(button('Save ability change'));
+  await waitFor(() => expect(calls).toHaveLength(expected));
+  return lastCall();
+}
+
+/** Settles the pending write as `entryId` and shows the sheet it produced. */
+async function settleNewChange(
+  view: ReturnType<typeof renderSheet>,
+  entryId: string,
+  abilityChanges: AbilityChange[],
+) {
+  await act(async () => {
+    lastCall().resolve(entryId);
+  });
+  view.show(
+    buildSheet({
+      scores: strong,
+      abilityChanges,
+      lastOperationId: operationOf(lastCall()),
+    }),
+  );
+}
+
+test('a sheet without damage or drain says so, and the scores stand without a permanent line', () => {
+  renderSheet(buildSheet({ scores: strong }));
   expect(
     within(region()).getByText('No ability damage or drain.'),
   ).toBeVisible();
   expect(statistic('Strength 14')).toBeVisible();
   expect(statistic('Strength modifier +2')).toBeVisible();
   expect(permanentOf('Strength')).toBeNull();
+});
 
-  fireEvent.click(button('Add ability damage or drain'));
-  const editor = screen.getByRole('form', {
-    name: 'New ability damage or drain',
-  });
-  expect(editor).toBeVisible();
+test('the new editor starts as Strength damage with both kinds described, and refuses missing and fractional points in place without writing', async () => {
+  renderSheet(buildSheet({ scores: strong }));
+  expect(openNewEditor()).toBeVisible();
   expect(radio('Ability damage')).toBeChecked();
   expect(radio('Ability damage')).toHaveAccessibleDescription(
     /Leaves the score alone; lowers the modifier by 1 per 2 points/,
@@ -171,33 +202,29 @@ test('damage is entered from cards with whole points, leaves the score and lower
     await screen.findByText('Points must be a whole number of 0 or more'),
   ).toBeVisible();
   expect(calls).toEqual([]);
+});
+
+test('damage entered from the cards with whole points leaves the score and lowers the modifier beside its permanent value, and the breakdown names its points', async () => {
+  const view = renderSheet(buildSheet({ scores: strong }));
+  openNewEditor();
   fireEvent.change(points(), { target: { value: '3' } });
-  fireEvent.click(button('Save ability change'));
-  await waitFor(() => expect(calls).toHaveLength(1));
-  expect(lastCall().name).toBe('createAbilityChange');
-  expect(lastCall().args).toMatchObject({
+  const call = await saveOpenEditor();
+  expect(call.name).toBe('createAbilityChange');
+  expect(call.args).toMatchObject({
     kind: 'abilityDamage',
     ability: 'strength',
     points: 3,
   });
   expect(button('Saving…')).toBeDisabled();
-  await act(async () => {
-    lastCall().resolve('dmg-1');
-  });
-  view.show(
-    buildSheet({
-      scores: strong,
-      abilityChanges: [strengthDamage],
-      lastOperationId: operationOf(lastCall()),
-    }),
-  );
+  await settleNewChange(view, 'dmg-1', [strengthDamage]);
   await waitFor(() =>
     expect(
       screen.queryByRole('form', { name: 'New ability damage or drain' }),
     ).not.toBeInTheDocument(),
   );
-  expect(row('Strength damage')).toHaveTextContent('3 points · modifier −1');
-  expect(within(row('Strength damage')).getByText('Active')).toBeVisible();
+  const damage = row('Strength damage, 3 points');
+  expect(damage).toHaveTextContent('3 points · modifier −1');
+  expect(within(damage).getByText('Active')).toBeVisible();
   expect(statistic('Strength 14')).toBeVisible();
   expect(statistic('Strength modifier +1')).toBeVisible();
   expect(permanentOf('Strength')).toHaveTextContent('Strength Permanent 14 +2');
@@ -215,37 +242,29 @@ test('damage is entered from cards with whole points, leaves the score and lower
   fireEvent.click(
     within(breakdown).getByRole('button', { name: 'Close breakdown' }),
   );
+});
 
-  fireEvent.click(button('Add ability damage or drain'));
+test('drain lowers the score and is permanent; its own echo is quiet', async () => {
+  const view = renderSheet(
+    buildSheet({ scores: strong, abilityChanges: [strengthDamage] }),
+  );
+  openNewEditor();
   fireEvent.click(radio('Ability drain'));
   fireEvent.click(radio('Dexterity'));
   fireEvent.change(points(), { target: { value: '2' } });
-  fireEvent.click(button('Save ability change'));
-  await waitFor(() => expect(calls).toHaveLength(2));
-  expect(lastCall().args).toMatchObject({
+  const call = await saveOpenEditor();
+  expect(call.args).toMatchObject({
     kind: 'abilityDrain',
     ability: 'dexterity',
     points: 2,
   });
-  await act(async () => {
-    lastCall().resolve('drain-1');
-  });
-  view.show(
-    buildSheet({
-      scores: strong,
-      abilityChanges: [
-        strengthDamage,
-        {
-          id: 'drain-1',
-          kind: 'abilityDrain',
-          ability: 'dexterity',
-          points: 2,
-        },
-      ],
-      lastOperationId: operationOf(lastCall()),
-    }),
+  await settleNewChange(view, 'drain-1', [
+    strengthDamage,
+    { id: 'drain-1', kind: 'abilityDrain', ability: 'dexterity', points: 2 },
+  ]);
+  expect(row('Dexterity drain, 2 points')).toHaveTextContent(
+    '2 points · score −2',
   );
-  expect(row('Dexterity drain')).toHaveTextContent('2 points · score −2');
   expect(statistic('Dexterity 8')).toBeVisible();
   expect(statistic('Dexterity modifier -1')).toBeVisible();
   expect(permanentOf('Dexterity')).toBeNull();
@@ -319,7 +338,9 @@ test('an existing entry keeps its kind while ability and points change; switched
     name: 'Strength damage: inactive',
   });
   expect(inactive).toHaveAttribute('aria-checked', 'false');
-  expect(within(row('Strength damage')).getByText('Inactive')).toBeVisible();
+  expect(
+    within(row('Strength damage, 4 points')).getByText('Inactive'),
+  ).toBeVisible();
   expect(statistic('Strength modifier +2')).toBeVisible();
   expect(permanentOf('Strength')).toBeNull();
   expect(points()).toHaveValue('4');
@@ -332,7 +353,7 @@ test('an existing entry keeps its kind while ability and points change; switched
   await act(async () => {
     lastCall().resolve(null);
   });
-  expect(row('Strength damage')).toBeVisible();
+  expect(row('Strength damage, 4 points')).toBeVisible();
   view.show(
     buildSheet({
       scores: strong,
@@ -398,7 +419,7 @@ test("another player's change is announced on the block and in the editor and di
       lastOperationId: 'other-player',
     }),
   );
-  expect(row('Strength damage')).toHaveTextContent('5 points');
+  expect(row('Strength damage, 5 points')).toBeVisible();
   expect(points()).toHaveValue('5');
   expect(
     within(region()).getByText('Ability damage and drain changed.'),

@@ -1,6 +1,9 @@
 'use client';
 import { useId, useRef, type ReactNode } from 'react';
-import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
+import {
+  MaintenanceReason,
+  useMaintenanceReasonId,
+} from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
@@ -43,6 +46,7 @@ export function InlineDeleteQuestion({
   children?: ReactNode;
 }) {
   const maintenance = useInitialMigrationMaintenance();
+  const reasonId = useMaintenanceReasonId(maintenance);
   const questionId = useId();
   const detailsId = useId();
   const keep = useRef<HTMLButtonElement>(null);
@@ -75,6 +79,7 @@ export function InlineDeleteQuestion({
         size="sm"
         variant="destructive"
         className={answerButton}
+        aria-describedby={reasonId}
         disabled={isBusy || maintenance.readOnly}
         onClick={() => {
           if (maintenance.readOnly) return;

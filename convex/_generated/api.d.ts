@@ -37,6 +37,7 @@ import type * as lib_characterOwnership from "../lib/characterOwnership.js";
 import type * as lib_characterSheet from "../lib/characterSheet.js";
 import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
 import type * as lib_preparedCharacterSheet from "../lib/preparedCharacterSheet.js";
+import type * as lib_representativeClassCatalog from "../lib/representativeClassCatalog.js";
 import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
 import type * as lib_writeGate from "../lib/writeGate.js";
 import type * as migrations from "../migrations.js";
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   "lib/characterSheet": typeof lib_characterSheet;
   "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
   "lib/preparedCharacterSheet": typeof lib_preparedCharacterSheet;
+  "lib/representativeClassCatalog": typeof lib_representativeClassCatalog;
   "lib/retiredWorkflow": typeof lib_retiredWorkflow;
   "lib/writeGate": typeof lib_writeGate;
   migrations: typeof migrations;

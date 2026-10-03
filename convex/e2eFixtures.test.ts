@@ -286,7 +286,27 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(1);
+    expect(sheet?.catalogEntries).toHaveLength(5);
+    expect(
+      sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'base'),
+    ).toEqual([sheet?.baseScoresEntry]);
+    expect(
+      sheet?.catalogEntries
+        .filter((entry) => entry.detail.kind === 'class')
+        .map((entry) => ({ name: entry.name, ruleIdentity: entry.ruleIdentity }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    ).toEqual([
+      { name: 'Cleric', ruleIdentity: 'cleric' },
+      { name: 'Fighter', ruleIdentity: 'fighter' },
+      { name: 'Rogue', ruleIdentity: 'rogue' },
+      { name: 'Wizard', ruleIdentity: 'wizard' },
+    ]);
+    for (const entry of sheet?.catalogEntries ?? []) {
+      expect(entry).toMatchObject({
+        scope: 'character',
+        characterId: character._id,
+      });
+    }
     expect(sheet?.baseScoresEntry.modifiers).toHaveLength(6);
     expect(await member.query(api.characterSheet.read, sheetArgs)).toEqual({
       ...sheet,
@@ -380,6 +400,13 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
+    expect(sheet?.catalogEntries).toHaveLength(5);
+    for (const entry of sheet?.catalogEntries ?? []) {
+      expect(entry).toMatchObject({
+        scope: 'character',
+        characterId: character._id,
+      });
+    }
     // Storage invariant: reset removes unreachable rows, including new sheets
     // created through the application after the original seed.
     expect(
@@ -389,7 +416,7 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 1, acceptedWarnings: 0 });
+    ).toEqual({ entries: 2, catalogEntries: 5, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

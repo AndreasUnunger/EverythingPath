@@ -454,7 +454,7 @@ test("another player's edit updates the list and a clean editor; a dirty editor 
   });
 });
 
-test('a refused save, toggle and removal report in place, keep state and allow a retry; a repeated save while pending sends one request', async () => {
+test('a refused toggle and a refused removal report in place, keep the row as it was and allow a retry', async () => {
   renderSheet(buildSheet({ adjustments: [bullStrength] }));
   const toggle = screen.getByRole('switch', { name: 'Bull strength: active' });
   fireEvent.click(toggle);
@@ -478,12 +478,15 @@ test('a refused save, toggle and removal report in place, keep state and allow a
   );
   expect(row('Bull strength')).toBeVisible();
   expect(button('Remove Bull strength')).toBeEnabled();
+});
 
+test('a repeated save while pending sends one request; a refused save keeps the draft beside its error and is retried from there', async () => {
+  renderSheet(buildSheet({ adjustments: [bullStrength] }));
   fireEvent.click(button('Edit Bull strength'));
   fireEvent.change(field('Modifier 1 value'), { target: { value: '5' } });
   fireEvent.click(button('Save adjustment'));
   fireEvent.click(button('Save adjustment'));
-  await waitFor(() => expect(calls).toHaveLength(3));
+  await waitFor(() => expect(calls).toHaveLength(1));
   fireEvent.click(button('Saving…'));
   await act(async () => {
     lastCall().reject(new ConvexError('Refused'));
@@ -491,10 +494,10 @@ test('a refused save, toggle and removal report in place, keep state and allow a
   expect(await within(editor('Edit')).findByRole('alert')).toHaveTextContent(
     "Changes weren't saved: Refused. Your edits are kept. Save to try again.",
   );
-  expect(calls).toHaveLength(3);
+  expect(calls).toHaveLength(1);
   expect(field('Modifier 1 value')).toHaveValue('5');
   fireEvent.click(button('Save adjustment'));
-  await waitFor(() => expect(calls).toHaveLength(4));
+  await waitFor(() => expect(calls).toHaveLength(2));
   expect(lastCall().args).toMatchObject({ entryId: 'adj-1' });
 });
 

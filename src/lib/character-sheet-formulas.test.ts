@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { representativeClassCatalog } from '../../tests/fixtures/catalog/representative-class-progressions';
 import {
   abilityKeys,
   abilityTargets,
@@ -195,18 +196,45 @@ test('formula class and casting keys read own entries and reject inherited prope
       }),
     );
   }
-  const ownKeys = calculateCharacterSheet(
-    build([
-      {
-        target: 'damage',
-        bonusType: 'untyped',
-        value: {
-          formula:
-            '@classLevel.constructor + @casterLevel.toString + @classLevel.absent + @casterLevel.absent',
-        },
+  const ownKeyInput = build([
+    {
+      target: 'damage',
+      bonusType: 'untyped',
+      value: {
+        formula:
+          '@classLevel.constructor + @casterLevel.toString + @classLevel.absent + @casterLevel.absent',
       },
-    ]),
-    { classLevels: { constructor: 2 }, casterLevels: { toString: 3 } },
+    },
+  ]);
+  const ownKeys = calculateCharacterSheet(
+    {
+      ...ownKeyInput,
+      entries: [
+        ...ownKeyInput.entries,
+        ...[1, 2].map((position) => ({
+          _id: `own-class-${position}`,
+          kind: 'classLevel' as const,
+          active: true as const,
+          state: {
+            kind: 'classLevel' as const,
+            classEntryId: 'own-class',
+            position: position + 1,
+            hpGained: 5,
+          },
+        })),
+      ],
+      catalogEntries: [
+        ...ownKeyInput.catalogEntries,
+        {
+          ...representativeClassCatalog.find(
+            (entry) => entry._id === 'fighter',
+          )!,
+          _id: 'own-class',
+          ruleIdentity: 'constructor',
+        },
+      ],
+    },
+    { casterLevels: { toString: 3 } },
   );
   expect(ownKeys.breakdowns['damage.melee'].total).toBe(5);
   expect(
@@ -273,14 +301,32 @@ test('caster formulas distinguish recorded effects, casting bases and resolved n
     {
       target: 'init',
       bonusType: 'untyped',
-      value: { formula: '@classLevel.campaign.wizard-1 + @classLevel.absent' },
+      value: { formula: '@classLevel.campaign.wizard + @classLevel.absent' },
     },
   ]);
-  const result = calculateCharacterSheet(input, {
+  const classInput = {
+    ...input,
+    entries: input.entries.map((entry) =>
+      entry.kind === 'classLevel'
+        ? {
+            ...entry,
+            state: { ...entry.state, classEntryId: 'campaign-class' },
+          }
+        : entry,
+    ),
+    catalogEntries: [
+      ...input.catalogEntries,
+      {
+        ...representativeClassCatalog.find((entry) => entry._id === 'wizard')!,
+        _id: 'campaign-class',
+        ruleIdentity: 'campaign.wizard',
+      },
+    ],
+  };
+  const result = calculateCharacterSheet(classInput, {
     preModifierCasterLevel: 0,
     casterLevels: { wizard: 3 },
     arcaneCasterLevel: 4,
-    classLevels: { 'campaign.wizard': 2 },
   });
   expect(result.breakdowns.casterLevel.total).toBe(1);
   expect(result.breakdowns['damage.melee'].total).toBe(7);

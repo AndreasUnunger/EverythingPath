@@ -45,6 +45,7 @@ export function Select({
     <select
       id={props?.id as string | undefined}
       aria-label={props?.['aria-label'] as string | undefined}
+      className={props?.className as string | undefined}
       value={value ?? ''}
       disabled={disabled}
       onChange={(event) => onValueChange?.(event.target.value)}

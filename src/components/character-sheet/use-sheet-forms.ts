@@ -14,6 +14,8 @@ import {
   abilityLabels,
   defaultCreationSettings,
   type CreationSettings,
+  type Ability,
+  type FavoredClassBonus,
 } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { SaveStatus } from './save-status';
@@ -74,10 +76,11 @@ function isSameNumber(left: unknown, right: unknown) {
 function resetToAccepted<T extends FieldValues>(
   form: UseFormReturn<T>,
   next: T,
+  isEqual: (left: unknown, right: unknown) => boolean = isSameNumber,
 ) {
   const current = form.getValues();
   for (const key in current) {
-    if (isSameNumber(current[key], next[key])) current[key] = next[key];
+    if (isEqual(current[key], next[key])) current[key] = next[key];
   }
   // Formatting alone is not a new choice. Keep genuinely newer input dirty.
   form.reset(next, { keepErrors: true, keepDirtyValues: false });
@@ -96,9 +99,11 @@ function useSheetForm<T extends FieldValues>({
   values,
   resolver,
   write,
+  isEqual = isSameNumber,
 }: {
   values: T;
   resolver: Resolver<T>;
+  isEqual?: (left: unknown, right: unknown) => boolean;
   write: (changes: Partial<T>, submitted: T) => Promise<void>;
 }) {
   const [source, setSource] = useState(values);
@@ -126,7 +131,7 @@ function useSheetForm<T extends FieldValues>({
     for (const key in values) {
       if (values[key] === source[key]) continue;
       next[key] = values[key];
-      if (isSameNumber(expected.current[key], values[key])) {
+      if (isEqual(expected.current[key], values[key])) {
         delete expected.current[key];
       } else hasRemoteChanges = true;
     }
@@ -138,11 +143,11 @@ function useSheetForm<T extends FieldValues>({
   async function submit(valuesToSave: T) {
     const changes: Partial<T> = {};
     for (const key in valuesToSave) {
-      if (!isSameNumber(valuesToSave[key], baseline[key]))
+      if (!isEqual(valuesToSave[key], baseline[key]))
         changes[key] = valuesToSave[key];
     }
     if (Object.keys(changes).length === 0) {
-      resetToAccepted(form, latestBaseline.current);
+      resetToAccepted(form, latestBaseline.current, isEqual);
       if (status.kind === 'error') setStatus({ kind: 'idle' });
       return;
     }
@@ -155,7 +160,7 @@ function useSheetForm<T extends FieldValues>({
         if (latestSource.current[key] === source[key])
           next[key] = valuesToSave[key];
       }
-      resetToAccepted(form, next);
+      resetToAccepted(form, next, isEqual);
       setBaseline(next);
       setStatus({ kind: 'saved' });
     } catch (error) {
@@ -164,7 +169,7 @@ function useSheetForm<T extends FieldValues>({
         failure.kind === 'unknown' &&
         Object.keys(changes).every((key) => expected.current[key] === undefined)
       ) {
-        resetToAccepted(form, latestBaseline.current);
+        resetToAccepted(form, latestBaseline.current, isEqual);
         setStatus({ kind: 'saved' });
         return;
       }
@@ -322,6 +327,92 @@ export function useCreationSettingsForm({
       if (changes.campaignTraitRequired !== undefined)
         patch.campaignTraitRequired = changes.campaignTraitRequired;
       await save(patch);
+    },
+  });
+}
+
+export function useClassLevelChoicesForm<ClassId extends string>({
+  classEntryId,
+  classChoices,
+  favoredClassBonus,
+  abilityIncrease,
+  save,
+}: {
+  classEntryId: ClassId | null;
+  classChoices: readonly { _id: ClassId; name: string }[];
+  favoredClassBonus: FavoredClassBonus | null | undefined;
+  abilityIncrease: Ability | null | undefined;
+  save: (changes: {
+    classEntryId?: ClassId | null;
+    favoredClassBonus?: FavoredClassBonus | null;
+    abilityIncrease?: Ability | null;
+  }) => Promise<void>;
+}) {
+  const schema = z
+    .object({
+      classEntryId: z
+        .string()
+        .refine(
+          (id) => id === '' || classChoices.some((entry) => entry._id === id),
+          'Choose an available class',
+        ),
+      favoredClassBonus: z.enum(['', 'hp', 'skill', 'alt']),
+      favoredClassNote: z.string(),
+      abilityIncrease: z.enum(['', ...abilityKeys]),
+    })
+    .superRefine((values, context) => {
+      if (
+        values.favoredClassBonus === 'alt' &&
+        !values.favoredClassNote.trim()
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['favoredClassNote'],
+          message: 'Describe the alternative favored class bonus',
+        });
+      }
+    });
+  const choice: '' | 'hp' | 'skill' | 'alt' = favoredClassBonus?.choice ?? '';
+  const ability: '' | Ability = abilityIncrease ?? '';
+  return useSheetForm({
+    values: {
+      // A missing definition is Unspecified for editing. Only a new choice
+      // writes classEntryId, so unrelated edits preserve the stored reference.
+      classEntryId: classChoices.some((entry) => entry._id === classEntryId)
+        ? (classEntryId ?? '')
+        : '',
+      favoredClassBonus: choice,
+      favoredClassNote:
+        favoredClassBonus?.choice === 'alt' ? favoredClassBonus.note : '',
+      abilityIncrease: ability,
+    },
+    resolver: zodResolver(schema),
+    isEqual: (left, right) => left === right,
+    write: async (changes, values) => {
+      const selected = classChoices.find(
+        (entry) => entry._id === values.classEntryId,
+      );
+      if (values.classEntryId && !selected)
+        throw new Error('Choose an available class');
+      let bonus: FavoredClassBonus | null = null;
+      if (values.favoredClassBonus === 'alt') {
+        bonus = { choice: 'alt', note: values.favoredClassNote };
+      } else if (values.favoredClassBonus !== '') {
+        bonus = { choice: values.favoredClassBonus };
+      }
+      await save({
+        ...(changes.classEntryId !== undefined
+          ? { classEntryId: selected?._id ?? null }
+          : {}),
+        ...(changes.favoredClassBonus !== undefined ||
+        (changes.favoredClassNote !== undefined &&
+          values.favoredClassBonus === 'alt')
+          ? { favoredClassBonus: bonus }
+          : {}),
+        ...(changes.abilityIncrease !== undefined
+          ? { abilityIncrease: values.abilityIncrease || null }
+          : {}),
+      });
     },
   });
 }

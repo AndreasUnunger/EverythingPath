@@ -8,8 +8,8 @@ import {
 } from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
 import {
-  abilityTargets,
   abilityKeys,
+  abilityTargets,
   bonusTypes,
   modifierConditionSchema,
   modifierTargets,
@@ -194,9 +194,48 @@ export const abilityChangeKindValidator = v.union(
   v.literal('abilityDrain'),
 );
 export const catalogEntryValidator = v.union(
+  // Prepared sheets created before advancement held class names only.
   catalogEntryFields.extend({
     modifiers: v.array(modifierValidator),
     detail: v.object({ kind: v.literal('class') }),
+  }),
+  catalogEntryFields.extend({
+    modifiers: v.array(modifierValidator),
+    detail: v.object({
+      kind: v.literal('class'),
+      counterpartOf: v.optional(v.id('catalogEntry')),
+      classKind: v.union(
+        v.literal('base'),
+        v.literal('prestige'),
+        v.literal('npc'),
+      ),
+      hitDie: v.number(),
+      bab: v.union(
+        v.literal('full'),
+        v.literal('threeQuarters'),
+        v.literal('half'),
+      ),
+      saves: v.object({
+        fort: v.union(v.literal('good'), v.literal('poor')),
+        ref: v.union(v.literal('good'), v.literal('poor')),
+        will: v.union(v.literal('good'), v.literal('poor')),
+      }),
+      skillRanksPerLevel: v.number(),
+      classSkills: v.array(v.string()),
+      featuresByLevel: v.array(
+        v.object({
+          classLevel: v.number(),
+          catalogEntryId: v.id('catalogEntry'),
+        }),
+      ),
+      picksByLevel: v.array(
+        v.object({
+          classLevel: v.number(),
+          list: v.string(),
+          count: v.number(),
+        }),
+      ),
+    }),
   }),
   catalogEntryFields.extend({
     modifiers: v.array(baseModifierValidator),
@@ -219,6 +258,12 @@ export const creationSettingsValidator = v.object({
   traitCount: v.number(),
   campaignTraitRequired: v.boolean(),
 });
+export const favoredClassBonusValidator = v.union(
+  v.null(),
+  v.object({ choice: v.literal('hp') }),
+  v.object({ choice: v.literal('skill') }),
+  v.object({ choice: v.literal('alt'), note: v.string() }),
+);
 export const characterSheetEntryValidator = v.union(
   v.object({
     characterId: v.id('character'),
@@ -274,6 +319,7 @@ export const characterSheetEntryValidator = v.union(
   v.object({
     characterId: v.id('character'),
     kind: v.literal('manual'),
+    gainedAtClassLevel: v.optional(v.id('characterSheetEntry')),
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
     state: v.object({ kind: v.literal('manual') }),
@@ -286,6 +332,7 @@ export const characterSheetEntryValidator = v.union(
     state: v.object({
       kind: v.literal('base'),
       ...creationSettingsValidator.partial().fields,
+      favoredClassIds: v.optional(v.array(v.id('catalogEntry'))),
     }),
   }),
   v.object({
@@ -295,6 +342,11 @@ export const characterSheetEntryValidator = v.union(
     state: v.object({
       kind: v.literal('classLevel'),
       classEntryId: v.union(v.id('catalogEntry'), v.null()),
+      favoredClassBonus: v.optional(favoredClassBonusValidator),
+      skillRanks: v.optional(v.record(v.string(), v.number())),
+      abilityIncrease: v.optional(
+        v.union(v.null(), ...abilityKeys.map((ability) => v.literal(ability))),
+      ),
       position: v.number(),
       hpGained: v.union(v.number(), v.null()),
     }),

@@ -24,9 +24,18 @@ function describeRow(row: Row) {
   return `${abilityLabels[row.state.ability]} ${noun}`;
 }
 
+function describePoints(row: Row) {
+  return `${row.state.points} ${row.state.points === 1 ? 'point' : 'points'}`;
+}
+
+/** "Strength damage, 3 points": the row's name with its visible value. */
+function describeRowWithPoints(row: Row) {
+  return `${describeRow(row)}, ${describePoints(row)}`;
+}
+
 // What the points do, in the row: damage to the modifier, drain to the score.
 function describeConsequence(row: Row) {
-  const points = `${row.state.points} ${row.state.points === 1 ? 'point' : 'points'}`;
+  const points = describePoints(row);
   if (row.kind === 'abilityDrain')
     return `${points} · score −${row.state.points}`;
   return `${points} · modifier −${Math.floor(row.state.points / 2)}`;
@@ -196,7 +205,7 @@ export function AbilityChanges({
         ) : (
           <ul className="divide-foreground/10 divide-y">
             {rows.map((row) => (
-              <li key={row._id} aria-label={describeRow(row)}>
+              <li key={row._id} aria-label={describeRowWithPoints(row)}>
                 <AbilityChangeRow
                   row={row}
                   isBusy={isBusy}

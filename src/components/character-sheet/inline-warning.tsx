@@ -1,7 +1,10 @@
 'use client';
 import { TriangleAlert } from 'lucide-react';
 import { useId } from 'react';
-import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
+import {
+  MaintenanceReason,
+  useMaintenanceReasonId,
+} from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
@@ -38,6 +41,8 @@ function RulesWarning({
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const messageId = useId();
+  const ownReasonId = useId();
+  const reasonId = useMaintenanceReasonId(maintenance) ?? ownReasonId;
   const status = controller.statusFor(warning);
   const isSaving = status.kind === 'saving';
   const isDisabled = isSaving || maintenance.readOnly;
@@ -64,7 +69,9 @@ function RulesWarning({
         size="sm"
         variant="outline"
         className="h-8 px-2 text-xs md:h-6"
-        aria-describedby={messageId}
+        aria-describedby={
+          maintenance.readOnly ? `${messageId} ${reasonId}` : messageId
+        }
         disabled={isDisabled}
         onClick={() => {
           if (isDisabled) return;
@@ -78,7 +85,11 @@ function RulesWarning({
         status={status}
         savedText={warning.accepted ? 'Warning accepted.' : 'Warning reopened.'}
       />
-      <MaintenanceReason notice={maintenance} className="text-xs" />
+      <MaintenanceReason
+        id={ownReasonId}
+        notice={maintenance}
+        className="text-xs"
+      />
     </div>
   );
 }

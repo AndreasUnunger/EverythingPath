@@ -10,6 +10,7 @@ import { ConvexError } from 'convex/values';
 import type { ComponentProps } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
+import { representativeClassCatalog } from '../../../tests/fixtures/catalog/representative-class-progressions';
 import IndependentCharacterSheetRoute from '~/app/characters/[characterId]/page';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import {
@@ -167,17 +168,25 @@ function sheet({
       value: scores[ability],
     })),
   };
-  const classEntries = levels.flatMap((level) =>
-    level.className
-      ? [
-          {
-            _id: `class-${level.className}` as Id<'catalogEntry'>,
-            name: level.className,
-            modifiers: [],
-          } as unknown as CatalogEntry,
-        ]
-      : [],
-  );
+  const classEntries: CatalogEntry[] = levels.flatMap((level) => {
+    if (!level.className) return [];
+    const definition = representativeClassCatalog.find(
+      (entry) => entry.name === level.className,
+    );
+    if (!definition) throw new Error(`No class fixture for ${level.className}`);
+    return [
+      {
+        ...definition,
+        _id: `class-${level.className}` as Id<'catalogEntry'>,
+        _creationTime: 1,
+        scope: 'character' as const,
+        characterId,
+        name: level.className,
+        sources: [],
+        stacksWithItself: false,
+      },
+    ];
+  });
   const entries: Entry[] = [
     {
       _id: 'base-entry' as Id<'characterSheetEntry'>,
@@ -390,8 +399,12 @@ test('maintenance keeps the sheet readable and navigation available while disabl
     ]) {
       expect(levelRow.getByRole('button', { name })).toBeDisabled();
     }
-    expect(levelRow.getByText(message)).toBeVisible();
+    expect(levelRow.queryByText(message)).not.toBeInTheDocument();
+    expect(
+      levelRow.getByRole('button', { name: 'Save hit points' }),
+    ).toHaveAccessibleDescription(message);
   }
+  expect(within(levelsRegion()).getAllByText(message)).toHaveLength(1);
   expect(hpInput('Level 1')).toHaveValue('8');
   expect(hpInput('Level 2')).toHaveValue('5');
   const levelUp = screen.getByRole('button', { name: 'Level up' });
@@ -950,7 +963,8 @@ test('maintenance starting during a deletion confirmation disables Delete and re
     name: 'Delete level 1',
   });
   expect(confirm).toBeDisabled();
-  expect(within(question).getByText(message)).toBeVisible();
+  expect(confirm).toHaveAccessibleDescription(message);
+  expect(within(levelsRegion()).getAllByText(message)).toHaveLength(1);
   expect(score('Strength')).toBeDisabled();
   expect(score('Strength')).toHaveValue('14');
   expect(hpInput('Level 1')).toBeDisabled();
@@ -1398,8 +1412,9 @@ test('a minimal sheet offers Build out once; a visit never runs it, a click runs
   fireEvent.click(pending);
   expect(calls).toHaveLength(1);
   await act(async () => lastCall().resolve(characterId));
-  expect(characterRegion().getByRole('status')).toHaveTextContent(
-    'Character built out.',
+  expect(characterRegion().getByText('Character built out.')).toHaveAttribute(
+    'role',
+    'status',
   );
   view.show(
     sheet({
@@ -1455,7 +1470,7 @@ test('a refused Build out stays beside the action, and maintenance disables it w
   view.show(minimal([{ id: 'a', hp: 6 }], 'pc'));
   const buildOut = characterRegion().getByRole('button', { name: 'Build out' });
   expect(buildOut).toBeDisabled();
-  expect(characterRegion().getByText(message)).toBeVisible();
+  expect(within(buildOut.parentElement!).getByText(message)).toBeVisible();
   fireEvent.click(buildOut);
   expect(calls).toHaveLength(1);
 });
@@ -1469,11 +1484,14 @@ test('a named class shows in its row and in its delete question', () => {
       ],
     }),
   );
-  expect(within(row('Level 1')).getByText('Fighter')).toBeVisible();
+  expect(
+    within(row('Level 1')).getByRole('combobox', { name: 'Class at level 1' }),
+  ).toHaveTextContent('Fighter');
+  expect(within(row('Level 1')).getByText('Fighter 1')).toBeVisible();
   expect(within(row('Level 1')).queryByText('Choose a class.')).toBeNull();
-  expect(within(row('Level 2')).getByText('Unspecified')).toHaveClass(
-    'ring-sky-400/80',
-  );
+  expect(
+    within(row('Level 2')).getByRole('combobox', { name: 'Class at level 2' }),
+  ).toHaveClass('ring-sky-400/80');
   fireEvent.click(
     within(row('Level 1')).getByRole('button', { name: 'Delete level 1' }),
   );

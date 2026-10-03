@@ -21,6 +21,9 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
     return modifier.value;
   }
 
+  const classChoices = snapshot.catalogEntries.filter(
+    (entry) => entry.detail.kind === 'class' && 'hitDie' in entry.detail,
+  );
   const { canBuildOut } = characterLedgerDetails(snapshot.character);
   const minimal = canBuildOut;
   const warning = minimal
@@ -82,18 +85,32 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
           modifiers: catalogEntry.modifiers,
         };
       }),
+    classChoices,
+    favoredClassIds:
+      snapshot.entries.find((entry) => entry.kind === 'base')?.state
+        .favoredClassIds ?? [],
+    unplacedSelections: snapshot.entries.filter(
+      (entry) =>
+        entry.kind === 'manual' &&
+        entry.gainedAtClassLevel !== undefined &&
+        !snapshot.entries.some(
+          (level) =>
+            level.kind === 'classLevel' &&
+            level._id === entry.gainedAtClassLevel,
+        ),
+    ),
     levels: snapshot.entries
       .filter((entry) => entry.kind === 'classLevel')
-      .map((entry) => ({
-        ...entry,
-        className:
-          entry.state.classEntryId === null
-            ? 'Unspecified'
-            : (snapshot.catalogEntries.find(
-                (catalogEntry) => catalogEntry._id === entry.state.classEntryId,
-              )?.name ?? 'Class unavailable'),
-        isUnspecified: entry.state.classEntryId === null,
-      })),
+      .map((entry) => {
+        const selected = classChoices.find(
+          (choice) => choice._id === entry.state.classEntryId,
+        );
+        return {
+          ...entry,
+          className: selected?.name ?? 'Unspecified',
+          isUnspecified: selected === undefined,
+        };
+      }),
     warning,
     warnings: calculated.warnings.map(
       (warning): SheetWarningView => ({
