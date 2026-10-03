@@ -180,6 +180,11 @@ export async function expectBottomBarPinned(page: Page, tall = false) {
  */
 export async function expectReachable(page: Page, control: Locator) {
   await control.scrollIntoViewIfNeeded();
+  await expectControlWithinViewport(page, control);
+  await control.click({ trial: true });
+}
+
+async function expectControlWithinViewport(page: Page, control: Locator) {
   await expect(control).toBeVisible();
   const bounds = await control.boundingBox();
   expect(bounds, 'control has visible bounds').not.toBeNull();
@@ -241,28 +246,46 @@ export async function expectReachable(page: Page, control: Locator) {
       'editor content ends inside its scroll column',
     ).toBeLessThanOrEqual(column.y + column.height + 1);
   }
-  await control.click({ trial: true });
 }
 
 /**
  * Every enabled control shown in `scope` is reachable (see
- * `expectReachable`). Each is focused first, as a keyboard or a tap would,
- * so the page scrolls it clear of pinned chrome the way a player's focus
- * does. Visually hidden and aria-hidden elements (such as a native select
- * mirroring a custom one) are not controls a player reaches.
+ * `expectReachable`). Each is focused first. In focus mode, only that focus
+ * may scroll the control into view; no trial click moves the pointer onto
+ * disclosures that open on hover. Visually hidden and aria-hidden elements
+ * (such as a native select mirroring a custom one) are not controls a player
+ * reaches.
  */
 export async function expectControlsReachable(
   page: Page,
   scope: Locator,
   what: string,
+  interaction: 'pointer' | 'focus' = 'pointer',
 ) {
+  // Keep scrolling controls from moving underneath a resting pointer and
+  // opening hover disclosures during a focus sweep.
+  if (interaction === 'focus') await page.mouse.move(0, 0);
   const controls = scope.locator(
     ':is(button, input, textarea, a[href], [role="combobox"]):visible:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]):not(.sr-only)',
   );
   expect(await controls.count(), `${what}: controls`).toBeGreaterThan(0);
   for (const control of await controls.all()) {
     await control.focus();
-    await expectReachable(page, control);
+    if (interaction === 'focus') {
+      await expect(control).toBeFocused();
+      await expectControlWithinViewport(page, control);
+      expect(
+        await control.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          const target = document.elementFromPoint(
+            bounds.x + bounds.width / 2,
+            bounds.y + bounds.height / 2,
+          );
+          return target !== null && element.contains(target);
+        }),
+        'focused control is not covered by pinned chrome or another element',
+      ).toBe(true);
+    } else await expectReachable(page, control);
   }
 }
 

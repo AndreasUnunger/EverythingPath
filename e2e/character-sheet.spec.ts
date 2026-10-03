@@ -429,10 +429,21 @@ test('two players edit one living sheet; failures stay local and rows keep their
   await test.step('tablet: the summary pins under the top bar and focused controls stay clear of it', async () => {
     await expectNoHorizontalOverflow(a);
     await expectSummaryPinned(a);
-    await expectControlsReachable(a, findLevels(a), 'tablet Class Levels');
-    await expectControlsReachable(a, findScores(a), 'tablet Ability scores');
+    await expectControlsReachable(
+      a,
+      findLevels(a),
+      'tablet Class Levels',
+      'focus',
+    );
+    await expectControlsReachable(
+      a,
+      findScores(a),
+      'tablet Ability scores',
+      'focus',
+    );
     // A focused control is never under the pinned rows.
     await findScore(a, 'Charisma').focus();
+    await expect(findScore(a, 'Charisma')).toBeFocused();
     const pinned = (await findSummary(a).boundingBox())!;
     const focused = (await findScore(a, 'Charisma').boundingBox())!;
     expect(focused.y).toBeGreaterThanOrEqual(pinned.y + pinned.height - 1);
@@ -456,7 +467,12 @@ test('two players edit one living sheet; failures stay local and rows keep their
       a,
       findLevels(a).getByRole('button', { name: 'Level up', exact: true }),
     );
-    await expectControlsReachable(a, findLevels(a), 'phone Class Levels');
+    await expectControlsReachable(
+      a,
+      findLevels(a),
+      'phone Class Levels',
+      'focus',
+    );
     await expect(
       a
         .getByRole('navigation', { name: 'Areas', exact: true })
