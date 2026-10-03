@@ -399,7 +399,7 @@ async function expectReferenceBody(page: Page, root: Locator) {
   await root.getByRole('tab', { name: 'Officers' }).click();
   await expect(
     root.getByRole('link', { name: 'Characters & officers', exact: true }),
-  ).toHaveAttribute('href', `/campaigns/${campaignId}/characters`);
+  ).toHaveAttribute('href', `/campaigns/${campaignId}/officers`);
   await root.getByRole('tab', { name: 'History' }).click();
   await expectHealthyHistory(root, campaignId);
   await root.getByRole('tab', { name: 'Militia' }).click();

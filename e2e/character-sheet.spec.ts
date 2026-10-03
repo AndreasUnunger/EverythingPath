@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { z } from 'zod';
-import { characterSheetPath } from '../src/lib/campaign-routes';
+import { campaignPath, characterSheetPath } from '../src/lib/campaign-routes';
 import { controlSheetWrites } from './support/character-sheet-transport';
 import { test } from './support/fixtures';
 import { loadRun, savePrivate } from './support/process';
@@ -115,7 +115,10 @@ test('two players edit one living sheet; failures stay local and rows keep their
   const run = await loadRun();
   const convexUrl = run.fixture!.convexUrl;
   const { characterIds } = inspected.parse(await ownedCase.inspect());
-  const url = characterSheetPath(ownedCase.campaignId, characterIds[0]!);
+  const url = characterSheetPath(characterIds[0]!, {
+    href: campaignPath(ownedCase.campaignId, 'characters'),
+    organization: { kind: 'unrecorded' },
+  });
   const a = players.gm;
   const b = players.player;
   const bWrites = await controlSheetWrites(b, convexUrl);
@@ -169,7 +172,7 @@ test('two players edit one living sheet; failures stay local and rows keep their
       ).toHaveCount(0);
       await expect(
         findSheet(page).getByRole('link', {
-          name: 'Characters & officers',
+          name: 'Characters',
           exact: true,
         }),
       ).toBeVisible();
@@ -401,10 +404,9 @@ test('two players edit one living sheet; failures stay local and rows keep their
     }
     await players.outsider.goto(url);
     await expect(
-      players.outsider.getByRole('main').getByRole('heading', {
-        level: 1,
-        name: /isn't available/,
-      }),
+      players.outsider
+        .getByRole('alert')
+        .filter({ hasText: 'The character sheet could not be loaded.' }),
     ).toBeVisible();
     await expect(
       players.outsider.getByText('E2E character-sheet-character'),
@@ -447,7 +449,7 @@ test('two players edit one living sheet; failures stay local and rows keep their
     await expectControlsReachable(a, findLevels(a), 'phone Class Levels');
     await expect(
       a
-        .getByRole('navigation', { name: 'Campaign sections', exact: true })
+        .getByRole('navigation', { name: 'Areas', exact: true })
         .locator('visible=true'),
     ).toHaveCount(1);
     await shot(a, 'phone-final');

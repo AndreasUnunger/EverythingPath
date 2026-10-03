@@ -1,33 +1,28 @@
 'use client';
 import type { ReactNode } from 'react';
 import { NavigationGuardProvider } from './navigation-guard';
-import { AccountControl, OrganizationControl, ShellFrame } from './shell-frame';
-import { KeepLink, TopBarRow } from './top-bar';
-
-// Campaign list: the organization switcher takes the breadcrumb position;
-// campaign pages move it to the right beside the account.
+import { ShellFrame } from './shell-frame';
+import { AppPhoneBar } from './app-phone-bar';
+import { AppTopBar } from './app-top-bar';
+import { ShellSlotProvider } from './shell-slots';
+import { useListShellNavigation } from './use-list-shell-navigation';
+function ListShellContent({ children }: { children: ReactNode }) {
+  const nav = useListShellNavigation();
+  return (
+    <ShellFrame
+      header={<AppTopBar nav={nav} />}
+      footer={<AppPhoneBar nav={nav} />}
+    >
+      {children}
+    </ShellFrame>
+  );
+}
 export function ListShell({ children }: { children: ReactNode }) {
   return (
     <NavigationGuardProvider>
-      <ShellFrame
-        header={
-          <TopBarRow>
-            <KeepLink />
-            <span
-              className="text-muted-foreground hidden md:inline"
-              aria-hidden
-            >
-              /
-            </span>
-            <OrganizationControl />
-            <div className="ml-auto flex items-center gap-3">
-              <AccountControl />
-            </div>
-          </TopBarRow>
-        }
-      >
-        {children}
-      </ShellFrame>
+      <ShellSlotProvider>
+        <ListShellContent>{children}</ListShellContent>
+      </ShellSlotProvider>
     </NavigationGuardProvider>
   );
 }

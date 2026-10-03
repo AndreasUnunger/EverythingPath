@@ -1,8 +1,9 @@
-import { ConvexError, v } from 'convex/values';
+import { ConvexError, v, type Infer } from 'convex/values';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
-import { campaignValidator, characterValidator } from './schema';
+import schema, { campaignValidator, characterValidator } from './schema';
+import { getUserByTokenIdentifier, hasAccessToOrg } from './user';
 import {
   listAccessibleCharacters,
   requireCampaignCharacterAccess,
@@ -14,6 +15,129 @@ import {
   updateCharacterArchive,
 } from './lib/characterSheet';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
+
+const ownedGroupValidator = v.union(
+  v.object({
+    kind: v.literal('noCampaign'),
+    characters: v.array(schema.doc('character')),
+  }),
+  v.object({
+    kind: v.literal('campaign'),
+    campaignId: v.id('campaign'),
+    campaignName: v.string(),
+    organizationId: v.string(),
+    characters: v.array(schema.doc('character')),
+  }),
+);
+
+export const listOwned = query({
+  args: {},
+  returns: v.array(ownedGroupValidator),
+  async handler(ctx) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const user = await getUserByTokenIdentifier(ctx, identity.tokenIdentifier);
+    if (!user) return [];
+    const owned = await ctx.db
+      .query('character')
+      .withIndex('by_ownerId', (q) => q.eq('ownerId', identity.tokenIdentifier))
+      .take(4097);
+    if (owned.length > 4096)
+      throw new ConvexError('Too many Characters to load');
+    const privateGroup: Infer<typeof ownedGroupValidator> = {
+      kind: 'noCampaign',
+      characters: [],
+    };
+    const campaignGroups = new Map<
+      string,
+      Extract<Infer<typeof ownedGroupValidator>, { kind: 'campaign' }>
+    >();
+    for (const character of owned) {
+      if (!character.campaignId) {
+        privateGroup.characters.push(character);
+        continue;
+      }
+      const existing = campaignGroups.get(character.campaignId);
+      if (existing) {
+        existing.characters.push(character);
+        continue;
+      }
+      const campaign = await ctx.db.get('campaign', character.campaignId);
+      if (!campaign || !(await hasAccessToOrg(ctx, campaign.organizationId)))
+        continue;
+      campaignGroups.set(campaign._id, {
+        kind: 'campaign',
+        campaignId: campaign._id,
+        campaignName: campaign.name,
+        organizationId: campaign.organizationId,
+        characters: [character],
+      });
+    }
+    const groups = [...campaignGroups.values()].sort(
+      (a, b) =>
+        a.campaignName.localeCompare(b.campaignName) ||
+        a.organizationId.localeCompare(b.organizationId) ||
+        a.campaignId.localeCompare(b.campaignId),
+    );
+    return [privateGroup, ...groups];
+  },
+});
+
+export const listCampaignCharacters = query({
+  args: { campaignId: v.id('campaign'), organizationId: v.string() },
+  returns: v.array(
+    v.object({
+      character: schema.doc('character'),
+      ownerName: v.union(v.string(), v.null()),
+      isOnRoster: v.boolean(),
+    }),
+  ),
+  async handler(ctx, args) {
+    const characters = await listAccessibleCharacters(ctx, {
+      ...args,
+      includeInactive: true,
+    });
+    if (characters.length === 0) return [];
+    const ownerIds = new Set(
+      characters.flatMap((character) =>
+        character.ownerId ? [character.ownerId] : [],
+      ),
+    );
+    const ownerNames = new Map(
+      await Promise.all(
+        [...ownerIds].map(
+          async (ownerId) =>
+            [
+              ownerId,
+              (await getUserByTokenIdentifier(ctx, ownerId))?.name ?? null,
+            ] as const,
+        ),
+      ),
+    );
+    const militia = await ctx.db
+      .query('militia')
+      .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
+      .unique();
+    const source = militia
+      ? await ctx.db
+          .query('canonicalMilitiaState')
+          .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+          .unique()
+      : null;
+    const roster = new Set(
+      source?.campaignId === args.campaignId
+        ? source.snapshot.roster.people.map((person) => person.characterId)
+        : [],
+    );
+    return characters.map((character) => ({
+      character,
+      ownerName: character.ownerId
+        ? (ownerNames.get(character.ownerId) ?? null)
+        : null,
+      isOnRoster: roster.has(character._id),
+    }));
+  },
+});
 
 export const listByCampaign = query({
   args: {

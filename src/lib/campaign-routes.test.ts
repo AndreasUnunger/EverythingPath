@@ -8,6 +8,11 @@ import {
   weekPath,
   parseHistorySelection,
   historyPath,
+  parseCharacterSheetOrigin,
+  resolveCharacterSheetBack,
+  characterCreatePath,
+  organizationSwitchPath,
+  resolveNavigationLocation,
 } from './campaign-routes';
 
 vi.mock('next/navigation', () => ({
@@ -16,14 +21,49 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
+it('recognizes independent sheet and creation routes without accepting them as Back origins', () => {
+  expect(resolveNavigationLocation('/characters/hero?tab=gear')).toEqual({
+    kind: 'character-sheet',
+    characterId: 'hero',
+  });
+  expect(resolveNavigationLocation('/characters/new')).toEqual({
+    kind: 'character-sheet',
+    characterId: 'new',
+  });
+  expect(resolveNavigationLocation('/characters/hero/unknown')).toBeUndefined();
+  expect(resolveNavigationLocation('/characters/')).toBeUndefined();
+  expect(
+    parseCharacterSheetOrigin(new URLSearchParams('from=%2Fcharacters%2Fnew')),
+  ).toBeUndefined();
+});
+
 describe('campaign navigation', () => {
+  it('preserves officers origin and organization on an independent sheet', () => {
+    const path = characterSheetPath('hero', {
+      href: '/campaigns/first/officers',
+      organization: { kind: 'organization', id: 'org/one' },
+    });
+    expect(path).toBe(
+      '/characters/hero?from=%2Fcampaigns%2Ffirst%2Fofficers&organizationId=org%2Fone',
+    );
+    const origin = parseCharacterSheetOrigin(
+      new URL(path, 'https://example.test').searchParams,
+    );
+    expect(resolveCharacterSheetBack(origin)).toEqual({
+      href: '/campaigns/first/officers',
+      label: 'Characters & officers',
+    });
+  });
   it('opens a private sheet without inventing a campaign and preserves campaign origins', () => {
-    expect(characterSheetPath(undefined, 'hero/a?b#c%')).toBe(
+    expect(characterSheetPath('hero/a?b#c%')).toBe(
       '/characters/hero%2Fa%3Fb%23c%25',
     );
-    expect(characterSheetPath('first', 'hero')).toBe(
-      '/campaigns/first/characters/hero',
-    );
+    expect(
+      characterSheetPath('hero', {
+        href: '/campaigns/first/characters',
+        organization: { kind: 'unrecorded' },
+      }),
+    ).toBe('/characters/hero?from=%2Fcampaigns%2Ffirst%2Fcharacters');
   });
   it('keeps all campaign sections scoped and encodes a campaign identifier once', () => {
     expect(campaignPath('table/a?b#c%')).toBe(
@@ -111,4 +151,65 @@ it('keeps a malformed encoded id raw for the campaign gate', () => {
 
 it("sends the app's entry to the campaign list", () => {
   expect(() => Home()).toThrow('REDIRECT /campaigns');
+});
+
+it('discards unrecognized and external sheet origins', () => {
+  for (const from of [
+    'https://evil.test',
+    '//evil.test',
+    '/\\evil.test',
+    '/characters/another',
+    '/campaigns/one/unknown',
+    '/campaigns/one/officers#fragment',
+  ]) {
+    expect(
+      parseCharacterSheetOrigin(
+        new URLSearchParams({ from, organizationId: 'org' }),
+      ),
+    ).toBeUndefined();
+    expect(
+      characterSheetPath('hero', {
+        href: from,
+        organization: { kind: 'unrecorded' },
+      }),
+    ).toBe('/characters/hero');
+  }
+  expect(resolveCharacterSheetBack()).toEqual({
+    href: '/characters',
+    label: 'Characters',
+  });
+});
+
+it('preserves the personal account as an explicit Characters origin', () => {
+  const path = characterSheetPath('hero', {
+    href: '/characters',
+    organization: { kind: 'personal' },
+  });
+  expect(path).toBe('/characters/hero?from=%2Fcharacters&organizationId=');
+  expect(
+    parseCharacterSheetOrigin(
+      new URL(path, 'https://example.test').searchParams,
+    ),
+  ).toEqual({ href: '/characters', organization: { kind: 'personal' } });
+});
+
+it('keeps creation and manual organization changes in their independent Characters context', () => {
+  expect(
+    characterCreatePath(undefined, { kind: 'organization', id: 'source' }),
+  ).toBe('/characters/new?from=%2Fcharacters&organizationId=source');
+  expect(
+    characterCreatePath('alpha', { kind: 'organization', id: 'org' }),
+  ).toBe(
+    '/characters/new?campaignId=alpha&from=%2Fcampaigns%2Falpha%2Fcharacters&organizationId=org',
+  );
+  expect(
+    organizationSwitchPath(
+      '/characters/hero',
+      'from=%2Fcharacters&organizationId=source',
+    ),
+  ).toBe('/characters/hero?from=%2Fcharacters&organizationId=source');
+  expect(organizationSwitchPath('/characters')).toBe('/characters');
+  expect(organizationSwitchPath('/campaigns/alpha/officers')).toBe(
+    '/campaigns',
+  );
 });

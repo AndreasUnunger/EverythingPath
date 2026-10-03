@@ -29,6 +29,7 @@ const caseKey = v.union(
   v.literal('characterLedger'),
   v.literal('characterSheet'),
   v.literal('privateCharacter'),
+  v.literal('characterNavigation'),
   v.literal('completeWeek'),
   v.literal('realtimeActionSlot'),
   v.literal('canonicalPersistence'),
@@ -54,6 +55,10 @@ const scopeArgs = {
   caseKey,
   token: v.string(),
 };
+
+function isSheetCase(caseKey: CaseKey) {
+  return caseKey === 'characterSheet' || caseKey === 'characterNavigation';
+}
 
 // The harness always passes the cases its running test owns in this cohort.
 export const isolationArgs = { isolatedWith: v.optional(v.array(caseKey)) };
@@ -130,14 +135,15 @@ async function assertCohortIsolated(
     );
 }
 
-// Only the private-character journey creates Characters outside a campaign:
-// its reset grants the cohort's users private sheets, and its cleanup deletes
+// Private and navigation journeys create Characters outside a campaign:
+// their reset grants the cohort's users private sheets, and their cleanup deletes
 // the private sheets they created and withdraws the grant.
 async function listSheetDemoUsers(
   ctx: QueryCtx | MutationCtx,
   scope: FixtureScope,
 ) {
-  if (scope.caseKey !== 'privateCharacter') return [];
+  if (!['privateCharacter', 'characterNavigation'].includes(scope.caseKey))
+    return [];
   const identities = bounded(
     await ctx.db
       .query('e2eFixtureIdentity')
@@ -328,7 +334,7 @@ export const resetCase = gatedInternalMutation({
             // journeys and the sheet fixture play this Character as a PC;
             // the other journeys seed an NPC roster.
             kind:
-              isCanonicalCase(args.caseKey) || args.caseKey === 'characterSheet'
+              isCanonicalCase(args.caseKey) || isSheetCase(args.caseKey)
                 ? 'pc'
                 : 'npc',
             isActive: true,
@@ -340,12 +346,14 @@ export const resetCase = gatedInternalMutation({
             wisdom: 10,
             charisma: 10,
           });
-    if (args.caseKey === 'characterSheet' && characterId)
+    if (isSheetCase(args.caseKey) && characterId)
       await initializeCharacterSheet(ctx, {
         characterId,
         operationId: 'fixture:character-sheet',
         updatedBy: `https://${config.clerkHost}|${worker.gm.userId}`,
       });
+    if (args.caseKey === 'characterNavigation')
+      return { campaignId, campaignKey: domain.campaign };
     const militiaId = await ctx.db.insert('militia', {
       name: `E2E ${domain.militia}`,
       campaignId,
@@ -510,7 +518,9 @@ export const inspectCase = internalQuery({
       identityCount: identities.length,
       militia,
       characters,
-      ...(scope.caseKey === 'characterSheet' && { characterIds }),
+      ...(isSheetCase(scope.caseKey) && {
+        characterIds,
+      }),
     };
   },
 });

@@ -214,7 +214,7 @@ export function BeforeDeparture({
   );
 }
 
-function plainClick(event: MouseEvent<HTMLAnchorElement>) {
+export function plainClick(event: MouseEvent<HTMLAnchorElement>) {
   return (
     event.button === 0 &&
     !event.metaKey &&

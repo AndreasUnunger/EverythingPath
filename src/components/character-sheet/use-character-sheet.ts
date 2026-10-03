@@ -216,6 +216,7 @@ function buildSheetView(snapshot: CharacterSheetSnapshot) {
   const calculated = snapshot.calculated;
   return {
     character: snapshot.character,
+    campaign: snapshot.campaign,
     calculated,
     warnings: calculated.warnings.map(
       (warning): SheetWarningView => ({

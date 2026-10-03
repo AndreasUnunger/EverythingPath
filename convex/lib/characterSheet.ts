@@ -119,6 +119,13 @@ export async function loadCharacterSheet(
     .sort((a, b) => a.state.position - b.state.position);
   return {
     character,
+    campaign: campaign
+      ? {
+          campaignId: campaign._id,
+          campaignName: campaign.name,
+          organizationId: campaign.organizationId,
+        }
+      : null,
     entries: [
       ...entries.filter((entry) => entry.kind === 'base'),
       ...classLevels,

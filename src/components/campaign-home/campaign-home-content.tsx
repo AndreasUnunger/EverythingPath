@@ -209,7 +209,7 @@ function RecentWeeksCard({
 function CharactersLink({ campaignId }: { campaignId: string }) {
   return (
     <Button asChild variant="outline" className={cn(action, 'max-md:w-full')}>
-      <GuardedLink href={campaignPath(campaignId, 'characters')}>
+      <GuardedLink href={campaignPath(campaignId, 'officers')}>
         <Users aria-hidden /> Characters &amp; officers
       </GuardedLink>
     </Button>

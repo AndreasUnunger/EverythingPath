@@ -169,7 +169,7 @@ test('the Officers tab keeps every roster member and links to Characters & offic
   ]);
   expect(
     screen.getByRole('link', { name: 'Characters & officers' }),
-  ).toHaveAttribute('href', '/campaigns/campaign/characters');
+  ).toHaveAttribute('href', '/campaigns/campaign/officers');
 });
 
 test('the History tab shows recent weeks, its own loading, failure and retry, and All finished weeks', () => {

@@ -10,7 +10,7 @@ import {
   exercisePhoneShell,
   exerciseTopBarShell,
   expectBoundedWeekHost,
-  expectDocumentScrolledPage,
+  expectSectionScrollHost,
   expectNoHorizontalOverflow,
   expectReachable,
   expectTopBarOneRow,
@@ -42,7 +42,7 @@ const destinations = [
   // The phone bottom bar's tab, then the top bar's link from 768px.
   {
     size: { width: 390, height: 844 },
-    section: 'characters',
+    section: 'officers',
     name: 'Characters & officers',
     loading: 'Loading characters…',
   },
@@ -111,8 +111,9 @@ export async function exerciseImmediateSectionNavigation(page: Page) {
         page.getByRole('heading', { name: 'Week 1 · Event' }),
       ).toBeVisible();
       const link = page
-        .getByRole('navigation', { name: 'Campaign sections', exact: true })
-        .locator('visible=true')
+        .locator(
+          'nav[aria-label="Militia pages"]:visible, nav[aria-label="Pages"]:visible',
+        )
         .getByRole('link', { name, exact: true });
       await expect(link).toBeVisible();
       await expect
@@ -142,7 +143,7 @@ export async function exerciseImmediateSectionNavigation(page: Page) {
       page.off('requestfailed', onEnded);
     }
     await expect(
-      section === 'characters'
+      section === 'officers'
         ? page.getByRole('region', { name: 'Characters', exact: true })
         : page.getByRole('button', { name: 'Correct values', exact: true }),
     ).toBeVisible();
@@ -161,7 +162,7 @@ export async function exerciseImmediateSectionNavigation(page: Page) {
 export async function exerciseSectionNavigation(page: Page) {
   const { week, campaignPath } = campaignAddress(page);
 
-  await openCampaignSection(page, 'characters');
+  await openCampaignSection(page, 'officers');
   await expect(
     page.getByRole('region', { name: 'Characters', exact: true }),
   ).toBeVisible();
@@ -187,20 +188,30 @@ export async function exerciseSectionNavigation(page: Page) {
   await expect(
     page.getByRole('button', { name: 'Correct values', exact: true }),
   ).toBeVisible();
-  // Non-week sections scroll as a normal document at every width.
-  await expectDocumentScrolledPage(page);
+  // Militia pages use the rail host from tablet and the document on phone.
+  await expectSectionScrollHost(page);
   await expectReachable(
     page,
     page.getByRole('button', { name: 'Correct values', exact: true }),
   );
   await page.goBack();
-  await expect(page).toHaveURL(`${week.origin}${campaignPath}/characters`);
+  await expect(page).toHaveURL(`${week.origin}${campaignPath}/officers`);
   await page.goForward();
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/militia`);
   await page.reload();
   await expect(
     page.getByRole('button', { name: 'Correct values', exact: true }),
   ).toBeVisible();
+  await openCampaignSection(page, 'officers');
+  await page.setViewportSize({ width: 390, height: 844 });
+  const tabs = page.getByRole('navigation', { name: 'Areas', exact: true });
+  await tabs.getByRole('link', { name: 'Characters', exact: true }).click();
+  await expect(page).toHaveURL(`${week.origin}/characters`);
+  await page.reload();
+  await tabs.getByRole('link', { name: 'Militia', exact: true }).click();
+  await expect(page).toHaveURL(`${week.origin}${campaignPath}/officers`);
+  await page.setViewportSize(original);
+  await openCampaignSection(page, 'militia');
 }
 
 /** The outsider sees none of the member campaign on any of its sections. */
@@ -211,7 +222,14 @@ export async function expectOutsiderShutOut(
 ) {
   const { campaignPath } = campaignAddress(page);
 
-  for (const section of ['week', 'history', 'militia', 'characters', 'setup']) {
+  for (const section of [
+    'week',
+    'history',
+    'militia',
+    'characters',
+    'officers',
+    'setup',
+  ]) {
     await outsider.goto(`${campaignPath}/${section}`);
     await expect(
       outsider.getByText("This campaign isn't available", { exact: false }),

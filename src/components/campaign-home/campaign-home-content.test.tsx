@@ -92,7 +92,7 @@ test('a militia failure retries locally and keeps Characters & officers', () => 
   show({ kind: 'failed', retry });
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(retry).toHaveBeenCalledTimes(1);
-  expect(hrefs()).toEqual(['/campaigns/ironfang/characters']);
+  expect(hrefs()).toEqual(['/campaigns/ironfang/officers']);
 });
 
 test('the militia home links each destination once, keeping the campaign', () => {
@@ -109,7 +109,7 @@ test('the militia home links each destination once, keeping the campaign', () =>
     '/campaigns/ironfang/history?week=13',
     '/campaigns/ironfang/history?week=11',
     '/campaigns/ironfang/history',
-    '/campaigns/ironfang/characters',
+    '/campaigns/ironfang/officers',
   ]);
   expect(screen.queryByText(/next up|continues at/i)).toBeNull();
 });

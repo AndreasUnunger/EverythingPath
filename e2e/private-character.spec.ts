@@ -25,7 +25,9 @@ async function expectNoSheet(page: Page) {
   await expect(page.getByText(name)).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Strength' })).toHaveCount(0);
   await expect(
-    page.getByRole('link', { name: 'Campaigns', exact: true }),
+    page
+      .getByRole('main')
+      .getByRole('link', { name: 'Characters', exact: true }),
   ).toBeVisible();
 }
 
@@ -47,7 +49,9 @@ test('an owner creates, edits and deletes a private Character; its URL discloses
     await expect(owner.getByText(name)).toHaveCount(1);
     await expect(owner.getByText('No campaign', { exact: true })).toBeVisible();
     await expect(
-      owner.getByRole('link', { name: 'Campaigns', exact: true }),
+      owner
+        .getByRole('main')
+        .getByRole('link', { name: 'Characters', exact: true }),
     ).toBeVisible();
     await expect(
       owner.getByRole('button', {
@@ -55,7 +59,12 @@ test('an owner creates, edits and deletes a private Character; its URL discloses
       }),
     ).toHaveCount(0);
     await expect(
-      owner.getByRole('combobox', { name: 'Active campaign' }),
+      owner
+        .getByRole('navigation', { name: 'Sections', exact: true })
+        .getByRole('link', { name: 'Characters', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      owner.getByRole('navigation', { name: 'Militia pages', exact: true }),
     ).toHaveCount(0);
   });
   const url = new URL(owner.url()).pathname;
@@ -112,7 +121,7 @@ test('an owner creates, edits and deletes a private Character; its URL discloses
     await findDeleteQuestion(owner)
       .getByRole('button', { name: `Delete ${name}`, exact: true })
       .click();
-    await expect(owner).toHaveURL(/\/campaigns$/);
+    await expect(owner).toHaveURL(/\/characters$/);
     await owner.goto(url);
     await expectNoSheet(owner);
   });

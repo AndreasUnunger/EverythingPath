@@ -12,7 +12,7 @@ export async function navigationAndPersistence(
   campaignName: string,
 ) {
   await test.step('player: navigation, form layout, reload persistence and cross-layout edits', async () => {
-    await openCampaignSection(page, 'characters');
+    await openCampaignSection(page, 'officers');
     const characters = page.getByRole('region', {
       name: 'Characters',
       exact: true,
@@ -47,7 +47,7 @@ export async function navigationAndPersistence(
     ).toContainText('4 HD');
     await page.reload();
     await selectCampaign(page, campaignName);
-    await openCampaignSection(page, 'characters');
+    await openCampaignSection(page, 'officers');
     await expect(
       row,
       'player: Nightly Scout with 4 Hit Dice survives reload',
@@ -73,7 +73,7 @@ export async function navigationAndPersistence(
     await page.setViewportSize(original);
     await page.reload();
     await selectCampaign(page, campaignName);
-    await openCampaignSection(page, 'characters');
+    await openCampaignSection(page, 'officers');
     await expect(
       row,
       'player: cross-layout edit persists as 5 Hit Dice',

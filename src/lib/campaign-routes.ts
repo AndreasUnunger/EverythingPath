@@ -1,12 +1,20 @@
 import type { MilitiaEntryKey } from './militia-correction-sections';
 
-export type CampaignSection =
-  | 'home'
-  | 'week'
-  | 'history'
-  | 'militia'
-  | 'characters'
-  | 'setup';
+export const CAMPAIGN_SECTIONS = {
+  home: { label: 'Home', area: 'campaign' },
+  characters: { label: 'Characters', area: 'campaign' },
+  week: { label: 'Week', area: 'militia' },
+  history: { label: 'Finished weeks', area: 'militia' },
+  militia: { label: 'Militia', area: 'militia' },
+  officers: { label: 'Characters & officers', area: 'militia' },
+  setup: { label: 'Setup', area: 'militia' },
+} as const;
+export type CampaignSection = keyof typeof CAMPAIGN_SECTIONS;
+export const PERSONAL_ORGANIZATION = '__personal';
+
+export function isMilitiaSection(section: CampaignSection) {
+  return CAMPAIGN_SECTIONS[section].area === 'militia';
+}
 
 // Dynamic segments may arrive percent-encoded; a malformed encoding keeps the
 // raw value, which the campaign gate then reports as unavailable.
@@ -26,15 +34,139 @@ export function campaignPath(
   return section === 'home' ? base : `${base}/${section}`;
 }
 
-/** Campaign origins stay in their shell until the navigation migration (#297). */
+export type OriginOrganization =
+  | { kind: 'unrecorded' }
+  | { kind: 'personal' }
+  | { kind: 'organization'; id: string };
+
+export type CharacterSheetOrigin = {
+  href: string;
+  organization: OriginOrganization;
+};
+
+export type NavigationLocation =
+  | { kind: 'characters' | 'campaigns' }
+  | { kind: 'character-sheet'; characterId: string }
+  | { kind: 'campaign'; campaignId: string; section: CampaignSection };
+
+const campaignRoute = new RegExp(
+  `^/campaigns/([^/]+)(?:/(${Object.keys(CAMPAIGN_SECTIONS)
+    .filter((section) => section !== 'home')
+    .join('|')}))?$`,
+);
+
+export function resolveNavigationLocation(
+  href: string,
+): NavigationLocation | undefined {
+  // URL construction never accepts a second host, backslash or fragment.
+  if (!href.startsWith('/') || href.includes('\\') || href.includes('#'))
+    return undefined;
+  const [pathname] = href.split('?');
+  if (pathname === '/characters') return { kind: 'characters' };
+  if (pathname === '/campaigns') return { kind: 'campaigns' };
+  const sheet = pathname?.match(/^\/characters\/([^/]+)$/);
+  if (sheet?.[1])
+    return {
+      kind: 'character-sheet',
+      characterId: decodeRouteSegment(sheet[1]),
+    };
+  const match = pathname?.match(campaignRoute);
+  if (!match?.[1]) return undefined;
+  return {
+    kind: 'campaign',
+    campaignId: decodeRouteSegment(match[1]),
+    section: (match[2] ?? 'home') as CampaignSection,
+  };
+}
+
+function isCharacterSheetOrigin(href: string) {
+  const location = resolveNavigationLocation(href);
+  return location !== undefined && location.kind !== 'character-sheet';
+}
+
+/** Only recognized app pages may become a sheet's origin or Back target. */
+export function parseCharacterSheetOrigin(
+  params: Pick<URLSearchParams, 'get'>,
+): CharacterSheetOrigin | undefined {
+  const href = params.get('from');
+  if (!href || !isCharacterSheetOrigin(href)) return undefined;
+  const organizationId = params.get('organizationId');
+  let organization: OriginOrganization = { kind: 'unrecorded' };
+  if (organizationId === '') organization = { kind: 'personal' };
+  else if (organizationId !== null)
+    organization = { kind: 'organization', id: organizationId };
+  return { href, organization };
+}
+
+export function readCharacterSheetOrigin(
+  params: string | { toString(): string } | null | undefined,
+) {
+  return parseCharacterSheetOrigin(new URLSearchParams(params?.toString()));
+}
+
+export type BackLink = {
+  href: string;
+  label: (typeof CAMPAIGN_SECTIONS)[CampaignSection]['label'] | 'Campaigns';
+};
+
+export function resolveCharacterSheetBack(
+  origin?: CharacterSheetOrigin,
+): BackLink {
+  const location = origin && resolveNavigationLocation(origin.href);
+  if (!origin || !location || location.kind === 'character-sheet')
+    return { href: '/characters', label: 'Characters' };
+  if (location.kind === 'campaign')
+    return {
+      href: origin.href,
+      label: CAMPAIGN_SECTIONS[location.section].label,
+    };
+  return {
+    href: origin.href,
+    label: location.kind === 'campaigns' ? 'Campaigns' : 'Characters',
+  };
+}
+
+/** Every sheet is independent of campaign membership; its origin is navigation only. */
 export function characterSheetPath(
-  campaignId: string | undefined,
   characterId: string,
+  origin?: CharacterSheetOrigin,
 ): string {
-  const base = campaignId
-    ? campaignPath(campaignId, 'characters')
-    : '/characters';
-  return `${base}/${encodeURIComponent(characterId)}`;
+  const params = new URLSearchParams();
+  if (origin && isCharacterSheetOrigin(origin.href)) {
+    params.set('from', origin.href);
+    if (origin.organization.kind === 'organization')
+      params.set('organizationId', origin.organization.id);
+    else if (origin.organization.kind === 'personal')
+      params.set('organizationId', '');
+  }
+  const query = params.toString();
+  return `/characters/${encodeURIComponent(characterId)}${query ? `?${query}` : ''}`;
+}
+
+export function characterCreatePath(
+  campaignId?: string,
+  organization: OriginOrganization = { kind: 'unrecorded' },
+): string {
+  const params = new URLSearchParams();
+  if (campaignId) {
+    params.set('campaignId', campaignId);
+    params.set('from', campaignPath(campaignId, 'characters'));
+  } else {
+    params.set('from', '/characters');
+  }
+  if (organization.kind === 'organization')
+    params.set('organizationId', organization.id);
+  else if (organization.kind === 'personal') params.set('organizationId', '');
+  const query = params.toString();
+  return `/characters/new${query ? `?${query}` : ''}`;
+}
+
+/** Changing organization preserves the independent Characters area and sheet origin. */
+export function organizationSwitchPath(pathname: string, searchParams = '') {
+  const location = resolveNavigationLocation(pathname);
+  if (location?.kind === 'characters' || location?.kind === 'character-sheet')
+    return `${pathname}${searchParams ? `?${searchParams}` : ''}`;
+  return '/campaigns';
 }
 
 /** Militia, optionally with one page entry selected (`?section=teams`). */

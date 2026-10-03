@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(45);
+  expect(required).toHaveLength(47);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -181,6 +181,16 @@ const passing = () => ({
       project: 'chromium-tablet',
       title:
         'two players edit one living sheet; failures stay local and rows keep their identity',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
+      file: 'character-navigation.spec.ts',
+      project: 'chromium-tablet',
+      title:
+        'players find grouped Characters and create campaign sheets with independent URLs and phone navigation',
       expectedStatus: 'passed',
       tags: [],
       annotations: [],

@@ -1,27 +1,22 @@
 'use client';
-
-import { api } from '@convex/_generated/api';
-import { useQuery } from 'convex/react';
 import {
   CharacterSheetFrame,
   CharacterSheetSkeleton,
-  type BackLink,
 } from '~/components/character-sheet/character-sheet-frame';
 import { CreateCharacterSheet } from '~/components/character-sheet/create-character-sheet';
+import { useCharacterCreationRoute } from '~/components/character-sheet/use-character-creation-route';
 import { Card } from '~/components/ui/card';
-
-const back: BackLink = { href: '/campaigns', label: 'Campaigns' };
-
-// This entry is available only to identities prepared by the isolated demo
-// harness; everyone else reads that creating here is not open yet, with no
-// hint of how it opens.
-export default function NewPrivateCharacterRoute() {
-  const user = useQuery(api.user.getMe, {});
-  if (user === undefined) return <CharacterSheetSkeleton back={back} />;
+export default function NewCharacterRoute() {
+  const creation = useCharacterCreationRoute();
+  if (creation.loading) return <CharacterSheetSkeleton back={creation.back} />;
   return (
-    <CharacterSheetFrame back={back}>
-      {user?.characterSheetDemo ? (
-        <CreateCharacterSheet />
+    <CharacterSheetFrame back={creation.back}>
+      {creation.available ? (
+        <CreateCharacterSheet
+          campaignId={creation.campaign?._id}
+          organizationId={creation.organizationId}
+          origin={creation.origin}
+        />
       ) : (
         <Card className="gap-3 p-4">
           <p>Creating characters here is not available yet.</p>

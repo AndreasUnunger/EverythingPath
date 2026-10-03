@@ -6,7 +6,7 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { Children, isValidElement, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { CampaignShell } from './campaign-shell';
 import { PhoneStatusStrip } from './shell-slots';
@@ -32,6 +32,36 @@ const openUserProfile = vi.fn();
 const signOut = vi.fn();
 let avatarPending = false;
 let clerkStatus: 'loading' | 'ready' | 'degraded' | 'error' = 'ready';
+
+vi.mock('./use-campaign-shell-navigation', async () => {
+  const { buildAppNavigation } = await import('~/lib/app-navigation');
+  return {
+    useCampaignShellNavigation: ({
+      campaign,
+      campaigns,
+      organizationId,
+      week,
+    }: {
+      campaign?: { _id: string; name: string };
+      campaigns: { _id: string; name: string }[];
+      organizationId?: string;
+      week?: number;
+    }) =>
+      buildAppNavigation({
+        pathname: pathname(),
+        organizationId,
+        week,
+        campaign: campaign
+          ? { id: campaign._id, name: campaign.name, hasMilitia: true }
+          : undefined,
+        campaigns: campaigns.map((item) => ({
+          id: item._id,
+          name: item.name,
+          hasMilitia: true,
+        })),
+      }),
+  };
+});
 
 vi.mock('@clerk/nextjs', async () => {
   const { clerkModule, organizationList, thursdayTable } =
@@ -84,55 +114,9 @@ vi.mock('next/navigation', async () =>
 vi.mock('next/link', async () =>
   (await import('./shell-test-helpers')).linkModule(),
 );
-// A native select that keeps the trigger's accessible name and its items.
-vi.mock('~/components/ui/select', () => {
-  const SelectTrigger = () => null;
-  return {
-    Select: ({
-      value,
-      onValueChange,
-      disabled,
-      children,
-    }: {
-      value?: string;
-      onValueChange?: (value: string) => void;
-      disabled?: boolean;
-      children: ReactNode;
-    }) => {
-      const trigger = Children.toArray(children).find(
-        (child) => isValidElement(child) && child.type === SelectTrigger,
-      );
-      const { 'aria-label': label, title } = isValidElement<{
-        'aria-label'?: string;
-        title?: string;
-      }>(trigger)
-        ? trigger.props
-        : {};
-      return (
-        <select
-          aria-label={label}
-          title={title}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onValueChange?.(event.target.value)}
-        >
-          {children}
-        </select>
-      );
-    },
-    SelectTrigger,
-    SelectValue: () => null,
-    SelectSeparator: () => null,
-    SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
-    SelectItem: ({
-      value,
-      children,
-    }: {
-      value: string;
-      children: ReactNode;
-    }) => <option value={value}>{children}</option>,
-  };
-});
+vi.mock('~/components/ui/select', async () =>
+  (await import('./shell-test-helpers')).selectModule(),
+);
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -249,9 +233,9 @@ test('an id outside the active organization is unavailable and never falls back 
     }),
   ).toBeVisible();
   expect(screen.queryByText(/Page for/)).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole('combobox', { name: 'Active campaign' }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: 'Where you are' })).toHaveValue(
+    '__campaigns',
+  );
   expect(
     screen.queryByRole('link', { name: 'Militia' }),
   ).not.toBeInTheDocument();
@@ -268,7 +252,7 @@ test('an id outside the active organization is unavailable and never falls back 
 test('a member campaign renders its page with the switcher, section links and the active section', () => {
   render(shell('alpha'));
   expect(screen.getByText('Page for Alpha')).toBeVisible();
-  const switcher = screen.getByRole('combobox', { name: 'Active campaign' });
+  const switcher = screen.getByRole('combobox', { name: 'Where you are' });
   expect(switcher).toHaveValue('alpha');
   // A truncated name stays readable in full.
   expect(switcher).toHaveAttribute('title', 'Alpha');
@@ -280,9 +264,11 @@ test('a member campaign renders its page with the switcher, section links and th
     Array.from(switcher.querySelectorAll('option')).map(
       (option) => option.textContent,
     ),
-  ).toEqual(['Alpha', 'Beta', 'All campaigns…']);
-  const militia = screen.getAllByRole('link', { name: 'Militia' });
-  expect(militia).toHaveLength(2);
+  ).toEqual(['Campaigns', 'Characters', 'Alpha', 'Beta']);
+  const militia = screen
+    .getAllByRole('link', { name: 'Militia' })
+    .filter((link) => link.getAttribute('href') === '/campaigns/alpha/militia');
+  expect(militia).toHaveLength(3);
   for (const link of militia) {
     expect(link).toHaveAttribute('href', '/campaigns/alpha/militia');
     expect(link).toHaveAttribute('aria-current', 'page');
@@ -301,7 +287,7 @@ test('a member campaign renders its page with the switcher, section links and th
   expect(gateway).not.toHaveBeenCalled();
   fireEvent.change(switcher, { target: { value: 'beta' } });
   expect(push).toHaveBeenLastCalledWith('/campaigns/beta');
-  fireEvent.change(switcher, { target: { value: '__all' } });
+  fireEvent.change(switcher, { target: { value: '__campaigns' } });
   expect(push).toHaveBeenLastCalledWith('/campaigns');
 });
 
@@ -360,9 +346,7 @@ test('maintenance shows the notice once while the page and its navigation stay u
   ).not.toBeInTheDocument();
   for (const link of screen.getAllByRole('link', { name: 'Finished weeks' }))
     expect(link).toHaveAttribute('href', '/campaigns/alpha/history');
-  expect(
-    screen.getByRole('combobox', { name: 'Active campaign' }),
-  ).toBeEnabled();
+  expect(screen.getByRole('combobox', { name: 'Where you are' })).toBeEnabled();
 });
 
 test('while editing availability is checked the page loads and navigation works; a reload notice offers Reload page', () => {
@@ -376,7 +360,7 @@ test('while editing availability is checked the page loads and navigation works;
     screen.getByText('Checking whether editing is available.'),
   ).toBeVisible();
   expect(screen.getByText('Page for Alpha')).toBeVisible();
-  const switcher = screen.getByRole('combobox', { name: 'Active campaign' });
+  const switcher = screen.getByRole('combobox', { name: 'Where you are' });
   fireEvent.change(switcher, { target: { value: 'beta' } });
   expect(push).toHaveBeenLastCalledWith('/campaigns/beta');
   const reload = vi.fn();
@@ -747,7 +731,7 @@ test('the week page can fill the phone status strip above the bottom bar; the to
   expect(bar).not.toBeNull();
   // The strip host sits directly before the phone tabs, inside the sticky bar.
   const tabs = bar!.parentElement!.querySelector('nav');
-  expect(tabs).toHaveAccessibleName('Campaign sections');
+  expect(tabs).toHaveAccessibleName('Areas');
   expect(bar!.nextElementSibling).toBe(tabs);
   // The top-bar save status was removed (2026-09-28, amending #137).
   expect(
@@ -794,10 +778,8 @@ test('on the bounded Week the legal link sits inside the frame above the phone b
     '[data-shell-slot="phone-status-strip"]',
   )!.parentElement!;
   expect(footer.nextElementSibling).toBe(bar);
-  expect(within(bar).getByRole('navigation')).toHaveAccessibleName(
-    'Campaign sections',
-  );
-  expect(within(bar).getAllByRole('link')).toHaveLength(4);
+  expect(within(bar).getByRole('navigation')).toHaveAccessibleName('Areas');
+  expect(within(bar).getAllByRole('link')).toHaveLength(3);
 });
 
 test('pending editor work turns the legal link into the same departure decision', async () => {

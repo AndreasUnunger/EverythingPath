@@ -6,13 +6,12 @@ import { GuardedLink } from './navigation-guard';
 // pulls in Clerk and Convex) so public pages such as the legal notices share
 // the same chrome without those dependencies.
 
-// Items may wrap onto a second row on narrow tablets instead of overlapping;
-// every control keeps its own bounded width so nothing covers a section link.
+// Each control keeps a bounded width within the approved single row.
 export function TopBarRow({ children }: { children: ReactNode }) {
   return (
     <div
       data-top-bar-row
-      className="short:gap-y-0.5 short:py-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 md:gap-x-4 md:px-4 md:py-2"
+      className="short:gap-y-0.5 short:py-1 flex min-w-0 items-center gap-x-2 px-3 py-1.5 md:gap-x-4 md:px-4 md:py-2"
     >
       {children}
     </div>

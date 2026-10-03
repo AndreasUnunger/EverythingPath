@@ -28,12 +28,14 @@ export function ShellFrame({
   children,
   footer,
   bounded = false,
+  withRail = false,
 }: {
   header: ReactNode;
   children: ReactNode;
   /** The phone bottom bar; sticks to the viewport's bottom edge. */
   footer?: ReactNode;
   bounded?: boolean;
+  withRail?: boolean;
 }) {
   return (
     <div
@@ -41,9 +43,10 @@ export function ShellFrame({
       className={cn(
         'flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]',
         bounded && 'h-dvh overflow-clip',
+        withRail && 'md:h-dvh md:overflow-clip',
       )}
     >
-      <header className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]">
+      <header className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 z-30 flex shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]">
         <MaintenanceBanner className="order-first md:order-last" />
         {header}
       </header>

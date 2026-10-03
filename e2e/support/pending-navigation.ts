@@ -5,7 +5,7 @@ import { saveState } from './week-frame';
 // Build real same-document history through the shell, so a native
 // beforeunload warning cannot accidentally satisfy the departure contract.
 export async function prepareWeekHistory(page: Page) {
-  await openCampaignSection(page, 'characters');
+  await openCampaignSection(page, 'officers');
   await expect(
     page.getByRole('region', { name: 'Characters', exact: true }),
   ).toBeVisible();

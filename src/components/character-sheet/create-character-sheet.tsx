@@ -21,7 +21,11 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
-import { characterSheetPath } from '~/lib/campaign-routes';
+import {
+  campaignPath,
+  characterSheetPath,
+  type CharacterSheetOrigin,
+} from '~/lib/campaign-routes';
 import type { SaveStatus } from './save-status';
 import { CHARACTER_KINDS, formatCharacterKind } from '~/lib/character-kind';
 import { action, Block } from './sheet-parts';
@@ -42,17 +46,27 @@ function getCreateLabel(kind: SaveStatus['kind']) {
 export function CreateCharacterSheet({
   organizationId,
   campaignId,
+  origin,
 }: {
   organizationId?: string;
   campaignId?: Id<'campaign'>;
+  origin?: CharacterSheetOrigin;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const guard = useNavigationGuard();
+  const sheetOrigin =
+    origin ??
+    (campaignId
+      ? {
+          href: campaignPath(campaignId, 'characters'),
+          organization: { kind: 'unrecorded' as const },
+        }
+      : undefined);
   const creation = useCreateCharacterSheet({
     organizationId,
     campaignId,
     onCreated: (characterId) =>
-      guard.navigate(characterSheetPath(campaignId, characterId)),
+      guard.navigate(characterSheetPath(characterId, sheetOrigin)),
   });
   const isBusy =
     creation.status.kind === 'saving' || creation.status.kind === 'saved';

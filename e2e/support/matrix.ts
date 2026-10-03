@@ -51,6 +51,10 @@ export const criticalJourneys = [
     'private-character.spec.ts',
     'an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else',
   ],
+  [
+    'character-navigation.spec.ts',
+    'players find grouped Characters and create campaign sheets with independent URLs and phone navigation',
+  ],
 ] as const;
 const persistenceContract = [
   'canonical-persistence.spec.ts',

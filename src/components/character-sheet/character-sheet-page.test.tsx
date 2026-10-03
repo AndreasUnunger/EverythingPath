@@ -72,6 +72,13 @@ vi.mock('convex/react', () => ({
       calls.push({ name, args, resolve, reject });
     }),
 }));
+vi.mock('./use-character-sheet-navigation', () => ({
+  useCharacterSheetNavigation: () => ({
+    back: { href: '/characters', label: 'Characters' },
+    campaign: null,
+    organizationSwitch: { kind: 'idle', retry: vi.fn() },
+  }),
+}));
 vi.mock('next/navigation', () => ({
   useParams: () => ({ characterId: 'character%2D1' }),
 }));
@@ -158,6 +165,9 @@ function sheet({
     ),
   ];
   return {
+    campaign: campaignId
+      ? { campaignId, campaignName: 'Campaign', organizationId: 'org' }
+      : null,
     character: {
       _id: characterId,
       _creationTime: 1,
@@ -267,9 +277,9 @@ test('an independent private URL loads and edits the sheet without a campaign or
 
   expect(screen.getByText('Private hero')).toBeVisible();
   expect(screen.getByText('No campaign')).toBeVisible();
-  expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Characters' })).toHaveAttribute(
     'href',
-    '/campaigns',
+    '/characters',
   );
   expect(readScope).toEqual({ characterId });
   fireEvent.change(score('Strength'), { target: { value: '14' } });
@@ -1010,16 +1020,16 @@ test('a confirmed private deletion sends no scope, stands in for the vanishing s
   expect(
     screen.queryByRole('heading', { name: 'Private hero' }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Characters' })).toHaveAttribute(
     'href',
-    '/campaigns',
+    '/characters',
   );
   expect(navigate).not.toHaveBeenCalled();
   await act(async () => lastCall().resolve(null));
   expect(screen.getByRole('status')).toHaveTextContent(
     'Private hero was deleted.',
   );
-  expect(navigate).toHaveBeenCalledWith('/campaigns');
+  expect(navigate).toHaveBeenCalledWith('/characters');
   expect(navigate).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });

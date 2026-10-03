@@ -88,6 +88,10 @@ it.each([
         `import { test } from ${playwright}; test('an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else', () => {});`,
       );
       await writeFile(
+        join(directory, 'character-navigation.spec.ts'),
+        `import { test } from ${playwright}; test('players find grouped Characters and create campaign sheets with independent URLs and phone navigation', () => {});`,
+      );
+      await writeFile(
         join(directory, 'complete-week.spec.ts'),
         `import { test } from ${playwright}; test('a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload', () => {});`,
       );

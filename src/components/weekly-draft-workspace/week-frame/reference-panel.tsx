@@ -257,7 +257,7 @@ function OfficersTab({
       )}
       {campaignId && (
         <Button asChild variant="outline" className="w-full">
-          <GuardedLink href={campaignPath(campaignId, 'characters')}>
+          <GuardedLink href={campaignPath(campaignId, 'officers')}>
             Characters & officers
           </GuardedLink>
         </Button>

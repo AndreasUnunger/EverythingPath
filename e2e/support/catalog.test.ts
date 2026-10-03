@@ -57,6 +57,11 @@ const sheetJourneys = [
     'an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else',
     'privateCharacter',
   ],
+  [
+    'character-navigation.spec.ts',
+    'players find grouped Characters and create campaign sheets with independent URLs and phone navigation',
+    'characterNavigation',
+  ],
 ] as const;
 
 it.each(sheetJourneys)(
@@ -140,7 +145,12 @@ it('accepts provisioned fixtures without the Character Sheet cases', () => {
       ...worker,
       cases: Object.fromEntries(
         Object.entries(worker.cases).filter(
-          ([key]) => key !== 'characterSheet' && key !== 'privateCharacter',
+          ([key]) =>
+            ![
+              'characterSheet',
+              'privateCharacter',
+              'characterNavigation',
+            ].includes(key),
         ),
       ),
     })),
@@ -151,4 +161,5 @@ it('accepts provisioned fixtures without the Character Sheet cases', () => {
   );
   expect(parsed.workers[0]?.cases.characterSheet).toBeUndefined();
   expect(parsed.workers[0]?.cases.privateCharacter).toBeUndefined();
+  expect(parsed.workers[0]?.cases.characterNavigation).toBeUndefined();
 });

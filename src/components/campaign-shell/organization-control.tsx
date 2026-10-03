@@ -6,6 +6,11 @@ import {
   useOrganization,
   useOrganizationList,
 } from '@clerk/nextjs';
+import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  organizationSwitchPath,
+  PERSONAL_ORGANIZATION,
+} from '~/lib/campaign-routes';
 import { Plus, Settings2 } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import {
@@ -19,8 +24,6 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utils';
 import { useNavigationGuard } from './navigation-guard';
-
-const PERSONAL = '__personal';
 
 // App-owned organization controls so every identity change waits for the
 // departure decision: Clerk's stock switcher activates the organization before
@@ -42,6 +45,12 @@ export function OrganizationControl({
   const clerk = useClerk();
   const list = useOrganizationList({ userMemberships: { infinite: true } });
   const guard = useNavigationGuard();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const redirectUrl = organizationSwitchPath(
+    pathname,
+    searchParams?.toString(),
+  );
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const memberships = list.isLoaded ? list.userMemberships : null;
@@ -61,7 +70,7 @@ export function OrganizationControl({
         className="h-8 w-28"
       />
     );
-  const value = organization?.id ?? PERSONAL;
+  const value = organization?.id ?? PERSONAL_ORGANIZATION;
   const setActive = list.setActive;
   const choose = (next: string) => {
     if (next === value) return;
@@ -71,8 +80,8 @@ export function OrganizationControl({
         setFailed(false);
         try {
           await setActive({
-            organization: next === PERSONAL ? null : next,
-            redirectUrl: '/campaigns',
+            organization: next === PERSONAL_ORGANIZATION ? null : next,
+            redirectUrl,
           });
         } catch {
           setFailed(true);
@@ -86,7 +95,7 @@ export function OrganizationControl({
     guard.requestDeparture({
       commit: () =>
         clerk.openCreateOrganization({
-          afterCreateOrganizationUrl: '/campaigns',
+          afterCreateOrganizationUrl: redirectUrl,
         }),
     });
   const manage = () =>
@@ -129,7 +138,7 @@ export function OrganizationControl({
               </SelectItem>
             ))}
             <SelectSeparator />
-            <SelectItem value={PERSONAL} className="min-h-11">
+            <SelectItem value={PERSONAL_ORGANIZATION} className="min-h-11">
               Personal account
             </SelectItem>
           </SelectContent>

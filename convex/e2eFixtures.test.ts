@@ -38,6 +38,11 @@ const privateCharacter: FixtureScope = {
   caseKey: 'privateCharacter',
   token: '56'.repeat(32),
 };
+const characterNavigation: FixtureScope = {
+  ...scope,
+  caseKey: 'characterNavigation',
+  token: '78'.repeat(32),
+};
 
 describe('internal fixture boundary', () => {
   beforeEach(() => {
@@ -46,6 +51,76 @@ describe('internal fixture boundary', () => {
     vi.stubEnv('CONVEX_CLOUD_URL', deploymentFixture.convexUrl);
   });
   afterEach(() => vi.unstubAllEnvs());
+  it('prepares navigation with a Full Character and no militia, and cleans campaign and private sheets on retry', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(
+      internal.e2eFixtures.seedIdentityProjection,
+      characterNavigation,
+    );
+    const owner = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    const seeded = await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterNavigation,
+      isolatedWith: ['characterNavigation'],
+      now: 1_700_000_000_000,
+    });
+    const inspection = await t.query(
+      internal.e2eFixtures.inspectCase,
+      characterNavigation,
+    );
+    expect(inspection).toMatchObject({ campaignCount: 1, militia: null });
+    const campaignCharacters = await owner.query(
+      api.character.listCampaignCharacters,
+      {
+        campaignId: seeded.campaignId,
+        organizationId: 'org_members',
+      },
+    );
+    expect(campaignCharacters).toMatchObject([
+      {
+        character: {
+          sheetMode: 'full',
+          name: 'E2E character-navigation-character',
+        },
+        isOnRoster: false,
+      },
+    ]);
+    const privateId = await owner.mutation(api.characterSheet.create, {
+      name: 'Navigation private Character',
+      kind: 'pc',
+      operationId: 'private',
+    });
+    const campaignId = await owner.mutation(api.characterSheet.create, {
+      name: 'Navigation campaign Character',
+      kind: 'pc',
+      operationId: 'campaign',
+      campaignId: seeded.campaignId,
+      organizationId: 'org_members',
+    });
+    expect(await owner.query(api.character.listOwned, {})).toHaveLength(2);
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterNavigation,
+      isolatedWith: ['characterNavigation'],
+      now: 1_700_000_000_000,
+    });
+    for (const characterId of [privateId, campaignId])
+      await expect(
+        owner.query(api.characterSheet.read, { characterId }),
+      ).rejects.toThrow('Character not found');
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterNavigation);
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterNavigation);
+    expect(await owner.query(api.character.listOwned, {})).toEqual([
+      { kind: 'noCampaign', characters: [] },
+    ]);
+    await expect(
+      owner.mutation(api.characterSheet.create, {
+        name: 'After cleanup',
+        kind: 'pc',
+        operationId: 'refused',
+      }),
+    ).rejects.toThrow("Private character sheets aren't available");
+  });
   it('projects declared identities and restores deterministic state before retry', async () => {
     const t = convexTest({ schema, modules });
     await t.mutation(internal.e2eFixtures.seedIdentityProjection, scope);

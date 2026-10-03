@@ -1,16 +1,21 @@
 'use client';
-
 import { useParams } from 'next/navigation';
 import { CharacterSheetPage } from '~/components/character-sheet/character-sheet-page';
+import { useCharacterSheetNavigation } from '~/components/character-sheet/use-character-sheet-navigation';
+import { OrganizationSwitchNotice } from '~/components/character-navigation/organization-switch-notice';
 import { decodeRouteSegment } from '~/lib/campaign-routes';
-
-// Independent sheets derive access from the Character, without an active organization.
 export default function IndependentCharacterSheetRoute() {
-  const { characterId } = useParams<{ characterId: string }>();
+  const { characterId: encodedId } = useParams<{ characterId: string }>();
+  const characterId = decodeRouteSegment(encodedId);
+  const navigation = useCharacterSheetNavigation(characterId);
   return (
-    <CharacterSheetPage
-      characterId={decodeRouteSegment(characterId)}
-      back={{ href: '/campaigns', label: 'Campaigns' }}
-    />
+    <>
+      <OrganizationSwitchNotice status={navigation.organizationSwitch} />
+      <CharacterSheetPage
+        characterId={characterId}
+        back={navigation.back}
+        campaignName={navigation.campaign?.campaignName}
+      />
+    </>
   );
 }

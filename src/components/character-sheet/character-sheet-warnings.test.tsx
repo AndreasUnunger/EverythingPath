@@ -150,6 +150,11 @@ function sheet({
     ),
   ];
   return {
+    campaign: {
+      campaignId: 'campaign-1' as Id<'campaign'>,
+      campaignName: 'Campaign',
+      organizationId: 'org',
+    },
     character: {
       _id: characterId,
       _creationTime: 1,

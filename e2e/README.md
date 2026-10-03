@@ -212,7 +212,18 @@ projects with its own `privateCharacter` case, provisioned the same way. Its
 reset grants the cohort's users private Character Sheets; its reset and cleanup
 delete the private sheets they created and withdraw the grant. The two journeys
 cannot share a case: each browser test must declare a distinct case key.
-Older fixture configs may omit `characterSheet` or `privateCharacter` and still
+The navigation journey (`character-navigation.spec.ts`, #297) uses its own
+`characterNavigation` case on Chromium tablet and nightly WebKit tablet. It
+starts with a Full Character in a campaign without a militia, grants private
+creation for the cohort, and proves No campaign grouping, campaign creation,
+independent sheet URLs and origin links, private non-disclosure, fixed phone
+tabs and the absent-militia explanation. Reset and cleanup remove its campaign
+and private sheet graphs. This adds one mandatory result and two nightly
+results; the current matrices require 26 and 47 results respectively.
+Browser execution remains the external harness's responsibility.
+
+Older fixture configs may omit `characterSheet`, `privateCharacter`, or
+`characterNavigation` and still
 parse, but cannot run these journeys. Start a fresh normal harness run to
 regenerate their capabilities.
 
@@ -487,19 +498,22 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 ## Nightly compatibility matrix (#30)
 
 Run the same isolated harness with `--nightly`. The default command and **E2E
-required** retain the ten mandatory Chromium tablet journeys. Nightly selects:
+required** retain the eleven mandatory Chromium tablet journeys. Nightly selects:
 
 | Project         | Viewport | Journeys                                                                                             |
 | --------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| Chromium tablet | 1194×834 | All ten, plus navigation/form/persistence and reconnect steps                                        |
-| WebKit tablet   | 1194×834 | All ten critical journeys                                                                            |
+| Chromium tablet | 1194×834 | All eleven, plus navigation/form/persistence and reconnect steps                                     |
+| WebKit tablet   | 1194×834 | All eleven critical journeys                                                                         |
 | Firefox desktop | 1440×900 | Access and the three journeys split from it, existing-militia initialization, complete week          |
 | Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; the three split journeys |
 
 The journeys split from access are campaign home, campaign sections and week
 links (see [Access split](#access-split)). The private-character journey checks
 owner creation, editing and deletion, including refusal of access by another
-player. Nightly requires 45 first-attempt results and the mandatory run 25,
+player. The Character navigation journey checks owned groups, independent campaign
+sheets and origin Back within one organization. Cross-organization behavior is
+covered by Convex and hook tests. Nightly requires 47
+first-attempt results and the mandatory run 26,
 including authentication and the canonical contract and Workspace projects.
 
 The access journey's nightly extension creates a character, checks that form
@@ -517,7 +531,7 @@ checked within each project; screenshot and trace filenames include the project 
 cross-browser evidence cannot overwrite earlier failures. Contexts inherit actual
 project viewport, touch and mobile settings. Desktop uses keyboard staging.
 Authentication runs once with fresh sessions, then each browser gets independent
-contexts. Nightly requires all 15 selected tests (including authentication) with
+contexts. Nightly requires all 16 selected tests (including authentication) with
 exactly one successful first attempt, using the mandatory gate's no-skip,
 no-quarantine, secret, reset, retry and sanitized-artifact policies.
 

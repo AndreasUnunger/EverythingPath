@@ -5,6 +5,13 @@ import { ListShell } from './list-shell';
 const auth = vi.fn();
 const convexAuth = vi.fn();
 
+vi.mock('./use-list-shell-navigation', async () => {
+  const { buildAppNavigation } = await import('~/lib/app-navigation');
+  return {
+    useListShellNavigation: () =>
+      buildAppNavigation({ pathname: '/campaigns', campaigns: [] }),
+  };
+});
 vi.mock('@clerk/nextjs', async () => {
   const { clerkModule, organizationList, thursdayTable } =
     await import('./shell-test-helpers');
@@ -68,4 +75,33 @@ test('signed out, the link is offered next to the sign-in prompt', () => {
   );
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
   expect(legalLink()).toHaveAttribute('href', '/legal');
+});
+
+test('the list keeps the fixed phone areas and the desktop area links', () => {
+  render(
+    <ListShell>
+      <p>Campaign list</p>
+    </ListShell>,
+  );
+  const sections = screen.getByRole('navigation', { name: 'Sections' });
+  expect(
+    within(sections).getByRole('link', { name: 'Campaigns' }),
+  ).toHaveAttribute('aria-current', 'page');
+  expect(
+    within(sections).getByRole('link', { name: 'Characters' }),
+  ).toHaveAttribute('href', '/characters');
+  const areas = screen.getByRole('navigation', { name: 'Areas' });
+  expect(within(areas).getByRole('link', { name: 'Campaign' })).toHaveAttribute(
+    'href',
+    '/campaigns',
+  );
+  expect(
+    within(areas).getByRole('button', { name: 'Militia' }),
+  ).toHaveAttribute('aria-disabled', 'true');
+  expect(
+    within(areas).getByRole('link', { name: 'Characters' }),
+  ).toBeInTheDocument();
+  expect(
+    within(areas).getByRole('button', { name: 'More' }),
+  ).toBeInTheDocument();
 });

@@ -301,7 +301,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
 
     // Forward traversal has the same protection and must keep its direction
     // after Stay; Leave must consume that entry rather than push a duplicate.
-    await openCampaignSection(gm, 'characters');
+    await openCampaignSection(gm, 'officers');
     await gm.goBack();
     await expect(die(gm)).toHaveValue('11');
     const heldForward = network.hold();

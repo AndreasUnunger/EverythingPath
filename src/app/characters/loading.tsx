@@ -1,7 +1,5 @@
-import { CharacterSheetSkeleton } from '~/components/character-sheet/character-sheet-frame';
+import { CharactersListLoading } from '~/components/character-navigation/characters-list-loading';
 
-export default function IndependentCharacterLoading() {
-  return (
-    <CharacterSheetSkeleton back={{ href: '/campaigns', label: 'Campaigns' }} />
-  );
+export default function IndependentCharactersLoading() {
+  return <CharactersListLoading />;
 }

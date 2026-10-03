@@ -4,6 +4,53 @@ import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { campaignValidator } from './schema';
 import { hasAccessToOrg } from './user';
 
+export const listNavigationContexts = query({
+  args: { organizationId: v.optional(v.string()) },
+  returns: v.array(
+    v.object({
+      campaignId: v.id('campaign'),
+      hasMilitia: v.boolean(),
+      week: v.optional(v.number()),
+    }),
+  ),
+  async handler(ctx, args) {
+    const organizationId = args.organizationId;
+    if (!organizationId || !(await hasAccessToOrg(ctx, organizationId)))
+      return [];
+    const campaigns = await ctx.db
+      .query('campaign')
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', organizationId),
+      )
+      .take(4097);
+    if (campaigns.length > 4096)
+      throw new ConvexError('Too many campaigns to load');
+    return await Promise.all(
+      campaigns.map(async (campaign) => {
+        const militia = await ctx.db
+          .query('militia')
+          .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
+          .unique();
+        const draft = militia
+          ? await ctx.db
+              .query('canonicalWeeklyDraft')
+              .withIndex('by_campaignId_and_status', (q) =>
+                q.eq('campaignId', campaign._id).eq('status', 'open'),
+              )
+              .unique()
+          : null;
+        return {
+          campaignId: campaign._id,
+          hasMilitia: militia !== null,
+          ...(draft?.draft && draft.militiaId === militia?._id
+            ? { week: draft.draft.week }
+            : {}),
+        };
+      }),
+    );
+  },
+});
+
 export const getCampaigns = query({
   args: {
     organizationId: v.optional(v.string()),

@@ -139,6 +139,14 @@ export const read = query({
     v.null(),
     v.object({
       character: schema.doc('character'),
+      campaign: v.union(
+        v.null(),
+        v.object({
+          campaignId: v.id('campaign'),
+          campaignName: v.string(),
+          organizationId: v.string(),
+        }),
+      ),
       entries: v.array(schema.doc('characterSheetEntry')),
       catalogEntries: v.array(schema.doc('catalogEntry')),
       baseScoresEntry: schema.doc('catalogEntry'),

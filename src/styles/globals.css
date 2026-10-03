@@ -57,6 +57,9 @@
    Week frame tightens its chrome so the editor keeps room and its footer or
    strip stays pinned. */
 @custom-variant short (@media (max-height: 520px));
+/* Touch devices have no hover, so a label that waits for the pointer
+   (the collapsed militia rail) is shown another way. */
+@custom-variant touch (@media (hover: none));
 
 :root {
   /* Base color values */
@@ -224,14 +227,6 @@ html body[data-scroll-locked] {
    of it. */
 html:has([data-setup-layout='wide']) {
   scroll-padding-bottom: 5rem;
-}
-
-/* A Character Sheet keeps the top bar in view while it scrolls, so its
-   summary row can pin directly under it (#208's accepted exception). */
-html:has([data-character-sheet]) [data-shell-frame='document'] > header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
 }
 
 .scanlines::before {

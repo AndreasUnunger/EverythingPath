@@ -12,6 +12,7 @@ export const caseKeys = [
   'characterLedger',
   'characterSheet',
   'privateCharacter',
+  'characterNavigation',
   'completeWeek',
   'realtimeActionSlot',
   'canonicalPersistence',
@@ -119,6 +120,11 @@ export const fixtureCatalog = {
     militia: 'private-character-militia',
     character: 'private-character-officer',
   },
+  characterNavigation: {
+    campaign: 'character-navigation-campaign',
+    militia: 'character-navigation-militia',
+    character: 'character-navigation-character',
+  },
 } satisfies Record<
   CaseKey,
   { campaign: string; militia: string; character: string }
@@ -207,6 +213,7 @@ export const deploymentFixtureSchema = z
                 characterLedger: z.string().length(64),
                 characterSheet: z.string().length(64).optional(),
                 privateCharacter: z.string().length(64).optional(),
+                characterNavigation: z.string().length(64).optional(),
                 completeWeek: z.string().length(64),
                 canonicalPersistence: z.string().length(64),
                 realtimeActionSlot: z.string().length(64),

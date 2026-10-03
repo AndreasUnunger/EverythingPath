@@ -5,6 +5,7 @@ import WeekLoading from '~/app/campaigns/[campaignId]/week/loading';
 import HistoryLoading from '~/app/campaigns/[campaignId]/history/loading';
 import MilitiaLoading from '~/app/campaigns/[campaignId]/militia/loading';
 import CharactersLoading from '~/app/campaigns/[campaignId]/characters/loading';
+import OfficersLoading from '~/app/campaigns/[campaignId]/officers/loading';
 import SetupLoading from '~/app/campaigns/[campaignId]/setup/loading';
 
 // Every campaign section has a route fallback, so a section link moves at
@@ -15,7 +16,8 @@ const sections: [string, ComponentType, RegExp][] = [
   ['week', WeekLoading, /^Loading the week…$/],
   ['history', HistoryLoading, /^Loading history…$/],
   ['militia', MilitiaLoading, /^Loading militia ledger…$/],
-  ['characters', CharactersLoading, /^Loading characters…$/],
+  ['characters', CharactersLoading, /^Loading characters$/],
+  ['officers', OfficersLoading, /^Loading characters…$/],
   ['setup', SetupLoading, /^Loading militia setup…$/],
 ];
 
@@ -43,6 +45,9 @@ test('the section skeletons keep the headings their pages show', () => {
   expect(screen.getByRole('heading', { name: 'Set up militia' })).toBeVisible();
   cleanup();
   render(<CharactersLoading />);
+  expect(screen.getByRole('heading', { name: 'Characters' })).toBeVisible();
+  cleanup();
+  render(<OfficersLoading />);
   expect(
     screen.getByRole('heading', { name: 'Characters & officers' }),
   ).toBeInTheDocument();

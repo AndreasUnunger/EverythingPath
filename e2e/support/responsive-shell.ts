@@ -6,7 +6,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 // so keyboard and notch behavior need a real device. The phone layout
 // applies below 768px; from 768px the top bar carries the section links.
 // The Week route is bounded to the viewport at every width and scrolls its
-// editor column; every other page scrolls as a document.
+// editor column. Other Militia pages scroll within their rail host from
+// 768px and as a document on phone; pages without a rail use the document.
 
 // The document, and on the bounded Week route also the frame that clips it,
 // the editor column that scrolls, the docked reference panel and any open
@@ -77,7 +78,7 @@ export async function expectTopBarOneRow(page: Page) {
 // The phone bar is the visible sections navigation that carries More.
 function bottomNavigation(page: Page) {
   return page
-    .locator('nav[aria-label="Campaign sections"]:visible')
+    .locator('nav[aria-label="Areas"]:visible')
     .filter({ has: page.getByRole('button', { name: 'More' }) });
 }
 
@@ -266,7 +267,7 @@ function isPageContent(control: Locator) {
     if (element.closest('[role="dialog"]')) return false;
     if (element.closest('[data-week-footer]')) return false;
     const bar = Array.from(
-      document.querySelectorAll('nav[aria-label="Campaign sections"]'),
+      document.querySelectorAll('nav[aria-label="Areas"]'),
     ).find((nav) => nav.querySelector('button'))?.parentElement;
     return !bar?.contains(element);
   });
@@ -308,11 +309,22 @@ export async function exercisePhoneShell(page: Page) {
   const { width, height } = page.viewportSize()!;
   expect(width, 'phone layout applies below 768px').toBeLessThan(768);
   const nav = page
-    .getByRole('navigation', { name: 'Campaign sections', exact: true })
+    .getByRole('navigation', { name: 'Areas', exact: true })
     .locator('visible=true');
   await expect(nav).toHaveCount(1);
   await expect(nav.getByRole('button', { name: 'More' })).toBeVisible();
-  await sectionNames(nav);
+  await expect(
+    nav.getByRole('link', { name: 'Campaign', exact: true }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole('link', { name: 'Militia', exact: true }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole('link', { name: 'Characters', exact: true }),
+  ).toBeVisible();
+  await sectionNames(
+    page.getByRole('navigation', { name: 'Pages', exact: true }),
+  );
   // The active tab carries a bar along its top edge, not only a colour.
   expect(
     await nav.locator('[aria-current="page"]').evaluate((tab) => {
@@ -325,7 +337,7 @@ export async function exercisePhoneShell(page: Page) {
   // A short viewport always has more page than screen.
   await expectBottomBarPinned(page, height < 520);
   await expectReachable(page, shownHeading(page));
-  const switcher = page.getByRole('combobox', { name: 'Active campaign' });
+  const switcher = page.getByRole('combobox', { name: 'Where you are' });
   await expectReachable(page, switcher);
 
   const more = page.getByRole('button', { name: 'More' });
@@ -394,14 +406,14 @@ export async function exercisePhoneShell(page: Page) {
 export async function exerciseTopBarShell(page: Page) {
   expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(768);
   const nav = page
-    .getByRole('navigation', { name: 'Campaign sections', exact: true })
+    .getByRole('navigation', { name: 'Militia pages', exact: true })
     .locator('visible=true');
   await expect(nav).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'More' })).toBeHidden();
   await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
   await expectReachable(page, shownHeading(page));
-  const switcher = page.getByRole('combobox', { name: 'Active campaign' });
+  const switcher = page.getByRole('combobox', { name: 'Where you are' });
   await expectReachable(page, switcher);
   // A truncated campaign name stays readable in full.
   await expect(switcher).toHaveAttribute('title', /\S/);
@@ -611,20 +623,57 @@ export async function expectBoundedWeekHost(page: Page) {
 }
 
 /**
- * Every non-week page: the page scrolls as a document and its last control
- * is reachable that way, with the phone bottom bar pinned throughout. The
- * bounded Week host never appears here.
+ * Every non-week page: Militia pages scroll within the rail host from
+ * 768px, and other pages scroll as a document. Its last control stays
+ * reachable, with the phone bottom bar pinned throughout.
  */
-export async function expectDocumentScrolledPage(page: Page) {
+export async function expectSectionScrollHost(page: Page) {
   await expect(page.locator('[data-week-host]')).toHaveCount(0);
-  // A page taller than the viewport scrolls as a document; a shorter one
-  // has nothing to scroll and its controls are simply in view.
-  const scrolled = await page.evaluate(() => {
-    const tall = document.documentElement.scrollHeight > window.innerHeight + 1;
-    if (tall) window.scrollTo(0, document.documentElement.scrollHeight);
-    return !tall || window.scrollY > 0;
+  const withRail =
+    (await page.locator('nav[aria-label="Militia pages"]:visible').count()) > 0;
+  const scroll = await page.getByRole('main').evaluate((main) => {
+    const documentHost = document.scrollingElement ?? document.documentElement;
+    let host: Element = documentHost;
+    for (
+      let parent = main.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      if (['auto', 'scroll'].includes(getComputedStyle(parent).overflowY)) {
+        host = parent;
+        break;
+      }
+    }
+    const end = host.scrollHeight - host.clientHeight;
+    host.scrollTop = end;
+    const bounds = host.getBoundingClientRect();
+    return {
+      inner: host !== documentHost,
+      reachedEnd: Math.abs(host.scrollTop - end) <= 1,
+      withinViewport:
+        bounds.top >= 0 && bounds.bottom <= window.innerHeight + 1,
+      documentBounded:
+        document.documentElement.scrollHeight <= window.innerHeight + 1 &&
+        window.scrollY === 0,
+    };
   });
-  expect(scrolled, 'a tall page scrolls as a document').toBe(true);
+  expect(
+    scroll.inner,
+    'Militia pages use the inner rail host from tablet',
+  ).toBe(withRail);
+  expect(scroll.reachedEnd, 'the section host reaches its last content').toBe(
+    true,
+  );
+  if (withRail) {
+    expect(
+      scroll.withinViewport,
+      'the rail host fits the remaining viewport',
+    ).toBe(true);
+    expect(
+      scroll.documentBounded,
+      'the document stays still around the rail host',
+    ).toBe(true);
+  }
   if ((await bottomNavigation(page).count()) > 0)
     await expectBottomBarPinned(page);
   await expectReachable(page, page.locator('main button:visible').last());

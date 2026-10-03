@@ -1,21 +1,25 @@
 'use client';
 import { ArrowLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import {
+  GuardedLink,
+  plainClick,
+} from '~/components/campaign-shell/navigation-guard';
+import type { BackLink as CharacterSheetBackLink } from '~/lib/campaign-routes';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
 export type BackLink = {
   /** A trusted origin route, never redirect input. */
-  href: string;
-  label: 'Characters' | 'Characters & officers' | 'Campaigns';
+  href: CharacterSheetBackLink['href'];
+  label: CharacterSheetBackLink['label'];
+  onNavigate?: () => void;
 };
 
 // The sheet's outer box, shared with its route fallback so nothing jumps
 // when the sheet replaces the skeleton. Only a back link sits above the
 // body (approved shell, variant C); the sheet's own summary row names the
-// Character. `data-character-sheet` keeps the shell's top bar pinned while
-// this page scrolls (globals.css).
+// Character and pins under the shell's sticky top bar.
 export function CharacterSheetFrame({
   back,
   children,
@@ -25,10 +29,7 @@ export function CharacterSheetFrame({
   children: ReactNode;
 }) {
   return (
-    <main
-      data-character-sheet
-      className="mx-auto w-full max-w-6xl p-4 pt-2 md:p-6 md:pt-3"
-    >
+    <main className="mx-auto w-full max-w-6xl p-4 pt-2 md:p-6 md:pt-3">
       <div className="mb-2">
         {back ? (
           <Button
@@ -37,7 +38,15 @@ export function CharacterSheetFrame({
             size="sm"
             className="-ml-2 min-h-9 px-2"
           >
-            <GuardedLink href={back.href}>
+            <GuardedLink
+              href={back.href}
+              onClick={(event) => {
+                if (back.onNavigate && plainClick(event)) {
+                  event.preventDefault();
+                  back.onNavigate();
+                }
+              }}
+            >
               <ArrowLeft aria-hidden /> {back.label}
             </GuardedLink>
           </Button>

@@ -14,7 +14,7 @@ test('players share character and officer assignment changes', async ({
     await expect(
       page.getByRole('heading', { name: 'Week 1 · Event' }),
     ).toBeVisible();
-    await openCampaignSection(page, 'characters');
+    await openCampaignSection(page, 'officers');
   }
   const player = players.player;
   await player

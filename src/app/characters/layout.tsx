@@ -1,27 +1,48 @@
 'use client';
-
 import { Authenticated, AuthLoading, Unauthenticated } from 'convex/react';
 import type { ReactNode } from 'react';
 import { NavigationGuardProvider } from '~/components/campaign-shell/navigation-guard';
-import {
-  AccountControl,
-  ShellFrame,
-  SignIn,
-} from '~/components/campaign-shell/shell-frame';
-import { KeepLink, TopBarRow } from '~/components/campaign-shell/top-bar';
+import { ShellFrame, SignIn } from '~/components/campaign-shell/shell-frame';
+import { AppPhoneBar } from '~/components/campaign-shell/app-phone-bar';
+import { AppTopBar } from '~/components/campaign-shell/app-top-bar';
+import { ShellSlotProvider } from '~/components/campaign-shell/shell-slots';
+import { useIndependentCharactersShell } from '~/components/campaign-shell/use-independent-characters-shell';
+import { CharactersListLoading } from '~/components/character-navigation/characters-list-loading';
 import {
   CharacterSheetFrame,
   CharacterSheetSkeleton,
-  type BackLink,
 } from '~/components/character-sheet/character-sheet-frame';
 import { Card } from '~/components/ui/card';
-
-const back: BackLink = { href: '/campaigns', label: 'Campaigns' };
-
-// Private sheets stand outside every campaign and organization, so the top
-// bar (approved shell, variant C) carries only the Keep and the account; the
-// page scrolls under it with Back above the sheet's body. The Characters
-// area and its origin-aware Back arrive with #297.
+import type { BackLink } from '~/lib/campaign-routes';
+const back: BackLink = { href: '/characters', label: 'Characters' };
+function CharactersShell({ children }: { children: ReactNode }) {
+  const { nav, isSheet } = useIndependentCharactersShell();
+  return (
+    <ShellFrame
+      header={<AppTopBar nav={nav} />}
+      footer={<AppPhoneBar nav={nav} />}
+    >
+      <Authenticated>{children}</Authenticated>
+      <AuthLoading>
+        {isSheet ? (
+          <CharacterSheetSkeleton back={back} />
+        ) : (
+          <CharactersListLoading />
+        )}
+      </AuthLoading>
+      <Unauthenticated>
+        <CharacterSheetFrame back={back}>
+          <Card className="gap-3 p-4">
+            <p>Sign in to open your characters.</p>
+            <div>
+              <SignIn />
+            </div>
+          </Card>
+        </CharacterSheetFrame>
+      </Unauthenticated>
+    </ShellFrame>
+  );
+}
 export default function IndependentCharactersLayout({
   children,
 }: {
@@ -29,31 +50,9 @@ export default function IndependentCharactersLayout({
 }) {
   return (
     <NavigationGuardProvider>
-      <ShellFrame
-        header={
-          <TopBarRow>
-            <KeepLink />
-            <div className="ml-auto flex items-center gap-3">
-              <AccountControl />
-            </div>
-          </TopBarRow>
-        }
-      >
-        <Authenticated>{children}</Authenticated>
-        <AuthLoading>
-          <CharacterSheetSkeleton back={back} />
-        </AuthLoading>
-        <Unauthenticated>
-          <CharacterSheetFrame back={back}>
-            <Card className="gap-3 p-4">
-              <p>Sign in to open this character.</p>
-              <div>
-                <SignIn />
-              </div>
-            </Card>
-          </CharacterSheetFrame>
-        </Unauthenticated>
-      </ShellFrame>
+      <ShellSlotProvider>
+        <CharactersShell>{children}</CharactersShell>
+      </ShellSlotProvider>
     </NavigationGuardProvider>
   );
 }

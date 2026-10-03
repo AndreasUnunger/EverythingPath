@@ -23,12 +23,30 @@ type Call = {
   reject: (error: unknown) => void;
 };
 let calls: Call[] = [];
+let campaignCreation = false;
 const navigate = vi.fn();
 const maintenance = vi.fn<() => MigrationMaintenance>();
 let me: { characterSheetDemo?: true } | null | undefined = {
   characterSheetDemo: true,
 };
 
+vi.mock('./use-character-creation-route', () => ({
+  useCharacterCreationRoute: () => ({
+    back: { href: '/characters', label: 'Characters' },
+    loading: me === undefined,
+    available: Boolean(me?.characterSheetDemo),
+    ...(campaignCreation
+      ? {
+          campaign: { _id: 'campaign-1' },
+          organizationId: 'org',
+          origin: {
+            href: '/campaigns/campaign-1/characters',
+            organization: { kind: 'organization', id: 'org' },
+          },
+        }
+      : {}),
+  }),
+}));
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));
@@ -86,6 +104,7 @@ vi.mock('~/components/ui/select', () => ({
 
 beforeEach(() => {
   calls = [];
+  campaignCreation = false;
   me = { characterSheetDemo: true };
   maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
 });
@@ -118,9 +137,9 @@ test.each([{ me: {} }, { me: null }])(
     expect(
       screen.queryByText(/demo|fixture|approval/i),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Characters' })).toHaveAttribute(
       'href',
-      '/campaigns',
+      '/characters',
     );
   },
 );
@@ -134,7 +153,7 @@ test('while the identity loads, the creation route keeps the frame and shows no 
   expect(
     screen.queryByRole('form', { name: 'New character' }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Campaigns' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Characters' })).toBeVisible();
 });
 
 test('maintenance disables character creation and its fields with the reason beside the form', async () => {
@@ -237,7 +256,7 @@ test('double activation sends one request, a refusal keeps the entries, and a co
   });
   await waitFor(() =>
     expect(navigate).toHaveBeenCalledWith(
-      '/campaigns/campaign-1/characters/character-9',
+      '/characters/character-9?from=%2Fcampaigns%2Fcampaign-1%2Fcharacters',
     ),
   );
   expect(navigate).toHaveBeenCalledTimes(1);
@@ -260,4 +279,23 @@ test('an unknown outcome says the character may exist rather than claiming failu
   expect(
     screen.getByRole('button', { name: 'Create character' }),
   ).toBeEnabled();
+});
+
+test('campaign creation opens the independent sheet and retains its campaign Characters origin', async () => {
+  campaignCreation = true;
+  render(<NewPrivateCharacterRoute />);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+    target: { value: 'Campaign hero' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Create character' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(calls[0]?.args).toMatchObject({
+    campaignId: 'campaign-1',
+    organizationId: 'org',
+    name: 'Campaign hero',
+  });
+  await act(async () => calls[0]?.resolve('hero'));
+  expect(navigate).toHaveBeenCalledWith(
+    '/characters/hero?from=%2Fcampaigns%2Fcampaign-1%2Fcharacters&organizationId=org',
+  );
 });

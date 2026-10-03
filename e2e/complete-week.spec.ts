@@ -83,7 +83,7 @@ test('a player confirms a complete week, every device moves to the next week onc
   // dialog keeps the typed name through the new week's draft (#198).
   const records = await player.context().newPage();
   const recordDrafts = observeDraftIds(records);
-  await records.goto(`/campaigns/${campaignId}/characters`);
+  await records.goto(`/campaigns/${campaignId}/officers`);
   await records
     .getByRole('region', { name: 'Characters', exact: true })
     .getByRole('button', { name: /^Edit / })

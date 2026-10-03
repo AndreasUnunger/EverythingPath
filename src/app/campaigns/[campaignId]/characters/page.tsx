@@ -1,25 +1,21 @@
 'use client';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
-import { CharactersSection } from '~/components/campaign-sections/characters-section';
-import { CharactersPageFrame } from '~/components/campaign-sections/page-frames';
-import { CreateCharacterSheet } from '~/components/character-sheet/create-character-sheet';
-
+import { CampaignCharactersView } from '~/components/character-navigation/campaign-characters-view';
+import { CharactersListLoading } from '~/components/character-navigation/characters-list-loading';
+import { useCampaignCharacters } from '~/components/character-navigation/use-character-lists';
 export default function CharactersPage() {
   const { campaign, organizationId } = useCampaign();
-  return (
-    <CharactersPageFrame>
-      <CharactersSection
-        campaignId={campaign._id}
-        organizationId={organizationId}
-      />
-      {/* Living sheets are created only in prepared demo campaigns; the
-          production ledger stays as it is until the explicit cutover. */}
-      {campaign.e2eFixture ? (
-        <CreateCharacterSheet
-          campaignId={campaign._id}
-          organizationId={organizationId}
-        />
-      ) : null}
-    </CharactersPageFrame>
+  const { characters, newHref } = useCampaignCharacters({
+    campaignId: campaign._id,
+    organizationId,
+  });
+  return characters === undefined ? (
+    <CharactersListLoading />
+  ) : (
+    <CampaignCharactersView
+      campaignName={campaign.name}
+      characters={characters}
+      newHref={newHref}
+    />
   );
 }

@@ -12,7 +12,7 @@ export function campaignRows(page: Page) {
 
 export async function selectCampaign(page: Page, name: string) {
   const rows = campaignRows(page);
-  const switcher = page.getByRole('combobox', { name: 'Active campaign' });
+  const switcher = page.getByRole('combobox', { name: 'Where you are' });
   await expect
     .poll(async () => (await rows.count()) + (await switcher.count()), {
       message: 'the campaign list or a campaign page is shown',
@@ -45,9 +45,9 @@ export async function expectSelectedCampaign(page: Page, name: string) {
 
 // Three places offer a campaign's screens, and each is chosen only where it
 // is the sole owner of that destination:
-// - Campaign pages: the one visible "Campaign sections" navigation (top bar
-//   or phone bottom bar) for week, history, militia and characters. Setup is
-//   not a section item there; its link sits in page content (an empty state).
+// - Militia pages: the visible rail or phone page strip offers the weekly
+//   screens and Characters & officers. The officers destination names
+//   that ledger; the campaign Characters list is exercised separately.
 // - The campaign list/home (`/campaigns` and `/campaigns/<id>`): no shell
 //   sections exist, so the selected campaign's home content owns every
 //   destination (#189). The week is its Continue week link, which opens the
@@ -58,7 +58,7 @@ export async function expectSelectedCampaign(page: Page, name: string) {
 // Exactly one link must match in the chosen owner; duplicates fail loudly.
 export async function openCampaignSection(
   page: Page,
-  section: 'week' | 'history' | 'militia' | 'characters' | 'setup',
+  section: 'week' | 'history' | 'militia' | 'officers' | 'setup',
 ) {
   const home = /^\/campaigns(?:\/[^/]+)?\/?$/.test(
     new URL(page.url()).pathname,
@@ -73,9 +73,9 @@ export async function openCampaignSection(
           : `a[href$="/${section}"]:visible`,
       );
   } else {
-    const shell = page
-      .getByRole('navigation', { name: 'Campaign sections', exact: true })
-      .locator('visible=true');
+    const shell = page.locator(
+      'nav[aria-label="Militia pages"]:visible, nav[aria-label="Pages"]:visible',
+    );
     await expect(shell, 'a campaign page is shown').toHaveCount(1);
     link =
       section === 'setup'

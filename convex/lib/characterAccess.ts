@@ -34,7 +34,9 @@ export async function listAccessibleCharacters(
   const characters = await ctx.db
     .query('character')
     .withIndex('by_campaignId', (q) => q.eq('campaignId', campaignId))
-    .collect();
+    .take(4097);
+  if (characters.length > 4096)
+    throw new ConvexError('Too many Characters to load');
   return args.includeInactive
     ? characters
     : characters.filter((character) => character.isActive);
