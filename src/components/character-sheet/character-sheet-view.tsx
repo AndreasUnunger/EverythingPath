@@ -1,5 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
+import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
 import { AbilityChanges } from './ability-changes';
 import { BaseScoresEditor } from './base-scores-editor';
@@ -154,6 +155,7 @@ export function CharacterSheetView({
   controller,
   back,
   campaignName,
+  origin,
   lifecycle,
 }: {
   /** The route's scope, carried by the catalog's reads and writes. */
@@ -162,6 +164,8 @@ export function CharacterSheetView({
   controller: Controller;
   back: BackLink;
   campaignName?: string;
+  /** Where the sheet was opened from; its Spells page keeps the same Back. */
+  origin?: CharacterSheetOrigin;
   /** The Character's archive or delete control, bound to the route scope. */
   lifecycle: ReactNode;
 }) {
@@ -291,10 +295,19 @@ export function CharacterSheetView({
               />
             </div>
             <div className="min-w-0 lg:col-span-12">
-              <SpellcastingBlock
-                spellcastings={sheet.calculated.spellcastings}
-                unresolved={sheet.calculated.spellcastingUnresolved}
-              />
+            <SpellcastingBlock
+              characterName={sheet.character.name}
+              spellcastings={sheet.calculated.spellcastings}
+              unresolved={sheet.calculated.spellcastingUnresolved}
+              spells={{
+                characterId: sheet.character._id,
+                origin,
+                collections: sheet.calculated.spellCollections,
+                warnings: sheet.warnings,
+                warningController: controller.warnings,
+                writes: controller.spells,
+              }}
+            />
             </div>
           </div>
         </BreakdownResolverProvider>

@@ -10,6 +10,8 @@ import {
   materializeRepresentativeRaceCatalog,
 } from './representativeRaceCatalog';
 import { representativeClassCatalog } from './representativeClassCatalog';
+import { representativeSpellCatalog } from './representativeSpellCatalog';
+import { installPreparedSpells } from './spellCatalogInstall';
 import {
   getCompanionSupportingEntryKeys,
   reconcileCompanionRelationships,
@@ -26,6 +28,11 @@ import {
 } from '../../src/lib/character-sheet';
 import { requireCharacterAccess, type CharacterScope } from './characterAccess';
 import { updateCanonicalCharacter } from './canonicalCharacters';
+import {
+  cleanupCharacterSpellIndex,
+  deleteSpellCatalogIndex,
+} from './spellCatalog';
+import { internal } from '../_generated/api';
 import {
   calculateActiveCharacterSheet,
   requireCompatibleActiveRelease,
@@ -170,6 +177,24 @@ export async function initializeCharacterSheet(
     sheetLastOperationId: operationId,
     sheetUpdatedBy: updatedBy,
   });
+  const character = await ctx.db.get('character', characterId);
+  if (!character) throw new ConvexError('Character not found');
+  const campaign = character.campaignId
+    ? await ctx.db.get('campaign', character.campaignId)
+    : null;
+  if (campaign?.e2eFixture || (!character.campaignId && character.sheetDemo)) {
+    const sheet = await readCharacterSheetData(ctx, character);
+    for (
+      let offset = 0;
+      offset < representativeSpellCatalog.length;
+      offset += 64
+    )
+      await installPreparedSpells({
+        ctx,
+        sheet,
+        spells: representativeSpellCatalog.slice(offset, offset + 64),
+      });
+  }
   await updateCanonicalCharacter(ctx, characterId);
 }
 
@@ -340,14 +365,25 @@ export async function deleteCharacterSheet(
   characterId: Id<'character'>,
   operationId?: string,
 ) {
-  for (const table of ['characterSheetEntry', 'catalogEntry'] as const) {
-    const rows = await listRowsForDeletion(
-      ctx.db
-        .query(table)
-        .withIndex('by_characterId', (q) => q.eq('characterId', characterId)),
-      'Character sheet is too large to delete',
-    );
-    for (const row of rows) await ctx.db.delete(table, row._id);
+  const entries = await listRowsForDeletion(
+    ctx.db
+      .query('characterSheetEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId)),
+    'Character sheet is too large to delete',
+  );
+  for (const entry of entries)
+    await ctx.db.delete('characterSheetEntry', entry._id);
+  const definitions = await listRowsForDeletion(
+    ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId_and_browseOnly', (q) =>
+        q.eq('characterId', characterId).eq('browseOnly', undefined),
+      ),
+    'Character sheet is too large to delete',
+  );
+  for (const definition of definitions) {
+    await deleteSpellCatalogIndex(ctx, definition._id);
+    await ctx.db.delete('catalogEntry', definition._id);
   }
   const acceptedWarnings = await listRowsForDeletion(
     ctx.db
@@ -366,5 +402,28 @@ export async function deleteCharacterSheet(
   );
   for (const spell of spells) await ctx.db.delete('characterSpell', spell._id);
   await ctx.db.delete('character', characterId);
+  if (await cleanupCharacterSpellIndex(ctx, characterId))
+    await ctx.scheduler.runAfter(
+      0,
+      internal.characterSheetSpells.cleanupCatalog,
+      { characterId },
+    );
+  const browseCatalog = await ctx.db
+    .query('catalogEntry')
+    .withIndex('by_characterId_and_browseOnly', (q) =>
+      q.eq('characterId', characterId).eq('browseOnly', true),
+    )
+    .take(33);
+  if (browseCatalog.length <= 32)
+    for (const definition of browseCatalog) {
+      await deleteSpellCatalogIndex(ctx, definition._id);
+      await ctx.db.delete('catalogEntry', definition._id);
+    }
+  else
+    await ctx.scheduler.runAfter(
+      0,
+      internal.characterSheetSpells.cleanupCatalog,
+      { characterId },
+    );
   await reconcileCompanionRelationships(ctx, characterId, operationId);
 }

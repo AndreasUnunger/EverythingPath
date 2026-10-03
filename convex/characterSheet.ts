@@ -67,6 +67,10 @@ import schema, {
 } from './schema';
 import { getUser } from './user';
 import {
+  deleteSpellCatalogIndex,
+  reconcileSpellDefinition,
+} from './lib/spellCatalog';
+import {
   characterOwnerValidator,
   readCharacterOwners,
 } from './lib/characterOwnership';
@@ -193,7 +197,50 @@ const resolvedEntryValidator = v.object({
     ),
   ),
 });
+const collectionSpellValidator = v.object({
+  entryId: v.string(),
+  catalogEntryId: v.string(),
+  ruleIdentity: v.string(),
+  name: v.string(),
+  classEntryId: v.union(v.string(), v.null()),
+  castingClassName: v.union(v.string(), v.null()),
+  school: v.optional(v.string()),
+  description: v.optional(v.string()),
+  spellLevel: v.union(v.number(), v.null()),
+  explicitLevel: v.union(v.number(), v.null()),
+  offList: v.boolean(),
+});
 const calculatedValidator = v.object({
+  spellCollections: v.object({
+    collections: v.array(
+      v.object({
+        classEntryId: v.string(),
+        classTag: v.string(),
+        record: v.union(
+          v.literal('known'),
+          v.literal('book'),
+          v.literal('none'),
+        ),
+        heading: v.union(
+          v.literal('Spells known'),
+          v.literal('Spellbook'),
+          v.literal('Formula book'),
+          v.literal('Familiar'),
+          v.null(),
+        ),
+        readOnly: v.boolean(),
+        spells: v.array(collectionSpellValidator),
+        levels: v.array(
+          v.object({
+            spellLevel: v.number(),
+            count: v.number(),
+            allowance: v.union(v.number(), v.null()),
+          }),
+        ),
+      }),
+    ),
+    spellsWithoutSpellcasting: v.array(collectionSpellValidator),
+  }),
   spellcastings: v.array(spellcastingValidator),
   spellcastingUnresolved: v.array(v.string()),
   racial: v.object({
@@ -773,16 +820,23 @@ async function removeCatalogSelection(
   if (
     definition?.scope === 'character' &&
     definition.characterId === sheet.character._id &&
+    !definition.importedSpell &&
     !isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, {
       removedEntryId: entry._id,
     })
   ) {
+    await deleteSpellCatalogIndex(ctx, entry.catalogEntryId);
     await ctx.db.delete('catalogEntry', entry.catalogEntryId);
     sheet.catalogEntries = sheet.catalogEntries.filter(
       (row) => row._id !== entry.catalogEntryId,
     );
   }
   sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
+  await reconcileSpellDefinition({
+    ctx,
+    sheet,
+    catalogEntryId: entry.catalogEntryId,
+  });
 }
 export const removePersonalAdjustment = campaignMutation({
   args: rowScope,
@@ -1306,6 +1360,10 @@ export function validateSheetEntryDetail(
   detail: typeof sheetEntryDetailValidator.type,
   casterLevel?: number,
 ) {
+  if (detail.kind === 'spell' && detail.levels) {
+    for (const level of Object.values(detail.levels))
+      requireNonnegativeInteger(level, 'Spell level');
+  }
   if (detail.kind === 'item' && detail.armor) {
     requireFiniteNumber(detail.armor.armorCheckPenalty);
     if (detail.armor.armorCheckPenalty < 0)
@@ -1454,6 +1512,7 @@ export const createSheetEntry = campaignMutation({
       throw new ConvexError('Character Sheet Entry is unavailable');
     sheet.entries.push(entry);
     sheet.catalogEntries.push(catalog);
+    await reconcileSpellDefinition({ ctx, sheet, catalogEntryId: catalog._id });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -1544,6 +1603,11 @@ export const editSheetEntry = campaignMutation({
     sheet.catalogEntries = sheet.catalogEntries.map((row) =>
       row._id === catalog._id ? updatedCatalog : row,
     );
+    await reconcileSpellDefinition({
+      ctx,
+      sheet,
+      catalogEntryId: updatedCatalog._id,
+    });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -1653,6 +1717,7 @@ async function persistRecordedEntry(
   row: WithoutSystemFields<Doc<'characterSheetEntry'>>,
   previousId?: Id<'characterSheetEntry'>,
 ) {
+  const previous = sheet.entries.find((entry) => entry._id === previousId);
   // The concrete document is checked by the schema before it enters the sheet.
   if (previousId) await ctx.db.replace('characterSheetEntry', previousId, row);
   else if (sheet.entries.length >= maxCharacterChildRows)
@@ -1664,6 +1729,12 @@ async function persistRecordedEntry(
     ...sheet.entries.filter((entry) => entry._id !== id),
     stored,
   ];
+  const spellDefinitionIds = new Set([
+    ...(previous?.kind === 'spell' ? [previous.catalogEntryId] : []),
+    ...(stored.kind === 'spell' ? [stored.catalogEntryId] : []),
+  ]);
+  for (const catalogEntryId of spellDefinitionIds)
+    await reconcileSpellDefinition({ ctx, sheet, catalogEntryId });
   return id;
 }
 

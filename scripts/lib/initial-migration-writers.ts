@@ -31,6 +31,8 @@ const characterTables = new Set([
   'acceptedWarning',
   'characterSpell',
   'spell',
+  'spellCatalogIndex',
+  'spellCatalogSummary',
 ]);
 const reviewed: Record<string, string> = {
   'convex/initialMigration.ts:start':
@@ -39,6 +41,8 @@ const reviewed: Record<string, string> = {
     'Operator: reopens only the current unactivated run and advances the epoch',
   'convex/canonicalDraftPersistence.ts:retireClosedDraft':
     'Write gate (maintenance defers); accepted draft retirement is idempotent across epochs and Character authority',
+  'convex/characterSheetSpells.ts:cleanupCatalog':
+    'Housekeeping: completes an authorized Character deletion; refuses live Characters, including during maintenance',
   'convex/canonicalPersistenceFixtures.ts:inspect':
     'Read-only fixture inspection; no writes or scheduling',
   'convex/clerk.ts:fulfill':
@@ -55,6 +59,7 @@ type Writer = {
     | 'general'
     | 'operator'
     | 'retired'
+    | 'housekeeping'
     | 'readOnly';
 };
 
@@ -242,9 +247,11 @@ function checkRegistration(
       ? 'legacyCharacter'
       : policy?.startsWith('Operator:')
         ? 'operator'
-        : policy?.startsWith('Read-only') || policy?.startsWith('Signature')
-          ? 'readOnly'
-          : 'general';
+        : policy?.startsWith('Housekeeping:')
+          ? 'housekeeping'
+          : policy?.startsWith('Read-only') || policy?.startsWith('Signature')
+            ? 'readOnly'
+            : 'general';
   if (policy && writerClass === 'general' && handler) {
     const tables = new Set<string>();
     const visited = new Set<ts.Node>();

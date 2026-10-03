@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:dc6fdd110c738d4b029221502a057c5282f8346c97189b333518e860f3ebe91a';
+    'sha256:100c6860a865ce1b37074d6b494e07a17c8485b51680bc9fe5ab45f0214e4910';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -32,6 +32,8 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-conditions.ts',
     'src/lib/catalog/data/reviewed-conditions.json',
     'src/lib/character-sheet-spellcasting.ts',
+    'src/lib/character-sheet-spell-collections.ts',
+    'src/lib/character-sheet-spell-warnings.ts',
     'src/lib/character-sheet-casting-tables.ts',
     'src/lib/character-sheet-permanent-statistics.ts',
     'scripts/catalog/reviewed-casting-tables.json',
@@ -63,6 +65,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-proficiencies',
       './character-sheet-conditions',
       './character-sheet-spellcasting',
+      './character-sheet-spell-collections',
       './character-sheet-racial',
       './character-sheet-advancement',
       './character-sheet-formulas',
@@ -89,6 +92,8 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-permanent-statistics',
       './character-sheet-grants',
     ],
+    ['./character-sheet-spell-warnings'],
+    [],
     [
       '../../scripts/catalog/reviewed-casting-tables.json',
       'zod',

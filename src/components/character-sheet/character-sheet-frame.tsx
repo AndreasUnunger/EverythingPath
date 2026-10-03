@@ -12,7 +12,8 @@ import { Skeleton } from '~/components/ui/skeleton';
 export type BackLink = {
   /** A trusted origin route, never redirect input. */
   href: CharacterSheetBackLink['href'];
-  label: CharacterSheetBackLink['label'];
+  /** "Sheet" is the Spells page's one way back to its own sheet. */
+  label: CharacterSheetBackLink['label'] | 'Sheet';
   onNavigate?: () => void;
 };
 

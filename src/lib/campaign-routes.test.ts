@@ -3,6 +3,7 @@ import Home from '~/app/page';
 import {
   campaignPath,
   characterSheetPath,
+  characterSpellsPath,
   decodeRouteSegment,
   normalizePhase,
   weekPath,
@@ -30,11 +31,42 @@ it('recognizes independent sheet and creation routes without accepting them as B
     kind: 'character-sheet',
     characterId: 'new',
   });
+  expect(resolveNavigationLocation('/characters/hero/spells')).toEqual({
+    kind: 'character-sheet',
+    characterId: 'hero',
+  });
   expect(resolveNavigationLocation('/characters/hero/unknown')).toBeUndefined();
   expect(resolveNavigationLocation('/characters/')).toBeUndefined();
   expect(
     parseCharacterSheetOrigin(new URLSearchParams('from=%2Fcharacters%2Fnew')),
   ).toBeUndefined();
+});
+
+it('opens a sheet’s Spells page with the sheet’s origin and one Spellcasting, and never accepts it as a Back origin', () => {
+  const origin = {
+    href: '/campaigns/alpha/characters',
+    organization: { kind: 'organization', id: 'org' },
+  } as const;
+  expect(characterSpellsPath('hero/a', origin, 'wizard')).toBe(
+    '/characters/hero%2Fa/spells?from=%2Fcampaigns%2Falpha%2Fcharacters&organizationId=org&spellcasting=wizard',
+  );
+  expect(
+    characterSpellsPath('hero', {
+      ...origin,
+      organization: { kind: 'personal' },
+    }),
+  ).toBe(
+    '/characters/hero/spells?from=%2Fcampaigns%2Falpha%2Fcharacters&organizationId=',
+  );
+  expect(characterSpellsPath('hero')).toBe('/characters/hero/spells');
+  expect(
+    parseCharacterSheetOrigin(
+      new URLSearchParams('from=%2Fcharacters%2Fhero%2Fspells'),
+    ),
+  ).toBeUndefined();
+  expect(
+    organizationSwitchPath('/characters/hero/spells', 'from=%2Fcharacters'),
+  ).toBe('/characters/hero/spells?from=%2Fcharacters');
 });
 
 describe('campaign navigation', () => {

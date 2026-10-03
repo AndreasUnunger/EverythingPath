@@ -64,7 +64,8 @@ export function resolveNavigationLocation(
   const [pathname] = href.split('?');
   if (pathname === '/characters') return { kind: 'characters' };
   if (pathname === '/campaigns') return { kind: 'campaigns' };
-  const sheet = pathname?.match(/^\/characters\/([^/]+)$/);
+  // A sheet's Spells page belongs to the sheet: same Character, same origin.
+  const sheet = pathname?.match(/^\/characters\/([^/]+)(?:\/spells)?$/);
   if (sheet?.[1])
     return {
       kind: 'character-sheet',
@@ -126,11 +127,7 @@ export function resolveCharacterSheetBack(
   };
 }
 
-/** Every sheet is independent of campaign membership; its origin is navigation only. */
-export function characterSheetPath(
-  characterId: string,
-  origin?: CharacterSheetOrigin,
-): string {
+function originParams(origin?: CharacterSheetOrigin) {
   const params = new URLSearchParams();
   if (origin && isCharacterSheetOrigin(origin.href)) {
     params.set('from', origin.href);
@@ -139,8 +136,28 @@ export function characterSheetPath(
     else if (origin.organization.kind === 'personal')
       params.set('organizationId', '');
   }
-  const query = params.toString();
+  return params;
+}
+
+/** Every sheet is independent of campaign membership; its origin is navigation only. */
+export function characterSheetPath(
+  characterId: string,
+  origin?: CharacterSheetOrigin,
+): string {
+  const query = originParams(origin).toString();
   return `/characters/${encodeURIComponent(characterId)}${query ? `?${query}` : ''}`;
+}
+
+/** The sheet's Spells page keeps the sheet's origin and may open one Spellcasting. */
+export function characterSpellsPath(
+  characterId: string,
+  origin?: CharacterSheetOrigin,
+  spellcastingId?: string,
+): string {
+  const params = originParams(origin);
+  if (spellcastingId) params.set('spellcasting', spellcastingId);
+  const query = params.toString();
+  return `/characters/${encodeURIComponent(characterId)}/spells${query ? `?${query}` : ''}`;
 }
 
 export function characterCreatePath(

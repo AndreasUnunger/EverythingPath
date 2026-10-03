@@ -34,6 +34,7 @@ export const classCastingSchema = z.object({
   casterLevelOffset: z.number(),
   table: z.enum(castingTableKeys),
   record: z.enum(['known', 'book', 'none']),
+  bookType: z.enum(['spellbook', 'formula', 'familiar']).optional(),
 });
 const classCasting: Record<string, Casting> = Object.fromEntries(
   Object.entries(reviewedCastingTables.classes).map(([key, value]) => [

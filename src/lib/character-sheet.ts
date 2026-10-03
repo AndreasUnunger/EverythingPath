@@ -19,6 +19,7 @@ import {
   type ConditionKey,
 } from './character-sheet-conditions';
 import { calculateSpellcastings } from './character-sheet-spellcasting';
+import { calculateSpellCollections } from './character-sheet-spell-collections';
 import type { Casting } from './character-sheet-casting-tables';
 import {
   racialTraitWarnings,
@@ -116,6 +117,10 @@ export const warningChecks = [
   'proficiencyPrerequisite',
   'oneHandedExotic',
   'equipmentEnhancement',
+  'spellCount',
+  'spellLevel',
+  'spellOffList',
+  'spellOrphaned',
 ] as const;
 export const characterSheetWarningSchema = z.object({
   kind: z.enum(['incomplete', 'unresolved', 'rules']),
@@ -137,6 +142,11 @@ export const characterSheetWarningSchema = z.object({
     z.object({ kind: z.literal('hitPoints') }),
     z.object({ kind: z.literal('classLevels') }),
     z.object({ kind: z.literal('favoredClasses') }),
+    z.object({
+      kind: z.literal('spellcasting'),
+      classEntryId: z.string(),
+      spellLevel: z.number(),
+    }),
     z.object({
       kind: z.literal('modifier'),
       entryId: z.string(),
@@ -337,7 +347,13 @@ export type SheetCatalogEntryDetail =
   | CharacterSheetClassDetail
   | { kind: 'class' }
   | { kind: 'condition'; conditionKey?: ConditionKey }
-  | { kind: 'base' | 'manual' | 'spell' };
+  | {
+      kind: 'spell';
+      levels?: Readonly<Record<string, number>>;
+      school?: string;
+      description?: string;
+    }
+  | { kind: 'base' | 'manual' };
 
 export function isTemporaryEffect(
   entry: Pick<SheetEntry, 'kind'>,
@@ -939,6 +955,11 @@ function calculateSheetProjection(
     permanentAbilities,
   });
   const { spellcastings, spellcastingUnresolved } = casting;
+  const { warnings: spellWarnings, ...spellCollections } =
+    calculateSpellCollections({
+      input: recordedInput,
+      spellcastings,
+    });
   const abilities = calculateAbilities(breakdowns, abilityDamage);
   const skillProjection = resolveSkills({
     advancement,
@@ -1002,6 +1023,7 @@ function calculateSheetProjection(
       grants.allEntries,
       advancementResult.budgets.generalFeats,
     ),
+    ...spellWarnings,
   ].filter(
     (warning) =>
       input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
@@ -1032,6 +1054,7 @@ function calculateSheetProjection(
   return {
     abilities,
     spellcastings,
+    spellCollections,
     spellcastingUnresolved,
     racial,
     resolvedEntries: grants.entries.filter(

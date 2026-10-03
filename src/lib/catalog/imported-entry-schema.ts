@@ -18,6 +18,15 @@ const companion = {
 };
 const companionFeature = { tag: z.string(), associations: z.array(z.string()) };
 
+export const importedSpellDetailSchema = z.object({
+  kind: z.literal('spell'),
+  levels: z.record(z.string(), z.number()),
+  grantedLevels: z.record(z.string(), z.record(z.string(), z.number())),
+  school: z.string(),
+  subschools: z.array(z.string()),
+  descriptors: z.array(z.string()),
+});
+
 // These are the importer's release bodies. Prepared, character-scoped catalog
 // entries use database IDs and a narrower detail contract instead.
 export const importedDetailSchema = z.discriminatedUnion('kind', [
@@ -64,14 +73,7 @@ export const importedDetailSchema = z.discriminatedUnion('kind', [
     races: z.array(z.string()),
     bonusSkillRanksPerLevel: z.number(),
   }),
-  z.object({
-    kind: z.literal('spell'),
-    levels: z.record(z.string(), z.number()),
-    grantedLevels: z.record(z.string(), z.record(z.string(), z.number())),
-    school: z.string(),
-    subschools: z.array(z.string()),
-    descriptors: z.array(z.string()),
-  }),
+  importedSpellDetailSchema,
   z.object({
     kind: z.literal('spellEffect'),
     defaultCasterLevel: z.number(),

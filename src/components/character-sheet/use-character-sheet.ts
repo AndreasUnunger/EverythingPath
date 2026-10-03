@@ -26,6 +26,7 @@ import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
 import { useCharacterSheetRaces } from './use-character-sheet-races';
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
+import { useCharacterSheetSpells } from './use-character-sheet-spells';
 import { useCharacterCompanions } from './use-character-companions';
 import type { SaveStatus } from './save-status';
 import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
@@ -66,6 +67,7 @@ export function useCharacterSheet(
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
   const equipmentWrites = useCharacterSheetEquipment(scope, snapshot);
   const grants = useCharacterSheetGrants(scope, snapshot);
+  const spells = useCharacterSheetSpells(scope, snapshot);
   const companions = useCharacterCompanions(scope, snapshot, origin);
   const races = useCharacterSheetRaces(scope, snapshot);
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
@@ -226,6 +228,7 @@ export function useCharacterSheet(
     ...entryWrites,
     ...equipmentWrites,
     grants,
+    spells,
     companions,
     races,
     sheet,

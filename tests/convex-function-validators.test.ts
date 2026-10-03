@@ -79,6 +79,65 @@ function invalidValidators(validator: unknown, path: string): string[] {
   ];
 }
 
+const convexIdentifier = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+
+function records(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === 'object' && entry !== null,
+  );
+}
+
+function invalidSchemaIdentifiers(definition: unknown): string[] {
+  // Deployment rejects these names; convex-test and codegen accept them.
+  if (
+    typeof definition !== 'object' ||
+    definition === null ||
+    !('export' in definition) ||
+    typeof definition.export !== 'function'
+  )
+    throw new Error('Schema does not export Convex schema metadata');
+  const exported: unknown = JSON.parse(String(definition.export()));
+  if (
+    typeof exported !== 'object' ||
+    exported === null ||
+    !('tables' in exported)
+  )
+    throw new Error('Schema metadata does not list tables');
+  const invalid: string[] = [];
+  const check = (name: unknown, path: string) => {
+    if (typeof name !== 'string' || !convexIdentifier.test(name))
+      invalid.push(`${path}: invalid identifier ${String(name)}`);
+  };
+  for (const table of records(exported.tables)) {
+    const tableName = String(table.tableName);
+    check(table.tableName, `${tableName}.tableName`);
+    for (const kind of [
+      'indexes',
+      'stagedDbIndexes',
+      'searchIndexes',
+      'stagedSearchIndexes',
+      'vectorIndexes',
+      'stagedVectorIndexes',
+    ])
+      for (const index of records(table[kind])) {
+        const path = `${tableName}.${kind}[${String(index.indexDescriptor)}]`;
+        check(index.indexDescriptor, path);
+        const fields = [
+          ...(Array.isArray(index.fields) ? index.fields : []),
+          ...(Array.isArray(index.filterFields) ? index.filterFields : []),
+          ...('searchField' in index ? [index.searchField] : []),
+          ...('vectorField' in index ? [index.vectorField] : []),
+        ];
+        for (const field of fields)
+          for (const segment of String(field).split('.'))
+            check(segment, `${path}.field`);
+      }
+  }
+  return invalid;
+}
+
 test('all registered Convex functions and schema tables export supported validator metadata', () => {
   // Deployment consumes these exports; convex-test does not validate their shape.
   const checked: string[] = [];
@@ -197,5 +256,26 @@ test('the metadata guard catches nested dotted fields and literal-union record k
   expect(invalidValidators(validator, 'args')).toEqual([
     'args.value.nested.fieldType.value.value[0].value[ability.str]: invalid object field',
     'args.value.nested.fieldType.value.value[1].keys: expected string or id',
+  ]);
+});
+
+test('schema table, index and indexed field names are valid Convex identifiers', () => {
+  expect(invalidSchemaIdentifiers(schema)).toEqual([]);
+});
+
+test('the schema identifier guard catches over-long and malformed names', () => {
+  const fixture = defineSchema({
+    malformed: defineTable({ name: v.string(), level: v.number() })
+      .index(`by_${'x'.repeat(62)}`, ['name'])
+      .index('1_by_name', ['name'])
+      .searchIndex('search-name', {
+        searchField: 'name',
+        filterFields: ['level'],
+      }),
+  });
+  expect(invalidSchemaIdentifiers(fixture)).toEqual([
+    `malformed.indexes[by_${'x'.repeat(62)}]: invalid identifier by_${'x'.repeat(62)}`,
+    'malformed.indexes[1_by_name]: invalid identifier 1_by_name',
+    'malformed.searchIndexes[search-name]: invalid identifier search-name',
   ]);
 });

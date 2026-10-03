@@ -285,6 +285,8 @@ const catalogEntryFields = v.object({
   proficiencyPrerequisites: v.optional(
     v.array(proficiencyPrerequisiteValidator),
   ),
+  browseOnly: v.optional(v.literal(true)),
+  importedSpell: v.optional(v.literal(true)),
   grants: v.optional(
     v.array(v.object({ catalogEntryId: v.id('catalogEntry') })),
   ),
@@ -349,7 +351,12 @@ export const sheetEntryDetailValidator = v.union(
       }),
     ),
   }),
-  v.object({ kind: v.literal('spell') }),
+  v.object({
+    kind: v.literal('spell'),
+    levels: v.optional(v.record(v.string(), v.number())),
+    school: v.optional(v.string()),
+    description: v.optional(v.string()),
+  }),
 );
 export const abilityValidator = v.union(
   ...abilityKeys.map((ability) => v.literal(ability)),
@@ -630,7 +637,11 @@ export const characterSheetEntryValidator = v.union(
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
     ...recordedCatalogEntryFields,
-    state: v.object({ kind: v.literal('spell') }),
+    state: v.object({
+      kind: v.literal('spell'),
+      castingClassId: v.optional(v.id('catalogEntry')),
+      level: v.optional(v.union(v.number(), v.null())),
+    }),
   }),
   v.object({
     characterId: v.id('character'),
@@ -839,7 +850,117 @@ export default defineSchema({
       'scope',
       'copiedFrom',
       'campaignPreference',
-    ]),
+    ])
+    .index('by_characterId_and_browseOnly', ['characterId', 'browseOnly'])
+    .index('by_characterId_and_ruleIdentity', ['characterId', 'ruleIdentity']),
+  spellCatalogIndex: defineTable({
+    characterId: v.id('character'),
+    ruleIdentity: v.optional(v.string()),
+    levels: v.optional(v.record(v.string(), v.number())),
+    catalogEntryId: v.id('catalogEntry'),
+    castingClassId: v.id('catalogEntry'),
+    level: v.union(v.number(), v.null()),
+    school: v.string(),
+    name: v.string(),
+    available: v.boolean(),
+    recorded: v.optional(v.boolean()),
+  })
+    .index('by_catalogEntryId', ['catalogEntryId'])
+    .index('by_characterId_and_catalogEntryId', [
+      'characterId',
+      'catalogEntryId',
+    ])
+    .index('by_characterId_and_ruleIdentity', ['characterId', 'ruleIdentity'])
+    .index('by_characterId_and_castingClassId_and_available_and_name', [
+      'characterId',
+      'castingClassId',
+      'available',
+      'name',
+    ])
+    // Convex caps index names at 64 characters, so these drop the `_and_` joiners.
+    .index('by_characterId_castingClassId_available_level_name', [
+      'characterId',
+      'castingClassId',
+      'available',
+      'level',
+      'name',
+    ])
+    .index('by_characterId_castingClassId_available_school_name', [
+      'characterId',
+      'castingClassId',
+      'available',
+      'school',
+      'name',
+    ])
+    .index('by_characterId_castingClassId_available_level_school_name', [
+      'characterId',
+      'castingClassId',
+      'available',
+      'level',
+      'school',
+      'name',
+    ])
+    .index('by_characterId_and_castingClassId_and_name', [
+      'characterId',
+      'castingClassId',
+      'name',
+    ])
+    .index('by_characterId_and_castingClassId_and_level_and_name', [
+      'characterId',
+      'castingClassId',
+      'level',
+      'name',
+    ])
+    .index('by_characterId_and_castingClassId_and_school_and_name', [
+      'characterId',
+      'castingClassId',
+      'school',
+      'name',
+    ])
+    .index('by_characterId_and_castingClassId_and_level_and_school_and_name', [
+      'characterId',
+      'castingClassId',
+      'level',
+      'school',
+      'name',
+    ])
+    .searchIndex('search_name', {
+      searchField: 'name',
+      filterFields: [
+        'characterId',
+        'castingClassId',
+        'available',
+        'level',
+        'school',
+      ],
+    }),
+  spellCatalogSummary: defineTable(
+    v.union(
+      v.object({
+        characterId: v.id('character'),
+        castingClassId: v.id('catalogEntry'),
+        kind: v.literal('level'),
+        value: v.union(v.number(), v.null()),
+        count: v.number(),
+        availableCount: v.number(),
+        unrecordedCount: v.number(),
+      }),
+      v.object({
+        characterId: v.id('character'),
+        castingClassId: v.id('catalogEntry'),
+        kind: v.literal('school'),
+        value: v.string(),
+        count: v.number(),
+        availableCount: v.number(),
+        unrecordedCount: v.number(),
+      }),
+    ),
+  ).index('by_characterId_and_castingClassId_and_kind_and_value', [
+    'characterId',
+    'castingClassId',
+    'kind',
+    'value',
+  ]),
   acceptedWarning: defineTable({
     characterId: v.id('character'),
     check: v.string(),

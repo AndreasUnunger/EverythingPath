@@ -13,7 +13,8 @@
       "Occultist has no fixed spells-known count: implement-school choices determine it. Its override deliberately omits spellsKnown.",
       "Adept has a finite zero-level per-day column and no Cantrips or Orisons class feature (CRB pp. 448–449); its reviewed cantrips=false corrects the Foundry casting summary, while its table retains three zero-level spells per day.",
       "Adept, extract and Unchained summoner overrides are transcribed from the reviewed pf1-spellcasting-rules corpus (CRB p. 448, APG p. 26, ACG p. 30, PU p. 25).",
-      "Occultist rows explicitly include zero-level knack availability in castableSpellLevels, while omitting a fixed spellsKnown count."
+      "Occultist rows explicitly include zero-level knack availability in castableSpellLevels, while omitting a fixed spellsKnown count.",
+      "Book collection types follow the class recording rules: alchemist formula books (APG pp. 26–27), investigator formula books (ACG pp. 30–31), and witch familiars (APG pp. 65–67)."
     ]
   },
   "tables": {
@@ -976,7 +977,8 @@
       "cantrips": false,
       "casterLevelOffset": 0,
       "table": "extracts",
-      "record": "book"
+      "record": "book",
+      "bookType": "formula"
     },
     "antipaladin": {
       "classTag": "antipaladin",
@@ -1066,7 +1068,8 @@
       "cantrips": false,
       "casterLevelOffset": 0,
       "table": "extracts",
-      "record": "book"
+      "record": "book",
+      "bookType": "formula"
     },
     "magus": {
       "classTag": "magus",
@@ -1226,7 +1229,8 @@
       "cantrips": true,
       "casterLevelOffset": 0,
       "table": "prepared-full",
-      "record": "book"
+      "record": "book",
+      "bookType": "familiar"
     },
     "wizard": {
       "classTag": "wizard",

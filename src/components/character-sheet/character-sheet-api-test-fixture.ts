@@ -18,6 +18,12 @@ const defaultApi = {
     interrupt: 'interruptCompanion',
     restore: 'restoreCompanion',
   },
+  characterSheetSpells: {
+    record: 'recordSpell',
+    remove: 'removeRecordedSpell',
+    browse: 'browseSpells',
+    browserInfo: 'spellBrowserInfo',
+  },
   characterSheet: {
     read: 'read',
     selectEntry: 'selectEntry',
@@ -79,6 +85,10 @@ export function createCharacterSheetApiMock(overrides: ApiOverrides = {}) {
       companionRelationships: {
         ...defaultApi.companionRelationships,
         ...overrides.companionRelationships,
+      },
+      characterSheetSpells: {
+        ...defaultApi.characterSheetSpells,
+        ...overrides.characterSheetSpells,
       },
       characterSheet: {
         ...defaultApi.characterSheet,

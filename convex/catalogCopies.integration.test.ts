@@ -372,10 +372,11 @@ test('saving racial statistics to the campaign catalog keeps the race selectable
 test('referenced shared definitions do not consume the racial statistics copy limit', async () => {
   const { t, owner, scope } = await fixture();
   const raceId = await t.run(async (ctx) => {
+    // Browse-only seeded Spells sit outside the sheet's row allowance.
     const local = await ctx.db
       .query('catalogEntry')
-      .withIndex('by_characterId', (q) =>
-        q.eq('characterId', scope.characterId),
+      .withIndex('by_characterId_and_browseOnly', (q) =>
+        q.eq('characterId', scope.characterId).eq('browseOnly', undefined),
       )
       .take(4096);
     for (let index = local.length; index < 4095; index++)
@@ -427,6 +428,68 @@ test('referenced shared definitions do not consume the racial statistics copy li
   expect(
     saved?.catalogEntries.filter((row) => row.scope === 'character'),
   ).toHaveLength(4096);
+});
+
+test('seeded browse-only Spells leave a fixture sheet its full Character row allowance', async () => {
+  const { t, owner, scope } = await fixture();
+  const seeded = await t.run(async (ctx) => {
+    const browseOnly = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId_and_browseOnly', (q) =>
+        q.eq('characterId', scope.characterId).eq('browseOnly', true),
+      )
+      .take(4096);
+    const counted = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId_and_browseOnly', (q) =>
+        q.eq('characterId', scope.characterId).eq('browseOnly', undefined),
+      )
+      .take(4096);
+    for (let index = counted.length; index < 4095; index++)
+      await ctx.db.insert('catalogEntry', {
+        ...definition,
+        scope: 'character',
+        characterId: scope.characterId,
+        ruleIdentity: `allowance-${index}`,
+        sources: [],
+        modifiers: [],
+      });
+    return browseOnly;
+  });
+  expect(seeded.length).toBeGreaterThan(0);
+  expect(
+    seeded.every(
+      (row) =>
+        row.detail.kind === 'spell' &&
+        row.importedSpell &&
+        row.scope === 'character' &&
+        row.characterId === scope.characterId,
+    ),
+  ).toBe(true);
+  const oneOff = {
+    ...scope,
+    definition: {
+      ...definition,
+      name: 'Last allowed row',
+      modifiers: [...definition.modifiers],
+      sources: [],
+    },
+  };
+  await owner.mutation(api.catalogCopies.createOneOff, {
+    ...oneOff,
+    operationId: 'last-row',
+  });
+  const full = await owner.query(api.characterSheet.read, scope);
+  expect(
+    full?.catalogEntries.filter((row) => row.scope === 'character'),
+  ).toHaveLength(4096);
+  expect(full?.catalogEntries.some((row) => row.browseOnly)).toBe(false);
+  await expect(
+    owner.mutation(api.catalogCopies.createOneOff, {
+      ...oneOff,
+      operationId: 'past-allowance',
+    }),
+  ).rejects.toThrow('Character sheet is too large');
 });
 
 test('shared races, Racial Traits and equipment retain Catalog Copies and recorded state', async () => {

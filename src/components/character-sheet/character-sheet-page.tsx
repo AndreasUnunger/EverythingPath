@@ -79,6 +79,7 @@ function SheetHost({
       controller={controller}
       back={back}
       campaignName={campaignName}
+      origin={origin}
       lifecycle={
         <CharacterLifecycle
           character={controller.sheet.character}

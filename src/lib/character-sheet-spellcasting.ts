@@ -21,7 +21,13 @@ import { characterSheetClassFamily } from './character-sheet-grants';
 type Abilities = Record<Ability, { score: number; modifier: number }>;
 export type ResolvedSpellcasting = Pick<
   Casting,
-  'classTag' | 'type' | 'spellKind' | 'record' | 'ability' | 'cantrips'
+  | 'classTag'
+  | 'type'
+  | 'spellKind'
+  | 'record'
+  | 'bookType'
+  | 'ability'
+  | 'cantrips'
 > & {
   classEntryId: string;
   name: string;
@@ -429,6 +435,7 @@ export function calculateSpellcastings({
         type: casting.type,
         spellKind: casting.spellKind,
         record: casting.record,
+        ...(casting.bookType ? { bookType: casting.bookType } : {}),
         ability: casting.ability,
         cantrips: casting.cantrips,
         castingLevel,

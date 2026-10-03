@@ -14,6 +14,7 @@ import {
   type Modifier,
   type ResolveOptions,
 } from '~/lib/character-sheet';
+import { characterSpellsPath } from '~/lib/campaign-routes';
 import { findReviewedClassCasting } from '~/lib/character-sheet-casting-tables';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { CharacterSheetPage } from './character-sheet-page';
@@ -25,6 +26,8 @@ import {
   type CatalogSheetEntry,
   type Level,
 } from './character-sheet-test-fixture';
+import { buildCharacterSheetView } from './character-sheet-view-model';
+import { buildSpellSheet, spells } from './character-spells-test-fixture';
 import { SpellcastingBlock } from './spellcasting-block';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
@@ -89,6 +92,7 @@ function blockOf(input: CharacterSheetInput) {
       spellcastings={calculated.spellcastings}
     >
       <SpellcastingBlock
+        characterName="Kesh"
         spellcastings={calculated.spellcastings}
         unresolved={calculated.spellcastingUnresolved}
       />
@@ -554,7 +558,7 @@ test('a Character without a casting class has no spellcasting and no table; a Cl
     buildSheet({ levels: [{ id: 'fighter-1', hp: 10, classId: 'fighter' }] }),
   );
   const section = screen.getByRole('region', { name: 'Spellcasting' });
-  expect(within(section).getByText('No spellcasting.')).toBeVisible();
+  expect(within(section).getByText('Kesh has no Spellcasting.')).toBeVisible();
   expect(within(section).queryByRole('table')).not.toBeInTheDocument();
   expect(within(section).queryByRole('button')).not.toBeInTheDocument();
 
@@ -564,7 +568,9 @@ test('a Character without a casting class has no spellcasting and no table; a Cl
       'Not complete: a Class Level has no class yet.',
     ),
   ).toBeVisible();
-  expect(screen.queryByText('No spellcasting.')).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('Kesh has no Spellcasting.'),
+  ).not.toBeInTheDocument();
 });
 
 test('a paladin before 4th has no spells yet and no caster level, a paladin at 4th has literally zero 1st-level spells per day, and at-will, known and prepared counts stay apart from zero', () => {
@@ -821,4 +827,140 @@ test('the Full sheet carries the Spellcasting section with its class-local incom
   expect(
     within(section).getByRole('region', { name: 'Wizard spellcasting' }),
   ).toBeVisible();
+});
+
+// #315: each line counts its recorded Spells and open warnings and links to
+// its Spells page with the sheet's origin; Spells under no Spellcasting keep
+// the same group as on the Spells page, even with no Spellcasting left.
+const campaignOrigin = {
+  href: '/campaigns/campaign-1/characters',
+  organization: { kind: 'organization', id: 'org' },
+} as const;
+const spellWrites = {
+  record: vi.fn(),
+  editLevel: vi.fn(),
+  remove: vi.fn(() => new Promise<boolean>(() => undefined)),
+  statusForSpell: () => ({ kind: 'idle' as const }),
+  statusForEntry: () => ({ kind: 'idle' as const }),
+  hasRemoteChange: false,
+  dismissRemoteChange: vi.fn(),
+};
+const warningControls = {
+  accept: vi.fn(),
+  reopen: vi.fn(),
+  statusFor: () => ({ kind: 'idle' as const }),
+  hasRemoteChange: false,
+  dismissRemoteChange: vi.fn(),
+};
+function renderSheetSpells(sheet: CharacterSheetSnapshot) {
+  const view = buildCharacterSheetView(sheet);
+  render(
+    <BreakdownResolverProvider
+      previewSituation={() => null}
+      adjustments={[]}
+      spellcastings={view.calculated.spellcastings}
+    >
+      <SpellcastingBlock
+        characterName={sheet.character.name}
+        spellcastings={view.calculated.spellcastings}
+        unresolved={view.calculated.spellcastingUnresolved}
+        spells={{
+          characterId,
+          origin: campaignOrigin,
+          collections: view.calculated.spellCollections,
+          warnings: view.warnings,
+          warningController: warningControls,
+          writes: spellWrites,
+        }}
+      />
+    </BreakdownResolverProvider>,
+  );
+  return within(screen.getByRole('region', { name: 'Spellcasting' }));
+}
+
+test('sheet summaries name each book collection from its effective casting', () => {
+  renderSheetSpells(buildSpellSheet({ classes: ['alchemist', 'witch'] }));
+  expect(
+    within(summary('Alchemist').closest('li') as HTMLElement).getByText(
+      'Formula book',
+    ),
+  ).toBeVisible();
+  expect(
+    within(summary('Witch').closest('li') as HTMLElement).getByText('Familiar'),
+  ).toBeVisible();
+});
+
+test('the empty sheet names the Character who has no Spellcasting', () => {
+  const sheet = buildSpellSheet({ classes: ['fighter'] });
+  const section = renderSheetSpells(sheet);
+  expect(
+    section.getByText(`${sheet.character.name} has no Spellcasting.`),
+  ).toBeVisible();
+});
+
+test('each line counts its recorded Spells and open warnings and opens its own Spells page with the sheet’s origin; a whole-list caster browses its list', () => {
+  const section = renderSheetSpells(
+    buildSpellSheet({
+      classes: ['wizard', 'cleric'],
+      recorded: [
+        { id: 'row-shield', spell: spells.shield, castingClassId: 'wizard' },
+        {
+          id: 'row-fireball',
+          spell: spells.fireball,
+          castingClassId: 'wizard',
+        },
+      ],
+    }),
+  );
+  const wizardLine = within(summary('Wizard').closest('li') as HTMLElement);
+  expect(wizardLine.getByText('2 in spellbook')).toBeVisible();
+  expect(
+    wizardLine.getByRole('link', { name: 'Open spells for Wizard' }),
+  ).toHaveAttribute(
+    'href',
+    characterSpellsPath(characterId, campaignOrigin, 'wizard'),
+  );
+  expect(
+    wizardLine.getByRole('link', { name: '1 open Wizard Spell warning' }),
+  ).toHaveAttribute(
+    'href',
+    characterSpellsPath(characterId, campaignOrigin, 'wizard'),
+  );
+  expect(
+    section.getByRole('link', { name: 'Browse the cleric list' }),
+  ).toHaveAttribute(
+    'href',
+    characterSpellsPath(characterId, campaignOrigin, 'cleric'),
+  );
+  expect(
+    section.queryByRole('region', { name: 'Not under any Spellcasting' }),
+  ).toBeNull();
+});
+
+test('the sheet keeps Spells under no Spellcasting with their class, warning and Remove when no Spellcasting is left', () => {
+  const section = renderSheetSpells(
+    buildSpellSheet({
+      classes: ['fighter'],
+      recorded: [
+        { id: 'row-shield', spell: spells.shield, castingClassId: 'wizard' },
+      ],
+    }),
+  );
+  expect(section.getByText('Kesh has no Spellcasting.')).toBeVisible();
+  const orphans = within(
+    section.getByRole('region', { name: 'Not under any Spellcasting' }),
+  );
+  expect(orphans.getByText('recorded for Wizard')).toBeVisible();
+  expect(
+    orphans.getByText('Shield is not under any Spellcasting.'),
+  ).toBeVisible();
+  fireEvent.click(orphans.getByRole('button', { name: 'Accept' }));
+  expect(warningControls.accept).toHaveBeenCalledWith(
+    expect.objectContaining({ check: 'spellOrphaned' }),
+  );
+  fireEvent.click(orphans.getByRole('button', { name: 'Remove Shield' }));
+  expect(spellWrites.remove).toHaveBeenCalledWith({
+    entryId: 'row-shield',
+    name: 'Shield',
+  });
 });

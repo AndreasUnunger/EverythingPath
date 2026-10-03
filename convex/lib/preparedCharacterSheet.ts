@@ -87,7 +87,9 @@ export async function readCharacterSheetData(
       .take(maxCharacterChildRows + 1),
     ctx.db
       .query('catalogEntry')
-      .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
+      .withIndex('by_characterId_and_browseOnly', (q) =>
+        q.eq('characterId', character._id).eq('browseOnly', undefined),
+      )
       .take(maxCharacterChildRows + 1),
     ctx.db
       .query('acceptedWarning')
@@ -138,6 +140,7 @@ export async function readCharacterSheetData(
     definitions.map((row) => [row._id, row]),
   );
   const dependencies = definitions.flatMap(listCatalogDependencies);
+
   function requireDefinition(id: string, message: string) {
     const definition = definitionsById.get(id);
     if (!definition) throw new ConvexError(message);
@@ -187,6 +190,8 @@ export async function readCharacterSheetData(
     );
     if (definition.detail.kind !== entry.kind)
       throw new ConvexError('Catalog Entry does not match this sheet entry');
+    if (entry.kind === 'spell' && entry.state.castingClassId)
+      readClassDefinition(entry.state.castingClassId);
   }
   const { current: calculated, permanent } = calculateActiveCharacterSheet({
     entries,

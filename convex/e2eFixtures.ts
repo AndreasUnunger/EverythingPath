@@ -213,6 +213,10 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         .take(101),
     );
     for (const character of characters) {
+      if (character.sheetMode) {
+        await deleteCharacterSheet(ctx, character._id);
+        continue;
+      }
       for (const table of [
         'characterSheetEntry',
         'catalogEntry',

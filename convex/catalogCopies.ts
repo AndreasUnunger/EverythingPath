@@ -19,6 +19,11 @@ import {
   projectCampaignCopies,
   writeCatalogDefinition,
 } from './lib/catalogCopies';
+import {
+  reconcileSpellDefinition,
+  reconcileCopiedSpellcasting,
+  reconcileSpellcastingDefinition,
+} from './lib/spellCatalog';
 import { legacyCharacterMutation } from './lib/campaignRuntime';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
@@ -161,6 +166,11 @@ export const createOneOff = legacyCharacterMutation({
     });
     if (!resultingSheet)
       throw new ConvexError('Character Sheet is unavailable');
+    await reconcileSpellDefinition({
+      ctx,
+      sheet: resultingSheet,
+      catalogEntryId,
+    });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet: resultingSheet,
       operationId: args.operationId,
@@ -192,7 +202,9 @@ export const list = query({
     ]);
     const localDefinitions = await ctx.db
       .query('catalogEntry')
-      .withIndex('by_characterId', (q) => q.eq('characterId', args.characterId))
+      .withIndex('by_characterId_and_browseOnly', (q) =>
+        q.eq('characterId', args.characterId).eq('browseOnly', undefined),
+      )
       .take(maxCharacterChildRows);
     const definitions = [
       ...localDefinitions,
@@ -268,6 +280,11 @@ export const saveToCatalog = legacyCharacterMutation({
           }
         : row,
     );
+    await reconcileSpellDefinition({
+      ctx,
+      sheet,
+      catalogEntryId: definition._id,
+    });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -446,6 +463,17 @@ export const customizeForCampaign = legacyCharacterMutation({
         definition._id,
         copyId,
       );
+      await reconcileSpellDefinition({
+        ctx,
+        sheet: resultingSheet,
+        catalogEntryId: copyId,
+      });
+      await reconcileCopiedSpellcasting({
+        ctx,
+        sheet: resultingSheet,
+        originalId: definition._id,
+        copyId,
+      });
       await pruneWarningAcceptancesAndRecordChange(ctx, {
         sheet: resultingSheet,
         operationId: args.operationId,
@@ -535,6 +563,16 @@ export const editDefinition = legacyCharacterMutation({
           row._id === updated._id ? updated : row,
         ),
       );
+      await reconcileSpellDefinition({
+        ctx,
+        sheet: affectedSheet,
+        catalogEntryId: updated._id,
+      });
+      await reconcileSpellcastingDefinition({
+        ctx,
+        sheet: affectedSheet,
+        catalogEntryId: updated._id,
+      });
       await pruneWarningAcceptancesAndRecordChange(ctx, {
         sheet: affectedSheet,
         operationId: args.operationId,
@@ -699,6 +737,17 @@ export const detach = legacyCharacterMutation({
     });
     if (!resultingSheet)
       throw new ConvexError('Character Sheet is unavailable');
+    await reconcileSpellDefinition({
+      ctx,
+      sheet: resultingSheet,
+      catalogEntryId: copyId,
+    });
+    await reconcileCopiedSpellcasting({
+      ctx,
+      sheet: resultingSheet,
+      originalId: definition._id,
+      copyId,
+    });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet: resultingSheet,
       operationId: args.operationId,
