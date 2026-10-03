@@ -24,6 +24,20 @@ import {
 } from '../src/lib/character-sheet';
 import { conditionKeys } from '../src/lib/character-sheet-conditions';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
+export const archetypeReplacementValidator = v.object({
+  classLevel: v.number(),
+  catalogEntryId: v.id('catalogEntry'),
+  scope: v.optional(v.union(v.literal('whole'), v.literal('part'))),
+});
+export const archetypeFeatureChangeValidator = v.union(
+  v.object({ featureIdentity: v.string(), scope: v.literal('whole') }),
+  v.object({
+    featureIdentity: v.string(),
+    scope: v.literal('part'),
+    part: v.string(),
+  }),
+);
+
 export const spellValidator = v.object({
   name: v.string(),
   spellLevel: v.string(),
@@ -409,13 +423,12 @@ export const catalogEntryValidator = v.union(
       }),
       v.object({
         kind: v.literal('archetype'),
+        classSkillsAdded: v.optional(v.array(v.string())),
+        classSkillsRemoved: v.optional(v.array(v.string())),
+        skillRanksPerLevel: v.optional(v.number()),
+        featureChanges: v.optional(v.array(archetypeFeatureChangeValidator)),
         classEntryIds: v.array(v.id('catalogEntry')),
-        replaces: v.array(
-          v.object({
-            classLevel: v.number(),
-            catalogEntryId: v.id('catalogEntry'),
-          }),
-        ),
+        replaces: v.array(archetypeReplacementValidator),
         adds: v.array(
           v.object({
             classLevel: v.number(),
@@ -426,6 +439,9 @@ export const catalogEntryValidator = v.union(
       }),
       v.object({
         kind: v.literal('classFeature'),
+        parentFeature: v.optional(v.string()),
+        part: v.optional(v.string()),
+        duplicateUpgrade: v.optional(v.id('catalogEntry')),
         picksByLevel: v.optional(picksByLevelValidator),
       }),
       v.object({ kind: v.literal('feat') }),
@@ -537,6 +553,8 @@ export const characterSheetEntryValidator = v.union(
     ...recordedCatalogEntryFields,
     state: v.object({
       kind: v.literal('archetype'),
+      classEntryId: v.optional(v.id('catalogEntry')),
+      replaces: v.optional(v.array(archetypeReplacementValidator)),
       choice: v.optional(v.union(v.string(), v.null())),
     }),
   }),

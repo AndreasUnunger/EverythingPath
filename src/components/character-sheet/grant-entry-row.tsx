@@ -8,7 +8,7 @@ import { cn } from '~/lib/utils';
 import { RowCatalogDefinition } from './row-catalog-definition';
 import type { GrantEntryView } from './character-sheet-grants-view-model';
 import { listEquipmentWarnings } from './equipment-statistics';
-import { GrantEntryStateEditor } from './grant-entry-state-editor';
+import { EntryStateEditor } from './entry-state-editor';
 import { InlineDeleteQuestion } from './inline-delete-question';
 import { InlineWarnings } from './inline-warning';
 import { entryFocusAttribute } from './sheet-catalog-context';
@@ -242,9 +242,18 @@ export function GrantEntryRow({
         />
       </div>
       {open === 'editor' ? (
-        <GrantEntryStateEditor
-          row={row}
-          actions={actions}
+        <EntryStateEditor
+          subject={row.name}
+          choice={row.choice}
+          notes={row.notes}
+          canEditChoice={row.canEditChoice}
+          isSaving={isSaving}
+          onSave={(state) =>
+            actions.edit(
+              row,
+              row.canEditChoice ? state : { notes: state.notes },
+            )
+          }
           onClose={closePanel}
         />
       ) : null}

@@ -1,4 +1,8 @@
 import { resolveProficiencyPrerequisites } from './character-sheet-proficiency-prerequisites';
+import {
+  resolveCharacterSheetArchetypes,
+  type ResolvedCharacterSheetArchetypes,
+} from './character-sheet-archetypes';
 import type { Infer, GenericId } from 'convex/values';
 import type { characterSheetEntryValidator } from '../../convex/schema';
 import { z } from 'zod';
@@ -121,6 +125,12 @@ export const warningChecks = [
   'spellLevel',
   'spellOffList',
   'spellOrphaned',
+  'archetypeConflict',
+  'archetypeClass',
+  'archetypeReplacementUnmatched',
+  'archetypeUnchainedMonk',
+  'archetypeFeatureUpgrade',
+  'archetypeSkillRanksConflict',
 ] as const;
 export const characterSheetWarningSchema = z.object({
   kind: z.enum(['incomplete', 'unresolved', 'rules']),
@@ -280,6 +290,14 @@ export type CharacterSheetRacialProgression = {
   skillRanksPerHitDie: number;
   classSkills: string[];
 };
+export type ArchetypeReplacement = {
+  classLevel: number;
+  catalogEntryId: string;
+  scope?: 'whole' | 'part';
+};
+export type ArchetypeFeatureChange =
+  | { featureIdentity: string; scope: 'whole' }
+  | { featureIdentity: string; scope: 'part'; part: string };
 
 export type SheetCatalogEntryDetail =
   | {
@@ -303,8 +321,12 @@ export type SheetCatalogEntryDetail =
     }
   | {
       kind: 'archetype';
+      classSkillsAdded?: readonly string[];
+      classSkillsRemoved?: readonly string[];
+      skillRanksPerLevel?: number;
+      featureChanges?: readonly ArchetypeFeatureChange[];
       classEntryIds: readonly string[];
-      replaces: readonly { classLevel: number; catalogEntryId: string }[];
+      replaces: readonly ArchetypeReplacement[];
       adds: readonly { classLevel: number; catalogEntryId: string }[];
       picksByLevel?: readonly {
         classLevel: number;
@@ -314,6 +336,9 @@ export type SheetCatalogEntryDetail =
     }
   | {
       kind: 'classFeature';
+      parentFeature?: string;
+      part?: string;
+      duplicateUpgrade?: string;
       picksByLevel?: readonly {
         classLevel: number;
         list: string;
@@ -657,8 +682,9 @@ function permanentIntelligenceFor(
   advancement: ReturnType<typeof resolveAdvancement>,
   options: ResolveOptions,
   formulaCache: FormulaCache,
+  archetypes: ResolvedCharacterSheetArchetypes,
 ) {
-  const permanentOptions = { ...options, permanentOnly: true };
+  const permanentOptions = { ...options, permanentOnly: true, archetypes };
   const countingInput = {
     ...input,
     entries: resolveCharacterSheetGrants(input, permanentOptions)
@@ -689,8 +715,9 @@ function permanentAbilitiesFor(
   input: CharacterSheetInput,
   options: ResolveOptions,
   formulaCache: FormulaCache,
+  archetypes: ResolvedCharacterSheetArchetypes,
 ) {
-  const permanentOptions = { ...options, permanentOnly: true };
+  const permanentOptions = { ...options, permanentOnly: true, archetypes };
   const countingInput = {
     ...input,
     entries: resolveCharacterSheetGrants(input, permanentOptions)
@@ -700,7 +727,7 @@ function permanentAbilitiesFor(
     input: countingInput,
     permanentOnly: true,
   });
-  const advancement = resolveAdvancement(effectiveInput);
+  const advancement = resolveAdvancement(effectiveInput, { archetypes });
   const { drainModifiers } = abilityChangesFor(
     effectiveInput.entries,
     permanentOptions,
@@ -808,11 +835,15 @@ function calculateSheetProjection(
   recordedInput: CharacterSheetInput,
   resolveOptions: ResolveOptions,
   formulaCache: FormulaCache,
+  archetypes: ResolvedCharacterSheetArchetypes,
   { base, baseModifiers } = baseScoresFor(recordedInput),
   permanentIntelligence?: number,
   permanentAbilities?: Record<Ability, { score: number; modifier: number }>,
 ) {
-  const grants = resolveCharacterSheetGrants(recordedInput, resolveOptions);
+  const grants = resolveCharacterSheetGrants(recordedInput, {
+    ...resolveOptions,
+    archetypes,
+  });
   const countingInput = { ...recordedInput, entries: grants.countingEntries };
   const racial = resolveCharacterSheetRacialFacts(countingInput);
   const options = {
@@ -865,7 +896,7 @@ function calculateSheetProjection(
     ...sourceCatalogModifiers(effectiveInput, options),
     ...equipment.modifiers,
   ];
-  const advancement = resolveAdvancement(effectiveInput);
+  const advancement = resolveAdvancement(effectiveInput, { archetypes });
   const { levels } = advancement;
   const { abilityDamage, drainModifiers } = abilityChangesFor(
     effectiveInput.entries,
@@ -989,6 +1020,7 @@ function calculateSheetProjection(
             advancement,
             options,
             formulaCache,
+            archetypes,
           )),
   });
   const warnings = [
@@ -1014,6 +1046,7 @@ function calculateSheetProjection(
     ...weaponProficiencies.warnings,
     ...proficiencyPrerequisites.warnings,
     ...grants.warnings,
+    ...archetypes.warnings,
     ...racialTraitWarnings(
       recordedInput,
       grants.allEntries,
@@ -1057,6 +1090,7 @@ function calculateSheetProjection(
     spellCollections,
     spellcastingUnresolved,
     racial,
+    archetypes,
     resolvedEntries: grants.entries.filter(
       ({ entry }) =>
         entry.kind !== 'base' &&
@@ -1108,17 +1142,26 @@ export function calculateCharacterSheet(
 ) {
   const formulaCache: FormulaCache = new Map();
   const baseScores = baseScoresFor(input);
+  const archetypes = resolveCharacterSheetArchetypes(input);
   if (options.permanentOnly)
-    return calculateSheetProjection(input, options, formulaCache, baseScores);
+    return calculateSheetProjection(
+      input,
+      options,
+      formulaCache,
+      archetypes,
+      baseScores,
+    );
   const permanentAbilities = permanentAbilitiesFor(
     input,
     options,
     formulaCache,
+    archetypes,
   );
   return calculateSheetProjection(
     input,
     options,
     formulaCache,
+    archetypes,
     baseScores,
     permanentAbilities.intelligence.modifier,
     permanentAbilities,
@@ -1149,10 +1192,12 @@ export function calculateCharacterSheetProjections(
   const { projectionInputs, ...shared } = options;
   const formulaCache: FormulaCache = new Map();
   const baseScores = baseScoresFor(input);
+  const archetypes = resolveCharacterSheetArchetypes(input);
   const permanent = calculateSheetProjection(
     input,
     { ...shared, ...projectionInputs?.permanent, permanentOnly: true },
     formulaCache,
+    archetypes,
     baseScores,
   );
   return {
@@ -1160,6 +1205,7 @@ export function calculateCharacterSheetProjections(
       input,
       { ...shared, ...projectionInputs?.current },
       formulaCache,
+      archetypes,
       baseScores,
       permanent.abilities.intelligence.modifier,
       permanent.abilities,

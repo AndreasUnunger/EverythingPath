@@ -374,7 +374,7 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(35);
+    expect(sheet?.catalogEntries).toHaveLength(117);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -525,7 +525,7 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
-    expect(sheet?.catalogEntries).toHaveLength(35);
+    expect(sheet?.catalogEntries).toHaveLength(117);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -544,7 +544,7 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 37, acceptedWarnings: 0 });
+    ).toEqual({ entries: 2, catalogEntries: 119, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

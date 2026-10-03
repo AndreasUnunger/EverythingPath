@@ -60,6 +60,8 @@ const defaultApi = {
     setRacialTraitSelected: 'setRacialTraitSelected',
     setRacialTraitReplacements: 'setRacialTraitReplacements',
     editRaceStatistics: 'editRaceStatistics',
+    setArchetypeSelected: 'setArchetypeSelected',
+    setArchetypePartChoices: 'setArchetypePartChoices',
   },
   catalogCopies: {
     list: 'catalogList',

@@ -127,7 +127,7 @@ export function useEntryWriteStatus<T = never>({
   }
   async function write(
     action: () => Promise<unknown>,
-    { key = '', subject: entrySubject = subject } = {},
+    { key = '', subject: entrySubject = subject, plural = false } = {},
   ) {
     const pendingKey = `${scopeKey}/${key}`;
     if (!isCurrent() || pending.current.has(pendingKey)) return false;
@@ -143,7 +143,7 @@ export function useEntryWriteStatus<T = never>({
         kind: 'error',
         message:
           failure.kind === 'rejected'
-            ? `${entrySubject} wasn't saved${refusalReason(failure.message)} Try again.`
+            ? `${entrySubject} ${plural ? "weren't" : "wasn't"} saved${refusalReason(failure.message)} Try again.`
             : `${entrySubject} may not have been saved. Check it before trying again.`,
       });
       return false;

@@ -8,6 +8,7 @@ const referenceFields = new Set([
   'classEntryIds',
   'replaces',
   'counterpartOf',
+  'duplicateUpgrade',
   'feats',
   'whileActive',
   'option',
@@ -51,6 +52,7 @@ export function listCatalogReferences(value: unknown): CatalogReference[] {
         id: input,
         kind:
           field === 'counterpartOf' ||
+          field === 'classEntryIds' ||
           field === 'classEntryId' ||
           field === 'castingClassId' ||
           field === 'favoredClassIds'

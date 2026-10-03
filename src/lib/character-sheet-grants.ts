@@ -1,3 +1,15 @@
+import {
+  characterSheetClassFamily,
+  normalizeCharacterSheetChoiceName,
+} from './character-sheet-archetype-helpers';
+export {
+  characterSheetClassFamily,
+  normalizeCharacterSheetChoiceName,
+} from './character-sheet-archetype-helpers';
+import {
+  resolveCharacterSheetArchetypes,
+  type ResolvedCharacterSheetArchetypes,
+} from './character-sheet-archetypes';
 import { isTemporaryEffect } from './character-sheet';
 import { racialReplacementDuplicateWarning } from './character-sheet-racial';
 import {
@@ -51,27 +63,6 @@ export function hasGrantAncestor(id: string, ancestorId: string): boolean {
     source = source.slice(prefix[0].length, sourceEnd);
   }
   return true;
-}
-
-export function characterSheetClassFamily(
-  definition: CharacterSheetCatalogEntry,
-  catalogEntries: readonly CharacterSheetCatalogEntry[],
-) {
-  const counterpart =
-    definition.detail?.kind === 'class' && 'counterpartOf' in definition.detail
-      ? definition.detail.counterpartOf
-      : undefined;
-  return counterpart
-    ? (catalogEntries.find((entry) => entry._id === counterpart)
-        ?.ruleIdentity ?? counterpart)
-    : definition.ruleIdentity;
-}
-
-export function normalizeCharacterSheetChoiceName(name: string) {
-  return name
-    .replace(/\s*\(UC\)\s*/gi, '')
-    .trim()
-    .toLowerCase();
 }
 
 function buildGrantedEntry(
@@ -320,61 +311,58 @@ function addRaceGrants(graph: GrantGraph) {
   }
 }
 
-function applyArchetypeReplacements(graph: GrantGraph) {
-  const { catalog, nodes, classCounts, selectedClasses } = graph;
-  for (const node of nodes.values()) {
-    const entry = node.row.entry;
-    if (node.row.origin !== 'selection' || entry.kind !== 'archetype') continue;
-    const definition = catalog.get(entry.catalogEntryId);
-    if (definition?.detail?.kind !== 'archetype') continue;
-    const detail = definition.detail;
-    const eligibleClasses = [...selectedClasses.values()].filter((baseClass) =>
-      detail.classEntryIds.some(
-        (id) =>
-          getCatalogRuleIdentity(graph, id) === baseClass.ruleIdentity ||
-          getCatalogRuleIdentity(graph, id) ===
-            getClassFamily(graph, baseClass),
-      ),
-    );
-    node.sourcePresent = eligibleClasses.length > 0;
-    const processedFamilies = new Set<string>();
-    for (const baseClass of eligibleClasses) {
-      const family = getClassFamily(graph, baseClass);
-      if (processedFamilies.has(family)) continue;
-      processedFamilies.add(family);
-      const count = classCounts.get(family) ?? 0;
-      for (const added of detail.adds) {
-        if (added.classLevel <= count)
-          addGrantNode(graph, {
-            source: definition,
-            catalogEntryId: added.catalogEntryId,
-            classLevel: added.classLevel,
-            parentId: entry._id,
-          });
-      }
-      for (const replaced of nodes.values()) {
-        const key =
-          'grantKey' in replaced.row.entry
-            ? replaced.row.entry.grantKey
-            : undefined;
-        if (key?.source !== family) continue;
+function applyArchetypeReplacements({
+  graph,
+  archetypes,
+}: {
+  graph: GrantGraph;
+  archetypes: ResolvedCharacterSheetArchetypes;
+}) {
+  for (const node of graph.nodes.values())
+    if (node.row.origin === 'selection' && node.row.entry.kind === 'archetype')
+      node.sourcePresent = false;
+  const processedSelections = new Set<string>();
+  for (const classEffects of archetypes.classes) {
+    const count = graph.classCounts.get(classEffects.classIdentity) ?? 0;
+    for (const archetype of classEffects.archetypes) {
+      if (!archetype.applicable) continue;
+      const node = graph.nodes.get(archetype.entryId);
+      const definition = graph.catalog.get(archetype.catalogEntryId);
+      if (!node || !definition) continue;
+      node.sourcePresent = true;
+      const selectionKey = JSON.stringify([
+        classEffects.classIdentity,
+        archetype.entryId,
+      ]);
+      if (!processedSelections.has(selectionKey))
+        for (const added of archetype.additions) {
+          if (added.classLevel <= count)
+            addGrantNode(graph, {
+              source: definition,
+              catalogEntryId: added.catalogEntryId,
+              classLevel: added.classLevel,
+              parentId: archetype.entryId,
+            });
+        }
+      processedSelections.add(selectionKey);
+      for (const replaced of graph.nodes.values()) {
+        const entry = replaced.row.entry;
+        const key = 'grantKey' in entry ? entry.grantKey : undefined;
         if (
-          detail.replaces.some(
+          key?.source !== classEffects.classIdentity ||
+          !('catalogEntryId' in entry)
+        )
+          continue;
+        if (
+          archetype.replacements.some(
             (replacement) =>
               replacement.classLevel === key.classLevel &&
-              (getCatalogRuleIdentity(graph, replacement.catalogEntryId) ===
-                key.entry ||
-                (getFeatureName(catalog.get(replacement.catalogEntryId)) !==
-                  undefined &&
-                  getFeatureName(catalog.get(replacement.catalogEntryId)) ===
-                    getFeatureName(
-                      'catalogEntryId' in replaced.row.entry
-                        ? catalog.get(replaced.row.entry.catalogEntryId)
-                        : undefined,
-                    ))),
+              getCatalogRuleIdentity(graph, replacement.catalogEntryId) ===
+                getCatalogRuleIdentity(graph, entry.catalogEntryId),
           )
         )
-          replaced.replacedBy.push(entry._id);
+          if (!replaced.replacedBy.includes(archetype.entryId))
+            replaced.replacedBy.push(archetype.entryId);
       }
     }
   }
@@ -712,14 +700,87 @@ function buildGrantWarnings(graph: GrantGraph) {
     });
 }
 
+function buildUpgradeWarnings(graph: GrantGraph): SheetWarning[] {
+  const counting = [...graph.nodes.values()].filter(
+    (node) => node.row.counting,
+  );
+  const groups = new Map<string, GrantNode[]>();
+  for (const node of counting) {
+    const entry = node.row.entry;
+    if (!('catalogEntryId' in entry) || node.row.origin !== 'grant') continue;
+    const definition = graph.catalog.get(entry.catalogEntryId);
+    if (
+      definition?.detail?.kind !== 'classFeature' ||
+      !definition.detail.duplicateUpgrade
+    )
+      continue;
+    const group = groups.get(definition.ruleIdentity) ?? [];
+    group.push(node);
+    groups.set(definition.ruleIdentity, group);
+  }
+  return [...groups.values()].flatMap((group) => {
+    const first = [...group].sort((left, right) =>
+      left.row.entry._id.localeCompare(right.row.entry._id),
+    )[0];
+    if (!first || !('catalogEntryId' in first.row.entry)) return [];
+    const definition = graph.catalog.get(first.row.entry.catalogEntryId);
+    if (
+      definition?.detail?.kind !== 'classFeature' ||
+      !definition.detail.duplicateUpgrade
+    )
+      return [];
+    const upgrade = graph.catalog.get(definition.detail.duplicateUpgrade);
+    const sources = [
+      ...new Set(
+        group.flatMap((node) =>
+          'grantKey' in node.row.entry && node.row.entry.grantKey
+            ? [node.row.entry.grantKey.source]
+            : [],
+        ),
+      ),
+    ].sort();
+    if (
+      sources.length < 2 ||
+      !upgrade ||
+      counting.some(
+        (node) =>
+          'catalogEntryId' in node.row.entry &&
+          getCatalogRuleIdentity(graph, node.row.entry.catalogEntryId) ===
+            upgrade.ruleIdentity,
+      )
+    )
+      return [];
+    return [
+      {
+        kind: 'rules',
+        check: 'archetypeFeatureUpgrade',
+        target: { kind: 'entry', entryId: first.row.entry._id },
+        subject: first.row.entry._id,
+        fingerprint: JSON.stringify([
+          definition.ruleIdentity,
+          upgrade.ruleIdentity,
+          sources,
+        ]),
+        message: `${definition.name ?? 'Class feature'} is granted by more than one source. Add ${upgrade.name ?? 'the upgraded feature'} if appropriate; the original features remain recorded.`,
+      } satisfies SheetWarning,
+    ];
+  });
+}
+
 export function resolveCharacterSheetGrants(
   input: CharacterSheetInput,
-  options: { permanentOnly?: boolean } = {},
+  options: {
+    permanentOnly?: boolean;
+    archetypes?: ResolvedCharacterSheetArchetypes;
+  } = {},
 ) {
   const graph = buildGrantGraph(input);
   addClassGrants(graph);
   addRaceGrants(graph);
-  applyArchetypeReplacements(graph);
+  applyArchetypeReplacements({
+    graph,
+    archetypes: options.archetypes ?? resolveCharacterSheetArchetypes(input),
+  });
   addNestedGrants(graph);
   applyRacialTraitReplacements(graph);
   evaluateGrantGraph(graph, options);
@@ -733,7 +794,7 @@ export function resolveCharacterSheetGrants(
     countingEntries: entries
       .filter((row) => row.counting)
       .map(({ entry }) => entry),
-    warnings: buildGrantWarnings(graph),
+    warnings: [...buildGrantWarnings(graph), ...buildUpgradeWarnings(graph)],
     warningsForAcceptance: [...graph.nodes.values()].flatMap(
       (node): SheetWarning[] => {
         const entry = node.row.entry;

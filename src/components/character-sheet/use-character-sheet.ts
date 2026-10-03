@@ -25,6 +25,7 @@ import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
 import { useCharacterSheetRaces } from './use-character-sheet-races';
+import { useCharacterSheetArchetypes } from './use-character-sheet-archetypes';
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
 import { useCharacterSheetSpells } from './use-character-sheet-spells';
 import { useCharacterCompanions } from './use-character-companions';
@@ -70,6 +71,11 @@ export function useCharacterSheet(
   const spells = useCharacterSheetSpells(scope, snapshot);
   const companions = useCharacterCompanions(scope, snapshot, origin);
   const races = useCharacterSheetRaces(scope, snapshot);
+  const archetypes = useCharacterSheetArchetypes(
+    scope,
+    snapshot,
+    catalogChoices,
+  );
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);
   const addClassLevel = useMutation(api.characterSheet.addClassLevel);
@@ -231,6 +237,7 @@ export function useCharacterSheet(
     spells,
     companions,
     races,
+    archetypes,
     sheet,
     catalogSnapshot: snapshot,
     buildOut: {

@@ -1,5 +1,5 @@
 import { findReviewedClassCasting } from '../../src/lib/character-sheet-casting-tables';
-import type { Doc } from '../_generated/dataModel';
+import type { Doc, Id } from '../_generated/dataModel';
 
 // Representative prepared-sheet seed data, not a curated Catalog Release.
 // Pathfinder RPG Core Rulebook class tables: cleric p. 40, fighter p. 56,
@@ -278,3 +278,64 @@ export const representativeClassCatalog = [
   Extract<Doc<'catalogEntry'>, { detail: { kind: 'class' } }>,
   '_id' | '_creationTime' | 'scope' | 'characterId'
 >[];
+
+// Exact feature rows from CRB Tables 3-9 and 3-13, through class level 20.
+// Keys are materialized after all feature definitions have durable document IDs.
+export const representativeClassFeatureSchedules: Record<
+  string,
+  { classLevel: number; catalogEntryId: string }[]
+> = {
+  fighter: [
+    { classLevel: 1, catalogEntryId: 'fighter-bonus-feat-1' },
+    ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `fighter-bonus-feat-${classLevel}`,
+    })),
+    ...[2, 6, 10, 14, 18].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `fighter-bravery-${classLevel}`,
+    })),
+    ...[3, 7, 11, 15].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `fighter-armor-training-${classLevel}`,
+    })),
+    ...[5, 9, 13, 17].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `fighter-weapon-training-${classLevel}`,
+    })),
+    { classLevel: 19, catalogEntryId: 'fighter-armor-mastery' },
+    { classLevel: 20, catalogEntryId: 'fighter-weapon-mastery' },
+  ].sort((left, right) => left.classLevel - right.classLevel),
+  rogue: [
+    ...[1, 3, 5, 7, 9, 11, 13, 15, 17, 19].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `rogue-sneak-attack-${classLevel}`,
+    })),
+    { classLevel: 1, catalogEntryId: 'rogue-trapfinding' },
+    { classLevel: 2, catalogEntryId: 'rogue-evasion' },
+    ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `rogue-talent-${classLevel}`,
+    })),
+    ...[3, 6, 9, 12, 15, 18].map((classLevel) => ({
+      classLevel,
+      catalogEntryId: `rogue-trap-sense-${classLevel}`,
+    })),
+    { classLevel: 4, catalogEntryId: 'rogue-uncanny-dodge' },
+    { classLevel: 8, catalogEntryId: 'rogue-improved-uncanny-dodge' },
+    { classLevel: 10, catalogEntryId: 'rogue-advanced-talents' },
+    { classLevel: 20, catalogEntryId: 'rogue-master-strike' },
+  ].sort((left, right) => left.classLevel - right.classLevel),
+};
+
+export function materializeRepresentativeClassFeatureSchedule(
+  classIdentity: string,
+  idForKey: (key: string) => Id<'catalogEntry'>,
+): { classLevel: number; catalogEntryId: Id<'catalogEntry'> }[] {
+  return (representativeClassFeatureSchedules[classIdentity] ?? []).map(
+    ({ classLevel, catalogEntryId }) => ({
+      classLevel,
+      catalogEntryId: idForKey(catalogEntryId),
+    }),
+  );
+}

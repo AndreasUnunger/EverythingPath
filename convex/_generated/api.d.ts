@@ -44,6 +44,7 @@ import type * as lib_characterSheet from "../lib/characterSheet.js";
 import type * as lib_companionRelationships from "../lib/companionRelationships.js";
 import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
 import type * as lib_preparedCharacterSheet from "../lib/preparedCharacterSheet.js";
+import type * as lib_representativeArchetypeCatalog from "../lib/representativeArchetypeCatalog.js";
 import type * as lib_representativeClassCatalog from "../lib/representativeClassCatalog.js";
 import type * as lib_representativeRaceCatalog from "../lib/representativeRaceCatalog.js";
 import type * as lib_representativeSpellCatalog from "../lib/representativeSpellCatalog.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "lib/companionRelationships": typeof lib_companionRelationships;
   "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
   "lib/preparedCharacterSheet": typeof lib_preparedCharacterSheet;
+  "lib/representativeArchetypeCatalog": typeof lib_representativeArchetypeCatalog;
   "lib/representativeClassCatalog": typeof lib_representativeClassCatalog;
   "lib/representativeRaceCatalog": typeof lib_representativeRaceCatalog;
   "lib/representativeSpellCatalog": typeof lib_representativeSpellCatalog;

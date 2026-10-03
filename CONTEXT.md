@@ -193,7 +193,7 @@ _Avoid_: training (fighter Weapon Training is a class feature)
 One level a Character has taken, with the class and the choices made at that level. Class Levels keep an editable recorded order, the build as recorded rather than proof of history, and character level is their number.
 
 **Archetype**:
-A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Two Archetypes on one class may not replace or alter the same feature at the same class level.
+A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Exact feature-and-level replacements retain the original Grants through dormancy. Changes to the same independently replaceable part conflict; a whole-feature alteration also conflicts with a change to any of its parts. Independent parts can coexist. Conflicts warn while the Character remains editable.
 _Avoid_: subclass, class variant
 
 **Racial Trait**:
@@ -211,7 +211,7 @@ _Avoid_: as-taken check, historical prerequisites
 A Class Level whose class has not been recorded. It lets a minimal Character Sheet carry a level before it is built out, and it contributes nothing but Hit Dice.
 
 **Unchained Class**:
-A *Pathfinder Unchained* version of a class, such as the unchained rogue: a class of its own that counts as another version of the original. Its levels count as levels of the original class, its features meet prerequisites that name the original's same-named features, and archetypes for the original apply to it where it still has the features they replace, except for the monk. One Character should hold levels in only one of the two versions.
+A _Pathfinder Unchained_ version of a class, such as the unchained rogue: a class of its own that counts as another version of the original. Its levels count as levels of the original class, its features meet prerequisites that name the original's same-named features, and archetypes for the original apply to it where it still has the features they replace, except for the monk. One Character should hold levels in only one of the two versions.
 _Avoid_: class variant, archetype
 
 **Spell**:

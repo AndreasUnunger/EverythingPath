@@ -1,6 +1,10 @@
 import reviewedCastingTables from './reviewed-casting-tables.json' with { type: 'json' };
 import { representativeRaceCatalog } from '../../convex/lib/representativeRaceCatalog.ts';
-import { representativeClassCatalog } from '../../convex/lib/representativeClassCatalog.ts';
+import {
+  representativeClassCatalog,
+  representativeClassFeatureSchedules,
+} from '../../convex/lib/representativeClassCatalog.ts';
+import { representativeArchetypeCatalog } from '../../convex/lib/representativeArchetypeCatalog.ts';
 import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { parse } from 'yaml';
@@ -155,6 +159,14 @@ async function readAuthoredRuleResources() {
         'utf8',
       ),
       definitions: representativeClassCatalog,
+      featureSchedules: representativeClassFeatureSchedules,
+    },
+    representativeArchetypeCatalog: {
+      source: await readFile(
+        resolve(projectRoot, 'convex/lib/representativeArchetypeCatalog.ts'),
+        'utf8',
+      ),
+      definitions: representativeArchetypeCatalog,
     },
     castingTables: {
       source: await readFile(

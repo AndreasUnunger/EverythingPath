@@ -1,3 +1,4 @@
+import { findArchetypeSelection } from '../src/lib/character-sheet-archetype-helpers';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
 import {
   manualProficiencySchema,
@@ -64,6 +65,8 @@ import schema, {
   selectionSourceValidator,
   manualProficiencyValidator,
   racialProgressionValidator,
+  archetypeReplacementValidator,
+  archetypeFeatureChangeValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -162,6 +165,45 @@ const spellcastingValidator = v.object({
     }),
   ),
   unresolved: v.array(v.string()),
+});
+const archetypeFeatureRowValidator = archetypeReplacementValidator
+  .omit('catalogEntryId')
+  .extend({ catalogEntryId: v.string() });
+const archetypeConflictValidator = v.object({
+  featureIdentity: v.string(),
+  part: v.union(v.string(), v.null()),
+  entryIds: v.array(v.string()),
+  classIdentity: v.string(),
+});
+const archetypesValidator = v.object({
+  classes: v.array(
+    v.object({
+      classEntryId: v.string(),
+      classIdentity: v.string(),
+      classLevel: v.number(),
+      classSkills: v.array(v.string()),
+      skillRanksPerLevel: v.union(v.number(), v.null()),
+      archetypes: v.array(
+        v.object({
+          entryId: v.string(),
+          catalogEntryId: v.string(),
+          ruleIdentity: v.string(),
+          name: v.string(),
+          active: v.boolean(),
+          applicable: v.boolean(),
+          replacements: v.array(archetypeFeatureRowValidator),
+          additions: v.array(archetypeFeatureRowValidator.omit('scope')),
+          changes: v.array(archetypeFeatureChangeValidator),
+          classSkillsAdded: v.array(v.string()),
+          classSkillsRemoved: v.array(v.string()),
+          skillRanksPerLevel: v.optional(v.number()),
+        }),
+      ),
+      conflicts: v.array(archetypeConflictValidator),
+    }),
+  ),
+  conflicts: v.array(archetypeConflictValidator),
+  warnings: v.array(zodOutputToConvex(characterSheetWarningSchema)),
 });
 // Stored state shapes flow directly into the read DTO; only resolver identity differs.
 const resolvedSheetEntryValidator = v.union(
@@ -275,6 +317,7 @@ const calculatedValidator = v.object({
     zodOutputToConvex(characterSheetWarningSchema),
   ),
   conditionEffects: v.array(zodOutputToConvex(conditionEffectSchema)),
+  archetypes: archetypesValidator,
   abilities: v.object({
     strength: abilityValue,
     dexterity: abilityValue,
@@ -2897,6 +2940,128 @@ export const setProficiencyChoice = campaignMutation({
     if (!updated) throw new ConvexError('Entry is unavailable');
     sheet.entries = sheet.entries.map((row) =>
       row._id === entry._id ? updated : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const setArchetypeSelected = campaignMutation({
+  args: {
+    ...writeScope,
+    classEntryId: v.id('catalogEntry'),
+    catalogEntryId: v.id('catalogEntry'),
+    selected: v.boolean(),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const classEntryId = await resolvePreferredCatalogEntryId(
+      ctx,
+      sheet,
+      args.classEntryId,
+    );
+    const catalogEntryId = await resolvePreferredCatalogEntryId(
+      ctx,
+      sheet,
+      args.catalogEntryId,
+    );
+    const baseClass = sheet.catalogEntries.find(
+      (definition) => definition._id === classEntryId,
+    );
+    if (baseClass?.detail.kind !== 'class')
+      throw new ConvexError('Class does not belong to this Character');
+    const definition = requireCatalogSheetDefinition(sheet, catalogEntryId);
+    if (definition.detail.kind !== 'archetype')
+      throw new ConvexError('Choose an Archetype');
+    const previous = findArchetypeSelection({
+      entries: sheet.entries,
+      catalogEntries: sheet.catalogEntries,
+      ruleIdentity: definition.ruleIdentity,
+    });
+    if (previous?.kind === 'archetype') {
+      const catalogEntryId = args.selected
+        ? definition._id
+        : previous.catalogEntryId;
+      if (
+        previous.active === args.selected &&
+        previous.catalogEntryId === catalogEntryId &&
+        previous.state.classEntryId === classEntryId
+      )
+        return null;
+      await ctx.db.patch('characterSheetEntry', previous._id, {
+        active: args.selected,
+        catalogEntryId,
+        state: { ...previous.state, classEntryId },
+      });
+      sheet.entries = sheet.entries.map((entry) =>
+        entry._id === previous._id
+          ? {
+              ...previous,
+              active: args.selected,
+              catalogEntryId,
+              state: { ...previous.state, classEntryId },
+            }
+          : entry,
+      );
+    } else {
+      if (!args.selected) return null;
+      await persistRecordedEntry(ctx, sheet, {
+        characterId: sheet.character._id,
+        catalogEntryId: definition._id,
+        kind: 'archetype',
+        active: true,
+        state: { kind: 'archetype', classEntryId },
+      });
+    }
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const setArchetypePartChoices = campaignMutation({
+  args: {
+    ...rowScope,
+    replacementChoices: v.union(
+      v.null(),
+      v.array(archetypeReplacementValidator),
+    ),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const previous = sheet.entries.find((entry) => entry._id === args.entryId);
+    if (previous?.kind !== 'archetype' || previous.grantKey)
+      throw new ConvexError('Archetype does not belong to this Character');
+    if (args.replacementChoices && args.replacementChoices.length > 256)
+      throw new ConvexError('Choose at most 256 feature replacements');
+    for (const replacement of args.replacementChoices ?? []) {
+      if (
+        !Number.isSafeInteger(replacement.classLevel) ||
+        replacement.classLevel < 1
+      )
+        throw new ConvexError('Choose a positive whole class level');
+      const definition = requireCatalogSheetDefinition(
+        sheet,
+        replacement.catalogEntryId,
+      );
+      if (definition.kind !== 'classFeature')
+        throw new ConvexError('Choose a class feature to replace');
+    }
+    const state = {
+      ...previous.state,
+      replaces: args.replacementChoices ?? undefined,
+    };
+    if (compareValues(state, previous.state) === 0) return null;
+    await ctx.db.patch('characterSheetEntry', previous._id, { state });
+    sheet.entries = sheet.entries.map((entry) =>
+      entry._id === previous._id ? { ...previous, state } : entry,
     );
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,

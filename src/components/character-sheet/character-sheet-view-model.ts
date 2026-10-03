@@ -77,6 +77,11 @@ export function buildCharacterSheetView(
     races: buildCharacterSheetRacesView(snapshot, catalogChoices),
     raceStatistics: buildRaceStatisticsView(snapshot),
     raceNames: listRaceNames(snapshot),
+    classFeatureNames: Object.fromEntries(
+      snapshot.catalogEntries
+        .filter((entry) => entry.detail.kind === 'classFeature')
+        .map((entry) => [entry._id, entry.name]),
+    ),
     abilityChanges: currentEntries.filter(
       (entry) =>
         entry.kind === 'abilityDamage' || entry.kind === 'abilityDrain',

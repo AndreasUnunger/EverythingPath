@@ -14,50 +14,65 @@ import {
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import { Textarea } from '~/components/ui/textarea';
-import type { GrantEntryView } from './character-sheet-grants-view-model';
 import { action, fieldLabel } from './sheet-parts';
-import type { useCharacterSheet } from './use-character-sheet';
-
-type Actions = ReturnType<typeof useCharacterSheet>['grants'];
 
 const schema = z.object({ choice: z.string(), notes: z.string() });
 type Values = z.infer<typeof schema>;
 
+/** The entered state, an empty choice meaning none. */
+export type EntryState = { choice: string | null; notes: string };
+/** Which fields the player changed since the editor opened. */
+export type ChangedEntryState = { choice: boolean; notes: boolean };
+
+const readChoice = (choice: string) => choice.trim() || null;
+
 /**
- * The recorded state of one Grant or dormant Selection, edited in place: its
- * structural choice where the kind has one, and its notes. Both may be
- * empty. Saving records state only; a Grant stays a Grant. The editor stays
- * open until the hook confirms the save or the player cancels.
+ * The recorded state of one sheet entry, edited in place: its structural
+ * choice where the entry has one, and its notes. Both may be empty. The
+ * editor stays open, with what was entered, until the save is confirmed or
+ * the player cancels.
  */
-export function GrantEntryStateEditor({
-  row,
-  actions,
+export function EntryStateEditor({
+  subject,
+  choice,
+  notes,
+  canEditChoice,
+  isSaving,
+  onSave,
   onClose,
 }: {
-  row: GrantEntryView;
-  actions: Actions;
+  /** Names the form and its controls, as in "Notes for {subject}". */
+  subject: string;
+  choice: string | null;
+  notes: string;
+  canEditChoice: boolean;
+  isSaving: boolean;
+  onSave: (state: EntryState, changed: ChangedEntryState) => Promise<boolean>;
   onClose: () => void;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { choice: row.choice ?? '', notes: row.notes },
+    defaultValues: { choice: choice ?? '', notes },
   });
-  const isSaving = actions.statusFor(row.rowId).kind === 'saving';
   const isDisabled = isSaving || maintenance.readOnly;
 
   async function save(values: Values) {
-    const state = row.canEditChoice
-      ? { choice: values.choice.trim() || null, notes: values.notes }
-      : { notes: values.notes };
-    if (await actions.edit(row, state)) onClose();
+    const opened = form.formState.defaultValues;
+    const state = { choice: readChoice(values.choice), notes: values.notes };
+    const changed = {
+      choice:
+        canEditChoice && state.choice !== readChoice(opened?.choice ?? ''),
+      notes: state.notes !== (opened?.notes ?? ''),
+    };
+    if (await onSave(state, changed)) onClose();
   }
 
   return (
     <Form {...form}>
       <form
         noValidate
-        aria-label={`Edit ${row.name}`}
+        aria-label={`Edit ${subject}`}
         className="border-foreground/20 mt-2 w-full space-y-2 border p-3"
         onSubmit={(event) => {
           event.preventDefault();
@@ -65,14 +80,14 @@ export function GrantEntryStateEditor({
           void form.handleSubmit(save)();
         }}
       >
-        {row.canEditChoice ? (
+        {canEditChoice ? (
           <FormField
             control={form.control}
             name="choice"
             render={({ field, fieldState }) => (
               <FormItem className="gap-0.5">
                 <FormLabel className={fieldLabel}>
-                  Choice <span className="sr-only">for {row.name}</span>
+                  Choice <span className="sr-only">for {subject}</span>
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -94,12 +109,12 @@ export function GrantEntryStateEditor({
           render={({ field, fieldState }) => (
             <FormItem className="gap-0.5">
               <FormLabel className={fieldLabel}>
-                Notes <span className="sr-only">for {row.name}</span>
+                Notes <span className="sr-only">for {subject}</span>
               </FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
-                  autoFocus={!row.canEditChoice}
+                  autoFocus={!canEditChoice}
                   rows={2}
                   disabled={isDisabled}
                   className="min-h-11 md:min-h-8"
@@ -116,7 +131,7 @@ export function GrantEntryStateEditor({
             className={action}
             disabled={isDisabled}
           >
-            Save <span className="sr-only">{row.name}</span>
+            Save <span className="sr-only">{subject}</span>
           </Button>
           <Button
             type="button"
@@ -125,7 +140,7 @@ export function GrantEntryStateEditor({
             className={action}
             onClick={onClose}
           >
-            Cancel <span className="sr-only">editing {row.name}</span>
+            Cancel <span className="sr-only">editing {subject}</span>
           </Button>
         </div>
       </form>

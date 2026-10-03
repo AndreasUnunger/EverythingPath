@@ -4,6 +4,7 @@ import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { api, internal } from './_generated/api';
 import schema from './schema';
 import { deleteSpellCatalogIndex } from './lib/spellCatalog';
+import { maxCharacterChildRows } from './lib/preparedCharacterSheet';
 
 const modules = import.meta.glob('./**/*.ts');
 afterEach(() => vi.useRealTimers());
@@ -53,7 +54,9 @@ async function fixture({
       const seeded = await ctx.db
         .query('catalogEntry')
         .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
-        .take(64);
+        .take(maxCharacterChildRows + 1);
+      if (seeded.length > maxCharacterChildRows)
+        throw new Error('Prepared fixture exceeds its catalog row limit');
       if (indexOnlyWizard)
         for (const definition of seeded)
           if (

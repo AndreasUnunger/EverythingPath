@@ -54,18 +54,23 @@ async function fixture() {
 }
 
 test('favored-class edits discard deleted definitions and still reject foreign or nonclass definitions', async () => {
-  const { t, owner, member, campaignId, scope, fighter } = await fixture();
+  const { t, owner, member, campaignId, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const referencedClass = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'fighter',
+  );
+  if (!referencedClass) throw new Error('Missing Fighter fixture');
   await owner.mutation(api.characterSheet.editCreationSettings, {
     ...scope,
     settings: {},
-    favoredClassIds: [fighter._id],
+    favoredClassIds: [referencedClass._id],
     operationId: 'favorite',
   });
-  await t.run((ctx) => ctx.db.delete('catalogEntry', fighter._id));
+  await t.run((ctx) => ctx.db.delete('catalogEntry', referencedClass._id));
   await member.mutation(api.characterSheet.editCreationSettings, {
     ...scope,
     settings: {},
-    favoredClassIds: [fighter._id],
+    favoredClassIds: [referencedClass._id],
     operationId: 'clean',
   });
   const cleaned = await owner.query(api.characterSheet.read, scope);

@@ -112,11 +112,17 @@ export async function readCharacterSheetData(
           refusalMessage:
             reference.kind === 'class'
               ? 'Class does not belong to this Character'
-              : entry.kind === 'base'
-                ? 'Base scores do not belong to this Character'
-                : entry.kind === 'manual'
-                  ? 'Personal adjustment does not belong to this Character'
-                  : 'Catalog Entry does not belong to this Character',
+              : entry.kind === 'archetype' &&
+                  entry.state.replaces?.some(
+                    (replacement) =>
+                      replacement.catalogEntryId === reference.id,
+                  )
+                ? 'Replacement feature does not belong to this Character'
+                : entry.kind === 'base'
+                  ? 'Base scores do not belong to this Character'
+                  : entry.kind === 'manual'
+                    ? 'Personal adjustment does not belong to this Character'
+                    : 'Catalog Entry does not belong to this Character',
         })),
       ),
       ...additionalReferences,
@@ -192,6 +198,18 @@ export async function readCharacterSheetData(
       throw new ConvexError('Catalog Entry does not match this sheet entry');
     if (entry.kind === 'spell' && entry.state.castingClassId)
       readClassDefinition(entry.state.castingClassId);
+    if (entry.kind === 'archetype') {
+      if (entry.state.classEntryId)
+        readClassDefinition(entry.state.classEntryId);
+      for (const replacement of entry.state.replaces ?? []) {
+        const target = requireDefinition(
+          replacement.catalogEntryId,
+          'Replacement feature does not belong to this Character',
+        );
+        if (target.detail.kind !== 'classFeature')
+          throw new ConvexError('Choose a class feature to replace');
+      }
+    }
   }
   const { current: calculated, permanent } = calculateActiveCharacterSheet({
     entries,

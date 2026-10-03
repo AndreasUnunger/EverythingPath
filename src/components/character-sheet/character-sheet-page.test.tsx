@@ -462,6 +462,11 @@ test('a fresh sheet shows the name once, one blank Unspecified level and six ten
     'PC',
   );
   expect(screen.getByText('Rides with the militia.')).toBeVisible();
+  expect(
+    within(screen.getByRole('region', { name: 'Archetypes' })).getByText(
+      'Add a class to choose an Archetype.',
+    ),
+  ).toBeVisible();
   // No roll, average or maximum HP helpers; no mode or storage copy.
   expect(
     screen.queryByRole('button', { name: /roll|average|max/i }),

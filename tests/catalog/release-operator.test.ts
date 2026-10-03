@@ -100,6 +100,19 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
     ]),
   });
   expect(
+    artifact.batches
+      .flat()
+      .find((row) => row.key === 'builtin:representative-archetype-catalog')
+      ?.payload,
+  ).toMatchObject({
+    definitions: expect.arrayContaining([
+      expect.objectContaining({ name: 'Archer' }),
+      expect.objectContaining({ name: 'Scout' }),
+    ]),
+    sourceFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    compatibility: { schema: 'character-sheet-v1', calculation: 'facts-v1' },
+  });
+  expect(
     artifact.batches.flat().find((row) => row.key === 'builtin:casting-tables')
       ?.payload,
   ).toMatchObject({

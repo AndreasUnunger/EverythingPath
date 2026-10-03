@@ -1392,9 +1392,21 @@ test('class customization preserves Class Level rows, favored-class links and Ac
     (row) => row.ruleIdentity === 'fighter',
   );
   const first = initial?.entries.find((row) => row.kind === 'classLevel');
-  if (fighter?.detail.kind !== 'class' || !first)
+  if (
+    fighter?.detail.kind !== 'class' ||
+    !('featuresByLevel' in fighter.detail) ||
+    !first
+  )
     throw new Error('Missing class fixture');
-  const globalClassId = await t.run((ctx) => {
+  const featureIds = fighter.detail.featuresByLevel.map(
+    (row) => row.catalogEntryId,
+  );
+  const globalClassId = await t.run(async (ctx) => {
+    for (const id of new Set(featureIds))
+      await ctx.db.patch('catalogEntry', id, {
+        scope: 'global',
+        characterId: undefined,
+      });
     const { _id, _creationTime, characterId: _characterId, ...body } = fighter;
     return ctx.db.insert('catalogEntry', { ...body, scope: 'global' });
   });
@@ -1842,6 +1854,7 @@ test('definition writes reject structurally invalid numbers, choices and scoped 
 
 test('a Character Sheet loads with a large unrelated global and campaign catalog', async () => {
   const { t, owner, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
   await t.run(async (ctx) => {
     for (let index = 0; index < 4200; index++)
       await ctx.db.insert('catalogEntry', {
@@ -1859,7 +1872,7 @@ test('a Character Sheet loads with a large unrelated global and campaign catalog
   });
   const sheet = await owner.query(api.characterSheet.read, scope);
   expect(sheet?.calculated.abilities.strength.score).toBe(10);
-  expect(sheet?.catalogEntries.length).toBeLessThan(100);
+  expect(sheet?.catalogEntries).toEqual(initial?.catalogEntries);
   expect(await owner.query(api.catalogCopies.list, scope)).toContainEqual(
     expect.objectContaining({ ruleIdentity: 'unrelated:1' }),
   );

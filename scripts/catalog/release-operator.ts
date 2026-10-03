@@ -420,8 +420,23 @@ async function buildReleaseArtifact(
         payload: {
           definitions:
             implementation.ruleResources.representativeClassCatalog.definitions,
+          featureSchedules:
+            implementation.ruleResources.representativeClassCatalog
+              .featureSchedules,
           sourceFingerprint: await releaseFingerprint(
             implementation.ruleResources.representativeClassCatalog.source,
+          ),
+          compatibility,
+        },
+      },
+      {
+        key: 'builtin:representative-archetype-catalog',
+        payload: {
+          definitions:
+            implementation.ruleResources.representativeArchetypeCatalog
+              .definitions,
+          sourceFingerprint: await releaseFingerprint(
+            implementation.ruleResources.representativeArchetypeCatalog.source,
           ),
           compatibility,
         },

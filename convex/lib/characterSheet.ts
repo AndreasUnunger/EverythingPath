@@ -9,9 +9,16 @@ import {
   representativeRaceCatalog,
   materializeRepresentativeRaceCatalog,
 } from './representativeRaceCatalog';
-import { representativeClassCatalog } from './representativeClassCatalog';
+import {
+  representativeClassCatalog,
+  materializeRepresentativeClassFeatureSchedule,
+} from './representativeClassCatalog';
 import { representativeSpellCatalog } from './representativeSpellCatalog';
 import { installPreparedSpells } from './spellCatalogInstall';
+import {
+  representativeArchetypeCatalog,
+  materializeRepresentativeArchetypeCatalog,
+} from './representativeArchetypeCatalog';
 import {
   getCompanionSupportingEntryKeys,
   reconcileCompanionRelationships,
@@ -132,13 +139,59 @@ export async function initializeCharacterSheet(
     },
   });
   // Isolated prepared sheets carry representative classes, not a Catalog Release.
+  const classCatalogIds = new Map<string, Id<'catalogEntry'>>();
   for (const definition of representativeClassCatalog) {
-    await ctx.db.insert('catalogEntry', {
+    const id = await ctx.db.insert('catalogEntry', {
       ...definition,
       characterId,
       scope: 'character',
     });
+    classCatalogIds.set(definition.ruleIdentity, id);
   }
+  const archetypeCatalogIds = new Map(classCatalogIds);
+  for (const definition of representativeArchetypeCatalog) {
+    const id = await ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId,
+      name: definition.name ?? definition._id,
+      ruleIdentity: definition.ruleIdentity,
+      sources: definition.sources,
+      modifiers: [],
+      stacksWithItself: false,
+      detail: { kind: 'manual' },
+    });
+    archetypeCatalogIds.set(definition._id, id);
+  }
+  const idForArchetypeKey = (key: string) => {
+    const id = archetypeCatalogIds.get(key);
+    if (!id)
+      throw new ConvexError(
+        'Representative archetype reference is unavailable',
+      );
+    return id;
+  };
+  for (const { key, definition } of materializeRepresentativeArchetypeCatalog(
+    idForArchetypeKey,
+  ))
+    await ctx.db.replace('catalogEntry', idForArchetypeKey(key), {
+      ...definition,
+      scope: 'character',
+      characterId,
+    });
+  for (const definition of representativeClassCatalog)
+    await ctx.db.patch(
+      'catalogEntry',
+      idForArchetypeKey(definition.ruleIdentity),
+      {
+        detail: {
+          ...definition.detail,
+          featuresByLevel: materializeRepresentativeClassFeatureSchedule(
+            definition.ruleIdentity,
+            idForArchetypeKey,
+          ),
+        },
+      },
+    );
   const raceCatalogIds = new Map<string, Id<'catalogEntry'>>();
   for (const definition of representativeRaceCatalog) {
     const id = await ctx.db.insert('catalogEntry', {

@@ -4,6 +4,7 @@ import { BreakdownResolverProvider } from './breakdown-resolver';
 import { CharacterSheetCatalog } from './character-sheet-catalog';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetRaces } from './character-sheet-races';
+import { CharacterSheetArchetypes } from './character-sheet-archetypes';
 import { CharacterSheetGrants } from './character-sheet-grants';
 import { CharacterSheetSkeleton } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
@@ -22,6 +23,8 @@ import { characterId } from './character-sheet-test-fixture';
 import { useCharacterSheet } from './use-character-sheet';
 import {
   describeIncompleteHp,
+  findArchetypeSection,
+  listGrantBlockSections,
   listUnplacedSelections,
 } from './character-sheet-view-helpers';
 
@@ -40,6 +43,7 @@ type SheetBlock =
   | 'skills'
   | 'equipment'
   | 'proficiencies'
+  | 'archetypes'
   | 'grants'
   | 'catalog';
 
@@ -121,6 +125,18 @@ function SheetBlocks({
               <Proficiencies
                 key={block}
                 proficiencies={controller.proficiencies}
+              />
+            );
+          case 'archetypes':
+            return (
+              <CharacterSheetArchetypes
+                key={block}
+                archetypes={controller.archetypes}
+                section={findArchetypeSection(sheet.grants)}
+                featureNames={sheet.classFeatureNames}
+                grants={controller.grants}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
               />
             );
           case 'scores':
@@ -223,7 +239,7 @@ function SheetBlocks({
             return (
               <CharacterSheetGrants
                 key={block}
-                sections={sheet.grants}
+                sections={listGrantBlockSections(sheet.grants)}
                 actions={controller.grants}
                 warnings={sheet.warnings}
                 warningController={controller.warnings}

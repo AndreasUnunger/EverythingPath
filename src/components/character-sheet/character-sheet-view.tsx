@@ -9,6 +9,7 @@ import { BuildOutControl } from './build-out-control';
 import { CharacterCompanions } from './character-companions';
 import type { CharacterScope } from './character-scope';
 import { CharacterSheetCatalog } from './character-sheet-catalog';
+import { CharacterSheetArchetypes } from './character-sheet-archetypes';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
@@ -29,18 +30,13 @@ import { SpellcastingBlock } from './spellcasting-block';
 import type { useCharacterSheet } from './use-character-sheet';
 import {
   describeIncompleteHp,
+  findArchetypeSection,
+  listGrantBlockSections,
   listUnplacedSelections,
 } from './character-sheet-view-helpers';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type ReadySheet = NonNullable<Controller['sheet']>;
-
-// The race block renders the racial sections itself; the Grants block keeps
-// every other kind.
-const racialKinds = new Set(['race', 'racialTrait']);
-function listNonRacialSections(sections: ReadySheet['grants']) {
-  return sections.filter((section) => !racialKinds.has(section.kind));
-}
 
 // Existing metadata, shown; this slice has no sheet-side identity editor.
 // The name is in the summary row, so it is not repeated here. A minimal
@@ -140,7 +136,7 @@ function CampaignRow({
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Race, Class Levels,
- * and Ability scores with their damage and drain in the left five of the
+ * Archetypes and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns with Defenses, Equipment, Offense and
  * Proficiencies, and the skills, personal adjustments, sheet entries,
  * granted and dormant entries, Companions, the catalog and the creation settings beside them,
@@ -237,6 +233,16 @@ export function CharacterSheetView({
                 saveClassLevel={controller.saveClassLevel}
               />
             </div>
+            <div className="min-w-0 lg:col-span-12">
+              <CharacterSheetArchetypes
+                archetypes={controller.archetypes}
+                section={findArchetypeSection(sheet.grants)}
+                featureNames={sheet.classFeatureNames}
+                grants={controller.grants}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+            </div>
             <div className="min-w-0 space-y-3 lg:col-span-5">
               <BaseScoresEditor
                 scores={sheet.baseScores}
@@ -279,7 +285,7 @@ export function CharacterSheetView({
                 warningController={controller.warnings}
               />
               <CharacterSheetGrants
-                sections={listNonRacialSections(sheet.grants)}
+                sections={listGrantBlockSections(sheet.grants)}
                 actions={controller.grants}
                 equipmentRowIds={
                   new Set(controller.equipment.rows.map((row) => row.entryId))
@@ -295,19 +301,19 @@ export function CharacterSheetView({
               />
             </div>
             <div className="min-w-0 lg:col-span-12">
-            <SpellcastingBlock
-              characterName={sheet.character.name}
-              spellcastings={sheet.calculated.spellcastings}
-              unresolved={sheet.calculated.spellcastingUnresolved}
-              spells={{
-                characterId: sheet.character._id,
-                origin,
-                collections: sheet.calculated.spellCollections,
-                warnings: sheet.warnings,
-                warningController: controller.warnings,
-                writes: controller.spells,
-              }}
-            />
+              <SpellcastingBlock
+                characterName={sheet.character.name}
+                spellcastings={sheet.calculated.spellcastings}
+                unresolved={sheet.calculated.spellcastingUnresolved}
+                spells={{
+                  characterId: sheet.character._id,
+                  origin,
+                  collections: sheet.calculated.spellCollections,
+                  warnings: sheet.warnings,
+                  warningController: controller.warnings,
+                  writes: controller.spells,
+                }}
+              />
             </div>
           </div>
         </BreakdownResolverProvider>

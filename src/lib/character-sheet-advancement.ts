@@ -1,4 +1,9 @@
 import {
+  resolveCharacterSheetArchetypes,
+  type ResolvedCharacterSheetArchetypes,
+} from './character-sheet-archetypes';
+import { characterSheetClassFamily } from './character-sheet-archetype-helpers';
+import {
   abilityTargets,
   type CharacterSheetCatalogEntry,
   type CharacterSheetClassDetail,
@@ -76,20 +81,13 @@ function progressionModifiers({
   ];
 }
 
-function classIdentityOf(
-  catalog: CharacterSheetCatalogEntry,
-  catalogEntries: readonly CharacterSheetCatalogEntry[],
-) {
-  if (catalog.detail?.kind !== 'class' || !('counterpartOf' in catalog.detail))
-    return catalog.ruleIdentity;
-  const counterpartOf = catalog.detail.counterpartOf;
-  return (
-    catalogEntries.find((item) => item._id === counterpartOf)?.ruleIdentity ??
-    catalog.ruleIdentity
-  );
-}
-
-function resolveClassRows({ entries, catalogEntries }: CharacterSheetInput) {
+function resolveClassRows({
+  entries,
+  catalogEntries,
+  archetypes,
+}: Pick<CharacterSheetInput, 'entries' | 'catalogEntries'> & {
+  archetypes: ResolvedCharacterSheetArchetypes;
+}) {
   const levels = entries
     .filter((entry) => entry.kind === 'classLevel')
     .sort((a, b) => a.state.position - b.state.position);
@@ -118,16 +116,33 @@ function resolveClassRows({ entries, catalogEntries }: CharacterSheetInput) {
         catalog: null,
         detail: null,
       };
+    const effects = archetypes.classes.find(
+      (row) => row.classEntryId === catalog._id,
+    );
+    const effectiveDetail = effects
+      ? {
+          ...catalog.detail,
+          classSkills: effects.classSkills,
+          skillRanksPerLevel:
+            effects.skillRanksPerLevel ?? catalog.detail.skillRanksPerLevel,
+        }
+      : catalog.detail;
     const source = classes.get(catalog.ruleIdentity);
     const classLevel = (source?.count ?? 0) + 1;
     if (source) source.count = classLevel;
     else
       classes.set(catalog.ruleIdentity, {
         catalog,
-        detail: catalog.detail,
+        detail: effectiveDetail,
         count: classLevel,
       });
-    return { entry, classLevel, catalog, detail: catalog.detail };
+    return {
+      entry,
+      classLevel,
+      catalog,
+      detail: effectiveDetail,
+      skillRankBudgetUnresolved: effects?.skillRanksPerLevel === null,
+    };
   });
   return { levels: rows.map((row) => row.entry), rows, classes };
 }
@@ -252,14 +267,21 @@ function classLevelCountsFor(
   const classLevels = new Map<string, number>();
   for (const { catalog } of rows) {
     if (!catalog) continue;
-    const identity = classIdentityOf(catalog, catalogEntries);
+    const identity = characterSheetClassFamily(catalog, catalogEntries);
     classLevels.set(identity, (classLevels.get(identity) ?? 0) + 1);
   }
   return Object.fromEntries(classLevels);
 }
 
-export function resolveAdvancement(input: CharacterSheetInput) {
-  const { levels, rows, classes } = resolveClassRows(input);
+export function resolveAdvancement(
+  input: CharacterSheetInput,
+  {
+    archetypes = resolveCharacterSheetArchetypes(input),
+  }: {
+    archetypes?: ResolvedCharacterSheetArchetypes;
+  } = {},
+) {
+  const { levels, rows, classes } = resolveClassRows({ ...input, archetypes });
   const racial = resolveRacialProgression(input.racialHitDice);
   return {
     levels,
@@ -353,45 +375,50 @@ export function advancementBudgets({
         intelligence,
       });
   addRanks(Object.fromEntries(advancement.racialRecordedRanks));
-  const classLevels = advancement.rows.map(({ entry, detail, classLevel }) => {
-    addRanks(entry.state.skillRanks ?? {});
-    const hitDice = advancement.racialHitDice + entry.state.position;
-    const skillRankCap = advancement.racialHitDice + entry.state.position;
-    const cumulativeSkillRanks = [...cumulativeRanks].map(([skill, ranks]) => ({
-      skill,
-      ranks,
-    }));
-    const skillRankBudget = detail
-      ? ordinarySkillRanksPerLevel({
-          baseRanks: detail.skillRanksPerLevel,
-          intelligence,
-          racialRanks: bonusSkillRanksPerLevel,
-          favoredClassRanks:
-            entry.state.favoredClassBonus?.choice === 'skill' ? 1 : 0,
-        })
-      : null;
-    const skillRanksSpent = Object.values(
-      sumRanksBySkill(entry.state.skillRanks ?? {}),
-    ).reduce((sum, ranks) => sum + ranks, 0);
-    return {
-      entryId: entry._id,
-      position: entry.state.position,
-      classEntryId: entry.state.classEntryId,
-      classLevel,
-      hitDice,
-      abilityIncreaseDue:
-        milestones.has(entry.state.position) || milestones.has(hitDice),
-      skillRankBudget,
-      skillRanksSpent,
-      skillRanksRemaining:
-        skillRankBudget === null ? null : skillRankBudget - skillRanksSpent,
-      skillRankCap,
-      cumulativeSkillRanks,
-      exceededSkillRankCaps: cumulativeSkillRanks.filter(
-        ({ ranks }) => ranks > skillRankCap,
-      ),
-    };
-  });
+  const classLevels = advancement.rows.map(
+    ({ entry, detail, classLevel, skillRankBudgetUnresolved }) => {
+      addRanks(entry.state.skillRanks ?? {});
+      const hitDice = advancement.racialHitDice + entry.state.position;
+      const skillRankCap = advancement.racialHitDice + entry.state.position;
+      const cumulativeSkillRanks = [...cumulativeRanks].map(
+        ([skill, ranks]) => ({
+          skill,
+          ranks,
+        }),
+      );
+      const skillRankBudget =
+        detail && !skillRankBudgetUnresolved
+          ? ordinarySkillRanksPerLevel({
+              baseRanks: detail.skillRanksPerLevel,
+              intelligence,
+              racialRanks: bonusSkillRanksPerLevel,
+              favoredClassRanks:
+                entry.state.favoredClassBonus?.choice === 'skill' ? 1 : 0,
+            })
+          : null;
+      const skillRanksSpent = Object.values(
+        sumRanksBySkill(entry.state.skillRanks ?? {}),
+      ).reduce((sum, ranks) => sum + ranks, 0);
+      return {
+        entryId: entry._id,
+        position: entry.state.position,
+        classEntryId: entry.state.classEntryId,
+        classLevel,
+        hitDice,
+        abilityIncreaseDue:
+          milestones.has(entry.state.position) || milestones.has(hitDice),
+        skillRankBudget,
+        skillRanksSpent,
+        skillRanksRemaining:
+          skillRankBudget === null ? null : skillRankBudget - skillRanksSpent,
+        skillRankCap,
+        cumulativeSkillRanks,
+        exceededSkillRankCaps: cumulativeSkillRanks.filter(
+          ({ ranks }) => ranks > skillRankCap,
+        ),
+      };
+    },
+  );
   const budgets = {
     kind: 'ordinary' as const,
     intelligenceModifier: intelligence,
@@ -471,7 +498,7 @@ export function advancementWarnings({
   const versions = new Map<string, Set<string>>();
   for (const { catalog, detail } of advancement.rows) {
     if (!catalog || !detail) continue;
-    const identity = classIdentityOf(catalog, catalogEntries);
+    const identity = characterSheetClassFamily(catalog, catalogEntries);
     const group = versions.get(identity) ?? new Set<string>();
     group.add(catalog.ruleIdentity);
     versions.set(identity, group);
@@ -508,7 +535,7 @@ export function advancementWarnings({
     .flatMap((id) => {
       const catalog = catalogEntries.find((entry) => entry._id === id);
       if (!catalog || catalog.detail?.kind !== 'class') return [];
-      return [classIdentityOf(catalog, catalogEntries)];
+      return [characterSheetClassFamily(catalog, catalogEntries)];
     })
     .sort();
   const favoredIdentities = [...new Set(favorites)];
@@ -602,7 +629,7 @@ export function advancementWarnings({
         ],
       });
     const classIdentity = catalog
-      ? classIdentityOf(catalog, catalogEntries)
+      ? characterSheetClassFamily(catalog, catalogEntries)
       : undefined;
     const favored =
       detail?.classKind !== 'prestige' &&

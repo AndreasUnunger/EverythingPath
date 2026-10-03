@@ -341,6 +341,17 @@ it('fingerprints the importer dependency graph and actual authored resources whi
   expect(input.ruleResources.representativeClassCatalog.definitions).toEqual(
     expect.arrayContaining([expect.objectContaining({ name: 'Fighter' })]),
   );
+  expect(
+    input.ruleResources.representativeArchetypeCatalog.definitions,
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ name: 'Archer' }),
+      expect.objectContaining({ name: 'Scout' }),
+    ]),
+  );
+  expect(
+    input.ruleResources.representativeClassCatalog.featureSchedules.fighter,
+  ).toHaveLength(26);
   expect(input.ruleResources.castingTables).toMatchObject({
     definitions: {
       version: 1,
