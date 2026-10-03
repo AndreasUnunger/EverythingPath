@@ -9,7 +9,7 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { query } from './_generated/server';
-import { campaignMutation } from './lib/campaignRuntime';
+import { legacyCharacterMutation as campaignMutation } from './lib/campaignRuntime';
 import schema, {
   creationSettingsValidator,
   modifierValidator,

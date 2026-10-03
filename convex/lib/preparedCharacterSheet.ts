@@ -4,8 +4,11 @@ import type { ReadCtx } from '../types';
 import {
   abilityKeys,
   type calculateCharacterSheet,
-  calculateCharacterSheetProjections,
 } from '../../src/lib/character-sheet';
+import {
+  calculateActiveCharacterSheet,
+  requireCompatibleActiveRelease,
+} from './catalogReleaseCompatibility';
 
 function isBaseCatalogEntry(
   entry: Doc<'catalogEntry'>,
@@ -67,6 +70,7 @@ export async function readCharacterSheetData(
   ctx: ReadCtx,
   character: Doc<'character'>,
 ) {
+  await requireCompatibleActiveRelease(ctx);
   const [entries, definitions, acceptedWarnings] = await Promise.all([
     ctx.db
       .query('characterSheetEntry')
@@ -148,7 +152,7 @@ export async function readCharacterSheetData(
       catalogEntries.push(definition);
   }
   const { current: calculated, permanent: permanentCalculated } =
-    calculateCharacterSheetProjections({
+    calculateActiveCharacterSheet({
       entries,
       catalogEntries,
       characterKind: character.kind,

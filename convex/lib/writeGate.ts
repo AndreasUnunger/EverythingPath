@@ -28,10 +28,14 @@ async function requireOpenWriteGate(ctx: Pick<QueryCtx, 'db'>) {
 export async function requireWrites(
   ctx: Pick<QueryCtx, 'db'>,
   writeEpoch?: number,
+  writerClass: 'legacyCharacter' | 'general' = 'legacyCharacter',
 ) {
   const control = await requireOpenWriteGate(ctx);
   const epoch = control?.epoch ?? 0;
-  if (control?.authority === 'sheet' || (writeEpoch ?? 0) !== epoch) {
+  if (
+    (writerClass === 'legacyCharacter' && control?.authority === 'sheet') ||
+    (writeEpoch ?? 0) !== epoch
+  ) {
     throw new ConvexError({
       code: 'RELOAD_REQUIRED',
       message: migrationWriteMessages.reload_required,
@@ -48,6 +52,14 @@ export const writeGate = {
   }),
 };
 
+export const generalWriteGate = {
+  args: writeGate.args,
+  input: async (ctx: MutationCtx, args: { writeEpoch?: number }) => ({
+    ctx: { writeEpoch: await requireWrites(ctx, args.writeEpoch, 'general') },
+    args: {},
+  }),
+};
+
 // The indexed control read participates in every writing transaction, including
 // the absent-row case. Convex OCC serializes it against closure and reopening.
 export const gatedMutation = customMutation(mutation, writeGate);
@@ -55,18 +67,17 @@ export const gatedInternalMutation = customMutation(
   internalMutation,
   writeGate,
 );
+export const generalInternalMutation = customMutation(
+  internalMutation,
+  generalWriteGate,
+);
 
 // Provider deliveries recheck their own record timestamps after maintenance;
 // they are not browser commands and do not inherit a page's write epoch.
 export const gatedWebhookMutation = customMutation(internalMutation, {
   args: { writeEpoch: v.optional(v.number()) },
   input: async (ctx: MutationCtx) => {
-    const control = await requireOpenWriteGate(ctx);
-    if (control?.authority === 'sheet')
-      throw new ConvexError({
-        code: 'RELOAD_REQUIRED',
-        message: migrationWriteMessages.reload_required,
-      });
+    await requireOpenWriteGate(ctx);
     return { ctx: {}, args: {} };
   },
 });

@@ -17,9 +17,19 @@ const rawBuilders = new Set([
 const gatedBuilders = new Set([
   'gatedMutation',
   'gatedInternalMutation',
+  'generalInternalMutation',
   'gatedWebhookMutation',
   'campaignMutation',
   'campaignInternalMutation',
+  'legacyCharacterMutation',
+]);
+const characterTables = new Set([
+  'character',
+  'characterSheetEntry',
+  'catalogEntry',
+  'acceptedWarning',
+  'characterSpell',
+  'spell',
 ]);
 const reviewed: Record<string, string> = {
   'convex/initialMigration.ts:start':
@@ -36,16 +46,28 @@ const reviewed: Record<string, string> = {
     'Webhook: verifies signature before database access; delegates to gated user mutations with signed event time',
 };
 
-type Writer = { name: string; policy: string };
+type Writer = {
+  name: string;
+  policy: string;
+  writerClass:
+    | 'legacyCharacter'
+    | 'general'
+    | 'operator'
+    | 'retired'
+    | 'readOnly';
+};
 
 function propertyValue(node: ts.Node | undefined, name: string) {
   if (!node || !ts.isObjectLiteralExpression(node)) return undefined;
   const property = node.properties.find(
-    (entry) => ts.isPropertyAssignment(entry) && entry.name.getText() === name,
+    (entry) => entry.name?.getText() === name,
   );
-  return property && ts.isPropertyAssignment(property)
-    ? property.initializer
-    : undefined;
+  if (property && ts.isPropertyAssignment(property))
+    return property.initializer;
+  if (property && ts.isShorthandPropertyAssignment(property))
+    return property.name;
+  if (property && ts.isMethodDeclaration(property)) return property;
+  return undefined;
 }
 
 function acceptsWriteEpoch(options: ts.Node | undefined, retired: boolean) {
@@ -157,16 +179,24 @@ function classifyRegistration(
     switch (imported.name) {
       case 'gatedMutation':
       case 'gatedInternalMutation':
+        return 'Shared write gate (epoch + maintenance + legacy Character authority)';
+      case 'generalInternalMutation':
         return 'Shared write gate (epoch + maintenance)';
       case 'gatedWebhookMutation':
-        return 'Write gate (maintenance + legacy authority); idempotent webhook, epoch exempt';
+        return 'Write gate (maintenance); idempotent webhook, epoch exempt';
     }
   }
   if (
     imported.module === 'convex/lib/campaignRuntime' &&
-    ['campaignMutation', 'campaignInternalMutation'].includes(imported.name)
+    [
+      'campaignMutation',
+      'campaignInternalMutation',
+      'legacyCharacterMutation',
+    ].includes(imported.name)
   )
-    return 'Shared write gate (epoch + maintenance)';
+    return imported.name === 'legacyCharacterMutation'
+      ? 'Shared write gate (epoch + maintenance + legacy Character authority)'
+      : 'Shared write gate (epoch + maintenance)';
   return retired ? 'Retired: always rejects; never mutates' : reviewed[name];
 }
 
@@ -176,6 +206,7 @@ function checkRegistration(
   imports: Imports,
   name: string,
   errors: string[],
+  checker: ts.TypeChecker,
 ): Writer {
   const options = node.arguments[0];
   const handler = propertyValue(options, 'handler');
@@ -200,7 +231,148 @@ function checkRegistration(
     )
   )
     errors.push(`${name} read-only exception now writes or schedules work`);
-  return { name, policy: policy ?? 'UNGATED' };
+  const writerClass = retired
+    ? 'retired'
+    : [
+          'gatedMutation',
+          'gatedInternalMutation',
+          'legacyCharacterMutation',
+        ].includes(imported.name)
+      ? 'legacyCharacter'
+      : policy?.startsWith('Operator:')
+        ? 'operator'
+        : policy?.startsWith('Read-only') || policy?.startsWith('Signature')
+          ? 'readOnly'
+          : 'general';
+  if (policy && writerClass === 'general' && handler) {
+    const tables = new Set<string>();
+    const visited = new Set<ts.Node>();
+    const argumentTables = new Map<ts.Symbol, Map<string, string>>();
+    function localValue(node: ts.Identifier) {
+      const symbol = ts.isShorthandPropertyAssignment(node.parent)
+        ? checker.getShorthandAssignmentValueSymbol(node.parent)
+        : checker.getSymbolAtLocation(node);
+      const declaration = symbol?.valueDeclaration;
+      if (declaration && ts.isFunctionDeclaration(declaration))
+        return declaration;
+      if (declaration && ts.isVariableDeclaration(declaration))
+        return declaration.initializer;
+      return undefined;
+    }
+    function idTable(type: ts.TypeNode | undefined) {
+      if (!type || !ts.isTypeReferenceNode(type)) return undefined;
+      const table = type.typeArguments?.[0];
+      return type.typeName.getText() === 'Id' &&
+        table &&
+        ts.isLiteralTypeNode(table) &&
+        ts.isStringLiteral(table.literal)
+        ? table.literal.text
+        : undefined;
+    }
+    function tableForId(node: ts.Expression): string | undefined {
+      if (ts.isIdentifier(node)) {
+        const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+        if (
+          declaration &&
+          (ts.isParameter(declaration) || ts.isVariableDeclaration(declaration))
+        ) {
+          const table = idTable(declaration.type);
+          if (table) return table;
+          if (ts.isVariableDeclaration(declaration) && declaration.initializer)
+            return tableForId(declaration.initializer);
+        }
+      }
+      if (
+        ts.isPropertyAccessExpression(node) &&
+        ts.isIdentifier(node.expression)
+      ) {
+        const symbol = checker.getSymbolAtLocation(node.expression);
+        return symbol && argumentTables.get(symbol)?.get(node.name.text);
+      }
+      return undefined;
+    }
+    function visit(node: ts.Node, isHandler = false, isCalled = false) {
+      if (ts.isParenthesizedExpression(node)) {
+        visit(node.expression, isHandler, isCalled);
+        return;
+      }
+      if (
+        !isHandler &&
+        !isCalled &&
+        (ts.isFunctionDeclaration(node) ||
+          ts.isFunctionExpression(node) ||
+          ts.isArrowFunction(node) ||
+          ts.isMethodDeclaration(node))
+      )
+        return;
+      if (visited.has(node)) return;
+      visited.add(node);
+      if ((isHandler || isCalled) && ts.isIdentifier(node)) {
+        const value = localValue(node);
+        if (value) visit(value, isHandler, true);
+      }
+      if (
+        isHandler &&
+        (ts.isArrowFunction(node) ||
+          ts.isFunctionExpression(node) ||
+          ts.isFunctionDeclaration(node) ||
+          ts.isMethodDeclaration(node))
+      ) {
+        const args = node.parameters[1];
+        const symbol = args && checker.getSymbolAtLocation(args.name);
+        const validators = propertyValue(options, 'args');
+        if (symbol && validators && ts.isObjectLiteralExpression(validators)) {
+          const fields = new Map<string, string>();
+          for (const property of validators.properties) {
+            if (!ts.isPropertyAssignment(property)) continue;
+            const validator = property.initializer;
+            if (
+              ts.isCallExpression(validator) &&
+              ts.isPropertyAccessExpression(validator.expression) &&
+              validator.expression.name.text === 'id'
+            ) {
+              const table = validator.arguments[0];
+              if (table && ts.isStringLiteral(table))
+                fields.set(property.name.getText(), table.text);
+            }
+          }
+          argumentTables.set(symbol, fields);
+        }
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isPropertyAccessExpression(node.expression.expression) &&
+        node.expression.expression.name.text === 'db' &&
+        ['insert', 'patch', 'delete', 'replace'].includes(
+          node.expression.name.text,
+        )
+      ) {
+        const target = node.arguments[0];
+        const table =
+          target &&
+          (ts.isStringLiteral(target)
+            ? target.text
+            : node.expression.name.text !== 'insert'
+              ? tableForId(target)
+              : undefined);
+        if (table && characterTables.has(table)) tables.add(table);
+      }
+      ts.forEachChild(node, (child) =>
+        visit(
+          child,
+          false,
+          ts.isCallExpression(node) &&
+            (node.expression === child ||
+              node.arguments.some((argument) => argument === child)),
+        ),
+      );
+    }
+    visit(handler, true);
+    for (const table of tables)
+      errors.push(`${name} writes ${table} without a legacy Character builder`);
+  }
+  return { name, policy: policy ?? 'UNGATED', writerClass };
 }
 
 function auditSource(
@@ -211,6 +383,12 @@ function auditSource(
 ) {
   const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const imports = collectImports(ast);
+  const compilerOptions = { noLib: true, noResolve: true };
+  const program = ts.createProgram([path], compilerOptions, {
+    ...ts.createCompilerHost(compilerOptions),
+    getSourceFile: (fileName) => (fileName === path ? ast : undefined),
+  });
+  const checker = program.getTypeChecker();
   let anonymous = 0;
   function visit(node: ts.Node, parentOwner?: string) {
     if (ts.isImportDeclaration(node)) return;
@@ -223,7 +401,9 @@ function auditSource(
       const imported = resolveImport(node.expression, imports);
       if (imported && isBuilder(imported)) {
         const name = `${path}:${owner ?? `${imported.name}#${++anonymous}`}`;
-        writers.push(checkRegistration(node, imported, imports, name, errors));
+        writers.push(
+          checkRegistration(node, imported, imports, name, errors, checker),
+        );
       }
     }
     ts.forEachChild(node, (child) => visit(child, owner));
@@ -259,8 +439,11 @@ export function readWriterSources(root: string) {
 
 export function writerInventory(writers: Writer[]) {
   return [
-    '| Registered writer | Gate or reviewed exception |',
-    '| --- | --- |',
-    ...writers.map(({ name, policy }) => `| \`${name}\` | ${policy} |`),
+    '| Registered writer | Class | Gate or reviewed exception |',
+    '| --- | --- | --- |',
+    ...writers.map(
+      ({ name, policy, writerClass }) =>
+        `| \`${name}\` | ${writerClass} | ${policy} |`,
+    ),
   ].join('\n');
 }

@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { gatedInternalMutation } from './lib/writeGate';
+import { generalInternalMutation } from './lib/writeGate';
 
 export async function syncOrganizationMemberships(
   ctx: MutationCtx,
@@ -31,7 +31,7 @@ export async function syncOrganizationMemberships(
 
 // One account per transaction bounds the legacy inventory without a user-table
 // scan in any player-facing query. Re-running from null is safe.
-export const backfill = gatedInternalMutation({
+export const backfill = generalInternalMutation({
   args: { cursor: v.union(v.string(), v.null()) },
   returns: v.object({ isDone: v.boolean(), continueCursor: v.string() }),
   async handler(ctx, args) {

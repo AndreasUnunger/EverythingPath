@@ -4,7 +4,7 @@ import {
   paginationResultValidator,
 } from 'convex/server';
 import { query } from './_generated/server';
-import { campaignMutation as mutation } from './lib/campaignRuntime';
+import { legacyCharacterMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
 import schema, { campaignValidator, characterValidator } from './schema';
 import { getUserByTokenIdentifier, hasAccessToOrg } from './user';

@@ -1,3 +1,4 @@
+import { reviewedRemapSchema } from '../../src/lib/catalog/imported-entry-schema.ts';
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -50,17 +51,7 @@ type PackComparison = {
   unassigned: number;
 };
 
-const remapSchema = z.array(
-  z.object({
-    from: z.string().regex(/^(pf1|pf1-content)\/[A-Za-z0-9]+$/),
-    to: z.string().regex(/^(pf1|pf1-content)\/[A-Za-z0-9]+$/),
-    kind: z.string().min(1),
-    reason: z.string().min(1),
-    evidence: z.string().min(1),
-    reviewedBy: z.string().min(1),
-    reviewedOn: z.iso.date(),
-  }),
-);
+const remapSchema = z.array(reviewedRemapSchema);
 
 type Candidate = { source: LoadedRecord; kind: ImportKind };
 type ReviewedRemap = z.infer<typeof remapSchema>[number];

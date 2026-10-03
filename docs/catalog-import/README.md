@@ -20,6 +20,8 @@ The default `.catalog-preview/` directory is git-ignored. `--out /path/to/output
 
 Each file is deterministic for the same inputs and mapping: no timestamps or absolute checkout paths appear in the artifacts. The source fingerprints cover the manifest and ordered YAML paths/bytes. These are preview input hashes, not the complete future Catalog Release manifest. A later release must also fingerprint mapping, curation, legal evidence and supporting resources under the publication contract.
 
+The numbered release's parsers fingerprint includes `src/lib/character-sheet.ts`: its shared schemas validate and shape imported definitions. Editing it therefore requires a new release number even when the normalized output is unchanged. See [the release runbook](releases.md) for the complete fingerprint categories and compatibility deployment requirements.
+
 For the committed reduced fixtures, explicitly permit an unverified source snapshot:
 
 ```sh
@@ -43,7 +45,7 @@ The pure `assessCatalogAdmission({ artifact, assessments, evidence, registry, re
 
 The legal-page builder in `src/lib/catalog/legal-page-data.ts` accepts explicit required notices, the persisted permanent notice superset, the selected registry and legal resources. Requirements come from the gate's admitted and retained content; held-only books do not become requirements for unrelated content. Unreviewed registry text is omitted from newly supplied notices and appears as `Notice review pending` when required. Missing text remains an outstanding notice. The owner-authorized project notice is exactly `Keepnet © 2026 Andreas Ununger`, included in Section 15. The owner-approved Section 8 wording (2026-10-03) designates only reproduced Pathfinder rules, mechanics and rules text identified as Open Game Content by their contributors; no other Keepnet content is Open Game Content.
 
-[Catalog Release #310](https://github.com/AndreasUnunger/EverythingPath/issues/310) must persist the gate's `requiredNotices` and the builder's returned `permanentNoticeSuperset` with the release, preserve all previously shipped notice versions, and feed those persisted inputs to the public legal page. The route currently passes committed defaults explicitly. #257 provides the input seam and local preview only; it adds no release persistence or publication. A passing preview does not establish publication readiness.
+[Private Catalog Release preparation](releases.md) now persists the gate's `requiredNotices`, the builder's returned `permanentNoticeSuperset`, registry and legal resources with each immutable numbered candidate. It preserves previously shipped notice versions and supplies the legal page through the active-release read. Committed defaults remain until an explicit activation selects a prepared release. #257 provides the input seam and local preview; #310 adds private preparation and inspection, while publication remains separate. A passing preview does not establish publication readiness.
 
 The retained-use policy in `src/lib/catalog/retained-use-policy.ts` is exposed for subsequent Catalog Release and Character Sheet writers. This ticket does not create or modify Convex sheet tables, enforce selection writes, publish a release or activate content. Those writers must supply the complete prior-use inventory, preserve each last usable definition and invoke the retained-use policy before selections, copies, Grants or departure preservation.
 

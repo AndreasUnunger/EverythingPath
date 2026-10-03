@@ -48,7 +48,9 @@ Future private-candidate writers (#319) need a separate, reviewed migration inte
 
 `MaintenanceBanner` and the controls that disable editing use `useInitialMigrationMaintenance`. The hook supplies loading, unavailable, maintenance and reload-required notices; the banner presents the notice and the reload action, and controls explain why editing is unavailable. Existing saved data remains readable throughout; no client operation is automatically replayed. `cutover:status` has no application consumer; its compatibility projection remains covered by the accepted-campaign and initial-migration integration tests.
 
-The activation ticket must distinguish a **legacy Character writer** from **any writer**. Today `authority === 'sheet'` fences all ordinary gated writers and identity webhooks, including spell imports and fixtures, even with a current Write Epoch. Activation must deliberately preserve the required non-Character writers while retiring legacy Character writes. Draft retirement's closed-only housekeeping gate is the reviewed exception; this pre-activation ticket does not authorize a broader bypass.
+The gate distinguishes **legacy Character** writers from **general** writers. With `authority === 'sheet'`, only the legacy Character class rejects commands carrying the current Write Epoch. Catalog Release preparation, ordinary campaign/weekly writes, membership backfill and identity projection remain available. Maintenance closure still rejects every gated writer, and both command classes retain epoch fencing. Signed identity webhooks are general writes with their existing provider-timestamp exemption from browser epochs. The inventory records each registration's class; operator gate controls and retired/read-only endpoints are explicit exceptions.
+
+Prepared Character and Character Sheet writers still update the legacy flat statistics and remain in the legacy Character class until the activation implementation migrates that behavior. Spell import/aggregate writers maintain legacy spell data. Fixture reset/cleanup and accepted-campaign construction write or remove flat Characters and therefore retain that fence. Fixture writes limited to canonical drafts, snapshots or history, including Upkeep initialization that only reads Characters, are general. Draft retirement's closed-only housekeeping gate remains the reviewed epoch-exempt general writer.
 
 The #261 `characterSheet:buildOut` writer uses the composed campaign gate. Ledger level and permanent-score edits enter through the inventoried `character:updateCharacter` writer; roster Hit Dice override edits, including zero, enter through `canonicalLedger:save`. All use the same maintenance and Write Epoch checks as their other edits. Prepared ledger edits and sheet persistence also refresh current Militia Character Facts within their already-gated transaction. Every prepared sheet writer, including ledger level/score edits and Build out, prunes Accepted Warnings against the in-memory sheet after the edit via `pruneWarningAcceptancesAndRecordChange`; the Hit Dice override remains a militia snapshot correction rather than a sheet edit. This isolated fixture behavior does not activate production sheets. `convex/characterMilitiaSheet.integration.test.ts` proves Build out and ledger edits reject while the gate is closed, preserve saved reads, reject stale commands after abort, and accept a fresh command carrying the reopened epoch.
 
@@ -64,102 +66,107 @@ To prepare the membership directory for existing accounts, an operator must invo
 
 Run `pnpm -s check:initial-migration-writers`. The behavioral test `tests/initial-migration-writers.test.ts` also checks the current repository, so normal tests fail on uncovered writers or a stale inventory. The checker walks Convex TypeScript sources (excluding generated files and tests), resolves named/namespace registration imports, recognizes the reviewed builders in the two gate-owner modules, and explicitly lists every mutation/action/HTTP registration. Aliased raw imports, raw builder escapes/custom wrappers and re-exports fail closed outside the two reviewed gate owner modules. Every public mutation must accept an optional numeric `writeEpoch`: reviewed public builders provide it, while raw registrations declare it in their argument validator. A retired name is exempt from gating only while its handler is the imported `rejectRetiredWorkflow`; its `v.any()` argument validator preserves arbitrary legacy arguments, including `writeEpoch`, so requests reach the intended rejection.
 
-The Write Epoch exemptions are the reviewed identity webhook builder and `retireClosedDraft`'s inline transactional gate described above. The only exemptions from a Write Gate builder are that explicitly reviewed retirement handler, the two authoritative gate controls, read-only fixture inspection, pure webhook signature verification and the HTTP webhook adapter whose actual writes delegate to gated user mutations. Read-only exemptions reject obvious database writes or scheduling. Helper side effects, changes inside the two gate-owner modules and changes to the retirement handler still require code review plus integration tests; this static check is not a proof of arbitrary interprocedural behavior. Adding a writer requires its gate and a reviewed inventory update even if it uses a recognized wrapper.
+General writers reject statically identifiable `insert`, `patch`, `delete` or `replace` calls targeting `character`, `characterSheetEntry`, `catalogEntry`, `acceptedWarning`, `characterSpell` or `spell`; these writes require a legacy Character builder. The analysis follows inline and named handlers and direct module-local helper calls, including recursive calls. It recognizes literal table names, IDs declared as `Id<'table'>`, and handler argument IDs declared with direct `v.id('table')` validators. TypeScript bindings distinguish local calls from shadowed names and unrelated properties.
+
+The Write Epoch exemptions are the reviewed identity webhook builder and `retireClosedDraft`'s inline transactional gate described above. The only exemptions from a Write Gate builder are that explicitly reviewed retirement handler, the two authoritative gate controls, read-only fixture inspection, pure webhook signature verification and the HTTP webhook adapter whose actual writes delegate to gated user mutations. Read-only exemptions reject obvious database writes or scheduling. Imported helper side effects, dynamic dispatch or table names, other inferred ID types, changes inside the two gate-owner modules and changes to the retirement handler still require code review plus integration tests; this static check is not a proof of arbitrary interprocedural behavior. Adding a writer requires its gate and a reviewed inventory update even if it uses a recognized wrapper.
 
 Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membership webhooks, fixture reset/seed/cleanup, accepted-campaign setup, corrections, confirmations and scheduled draft retirement appear individually below. Ownership and campaign references are frozen through Character, membership, Setup and correction writers; there are no separate ungated ownership endpoints. Historical rewrite is not yet a registered writer in this release and must enter this inventory when implemented.
 
 <!-- prettier-ignore -->
-| Registered writer | Gate or reviewed exception |
-| --- | --- |
-| `convex/campaign.ts:createCampaign` | Shared write gate (epoch + maintenance) |
-| `convex/campaign.ts:updateCampaignDescription` | Shared write gate (epoch + maintenance) |
-| `convex/campaign.ts:updateCampaignInGameDate` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalDraftPersistence.ts:confirm` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalDraftPersistence.ts:edit` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalDraftPersistence.ts:retireClosedDraft` | Write gate (maintenance defers); accepted draft retirement is idempotent across epochs and Character authority |
-| `convex/canonicalLedger.ts:save` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:acceptedCampaign` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:appendHistory` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:blockSuccessor` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:changeSource` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:close` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:initialize` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:initializeUpkeep` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:inspect` | Read-only fixture inspection; no writes or scheduling |
-| `convex/canonicalPersistenceFixtures.ts:installAcceptanceSource` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalPersistenceFixtures.ts:resetAndInitialize` | Shared write gate (epoch + maintenance) |
-| `convex/canonicalSetup.ts:initialize` | Shared write gate (epoch + maintenance) |
-| `convex/character.ts:archiveCharacter` | Shared write gate (epoch + maintenance) |
-| `convex/character.ts:createCharacter` | Shared write gate (epoch + maintenance) |
-| `convex/character.ts:deleteCharacter` | Shared write gate (epoch + maintenance) |
-| `convex/character.ts:reassignOwner` | Shared write gate (epoch + maintenance) |
-| `convex/character.ts:updateCharacter` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:acceptWarning` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:addClassLevel` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:archive` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:buildOut` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:create` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:createAbilityChange` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:createPersonalAdjustment` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:createSheetEntry` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:deleteClassLevel` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:deletePrivate` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:editAbilityChange` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:editBaseScores` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:editClassLevel` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:editCreationSettings` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:editPersonalAdjustment` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:editSheetEntry` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:moveClassLevel` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:removeAbilityChange` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:removePersonalAdjustment` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:removeSheetEntry` | Shared write gate (epoch + maintenance) |
-| `convex/characterSheet.ts:reopenWarning` | Shared write gate (epoch + maintenance) |
-| `convex/clerk.ts:fulfill` | Signature verification only; no writes or scheduling |
-| `convex/cutover.ts:activate` | Retired: always rejects; never mutates |
-| `convex/cutover.ts:initialize` | Retired: always rejects; never mutates |
-| `convex/cutover.ts:pause` | Retired: always rejects; never mutates |
-| `convex/cutover.ts:prepare` | Retired: always rejects; never mutates |
-| `convex/cutover.ts:recordBackup` | Retired: always rejects; never mutates |
-| `convex/cutover.ts:resumeLegacy` | Retired: always rejects; never mutates |
-| `convex/e2eFixtures.ts:cleanupCase` | Shared write gate (epoch + maintenance) |
-| `convex/e2eFixtures.ts:resetCase` | Shared write gate (epoch + maintenance) |
-| `convex/e2eFixtures.ts:seedIdentityProjection` | Shared write gate (epoch + maintenance) |
-| `convex/http.ts:httpAction#1` | Webhook: verifies signature before database access; delegates to gated user mutations with signed event time |
-| `convex/initialMigration.ts:abortBeforeActivation` | Operator: reopens only the current unactivated run and advances the epoch |
-| `convex/initialMigration.ts:start` | Operator: atomically closes the gate and records the run |
-| `convex/legacyRetirement.ts:batch` | Retired: always rejects; never mutates |
-| `convex/migrations.ts:runLegacySchemaMigrationBatch` | Retired: always rejects; never mutates |
-| `convex/migrations.ts:startLegacySchemaMigration` | Retired: always rejects; never mutates |
-| `convex/militia.ts:assignOfficerRole` | Retired: always rejects; never mutates |
-| `convex/militia.ts:assignTeamManager` | Retired: always rejects; never mutates |
-| `convex/militia.ts:createMilitia` | Retired: always rejects; never mutates |
-| `convex/militia.ts:deleteCacheState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:deleteEventState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:deleteMarketplaceState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:deleteOrderState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:deleteSettlementState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:deleteTrackedPersonState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:updateMilitiaCoreState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertCacheState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertEventState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertMarketplaceState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertMilitiaTeamState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertOrderState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertSettlementState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertTrackedPersonState` | Retired: always rejects; never mutates |
-| `convex/militia.ts:upsertWeekContextState` | Retired: always rejects; never mutates |
-| `convex/organizationMembership.ts:backfill` | Shared write gate (epoch + maintenance) |
-| `convex/spell.ts:addNextHundredSpells` | Shared write gate (epoch + maintenance) |
-| `convex/spell.ts:addSpellMutation` | Shared write gate (epoch + maintenance) |
-| `convex/spell.ts:rebuildSpellAggregate` | Shared write gate (epoch + maintenance) |
-| `convex/user.ts:addOrgIdToUser` | Write gate (maintenance + legacy authority); idempotent webhook, epoch exempt |
-| `convex/user.ts:createUser` | Write gate (maintenance + legacy authority); idempotent webhook, epoch exempt |
-| `convex/user.ts:updateRoleInOrgForUser` | Write gate (maintenance + legacy authority); idempotent webhook, epoch exempt |
-| `convex/user.ts:updateUser` | Write gate (maintenance + legacy authority); idempotent webhook, epoch exempt |
-| `convex/weekBoard.ts:applyTreasuryTransaction` | Retired: always rejects; never mutates |
-| `convex/weekBoard.ts:buyOffPersistentEvent` | Retired: always rejects; never mutates |
-| `convex/weekBoard.ts:commitCurrentPhase` | Retired: always rejects; never mutates |
-| `convex/weekBoard.ts:goToPreviousWeek` | Retired: always rejects; never mutates |
-| `convex/weekBoard.ts:rankUpMilitia` | Retired: always rejects; never mutates |
-| `convex/weekBoard.ts:saveWeekBoardState` | Retired: always rejects; never mutates |
+| Registered writer | Class | Gate or reviewed exception |
+| --- | --- | --- |
+| `convex/campaign.ts:createCampaign` | general | Shared write gate (epoch + maintenance) |
+| `convex/campaign.ts:updateCampaignDescription` | general | Shared write gate (epoch + maintenance) |
+| `convex/campaign.ts:updateCampaignInGameDate` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalDraftPersistence.ts:confirm` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalDraftPersistence.ts:edit` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalDraftPersistence.ts:retireClosedDraft` | general | Write gate (maintenance defers); accepted draft retirement is idempotent across epochs and Character authority |
+| `convex/canonicalLedger.ts:save` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:acceptedCampaign` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/canonicalPersistenceFixtures.ts:appendHistory` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:blockSuccessor` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:changeSource` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:close` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:initialize` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:initializeUpkeep` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:inspect` | readOnly | Read-only fixture inspection; no writes or scheduling |
+| `convex/canonicalPersistenceFixtures.ts:installAcceptanceSource` | general | Shared write gate (epoch + maintenance) |
+| `convex/canonicalPersistenceFixtures.ts:resetAndInitialize` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/canonicalSetup.ts:initialize` | general | Shared write gate (epoch + maintenance) |
+| `convex/catalogRelease.ts:begin` | general | Shared write gate (epoch + maintenance) |
+| `convex/catalogRelease.ts:finalize` | general | Shared write gate (epoch + maintenance) |
+| `convex/catalogRelease.ts:writeBatch` | general | Shared write gate (epoch + maintenance) |
+| `convex/character.ts:archiveCharacter` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/character.ts:createCharacter` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/character.ts:deleteCharacter` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/character.ts:reassignOwner` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/character.ts:updateCharacter` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:acceptWarning` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:addClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:archive` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:buildOut` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:create` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:createAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:createPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:createSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:deleteClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:deletePrivate` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editBaseScores` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editCreationSettings` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:moveClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:removeAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:removePersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:removeSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:reopenWarning` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/clerk.ts:fulfill` | readOnly | Signature verification only; no writes or scheduling |
+| `convex/cutover.ts:activate` | retired | Retired: always rejects; never mutates |
+| `convex/cutover.ts:initialize` | retired | Retired: always rejects; never mutates |
+| `convex/cutover.ts:pause` | retired | Retired: always rejects; never mutates |
+| `convex/cutover.ts:prepare` | retired | Retired: always rejects; never mutates |
+| `convex/cutover.ts:recordBackup` | retired | Retired: always rejects; never mutates |
+| `convex/cutover.ts:resumeLegacy` | retired | Retired: always rejects; never mutates |
+| `convex/e2eFixtures.ts:cleanupCase` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/e2eFixtures.ts:resetCase` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/e2eFixtures.ts:seedIdentityProjection` | general | Shared write gate (epoch + maintenance) |
+| `convex/http.ts:httpAction#1` | general | Webhook: verifies signature before database access; delegates to gated user mutations with signed event time |
+| `convex/initialMigration.ts:abortBeforeActivation` | operator | Operator: reopens only the current unactivated run and advances the epoch |
+| `convex/initialMigration.ts:start` | operator | Operator: atomically closes the gate and records the run |
+| `convex/legacyRetirement.ts:batch` | retired | Retired: always rejects; never mutates |
+| `convex/migrations.ts:runLegacySchemaMigrationBatch` | retired | Retired: always rejects; never mutates |
+| `convex/migrations.ts:startLegacySchemaMigration` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:assignOfficerRole` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:assignTeamManager` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:createMilitia` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:deleteCacheState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:deleteEventState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:deleteMarketplaceState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:deleteOrderState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:deleteSettlementState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:deleteTrackedPersonState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:updateMilitiaCoreState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertCacheState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertEventState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertMarketplaceState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertMilitiaTeamState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertOrderState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertSettlementState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertTrackedPersonState` | retired | Retired: always rejects; never mutates |
+| `convex/militia.ts:upsertWeekContextState` | retired | Retired: always rejects; never mutates |
+| `convex/organizationMembership.ts:backfill` | general | Shared write gate (epoch + maintenance) |
+| `convex/spell.ts:addNextHundredSpells` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/spell.ts:addSpellMutation` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/spell.ts:rebuildSpellAggregate` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/user.ts:addOrgIdToUser` | general | Write gate (maintenance); idempotent webhook, epoch exempt |
+| `convex/user.ts:createUser` | general | Write gate (maintenance); idempotent webhook, epoch exempt |
+| `convex/user.ts:updateRoleInOrgForUser` | general | Write gate (maintenance); idempotent webhook, epoch exempt |
+| `convex/user.ts:updateUser` | general | Write gate (maintenance); idempotent webhook, epoch exempt |
+| `convex/weekBoard.ts:applyTreasuryTransaction` | retired | Retired: always rejects; never mutates |
+| `convex/weekBoard.ts:buyOffPersistentEvent` | retired | Retired: always rejects; never mutates |
+| `convex/weekBoard.ts:commitCurrentPhase` | retired | Retired: always rejects; never mutates |
+| `convex/weekBoard.ts:goToPreviousWeek` | retired | Retired: always rejects; never mutates |
+| `convex/weekBoard.ts:rankUpMilitia` | retired | Retired: always rejects; never mutates |
+| `convex/weekBoard.ts:saveWeekBoardState` | retired | Retired: always rejects; never mutates |

@@ -1,22 +1,17 @@
 import type { Metadata } from 'next';
+import { fetchQuery } from 'convex/nextjs';
+import { api } from '../../../convex/_generated/api';
 import { LegalPage } from '~/components/legal/legal-page';
-import { buildLegalPageData } from '~/lib/catalog/legal-page-data';
-import { legalResources, section15Registry } from '~/lib/catalog/reviewed-data';
+import { loadLegalPageData } from '~/lib/catalog/legal-page-loader';
 
 export const metadata: Metadata = { title: 'Legal notices' };
 
 // Public: outside the campaign layout, and `proxy.ts` protects no route, so
-// no sign-in or organization is needed. The notices are read from committed
-// files on the server; the page ships no state of its own.
-export default function LegalRoute() {
-  return (
-    <LegalPage
-      data={buildLegalPageData({
-        registry: section15Registry,
-        resources: legalResources,
-        permanentNoticeSuperset: legalResources.permanentNoticeSuperset,
-        requiredNotices: [],
-      })}
-    />
+// no sign-in or organization is needed. Candidate notices remain private;
+// before activation the page retains its committed notice inputs.
+export default async function LegalRoute() {
+  const data = await loadLegalPageData(() =>
+    fetchQuery(api.catalogRelease.legalInputs, {}),
   );
+  return <LegalPage data={data} />;
 }

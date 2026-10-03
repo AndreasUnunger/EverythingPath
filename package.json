@@ -30,6 +30,7 @@
     "lint:eslint": "node --max-old-space-size=4096 ./node_modules/eslint/bin/eslint.js .",
     "lint:unused": "knip",
     "catalog:preview": "node --import tsx scripts/catalog-preview.ts",
+    "catalog:release": "node --import tsx scripts/catalog-release.ts",
     "catalog:curate": "node --import tsx scripts/catalog-curate.ts",
     "check:initial-migration-writers": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-initial-migration-writers.ts"
   },

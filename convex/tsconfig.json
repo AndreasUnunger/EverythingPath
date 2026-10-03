@@ -5,6 +5,7 @@
    */
   "compilerOptions": {
     /* These settings are not required by Convex and can be modified. */
+    "allowImportingTsExtensions": true,
     "baseUrl": "..",
     "paths": { "~/*": ["./src/*"], "@convex/*": ["./convex/*"] },
     "allowJs": true,

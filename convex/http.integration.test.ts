@@ -66,7 +66,7 @@ test.each([
   },
 );
 
-test('signed webhooks receive a retryable response when legacy writes require reloading', async () => {
+test('signed identity webhooks continue after authority switches to sheets', async () => {
   const t = convexTest(schema, modules);
   const run = await t.mutation(internal.initialMigration.start, {
     operationId: 'http-reload',
@@ -96,7 +96,7 @@ test('signed webhooks receive a retryable response when legacy writes require re
       'svix-signature': 'valid',
     },
   });
-  expect(response.status).toBe(503);
+  expect(response.status).toBe(200);
 });
 
 test('signed webhooks receive retryable maintenance responses and succeed when redelivered after reopening', async () => {

@@ -460,7 +460,7 @@ test('abort refuses activated authority and client commands require reload after
       campaignId: key.campaignId,
       organizationId: 'org',
       description: 'Delayed legacy command',
-      writeEpoch: 1,
+      writeEpoch: 0,
     }),
   ).rejects.toThrow('RELOAD_REQUIRED');
   expect(await t.query(api.initialMigration.clientStatus, {})).toEqual({

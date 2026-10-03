@@ -4,7 +4,6 @@ import type { MutationCtx } from '../_generated/server';
 import {
   abilityKeys,
   abilityTargets,
-  calculateCharacterSheetProjections,
   type AbilityScores,
 } from '../../src/lib/character-sheet';
 import {
@@ -12,6 +11,10 @@ import {
   requireAbilityScore,
 } from './preparedCharacterSheet';
 import { calculateMilitiaCharacterFacts } from './militiaCharacterFacts';
+import {
+  calculateActiveCharacterSheet,
+  requireCompatibleActiveRelease,
+} from './catalogReleaseCompatibility';
 import {
   loadCharacterSheet,
   insertClassLevel,
@@ -119,7 +122,8 @@ export async function editMilitiaOnlySheet(
     );
   const levelsChanged = await resizeClassLevels(ctx, args, sheet);
   if (levelsChanged) {
-    const projections = calculateCharacterSheetProjections({
+    await requireCompatibleActiveRelease(ctx);
+    const projections = calculateActiveCharacterSheet({
       entries: sheet.entries,
       catalogEntries: sheet.catalogEntries,
       characterKind: sheet.character.kind,

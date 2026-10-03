@@ -1,4 +1,7 @@
-import { gatedInternalMutation } from './lib/writeGate';
+import {
+  gatedInternalMutation,
+  generalInternalMutation,
+} from './lib/writeGate';
 import { syncOrganizationMemberships } from './organizationMembership';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
@@ -239,7 +242,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
   }
 }
 
-export const seedIdentityProjection = gatedInternalMutation({
+export const seedIdentityProjection = generalInternalMutation({
   args: scopeArgs,
   returns: v.null(),
   handler: async (ctx, scope) => {

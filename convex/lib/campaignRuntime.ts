@@ -5,7 +5,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from '../_generated/server';
-import { writeGate } from './writeGate';
+import { generalWriteGate, writeGate } from './writeGate';
 import { migrationWriteMessages } from '../../src/lib/migration-write-messages';
 
 export async function readCutover(ctx: Pick<QueryCtx, 'db'>) {
@@ -25,9 +25,9 @@ export async function requireCampaignWrites(ctx: Pick<QueryCtx, 'db'>) {
 }
 
 const writable = {
-  ...writeGate,
+  ...generalWriteGate,
   input: async (ctx: MutationCtx, args: { writeEpoch?: number }) => {
-    const input = await writeGate.input(ctx, args);
+    const input = await generalWriteGate.input(ctx, args);
     await requireCampaignWrites(ctx);
     return input;
   },
@@ -36,3 +36,12 @@ const writable = {
 // Keep both maintenance checks in one customization so the write epoch stays
 // part of the inferred function arguments and handler context.
 export const campaignMutation = customMutation(mutation, writable);
+
+export const legacyCharacterMutation = customMutation(mutation, {
+  ...writeGate,
+  input: async (ctx: MutationCtx, args: { writeEpoch?: number }) => {
+    const input = await writeGate.input(ctx, args);
+    await requireCampaignWrites(ctx);
+    return input;
+  },
+});

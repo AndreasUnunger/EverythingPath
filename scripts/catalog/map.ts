@@ -1,4 +1,5 @@
 import knownNoticeHolds from './legal/known-notice-holds.json';
+import { importedCatalogEntrySchema } from '../../src/lib/catalog/imported-entry-schema.ts';
 import {
   sourceDescription,
   uuidKey,
@@ -174,7 +175,7 @@ export function mapEntry({
   const context = { record, kind, unsupported, sanitize };
   recordUncuratedContent(context);
   const modifiers = mapModifiers(context);
-  return {
+  const entry = {
     externalKey,
     upstreamKey,
     pack,
@@ -185,6 +186,8 @@ export function mapEntry({
     modifiers,
     unsupported,
   };
+  importedCatalogEntrySchema.parse(entry);
+  return entry;
 }
 
 type MappingContext = {

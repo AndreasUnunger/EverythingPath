@@ -8,11 +8,14 @@ import {
   abilityTargets,
   defaultAbilityScores,
   defaultCreationSettings,
-  calculateCharacterSheetProjections,
   type AbilityScores,
 } from '../../src/lib/character-sheet';
 import { requireCharacterAccess, type CharacterScope } from './characterAccess';
 import { updateCanonicalCharacter } from './canonicalCharacters';
+import {
+  calculateActiveCharacterSheet,
+  requireCompatibleActiveRelease,
+} from './catalogReleaseCompatibility';
 import {
   readCharacterSheetData,
   maxCharacterChildRows,
@@ -183,14 +186,13 @@ export async function pruneWarningAcceptancesAndRecordChange(
     operationId: string;
   },
 ) {
-  const { current: calculated, permanent } = calculateCharacterSheetProjections(
-    {
-      entries: sheet.entries,
-      catalogEntries: sheet.catalogEntries,
-      characterKind: sheet.character.kind,
-      sheetMode: sheet.character.sheetMode,
-    },
-  );
+  await requireCompatibleActiveRelease(ctx);
+  const { current: calculated, permanent } = calculateActiveCharacterSheet({
+    entries: sheet.entries,
+    catalogEntries: sheet.catalogEntries,
+    characterKind: sheet.character.kind,
+    sheetMode: sheet.character.sheetMode,
+  });
   requireWholeCalculatedAbilities(calculated);
   requireWholeCalculatedAbilities(permanent);
   for (const accepted of sheet.acceptedWarnings) {

@@ -8,6 +8,10 @@ import {
 } from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
 import {
+  catalogReleaseManifestValidator,
+  catalogReleaseRowValidator,
+} from '../src/lib/catalog/release-validators';
+import {
   abilityKeys,
   abilityTargets,
   bonusTypes,
@@ -378,6 +382,34 @@ export const militiaValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  catalogRelease: defineTable({
+    releaseNumber: v.number(),
+    state: v.union(v.literal('preparing'), v.literal('prepared')),
+    baseReleaseNumber: v.union(v.number(), v.null()),
+    manifest: catalogReleaseManifestValidator,
+    nextBatchIndex: v.number(),
+    batchCount: v.number(),
+    stagedRows: v.number(),
+    reportCategories: v.array(v.string()),
+    legalKeys: v.array(v.string()),
+  }).index('by_releaseNumber', ['releaseNumber']),
+  catalogReleaseRow: defineTable(
+    v.union(
+      ...catalogReleaseRowValidator.members.map((row) =>
+        row.extend({
+          releaseId: v.id('catalogRelease'),
+          batchIndex: v.number(),
+        }),
+      ),
+    ),
+  ).index('by_releaseId_and_kind_and_key', ['releaseId', 'kind', 'key']),
+  // Selected only by the later atomic catalog/facts activation command.
+  catalogReleaseControl: defineTable({
+    key: v.literal('global'),
+    releaseNumber: v.number(),
+    schemaIdentity: v.string(),
+    calculationIdentity: v.string(),
+  }).index('by_key', ['key']),
   initialMigrationControl: defineTable({
     key: v.literal('character-sheet'),
     epoch: v.number(),

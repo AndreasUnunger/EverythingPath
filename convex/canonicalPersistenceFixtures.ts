@@ -2,6 +2,7 @@ import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import {
   gatedMutation,
   gatedInternalMutation,
+  generalInternalMutation,
 } from './lib/writeGate';
 import { internal } from './_generated/api';
 import { isolationArgs } from './e2eFixtures';
@@ -47,7 +48,7 @@ async function ownedCampaign(ctx: MutationCtx, scope: Scope) {
     throw new Error('Missing owned fixture campaign');
   return campaign;
 }
-export const initialize = gatedInternalMutation({
+export const initialize = generalInternalMutation({
   args: { scope: zodOutputToConvex(fixtureScopeSchema), draftId: v.string() },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args) => {
@@ -137,7 +138,7 @@ export const resetAndInitialize = gatedInternalMutation({
   },
 });
 
-export const close = gatedInternalMutation({
+export const close = generalInternalMutation({
   args: zodOutputToConvex(draftKeySchema.extend({ scope: fixtureScopeSchema })),
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -193,7 +194,7 @@ async function ownedSource(
     throw new Error('Wrong fixture draft');
   return { state, row };
 }
-export const changeSource = gatedInternalMutation({
+export const changeSource = generalInternalMutation({
   args: zodOutputToConvex(
     lifecycleArgs.extend({
       change: z.enum(['revision', 'treasury', 'invalid_reference']),
@@ -222,7 +223,7 @@ export const changeSource = gatedInternalMutation({
     return null;
   },
 });
-export const blockSuccessor = gatedInternalMutation({
+export const blockSuccessor = generalInternalMutation({
   args: zodOutputToConvex(
     lifecycleArgs.extend({ operationId: z.string().min(1) }),
   ),
@@ -277,7 +278,7 @@ export const inspect = readOnlyMutation({
   },
 });
 
-export const initializeUpkeep = gatedInternalMutation({
+export const initializeUpkeep = generalInternalMutation({
   args: {
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
@@ -507,7 +508,7 @@ export const initializeUpkeep = gatedInternalMutation({
 });
 
 // Test-only source installation remains bound to the owned disposable campaign.
-export const installAcceptanceSource = gatedInternalMutation({
+export const installAcceptanceSource = generalInternalMutation({
   args: zodOutputToConvex(
     lifecycleArgs.extend({
       draft: weeklyDraftDataSchema,
@@ -537,7 +538,7 @@ export const installAcceptanceSource = gatedInternalMutation({
 // a historical reconstruction of `reconstructWeek`, each a copy of the
 // confirmed record. Written as append-only storage would write them, without
 // a signed-in caller; no application path creates such records yet.
-export const appendHistory = gatedInternalMutation({
+export const appendHistory = generalInternalMutation({
   args: zodOutputToConvex(
     lifecycleArgs.extend({
       corrections: z.number().int().min(1).max(10),
