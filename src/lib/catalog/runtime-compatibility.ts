@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:07ff30d26f7390adf23ce462d28f99d90eafb653dc510e7938d56430ebde1a39',
+    'sha256:786419b05306d7a49758654158105a8d98369370d2f733adeb3f5a8cd6a10850',
 } as const;
 
 export const catalogCalculationV1Files = [
@@ -24,4 +24,9 @@ export const catalogCalculationV1Files = [
   'scripts/catalog/reviewed-casting-tables.json',
   'src/lib/character-sheet-abilities.ts',
   'src/lib/character-sheet-racial.ts',
+  'src/lib/character-sheet-equipment.ts',
+  'src/lib/character-sheet-proficiencies.ts',
+  'src/lib/character-sheet-proficiency-prerequisites.ts',
+  'src/lib/character-sheet-armor-categories.ts',
+  'src/lib/character-sheet-class-levels.ts',
 ] as const;

@@ -1,5 +1,7 @@
 'use client';
 
+import { useCharacterSheetEquipment } from './use-character-sheet-equipment';
+
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { FunctionArgs, FunctionReturnType } from 'convex/server';
@@ -58,6 +60,7 @@ export function useCharacterSheet(
   const buildOut = useBuildOutCharacter(scope);
   const snapshot = useQuery(api.characterSheet.read, scope);
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
+  const equipmentWrites = useCharacterSheetEquipment(scope, snapshot);
   const grants = useCharacterSheetGrants(scope, snapshot);
   const companions = useCharacterCompanions(scope, snapshot, origin);
   const races = useCharacterSheetRaces(scope, snapshot);
@@ -215,6 +218,7 @@ export function useCharacterSheet(
 
   return {
     ...entryWrites,
+    ...equipmentWrites,
     grants,
     companions,
     races,

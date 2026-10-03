@@ -262,3 +262,53 @@ test('maintenance disables the condition cards, the search stays, and Customize 
   expect(search()).toBeEnabled();
   expect(within(form()).getByText(message)).toBeVisible();
 });
+
+test('an item records its armor or shield facts with distinct required and invalid errors; a blank maximum Dexterity is no limit', async () => {
+  const { save } = renderEditor();
+  fireEvent.click(screen.getByRole('radio', { name: 'Item' }));
+  fireEvent.change(field('Name'), { target: { value: 'Tower shield' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Armor or shield' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Shield' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Tower shield' }));
+  expect(field('Maximum Dexterity bonus')).toHaveValue('');
+  fireEvent.change(field('Armor or shield bonus'), { target: { value: '' } });
+  fireEvent.change(field('Armor check penalty'), { target: { value: 'ten' } });
+  fireEvent.click(button('Save entry'));
+  await waitFor(() =>
+    expect(field('Armor or shield bonus')).toHaveAccessibleDescription(
+      'Armor or shield bonus is required',
+    ),
+  );
+  expect(field('Armor check penalty')).toHaveAccessibleDescription(
+    'Armor check penalty must be a whole number of 0 or more',
+  );
+  expect(save).not.toHaveBeenCalled();
+
+  fireEvent.change(field('Armor or shield bonus'), { target: { value: '4' } });
+  fireEvent.change(field('Armor check penalty'), { target: { value: '10' } });
+  fireEvent.change(field('Maximum Dexterity bonus'), {
+    target: { value: '2' },
+  });
+  fireEvent.change(field('Arcane spell failure %'), {
+    target: { value: '50' },
+  });
+  fireEvent.click(button('Save entry'));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      name: 'Tower shield',
+      detail: {
+        kind: 'item',
+        consumable: false,
+        armor: {
+          slot: 'shield',
+          category: 'towerShield',
+          bonus: 4,
+          maxDex: 2,
+          armorCheckPenalty: 10,
+          asf: 50,
+        },
+      },
+    }),
+  );
+});

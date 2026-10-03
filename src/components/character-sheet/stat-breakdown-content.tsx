@@ -59,11 +59,13 @@ function Line({
   detail,
   isStruck,
   className,
+  format = formatModifier,
 }: {
   contribution: SourcedModifier;
   detail?: ReactNode;
   isStruck?: boolean;
   className?: string;
+  format?: (value: number) => string;
 }) {
   const struck = isStruck ? 'line-through' : '';
   return (
@@ -74,7 +76,7 @@ function Line({
         </span>
         <TypeTag contribution={contribution} isDim={isStruck} />
         <span className={cn('font-mono', struck)}>
-          {formatModifier(contribution.value)}
+          {format(contribution.value)}
         </span>
       </div>
       {detail ? <div className="text-xs">{detail}</div> : null}
@@ -85,9 +87,11 @@ function Line({
 function SuppressedLines({
   items,
   statistic,
+  format,
 }: {
   items: SuppressedModifier[];
   statistic: ResolvedStatistic;
+  format?: (value: number) => string;
 }) {
   return items.map((item, index) => {
     const winner = findSuppressorName(item, statistic);
@@ -97,6 +101,7 @@ function SuppressedLines({
         contribution={item}
         isStruck
         className="text-muted-foreground"
+        format={format}
         detail={winner ? `${item.reason} (${winner})` : item.reason}
       />
     );
@@ -168,12 +173,15 @@ function SituationPreview({
 export function BreakdownExplanation({
   statistic,
   target,
+  formatContribution,
 }: {
   statistic: ResolvedStatistic;
-  target: BreakdownTarget;
+  /** Without a sheet statistic to preview, Situations are not listed. */
+  target?: BreakdownTarget;
+  formatContribution?: (value: number) => string;
 }) {
   const resolver = useBreakdownResolver();
-  const situations = listSituationGroups(statistic);
+  const situations = target === undefined ? [] : listSituationGroups(statistic);
   const prerequisites = listPrerequisiteContributions(statistic);
   return (
     <>
@@ -186,6 +194,7 @@ export function BreakdownExplanation({
               key={contributionKey(item, index)}
               contribution={item}
               detail={describeCastingScope(item, resolver.findCastingClassName)}
+              format={formatContribution}
             />
           ))}
         </ul>
@@ -197,11 +206,12 @@ export function BreakdownExplanation({
             <SuppressedLines
               items={statistic.suppressed}
               statistic={statistic}
+              format={formatContribution}
             />
           </ul>
         </>
       ) : null}
-      {situations.length > 0 ? (
+      {target !== undefined && situations.length > 0 ? (
         <div className="border-foreground/15 mt-2 border-t pt-2">
           <p className={cn(fieldLabel, 'mb-1')}>Only when…</p>
           <ul className="space-y-2">

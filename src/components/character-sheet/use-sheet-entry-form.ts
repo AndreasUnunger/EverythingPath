@@ -3,6 +3,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  armorCategory,
+  type ArmorCategory,
+} from '~/lib/character-sheet-armor-categories';
+import {
   conditionKeys,
   conditionDefinitions,
   getConditionDefinition,
@@ -24,6 +28,35 @@ const conditionSelectionSchema = z.discriminatedUnion('kind', [
 ]);
 export type ConditionSelection = z.infer<typeof conditionSelectionSchema>;
 
+export const armorCategoriesBySlot = {
+  armor: ['light', 'medium', 'heavy'],
+  shield: ['buckler', 'lightShield', 'heavyShield', 'towerShield'],
+} as const;
+type ArmorDetail = NonNullable<
+  Extract<SheetEntryInput['detail'], { kind: 'item' }>['armor']
+>;
+
+// A stored synonym ("heavyArmor", "tower") reads as its card.
+function cardCategory(category: ArmorCategory | undefined) {
+  const normalized = armorCategory(category);
+  return normalized === 'other' ? '' : (normalized ?? '');
+}
+
+const armorNumbers = [
+  { field: 'armorBonus', label: 'Armor or shield bonus', isRequired: true },
+  { field: 'armorMaxDex', label: 'Maximum Dexterity bonus', isRequired: false },
+  {
+    field: 'armorCheckPenalty',
+    label: 'Armor check penalty',
+    isRequired: true,
+  },
+  {
+    field: 'armorSpellFailure',
+    label: 'Arcane spell failure',
+    isRequired: true,
+  },
+] as const;
+
 const schema = z
   .object({
     kind: z.enum(['spellEffect', 'condition', 'item', 'spell']),
@@ -32,8 +65,45 @@ const schema = z
     consumable: z.boolean(),
     defaultCasterLevel: z.string(),
     casterLevel: z.string(),
+    isArmor: z.boolean(),
+    armorSlot: z.enum(['armor', 'shield']),
+    armorCategory: z.string(),
+    armorBonus: z.string(),
+    armorMaxDex: z.string(),
+    armorCheckPenalty: z.string(),
+    armorSpellFailure: z.string(),
   })
   .superRefine((value, ctx) => {
+    const slotCategories: readonly string[] =
+      armorCategoriesBySlot[value.armorSlot];
+    if (
+      value.kind === 'item' &&
+      value.isArmor &&
+      value.armorCategory !== '' &&
+      !slotCategories.includes(value.armorCategory)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['armorCategory'],
+        message: `Choose a category for this ${value.armorSlot}`,
+      });
+    if (value.kind === 'item' && value.isArmor)
+      for (const { field, label, isRequired } of armorNumbers) {
+        const raw = value[field];
+        if (!raw.trim()) {
+          if (isRequired)
+            ctx.addIssue({
+              code: 'custom',
+              path: [field],
+              message: `${label} is required`,
+            });
+        } else if (!wholeNumber(raw))
+          ctx.addIssue({
+            code: 'custom',
+            path: [field],
+            message: `${label} must be a whole number of 0 or more`,
+          });
+      }
     if (value.kind !== 'spellEffect') return;
     if (!value.defaultCasterLevel.trim())
       ctx.addIssue({
@@ -57,6 +127,7 @@ const schema = z
 
 function formValues(value?: SheetEntryInput): z.infer<typeof schema> {
   const detail = value?.detail;
+  const armor = detail?.kind === 'item' ? detail.armor : undefined;
   return {
     kind: detail?.kind ?? 'condition',
     conditionSelection:
@@ -72,11 +143,23 @@ function formValues(value?: SheetEntryInput): z.infer<typeof schema> {
       detail?.kind === 'spellEffect'
         ? String(value?.casterLevel ?? detail.defaultCasterLevel)
         : '',
+    // In the schema's order: accepted values are compared as JSON.
+    isArmor: armor !== undefined,
+    armorSlot: armor?.slot ?? 'armor',
+    armorCategory: cardCategory(armor?.category),
+    armorBonus: String(armor?.bonus ?? 0),
+    armorMaxDex:
+      armor?.maxDex === undefined || armor.maxDex === null
+        ? ''
+        : String(armor.maxDex),
+    armorCheckPenalty: String(armor?.armorCheckPenalty ?? 0),
+    armorSpellFailure: String(armor?.asf ?? 0),
   };
 }
 
 function classificationDetail(
   classification: z.infer<typeof schema>,
+  previous?: SheetEntryInput['detail'],
 ): SheetEntryInput['detail'] {
   if (classification.kind === 'spellEffect')
     return {
@@ -84,8 +167,19 @@ function classificationDetail(
       lastsOverOneDay: classification.lastsOverOneDay,
       defaultCasterLevel: Number(classification.defaultCasterLevel),
     };
-  if (classification.kind === 'item')
-    return { kind: 'item', consumable: classification.consumable };
+  if (classification.kind === 'item') {
+    const { armor: previousArmor, ...rest } =
+      previous?.kind === 'item' ? previous : { armor: undefined };
+    const armor = classification.isArmor
+      ? armorDetail(classification, previousArmor)
+      : undefined;
+    return {
+      ...rest,
+      kind: 'item',
+      consumable: classification.consumable,
+      ...(armor ? { armor } : {}),
+    };
+  }
   if (
     classification.kind === 'condition' &&
     classification.conditionSelection.kind === 'crb'
@@ -95,6 +189,46 @@ function classificationDetail(
       conditionKey: classification.conditionSelection.key,
     };
   return { kind: classification.kind };
+}
+
+function isArmorCategory(value: string): value is ArmorCategory {
+  return Object.values(armorCategoriesBySlot).some((categories) =>
+    categories.some((category) => category === value),
+  );
+}
+
+// The typed facts over what was stored; an untouched category keeps its
+// stored spelling, and a blank maximum stays absent or becomes No limit.
+function armorDetail(
+  classification: z.infer<typeof schema>,
+  previous: ArmorDetail | undefined,
+): ArmorDetail {
+  const {
+    category: previousCategory,
+    maxDex: previousMaxDex,
+    ...previousFacts
+  } = previous ?? {};
+  const typedCategory = classification.armorCategory;
+  const category =
+    typedCategory === cardCategory(previousCategory)
+      ? previousCategory
+      : isArmorCategory(typedCategory)
+        ? typedCategory
+        : undefined;
+  const maxDex = classification.armorMaxDex.trim()
+    ? Number(classification.armorMaxDex)
+    : previousMaxDex === undefined
+      ? undefined
+      : null;
+  return {
+    ...previousFacts,
+    slot: classification.armorSlot,
+    bonus: Number(classification.armorBonus),
+    armorCheckPenalty: Number(classification.armorCheckPenalty),
+    asf: Number(classification.armorSpellFailure),
+    ...(category === undefined ? {} : { category }),
+    ...(maxDex === undefined ? {} : { maxDex }),
+  };
 }
 
 export function useSheetEntryForm({
@@ -114,7 +248,7 @@ export function useSheetEntryForm({
     adjustment: value,
     save: async (input) => {
       const classification = schema.parse(form.getValues());
-      const detail = classificationDetail(classification);
+      const detail = classificationDetail(classification, value?.detail);
       const submitted = {
         ...input,
         detail,
@@ -141,7 +275,7 @@ export function useSheetEntryForm({
       const normalized = formValues({
         name: '',
         modifiers: [],
-        detail: classificationDetail(values),
+        detail: classificationDetail(values, value?.detail),
         ...(values.kind === 'spellEffect'
           ? {
               casterLevel: values.casterLevel.trim()

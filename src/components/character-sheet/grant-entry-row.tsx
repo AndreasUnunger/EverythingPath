@@ -6,6 +6,7 @@ import { useInitialMigrationMaintenance } from '~/components/use-initial-migrati
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import type { GrantEntryView } from './character-sheet-grants-view-model';
+import { listEquipmentWarnings } from './equipment-statistics';
 import { GrantEntryStateEditor } from './grant-entry-state-editor';
 import { InlineDeleteQuestion } from './inline-delete-question';
 import { InlineWarnings } from './inline-warning';
@@ -28,14 +29,23 @@ export type RenderRowExtra = (row: GrantEntryView) => ReactNode;
 const mutedChip = cn(chip, 'text-muted-foreground');
 
 /** The warnings aimed at this entry or at one of its Modifiers. */
-export function listGrantEntryWarnings(
-  warnings: SheetWarningView[],
-  rowId: string,
-) {
+export function listGrantEntryWarnings({
+  warnings,
+  rowId,
+  isGear = false,
+}: {
+  warnings: SheetWarningView[];
+  rowId: string;
+  isGear?: boolean;
+}) {
+  const shownInEquipment = new Set(
+    listEquipmentWarnings(isGear ? warnings : [], rowId),
+  );
   return warnings.filter(
-    ({ target }) =>
-      (target.kind === 'entry' || target.kind === 'modifier') &&
-      target.entryId === rowId,
+    (warning) =>
+      (warning.target.kind === 'entry' || warning.target.kind === 'modifier') &&
+      warning.target.entryId === rowId &&
+      !shownInEquipment.has(warning),
   );
 }
 
@@ -96,11 +106,14 @@ export function GrantEntryRow({
   warningController,
   registerRow,
   renderExtra,
+  equipmentRowIds,
 }: WarningProps & {
   row: GrantEntryView;
   actions: Actions;
   registerRow?: (rowId: string, element: HTMLDivElement | null) => void;
   renderExtra?: RenderRowExtra;
+  /** Armor and shields, equipped in the Equipment block instead of here. */
+  equipmentRowIds?: ReadonlySet<string>;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useMaintenanceReasonId(maintenance);
@@ -111,6 +124,7 @@ export function GrantEntryRow({
   const isSaving = status.kind === 'saving';
   const isDisabled = isSaving || maintenance.readOnly;
   const isMuted = row.dormant && !row.counting;
+  const isGear = equipmentRowIds?.has(row.rowId) === true;
 
   function closePanel() {
     const trigger = open === 'editor' ? editButton : discardButton;
@@ -121,24 +135,28 @@ export function GrantEntryRow({
   return (
     <div className="py-2" ref={(element) => registerRow?.(row.rowId, element)}>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={row.active}
-          aria-label={`${row.name}: ${row.active ? 'on' : 'off'}`}
-          aria-describedby={reasonId}
-          disabled={isDisabled}
-          onClick={() => void actions.edit(row, { active: !row.active })}
-          className={cn(
-            'mt-0.5 inline-flex size-11 shrink-0 items-center justify-center border md:size-7',
-            row.active
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-foreground/40 hover:border-foreground text-transparent',
-            'disabled:opacity-50',
-          )}
-        >
-          <Check aria-hidden className="size-4" />
-        </button>
+        {isGear ? (
+          <span aria-hidden className="size-11 shrink-0 md:size-7" />
+        ) : (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={row.active}
+            aria-label={`${row.name}: ${row.active ? 'on' : 'off'}`}
+            aria-describedby={reasonId}
+            disabled={isDisabled}
+            onClick={() => void actions.edit(row, { active: !row.active })}
+            className={cn(
+              'mt-0.5 inline-flex size-11 shrink-0 items-center justify-center border md:size-7',
+              row.active
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-foreground/40 hover:border-foreground text-transparent',
+              'disabled:opacity-50',
+            )}
+          >
+            <Check aria-hidden className="size-4" />
+          </button>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <h3
@@ -153,8 +171,17 @@ export function GrantEntryRow({
           </div>
           <RowDetails row={row} />
           {renderExtra?.(row)}
+          {isGear ? (
+            <p className="text-muted-foreground text-xs">
+              Equipped and enhanced in Equipment.
+            </p>
+          ) : null}
           <InlineWarnings
-            warnings={listGrantEntryWarnings(warnings, row.rowId)}
+            warnings={listGrantEntryWarnings({
+              warnings,
+              rowId: row.rowId,
+              isGear,
+            })}
             controller={warningController}
             className="mt-1"
           />
@@ -242,6 +269,7 @@ export function GrantEntryRow({
                 warningController={warningController}
                 registerRow={registerRow}
                 renderExtra={renderExtra}
+                equipmentRowIds={equipmentRowIds}
               />
             </li>
           ))}

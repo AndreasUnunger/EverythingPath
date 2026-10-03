@@ -7,6 +7,7 @@ import {
   type CharacterSheetInput,
   type SheetEntry,
 } from './character-sheet';
+import { resolveEquipment } from './character-sheet-equipment';
 import { resolveSkills } from './character-sheet-skills';
 import { resolveAdvancement } from './character-sheet-advancement';
 import { representativeClassCatalog } from '../../tests/fixtures/catalog/representative-class-progressions';
@@ -647,7 +648,10 @@ test('resolving skills returns new breakdowns without changing the supplied stat
   }
   Object.freeze(calculated.breakdowns);
   const resolved = resolveSkills({
-    input,
+    equipment: resolveEquipment({
+      input,
+      proficiencies: calculated.proficiencies,
+    }),
     advancement: resolveAdvancement(input),
     abilities: calculated.abilities,
     breakdowns: calculated.breakdowns,

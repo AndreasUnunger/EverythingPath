@@ -18,6 +18,7 @@ export function StatBreakdownPanel({
   total,
   statistic,
   target,
+  formatContribution,
   incompleteReason,
   trigger,
   onClose,
@@ -26,7 +27,8 @@ export function StatBreakdownPanel({
   label: string;
   total: ReactNode;
   statistic: ResolvedStatistic;
-  target: BreakdownTarget;
+  target?: BreakdownTarget;
+  formatContribution?: (value: number) => string;
   incompleteReason: string | null;
   trigger: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
@@ -56,7 +58,11 @@ export function StatBreakdownPanel({
       {incompleteReason ? (
         <p className="mb-2 text-xs text-amber-300">{incompleteReason}</p>
       ) : null}
-      <BreakdownExplanation statistic={statistic} target={target} />
+      <BreakdownExplanation
+        statistic={statistic}
+        target={target}
+        formatContribution={formatContribution}
+      />
     </div>
   );
 }

@@ -1,5 +1,9 @@
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
 import {
+  manualProficiencySchema,
+  proficiencyKey,
+} from '../src/lib/character-sheet-proficiencies';
+import {
   maxCharacterChildRows,
   maxAcceptedWarnings,
   requireAbilityScore,
@@ -51,6 +55,7 @@ import schema, {
   sheetEntryDetailValidator,
   grantKeyValidator,
   selectionSourceValidator,
+  manualProficiencyValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -262,6 +267,72 @@ const calculatedValidator = v.object({
       armorCheckPenalty: v.number(),
     }),
   ),
+  equipment: v.object({
+    items: v.array(
+      v.object({
+        entryId: v.string(),
+        name: v.string(),
+        slot: v.union(v.literal('armor'), v.literal('shield')),
+        category: v.union(v.string(), v.null()),
+        armorBonus: v.number(),
+        enhancement: v.number(),
+        maxDexterityBonus: v.union(v.number(), v.null()),
+        armorCheckPenalty: v.number(),
+        spellFailure: v.number(),
+        masterwork: v.boolean(),
+        proficient: v.boolean(),
+      }),
+    ),
+    armorCheckPenalty: v.number(),
+    spellFailure: v.number(),
+    maxDexterityBonus: v.union(v.number(), v.null()),
+    nonproficiencyAttackPenalty: v.number(),
+  }),
+  proficiencies: v.object({
+    grants: v.array(
+      v.object({
+        proficiency: manualProficiencyValidator,
+        entryId: v.string(),
+        name: v.string(),
+      }),
+    ),
+    choices: v.array(
+      v.object({
+        entryId: v.string(),
+        name: v.string(),
+        choice: v.union(v.string(), v.null()),
+      }),
+    ),
+    added: v.array(manualProficiencyValidator),
+    removed: v.array(manualProficiencyValidator),
+    missingChoices: v.array(
+      v.object({
+        entryId: v.string(),
+        name: v.string(),
+        kind: v.union(v.literal('classLevel'), v.literal('entry')),
+      }),
+    ),
+  }),
+  proficiencyPrerequisites: v.array(
+    v.object({
+      entryId: v.string(),
+      view: v.union(v.literal('current'), v.literal('recorded')),
+      proficiency: manualProficiencyValidator,
+      met: v.boolean(),
+    }),
+  ),
+  weaponProficiencies: v.array(
+    v.object({
+      entryId: v.string(),
+      name: v.string(),
+      hands: v.union(v.literal('one'), v.literal('two')),
+      proficient: v.boolean(),
+      attackPenalty: v.number(),
+      armorNonproficiencyPenalty: v.number(),
+      totalAttackPenalty: v.number(),
+      breakdown: breakdownValidator,
+    }),
+  ),
   hp: v.union(v.number(), v.null()),
   creationSettings: creationSettingsValidator,
   pointBuy: v.union(
@@ -459,6 +530,11 @@ function requireNonnegativeInteger(value: number, label: string) {
   requireFiniteNumber(value);
   if (!Number.isInteger(value) || value < 0)
     throw new ConvexError(`${label} must be a whole number of 0 or more`);
+}
+function requireSafeWholeNumber(value: number, label: string) {
+  requireNonnegativeInteger(value, label);
+  if (!Number.isSafeInteger(value))
+    throw new ConvexError(`${label} must be a safe whole number`);
 }
 function modifierReferences(modifiers: readonly Modifier[]) {
   return modifiers.flatMap((modifier) => {
@@ -821,9 +897,7 @@ export const editClassLevel = campaignMutation({
     for (const [skill, ranks] of Object.entries(allocation ?? {})) {
       if (!canonicalSkillKey(skill))
         throw new ConvexError('Choose an available skill');
-      requireNonnegativeInteger(ranks, 'Skill ranks');
-      if (!Number.isSafeInteger(ranks))
-        throw new ConvexError('Skill ranks must be a safe whole number');
+      requireSafeWholeNumber(ranks, 'Skill ranks');
     }
     const skillRanks = args.skillRank
       ? {
@@ -832,8 +906,7 @@ export const editClassLevel = campaignMutation({
         }
       : normalizedAllocation;
     for (const ranks of Object.values(skillRanks ?? {}))
-      if (!Number.isSafeInteger(ranks))
-        throw new ConvexError('Skill ranks must be a safe whole number');
+      requireSafeWholeNumber(ranks, 'Skill ranks');
     const selected = args.classEntryId
       ? requireClassDefinition(sheet, args.classEntryId)
       : null;
@@ -1195,6 +1268,16 @@ function validateSheetEntryDetail(
     requireFiniteNumber(detail.armor.armorCheckPenalty);
     if (detail.armor.armorCheckPenalty < 0)
       throw new ConvexError('Armor check penalty must be nonnegative');
+    for (const value of [
+      detail.armor.bonus,
+      detail.armor.maxDex,
+      detail.armor.asf,
+    ])
+      if (value !== undefined && value !== null) {
+        requireFiniteNumber(value);
+        if (value < 0)
+          throw new ConvexError('Armor values must be nonnegative');
+      }
   }
   if (detail.kind === 'spellEffect') {
     requireNonnegativeInteger(
@@ -1708,6 +1791,7 @@ export const discardDormantEntry = campaignMutation({
 });
 
 const selectionFields = {
+  choiceOrder: v.optional(v.union(v.number(), v.null())),
   active: v.optional(v.boolean()),
   choice: v.optional(v.union(v.string(), v.null())),
   notes: v.optional(v.string()),
@@ -1815,11 +1899,28 @@ export const selectEntry = campaignMutation({
     requireRacialAbilityScoreChoice(definition, args.choice);
     if (definition.kind === 'race' && args.active !== false)
       requireSingleActiveRace(sheet);
+    if (args.choiceOrder !== undefined && args.choiceOrder !== null)
+      requireSafeWholeNumber(args.choiceOrder, 'Choice order');
     const selectionSource = requireSelectionReferences(
       sheet,
       args.selectionSource,
       args.gainedAtClassLevel,
     );
+    const existingOrders = sheet.entries.flatMap((row) =>
+      'gainedAtClassLevel' in row &&
+      row.gainedAtClassLevel === args.gainedAtClassLevel &&
+      row.choiceOrder !== undefined
+        ? [row.choiceOrder]
+        : [],
+    );
+    const choiceOrder =
+      args.choiceOrder !== undefined
+        ? args.choiceOrder
+        : args.gainedAtClassLevel
+          ? Math.max(-1, ...existingOrders) + 1
+          : undefined;
+    if (choiceOrder !== undefined && choiceOrder !== null)
+      requireSafeWholeNumber(choiceOrder, 'Choice order');
     const id = await persistRecordedEntry(ctx, sheet, {
       ...createCatalogSheetEntryState(
         definition.kind,
@@ -1833,6 +1934,9 @@ export const selectEntry = campaignMutation({
       active: args.active ?? true,
       ...(args.notes !== undefined ? { notes: args.notes } : {}),
       ...(selectionSource ? { selectionSource } : {}),
+      ...(choiceOrder !== undefined && choiceOrder !== null
+        ? { choiceOrder }
+        : {}),
       ...(args.gainedAtClassLevel
         ? { gainedAtClassLevel: args.gainedAtClassLevel }
         : {}),
@@ -1906,6 +2010,8 @@ export const editSelection = campaignMutation({
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const previous = sheet.entries.find((row) => row._id === args.entryId);
+    if (args.choiceOrder !== undefined && args.choiceOrder !== null)
+      requireSafeWholeNumber(args.choiceOrder, 'Choice order');
     if (
       !previous ||
       !('catalogEntryId' in previous) ||
@@ -1950,6 +2056,10 @@ export const editSelection = campaignMutation({
       notes: args.notes ?? previous.notes,
       ...(previous.kept ? { kept: previous.kept } : {}),
       selectionSource: selectionSource ?? undefined,
+      choiceOrder:
+        args.choiceOrder === null
+          ? undefined
+          : (args.choiceOrder ?? previous.choiceOrder),
       gainedAtClassLevel:
         args.gainedAtClassLevel === null
           ? undefined
@@ -2138,6 +2248,9 @@ export const chooseRacialAbilityScore = campaignMutation({
         ...(previous?.gainedAtClassLevel
           ? { gainedAtClassLevel: previous.gainedAtClassLevel }
           : {}),
+        ...(previous?.choiceOrder !== undefined
+          ? { choiceOrder: previous.choiceOrder }
+          : {}),
       },
       previous?._id,
     );
@@ -2272,6 +2385,201 @@ export const editRaceStatistics = campaignMutation({
     await ctx.db.patch('characterSheetEntry', previous._id, { state });
     sheet.entries = sheet.entries.map((entry) =>
       entry._id === previous._id ? { ...previous, state } : entry,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const editEquipment = campaignMutation({
+  args: {
+    ...writeScope,
+    entryId: v.optional(v.id('characterSheetEntry')),
+    grantKey: v.optional(grantKeyValidator),
+    active: v.optional(v.boolean()),
+    masterwork: v.optional(v.boolean()),
+    enhancement: v.optional(v.number()),
+    material: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    if (Boolean(args.entryId) === Boolean(args.grantKey))
+      throw new ConvexError('Choose one equipment entry');
+    const resolved = args.grantKey
+      ? findResolvedEntry(sheet, { grantKey: args.grantKey })
+      : null;
+    const entry =
+      resolved?.entry ?? sheet.entries.find((row) => row._id === args.entryId);
+    if (entry?.kind !== 'item')
+      throw new ConvexError('Item does not belong to this Character');
+    const catalogEntryId = ctx.db.normalizeId(
+      'catalogEntry',
+      entry.catalogEntryId,
+    );
+    if (!catalogEntryId)
+      throw new ConvexError('Item definition is unavailable');
+    const definition = sheet.catalogEntries.find(
+      (row) => row._id === catalogEntryId,
+    );
+    if (definition?.detail.kind !== 'item' || !definition.detail.armor)
+      throw new ConvexError('Choose armor or a shield');
+    const previous = sheet.entries.find(
+      (row) => row._id === (resolved?.storedEntryId ?? args.entryId),
+    );
+    if (args.enhancement !== undefined)
+      requireSafeWholeNumber(args.enhancement, 'Enhancement');
+    const normalizedMaterial = args.material?.trim();
+    const state = {
+      ...entry.state,
+      ...(args.masterwork !== undefined ? { masterwork: args.masterwork } : {}),
+      ...(args.enhancement !== undefined
+        ? { enhancement: args.enhancement }
+        : {}),
+      ...(args.material !== undefined
+        ? {
+            material:
+              normalizedMaterial === '' ? null : (normalizedMaterial ?? null),
+          }
+        : {}),
+    };
+    const active = args.active ?? entry.active;
+    if (active === entry.active && compareValues(state, entry.state) === 0)
+      return null;
+    await persistRecordedEntry(
+      ctx,
+      sheet,
+      {
+        characterId: sheet.character._id,
+        catalogEntryId,
+        kind: 'item',
+        active,
+        state,
+        ...('grantKey' in entry && entry.grantKey
+          ? { grantKey: entry.grantKey }
+          : {}),
+        ...('choiceOrder' in entry && entry.choiceOrder !== undefined
+          ? { choiceOrder: entry.choiceOrder }
+          : {}),
+        ...('kept' in entry && entry.kept ? { kept: entry.kept } : {}),
+        ...('catalogOverride' in entry && entry.catalogOverride
+          ? { catalogOverride: entry.catalogOverride }
+          : {}),
+        ...('notes' in entry && entry.notes !== undefined
+          ? { notes: entry.notes }
+          : {}),
+        ...('gainedAtClassLevel' in entry && entry.gainedAtClassLevel
+          ? {
+              gainedAtClassLevel:
+                ctx.db.normalizeId(
+                  'characterSheetEntry',
+                  entry.gainedAtClassLevel,
+                ) ?? undefined,
+            }
+          : {}),
+        ...(previous &&
+        'selectionSource' in previous &&
+        previous.selectionSource
+          ? { selectionSource: previous.selectionSource }
+          : {}),
+      },
+      previous?._id,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const setManualProficiency = campaignMutation({
+  args: {
+    ...writeScope,
+    proficiency: manualProficiencyValidator,
+    disposition: v.union(
+      v.literal('added'),
+      v.literal('removed'),
+      v.literal('none'),
+    ),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const parsed = manualProficiencySchema.safeParse(args.proficiency);
+    if (!parsed.success)
+      throw new ConvexError(
+        'Enter a proficiency category, weapon name or group',
+      );
+    const proficiency = parsed.data;
+    const base = sheet.entries.find((row) => row.kind === 'base');
+    if (!base) throw new ConvexError('Base scores are unavailable');
+    const previous = base.state.proficiencies ?? { added: [], removed: [] };
+    const proficiencies = {
+      added: previous.added.filter(
+        (value) => proficiencyKey(value) !== proficiencyKey(proficiency),
+      ),
+      removed: previous.removed.filter(
+        (value) => proficiencyKey(value) !== proficiencyKey(proficiency),
+      ),
+    };
+    if (args.disposition !== 'none')
+      proficiencies[args.disposition].push(proficiency);
+    if (
+      proficiencies.added.length + proficiencies.removed.length >
+      maxCharacterChildRows
+    )
+      throw new ConvexError('Too many manual proficiencies');
+    const state = { ...base.state, proficiencies };
+    if (compareValues(state, base.state) === 0) return null;
+    await ctx.db.patch('characterSheetEntry', base._id, { state });
+    sheet.entries = sheet.entries.map((row) =>
+      row._id === base._id ? { ...base, state } : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const setProficiencyChoice = campaignMutation({
+  args: { ...rowScope, choice: v.union(v.string(), v.null()) },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const entry = sheet.entries.find((row) => row._id === args.entryId);
+    if (
+      !entry ||
+      (entry.kind !== 'race' &&
+        entry.kind !== 'racialTrait' &&
+        entry.kind !== 'archetype' &&
+        entry.kind !== 'classFeature' &&
+        entry.kind !== 'feat' &&
+        entry.kind !== 'trait')
+    )
+      throw new ConvexError(
+        'Proficiency choice does not belong to this Character',
+      );
+    const catalog = sheet.catalogEntries.find(
+      (row) => row._id === entry.catalogEntryId,
+    );
+    if (!catalog?.proficiencies?.some((grant) => 'choice' in grant))
+      throw new ConvexError('Entry has no proficiency choice');
+    const normalizedChoice = args.choice?.trim();
+    const choice = normalizedChoice === '' ? null : (normalizedChoice ?? null);
+    const state = { ...entry.state, choice };
+    if (compareValues(state, entry.state) === 0) return null;
+    const patch = buildRecordedCatalogState(ctx, entry, choice);
+    await ctx.db.patch('characterSheetEntry', entry._id, patch);
+    const updated = await ctx.db.get('characterSheetEntry', entry._id);
+    if (!updated) throw new ConvexError('Entry is unavailable');
+    sheet.entries = sheet.entries.map((row) =>
+      row._id === entry._id ? updated : row,
     );
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,

@@ -10,6 +10,15 @@ export const representativeClassCatalog = [
     stacksWithItself: false,
     name: 'Fighter',
     ruleIdentity: 'fighter',
+    proficiencies: [
+      { category: 'simple' },
+      { category: 'martial' },
+      { category: 'light' },
+      { category: 'medium' },
+      { category: 'heavy' },
+      { category: 'shield' },
+      { category: 'towerShield' },
+    ],
     modifiers: [],
     detail: {
       kind: 'class',
@@ -39,6 +48,13 @@ export const representativeClassCatalog = [
     stacksWithItself: false,
     name: 'Wizard',
     ruleIdentity: 'wizard',
+    proficiencies: [
+      { baseType: 'club' },
+      { baseType: 'dagger' },
+      { baseType: 'heavy crossbow' },
+      { baseType: 'light crossbow' },
+      { baseType: 'quarterstaff' },
+    ],
     modifiers: [],
     detail: {
       kind: 'class',
@@ -75,6 +91,15 @@ export const representativeClassCatalog = [
     stacksWithItself: false,
     name: 'Rogue',
     ruleIdentity: 'rogue',
+    proficiencies: [
+      { category: 'simple' },
+      { baseType: 'hand crossbow' },
+      { baseType: 'rapier' },
+      { baseType: 'sap' },
+      { baseType: 'shortbow' },
+      { baseType: 'short sword' },
+      { category: 'light' },
+    ],
     modifiers: [],
     detail: {
       kind: 'class',
@@ -115,6 +140,13 @@ export const representativeClassCatalog = [
     stacksWithItself: false,
     name: 'Cleric',
     ruleIdentity: 'cleric',
+    proficiencies: [
+      { category: 'simple' },
+      { category: 'light' },
+      { category: 'medium' },
+      { category: 'shield' },
+      { choice: true },
+    ],
     modifiers: [],
     detail: {
       kind: 'class',

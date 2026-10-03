@@ -1,15 +1,13 @@
 import {
   abilityLabels,
-  isTemporaryEffect,
   builtIn,
   composeStatistics,
   type Ability,
-  type CharacterSheetInput,
   type LeafTarget,
   type ResolvedStatistic,
   type SourcedModifier,
-  type SheetWarning,
 } from './character-sheet';
+import type { resolveEquipment } from './character-sheet-equipment';
 import type { resolveAdvancement } from './character-sheet-advancement';
 
 export const skillDefinitions = [
@@ -106,60 +104,6 @@ export function sumRanksBySkill(record: Readonly<Record<string, number>>) {
   return totals;
 }
 
-function armorPenalties(input: CharacterSheetInput, permanentOnly: boolean) {
-  const warnings: SheetWarning[] = [];
-  const penalties = input.entries.flatMap((entry) => {
-    if (entry.kind !== 'item' || !entry.active) return [];
-    const catalog = input.catalogEntries.find(
-      (candidate) => candidate._id === entry.catalogEntryId,
-    );
-    if (
-      catalog?.detail?.kind !== 'item' ||
-      !catalog.detail.armor ||
-      (permanentOnly && isTemporaryEffect(entry, catalog.detail))
-    )
-      return [];
-    const enhancement = entry.state.enhancement;
-    const { armorCheckPenalty } = catalog.detail.armor;
-    const name =
-      catalog.name ??
-      (catalog.detail.armor.slot === 'shield' ? 'Shield' : 'Armor');
-    const problem =
-      enhancement !== undefined &&
-      (!Number.isInteger(enhancement) || enhancement < 0)
-        ? 'Enhancement must be a nonnegative whole number.'
-        : !Number.isFinite(armorCheckPenalty) || armorCheckPenalty < 0
-          ? 'Armor check penalty must be a nonnegative number.'
-          : null;
-    if (problem) {
-      warnings.push({
-        kind: 'unresolved',
-        check: 'armorCheckPenaltyUnresolved',
-        subject: entry._id,
-        target: { kind: 'entry', entryId: entry._id },
-        fingerprint: JSON.stringify([
-          name,
-          String(enhancement),
-          String(armorCheckPenalty),
-          problem,
-        ]),
-        message: `${name} armor check penalty is unresolved. ${problem} This item's penalty is omitted from Strength and Dexterity skill totals.`,
-      });
-      return [];
-    }
-    const masterwork =
-      entry.state.masterwork === true || (enhancement ?? 0) >= 1;
-    return [
-      {
-        entryId: entry._id,
-        name,
-        penalty: -Math.max(0, armorCheckPenalty - (masterwork ? 1 : 0)),
-      },
-    ];
-  });
-  return { penalties, warnings };
-}
-
 function rankContributions(advancement: ReturnType<typeof resolveAdvancement>) {
   return advancement.rows.map(({ entry }) => ({
     entryId: entry._id,
@@ -184,19 +128,16 @@ function appliesArmorCheckPenalty(ability: Ability) {
 }
 
 export function resolveSkills({
-  input,
   advancement,
   abilities,
   breakdowns,
-  permanentOnly = false,
+  equipment,
 }: {
-  input: CharacterSheetInput;
   advancement: ReturnType<typeof resolveAdvancement>;
   abilities: Record<Ability, { modifier: number }>;
   breakdowns: Readonly<Record<LeafTarget, ResolvedStatistic>>;
-  permanentOnly?: boolean;
+  equipment: ReturnType<typeof resolveEquipment>;
 }) {
-  const armor = armorPenalties(input, permanentOnly);
   const rankedLevels = rankContributions(advancement);
   const availableClassSkills = classSkills(advancement);
   const skillBreakdowns: Partial<Record<SkillTarget, ResolvedStatistic>> = {};
@@ -221,7 +162,7 @@ export function resolveSkills({
       0,
     );
     const classSkill = availableClassSkills.has(key);
-    const skillArmor = appliesArmorCheckPenalty(ability) ? armor.penalties : [];
+    const skillArmor = appliesArmorCheckPenalty(ability) ? equipment.items : [];
     skillBreakdowns[key] = composeStatistics({
       statistics: [breakdowns[key]],
       builtIns: [
@@ -242,13 +183,13 @@ export function resolveSkills({
               }),
             ]
           : []),
-        ...skillArmor.map(({ entryId, name, penalty }) =>
+        ...skillArmor.map(({ entryId, name, armorCheckPenalty }) =>
           builtIn({
             target: key,
             id: entryId,
             sheetEntryId: entryId,
             name: `${name} armor check penalty`,
-            value: penalty,
+            value: armorCheckPenalty,
           }),
         ),
       ],
@@ -262,10 +203,10 @@ export function resolveSkills({
       ranks,
       classSkill,
       armorCheckPenalty: skillArmor.reduce(
-        (sum, item) => sum + item.penalty,
+        (sum, item) => sum + item.armorCheckPenalty,
         0,
       ),
     };
   });
-  return { skills, breakdowns: skillBreakdowns, warnings: armor.warnings };
+  return { skills, breakdowns: skillBreakdowns, warnings: equipment.warnings };
 }

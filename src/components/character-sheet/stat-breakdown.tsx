@@ -22,15 +22,19 @@ export function StatBreakdown({
   target,
   incompleteReason = null,
   format = String,
+  formatContribution,
   className,
 }: {
   label: string;
   statistic: ResolvedStatistic;
-  target: BreakdownTarget;
+  /** The sheet statistic it previews in Situations; none for a summary. */
+  target?: BreakdownTarget;
   /** Why the number cannot be stated yet; shown instead of a total. */
   incompleteReason?: string | null;
   /** How the total reads, in the number and in its name: "+2" for a modifier. */
   format?: (total: number) => string;
+  /** How each line reads: "+2" by default, "35%" for spell failure. */
+  formatContribution?: (value: number) => string;
   className?: string;
 }) {
   const popup = useStatBreakdownPopup();
@@ -80,6 +84,7 @@ export function StatBreakdown({
           total={total}
           statistic={statistic}
           target={target}
+          formatContribution={formatContribution}
           incompleteReason={incompleteReason}
           trigger={popup.trigger}
           onClose={popup.closeAndRefocus}

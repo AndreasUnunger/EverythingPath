@@ -21,9 +21,9 @@ import { useSheetEntryForm } from './use-sheet-entry-form';
 type Controller = ReturnType<typeof useCharacterSheet>;
 type Editor = ReturnType<typeof useSheetEntryForm>;
 
-// A recorded Spell grants no Modifiers: the rows typed for another kind and
-// left blank are dropped before saving, while any retained definition data
-// (an imported Spell's Modifiers) travels along untouched.
+// A recorded Spell grants no Modifiers, and armor's bonus is its own: the
+// rows left blank are dropped before saving, while any retained definition
+// data (an imported Spell's Modifiers) travels along untouched.
 function dropBlankModifiers(editor: Editor) {
   const modifiers = editor.adjustmentForm.getValues('modifiers');
   modifiers
@@ -118,9 +118,10 @@ export function SheetEntryEditor({
   const isSaved = editor.status.kind === 'saved';
   const kind = editor.form.watch('kind');
   const defaultCasterLevel = editor.form.watch('defaultCasterLevel');
+  const isArmor = kind === 'item' && editor.form.watch('isArmor');
 
   async function saveAndCloseWhenClean() {
-    if (kind === 'spell') dropBlankModifiers(editor);
+    if (kind === 'spell' || isArmor) dropBlankModifiers(editor);
     let hasNewerInput = isDirty;
     const unsubscribe = editor.adjustmentForm.subscribe({
       formState: { isDirty: true },

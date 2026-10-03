@@ -13,30 +13,34 @@ import {
 import { Input } from '~/components/ui/input';
 import { cn } from '~/lib/utils';
 import { RemoteNotice, SaveFeedback } from './sheet-parts';
+import type { useCharacterSheet } from './use-character-sheet';
 import { useProficiencyChoiceForm } from './use-character-sheet-skills';
 
+type ChoiceRow = ReturnType<
+  typeof useCharacterSheet
+>['proficiencies']['choices'][number];
+
 /**
- * The weapon chosen for a proficiency this Class Level may grant, recorded
- * as typed and saved when the field is left or on Enter; a blank clears it.
- * The sheet records the choice only: no proficiency is granted from it yet,
- * and a level without one is never marked as missing a choice.
+ * The weapon a source lets the Character choose a Proficiency in, typed and
+ * saved when the field is left or on Enter; a blank clears it. An empty
+ * choice grants nothing yet and is never a warning. The choice stays with
+ * its source: a Class Level, a Selection or a Grant.
  */
-export function ProficiencyChoiceCell({
-  level,
-  choice,
+export function ProficiencyChoice({
+  row,
   save,
   className,
 }: {
-  level: number;
-  choice: string | null | undefined;
+  row: ChoiceRow;
   save: (choice: string | null) => Promise<unknown>;
   className?: string;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useMaintenanceReasonId(maintenance);
-  const editor = useProficiencyChoiceForm({ choice, save });
+  const editor = useProficiencyChoiceForm({ choice: row.choice, save });
   const isDirty = editor.form.formState.isDirty;
   const isSaving = editor.status.kind === 'saving';
+  const canSave = isDirty && !maintenance.readOnly;
   return (
     <Form {...editor.form}>
       <div
@@ -46,11 +50,10 @@ export function ProficiencyChoiceCell({
           control={editor.form.control}
           name="value"
           render={({ field }) => (
-            <FormItem className="gap-1">
+            <FormItem className="min-w-0 gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <FormLabel className="font-mono text-sm font-normal">
-                  Proficiency{' '}
-                  <span className="sr-only">choice at level {level}</span>
+                <FormLabel className="font-mono text-sm font-normal [overflow-wrap:anywhere]">
+                  Weapon proficiency choice for {row.name}
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -58,17 +61,15 @@ export function ProficiencyChoiceCell({
                     disabled={maintenance.readOnly}
                     type="text"
                     autoComplete="off"
-                    className="h-10 w-44 font-mono text-sm md:h-8"
+                    className="h-11 w-44 font-mono text-sm md:h-8"
                     onBlur={() => {
                       field.onBlur();
-                      if (maintenance.readOnly || !isDirty) return;
-                      void editor.save();
+                      if (canSave) void editor.save();
                     }}
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter') return;
                       event.preventDefault();
-                      if (maintenance.readOnly || !isDirty) return;
-                      void editor.save();
+                      if (canSave) void editor.save();
                     }}
                   />
                 </FormControl>
@@ -77,35 +78,39 @@ export function ProficiencyChoiceCell({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="min-h-10 md:min-h-8"
+                    className="min-h-11 md:min-h-8"
                     aria-describedby={reasonId}
                     disabled={isSaving || maintenance.readOnly}
                     onClick={() => {
-                      if (maintenance.readOnly) return;
-                      void editor.save();
+                      if (!maintenance.readOnly) void editor.save();
                     }}
                   >
-                    {isSaving ? 'Saving…' : 'Save proficiency'}
+                    {isSaving ? 'Saving…' : 'Save'}{' '}
+                    <span className="sr-only">choice for {row.name}</span>
                   </Button>
                 ) : null}
               </div>
               {field.value.trim() === '' ? (
                 <FormDescription className="text-xs">
-                  Choose a weapon if this class grants a proficiency choice.
+                  Not chosen yet. Type a weapon, such as longsword.
                 </FormDescription>
               ) : null}
             </FormItem>
           )}
         />
-        <SaveFeedback status={editor.status} savedText="Proficiency saved." />
+        <SaveFeedback
+          status={editor.status}
+          savedText="Saved"
+          shouldHideWhenIdle
+        />
         <RemoteNotice
           isShown={editor.hasRemoteChange}
           message={
             isDirty
-              ? 'Updated by another player. Your edits are kept.'
-              : 'Updated by another player.'
+              ? 'Changed by another player. Your edits are kept.'
+              : 'Changed by another player.'
           }
-          subject={`level ${level} proficiency`}
+          subject={`${row.name} choice`}
           onDismiss={editor.dismissRemoteChange}
         />
       </div>

@@ -449,3 +449,46 @@ test('a newer caster-level draft survives an earlier save echo and reply', async
   });
   expect(save).toHaveBeenCalledTimes(2);
 });
+
+test('editing an item name and consumable classification retains its equipment facts', async () => {
+  const value: SheetEntryInput = {
+    name: 'Mithral plate',
+    modifiers: [],
+    detail: {
+      kind: 'item',
+      consumable: false,
+      material: 'mithral',
+      armor: {
+        slot: 'armor',
+        category: 'heavyArmor',
+        bonus: 9,
+        maxDex: 3,
+        armorCheckPenalty: 3,
+        asf: 25,
+      },
+      weapon: {
+        baseType: 'armor spikes',
+        proficiency: 'martial',
+        groups: ['close'],
+      },
+    },
+  };
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useSheetEntryForm({ value, save }));
+  act(() => {
+    view.result.current.adjustmentForm.setValue('name', 'Named plate', {
+      shouldDirty: true,
+    });
+    view.result.current.form.setValue('consumable', true, {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  expect(save).toHaveBeenCalledWith({
+    ...value,
+    name: 'Named plate',
+    detail: { ...value.detail, consumable: true },
+  });
+});

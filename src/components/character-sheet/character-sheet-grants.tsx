@@ -29,6 +29,7 @@ type RowProps = WarningProps & {
   actions: Actions;
   registerRow: (rowId: string, element: HTMLDivElement | null) => void;
   renderExtra?: RenderRowExtra;
+  equipmentRowIds?: ReadonlySet<string>;
 };
 
 export function GrantEntryList({
@@ -124,9 +125,12 @@ export function CharacterSheetGrants({
   actions,
   warnings,
   warningController,
+  equipmentRowIds,
 }: WarningProps & {
   sections: GrantSectionView[];
   actions: Actions;
+  /** Granted armor and shields: equipped in the Equipment block instead. */
+  equipmentRowIds?: ReadonlySet<string>;
 }) {
   const focus = useFocusAfterGrantDiscard(sections, actions.discard);
   const rowActions = { ...actions, discard: focus.discard };
@@ -145,6 +149,7 @@ export function CharacterSheetGrants({
           section={section}
           actions={rowActions}
           registerRow={focus.registerRow}
+          equipmentRowIds={equipmentRowIds}
           warnings={warnings}
           warningController={warningController}
         />

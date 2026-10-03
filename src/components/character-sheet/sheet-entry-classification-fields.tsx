@@ -11,6 +11,7 @@ import {
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group';
+import { SheetEntryArmorFields } from './sheet-entry-armor-fields';
 import { fieldLabel } from './sheet-parts';
 import type { SheetEntryInput } from './use-character-sheet-entries';
 import type { useSheetEntryForm } from './use-sheet-entry-form';
@@ -162,7 +163,7 @@ function CasterLevelField({
 
 /**
  * What the chosen kind needs and nothing else: a Spell Effect's duration and
- * caster levels, an Item's consumable flag. A Condition or a Spell has no
+ * caster levels, an Item's consumable flag and armor or shield facts. A Condition or a Spell has no
  * further classification. A blank caster level reads as the default.
  */
 export function SheetEntryKindFields({
@@ -173,12 +174,15 @@ export function SheetEntryKindFields({
 }: FieldProps & { kind: SheetEntryKind; defaultCasterLevel: string }) {
   if (kind === 'item')
     return (
-      <CheckField
-        control={control}
-        isDisabled={isDisabled}
-        name="consumable"
-        label="Consumable"
-      />
+      <div className="flex flex-col gap-1">
+        <CheckField
+          control={control}
+          isDisabled={isDisabled}
+          name="consumable"
+          label="Consumable"
+        />
+        <SheetEntryArmorFields control={control} isDisabled={isDisabled} />
+      </div>
     );
   if (kind !== 'spellEffect') return null;
   return (

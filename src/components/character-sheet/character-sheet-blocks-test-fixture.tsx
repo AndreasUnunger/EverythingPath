@@ -6,9 +6,11 @@ import { CharacterSheetSkeleton } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
 import { CreationSettingsEditor } from './creation-settings-editor';
 import { DefensesBlock } from './defenses-block';
+import { Equipment } from './equipment';
 import { FavoredClassesEditor } from './favored-classes-editor';
 import { OffenseBlock } from './offense-block';
 import { PersonalAdjustments } from './personal-adjustments';
+import { Proficiencies } from './proficiencies';
 import { Block, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
 import { Skills } from './skills';
@@ -30,7 +32,9 @@ type SheetBlock =
   | 'offense'
   | 'summary'
   | 'entries'
-  | 'skills';
+  | 'skills'
+  | 'equipment'
+  | 'proficiencies';
 
 // Exercise the real controller and selected public blocks against the same
 // read snapshots as page integration tests, without rendering unrelated UI.
@@ -60,6 +64,22 @@ export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
         switch (block) {
           case 'skills':
             return <Skills key={block} controller={controller} />;
+          case 'equipment':
+            return (
+              <Equipment
+                key={block}
+                equipment={controller.equipment}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+            );
+          case 'proficiencies':
+            return (
+              <Proficiencies
+                key={block}
+                proficiencies={controller.proficiencies}
+              />
+            );
           case 'scores':
             return (
               <BaseScoresEditor

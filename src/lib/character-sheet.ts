@@ -1,8 +1,19 @@
+import { resolveProficiencyPrerequisites } from './character-sheet-proficiency-prerequisites';
 import type { Infer, GenericId } from 'convex/values';
 import type { characterSheetEntryValidator } from '../../convex/schema';
 import { z } from 'zod';
 import { resolveCharacterSheetGrants } from './character-sheet-grants';
+import type { ArmorCategory } from './character-sheet-armor-categories';
 import { resolveSkills } from './character-sheet-skills';
+import {
+  resolveEquipment,
+  resolveWeaponProficiencies,
+} from './character-sheet-equipment';
+import {
+  resolveProficiencies,
+  type ProficiencyGrant,
+  type ProficiencyPrerequisite,
+} from './character-sheet-proficiencies';
 import {
   resolveSheetConditions,
   type ConditionKey,
@@ -100,6 +111,9 @@ export const warningChecks = [
   'racialProgressionMissing',
   'racialSkillRankCap',
   'racialSkillRankBudget',
+  'proficiencyPrerequisite',
+  'oneHandedExotic',
+  'equipmentEnhancement',
 ] as const;
 export const characterSheetWarningSchema = z.object({
   kind: z.enum(['incomplete', 'unresolved', 'rules']),
@@ -188,9 +202,10 @@ export type CharacterSheetCatalogEntry = {
   sourceKey?: string;
   stacksWithItself?: boolean;
   countsAsRaces?: readonly string[] | { oneOf: readonly string[] };
-  proficiencies?: readonly ProficiencyGrant[];
   modifiers: readonly CatalogModifier[];
   detail?: SheetCatalogEntryDetail;
+  proficiencies?: readonly ProficiencyGrant[];
+  proficiencyPrerequisites?: readonly ProficiencyPrerequisite[];
   grants?: readonly { catalogEntryId: string }[];
   grantsSlots?: readonly {
     kind: 'feat' | 'trait';
@@ -212,21 +227,10 @@ export const creatureSizes = [
   'colossal',
 ] as const;
 export type CreatureSize = (typeof creatureSizes)[number];
-export const proficiencyCategories = [
-  'simple',
-  'martial',
-  'firearm',
-  'light',
-  'medium',
-  'heavy',
-  'shield',
-  'towerShield',
-] as const;
-export type ProficiencyGrant =
-  | { category: (typeof proficiencyCategories)[number] }
-  | { baseType: string; asMartial?: true }
-  | { group: string }
-  | { choice: true };
+export {
+  proficiencyCategories,
+  type ProficiencyGrant,
+} from './character-sheet-proficiencies';
 // The resolver uses synthetic row identities, while stored references retain the
 // schema's exact discriminated state and metadata fields.
 type ResolveSheetIds<Value> =
@@ -311,7 +315,20 @@ export type SheetCatalogEntryDetail =
   | {
       kind: 'item';
       consumable?: boolean;
-      armor?: { slot: 'armor' | 'shield'; armorCheckPenalty: number };
+      armor?: {
+        slot: 'armor' | 'shield';
+        armorCheckPenalty: number;
+        category?: ArmorCategory;
+        bonus?: number;
+        maxDex?: number | null;
+        asf?: number;
+      };
+      material?: string;
+      weapon?: {
+        baseType: string;
+        proficiency: 'simple' | 'martial' | 'exotic' | 'always';
+        groups?: readonly string[];
+      };
     }
   | CharacterSheetClassDetail
   | { kind: 'class' }
@@ -806,7 +823,27 @@ function calculateSheetProjection(
     permanentOnly: options.permanentOnly,
   });
   const effectiveInput = conditions.input;
-  const sourced = sourceCatalogModifiers(effectiveInput, options);
+  const proficiencies = resolveProficiencies(effectiveInput);
+  const proficiencyPrerequisites = resolveProficiencyPrerequisites(
+    recordedInput,
+    effectiveInput,
+    proficiencies,
+  );
+  const equipment = resolveEquipment({
+    input: effectiveInput,
+    proficiencies,
+    permanentOnly: options.permanentOnly,
+  });
+  const weaponProficiencies = resolveWeaponProficiencies(
+    effectiveInput,
+    proficiencies,
+    equipment,
+    options.weaponUses,
+  );
+  const sourced = [
+    ...sourceCatalogModifiers(effectiveInput, options),
+    ...equipment.modifiers,
+  ];
   const advancement = resolveAdvancement(effectiveInput);
   const { levels } = advancement;
   const { abilityDamage, drainModifiers } = abilityChangesFor(
@@ -862,8 +899,13 @@ function calculateSheetProjection(
         .map((effect) => effect.sheetEntryId),
     },
   );
+  const dexCaps = [
+    options.armorMaxDexterityBonus,
+    equipment.maxDexterityBonus,
+  ].filter((value): value is number => typeof value === 'number');
   const derivedOptions = {
     ...options,
+    armorMaxDexterityBonus: dexCaps.length ? Math.min(...dexCaps) : undefined,
     deniedDexterityBy: conditions.deniedDexterityBy,
     flatFootedBy: conditionEffects.find(
       (effect) => !effect.replacedBy && effect.conditionKey === 'flat-footed',
@@ -894,11 +936,10 @@ function calculateSheetProjection(
   const { spellcastings, spellcastingUnresolved } = casting;
   const abilities = calculateAbilities(breakdowns, abilityDamage);
   const skillProjection = resolveSkills({
-    input: effectiveInput,
     advancement,
     abilities,
     breakdowns,
-    permanentOnly: options.permanentOnly,
+    equipment,
   });
   const hp =
     advancement.missingRacialHp ||
@@ -944,6 +985,8 @@ function calculateSheetProjection(
     }),
     ...formulaWarnings,
     ...skillProjection.warnings,
+    ...weaponProficiencies.warnings,
+    ...proficiencyPrerequisites.warnings,
     ...grants.warnings,
     ...racialTraitWarnings(
       recordedInput,
@@ -990,6 +1033,16 @@ function calculateSheetProjection(
         entry.kind !== 'abilityDrain',
     ),
     skills: skillProjection.skills,
+    equipment: {
+      items: equipment.items,
+      armorCheckPenalty: equipment.armorCheckPenalty,
+      spellFailure: equipment.spellFailure,
+      maxDexterityBonus: equipment.maxDexterityBonus,
+      nonproficiencyAttackPenalty: equipment.nonproficiencyAttackPenalty,
+    },
+    proficiencies,
+    weaponProficiencies: weaponProficiencies.weapons,
+    proficiencyPrerequisites: proficiencyPrerequisites.checks,
     conditionEffects,
     abilityModifierBreakdowns: calculateAbilityModifierBreakdowns(
       abilities,
@@ -1495,6 +1548,11 @@ const specialSizeModifiers = {
 };
 export type ResolveOptions = {
   size?: CreatureSize;
+  weaponUses?: readonly {
+    entryId: string;
+    hands: 'one' | 'two';
+    attack?: 'melee' | 'ranged';
+  }[];
   armorMaxDexterityBonus?: number;
   deniedDexterityBy?: string;
   flatFootedBy?: string;
@@ -2146,7 +2204,10 @@ function deriveDefenses({
     builtIn({
       target: 'ac.other',
       id: 'dexterity',
-      name: 'Dexterity',
+      name:
+        maxDexterityBonus !== undefined && dexterity > maxDexterityBonus
+          ? `Dexterity (armor maximum +${maxDexterityBonus})`
+          : 'Dexterity',
       value: Math.min(dexterity, maxDexterityBonus ?? Infinity),
     }),
   ];

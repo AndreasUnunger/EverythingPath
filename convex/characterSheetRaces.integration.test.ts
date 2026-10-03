@@ -281,6 +281,47 @@ test('members select one race without adding to base scores and restore its chos
   ).toHaveLength(1);
 });
 
+test('changing or clearing a selected racial ability preserves its recorded choice order and Class Level', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', catalog.alternate, {
+      modifiers: [{ target: 'ability.$choice', bonusType: 'racial', value: 2 }],
+    }),
+  );
+  await owner.mutation(api.characterSheet.selectRace, {
+    ...scope,
+    catalogEntryId: catalog.human,
+    operationId: 'human',
+  });
+  const classLevelId = await owner.mutation(api.characterSheet.addClassLevel, {
+    ...scope,
+    operationId: 'level',
+  });
+  const entryId = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.alternate,
+    choice: 'strength',
+    gainedAtClassLevel: classLevelId,
+    choiceOrder: 0,
+    operationId: 'alternate',
+  });
+  for (const ability of ['dexterity', null] as const) {
+    await owner.mutation(api.characterSheet.chooseRacialAbilityScore, {
+      ...scope,
+      target: { entryId },
+      ability,
+      operationId: ability ?? 'clear',
+    });
+    const sheet = await owner.query(api.characterSheet.read, scope);
+    expect(sheet?.entries.find((entry) => entry._id === entryId)).toMatchObject({
+      kind: 'racialTrait',
+      choiceOrder: 0,
+      gainedAtClassLevel: classLevelId,
+      state: { kind: 'racialTrait', choice: ability },
+    });
+  }
+});
+
 test('switching an alternate off restores the same ability choice and reselecting retains the alternate row', async () => {
   const { owner, scope, catalog } = await fixture();
   await owner.mutation(api.characterSheet.selectRace, {

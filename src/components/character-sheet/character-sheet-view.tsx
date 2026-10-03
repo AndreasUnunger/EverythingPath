@@ -12,9 +12,11 @@ import { CharacterSheetGrants } from './character-sheet-grants';
 import { CharacterSheetRaces } from './character-sheet-races';
 import { ClassLevels } from './class-levels';
 import { DefensesBlock } from './defenses-block';
+import { Equipment } from './equipment';
 import { FavoredClassesEditor } from './favored-classes-editor';
 import { OffenseBlock } from './offense-block';
 import { PersonalAdjustments } from './personal-adjustments';
+import { Proficiencies } from './proficiencies';
 import { CreationSettingsEditor } from './creation-settings-editor';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
@@ -135,7 +137,8 @@ function CampaignRow({
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Race, Class Levels,
  * and Ability scores with their damage and drain in the left five of the
- * sheet's twelve columns, with the skills, personal adjustments, sheet entries,
+ * sheet's twelve columns with Defenses, Equipment, Offense and
+ * Proficiencies, and the skills, personal adjustments, sheet entries,
  * granted and dormant entries, Companions and the creation settings beside them,
  * then the Spellcasting section across the full width. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
@@ -237,7 +240,13 @@ export function CharacterSheetView({
               save={controller.saveBaseScores}
             />
             <DefensesBlock statistics={sheet.calculated.derivedStatistics} />
+            <Equipment
+              equipment={controller.equipment}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
+            />
             <OffenseBlock statistics={sheet.calculated.derivedStatistics} />
+            <Proficiencies proficiencies={controller.proficiencies} />
             <AbilityChanges
               rows={sheet.abilityChanges}
               actions={controller.abilityChanges}
@@ -261,6 +270,9 @@ export function CharacterSheetView({
             <CharacterSheetGrants
               sections={listNonRacialSections(sheet.grants)}
               actions={controller.grants}
+              equipmentRowIds={
+                new Set(controller.equipment.rows.map((row) => row.entryId))
+              }
               warnings={sheet.warnings}
               warningController={controller.warnings}
             />

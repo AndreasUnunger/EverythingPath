@@ -5,6 +5,8 @@ const defaultApi = {
     archiveCharacter: 'archive',
     reassignOwner: 'reassignOwner',
     listOwnerCandidates: 'listOwnerCandidates',
+    listCampaignCharacters: 'listCampaignCharacters',
+    listOwned: 'listOwned',
   },
   companionRelationships: {
     list: 'companions',
@@ -18,6 +20,9 @@ const defaultApi = {
   },
   characterSheet: {
     read: 'read',
+    editEquipment: 'editEquipment',
+    setManualProficiency: 'setManualProficiency',
+    setProficiencyChoice: 'setProficiencyChoice',
     editBaseScores: 'scores',
     editClassLevel: 'hp',
     addClassLevel: 'add',

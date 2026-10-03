@@ -14,7 +14,7 @@ Use clean upstream checkouts at the pins documented in [the import runbook](READ
 pnpm catalog:release build \
   --number 1 \
   --schema character-sheet-v1 \
-  --calculation sha256:07ff30d26f7390adf23ce462d28f99d90eafb653dc510e7938d56430ebde1a39 \
+  --calculation sha256:786419b05306d7a49758654158105a8d98369370d2f733adeb3f5a8cd6a10850 \
   --system /path/to/foundryvtt-pathfinder1 \
   --content /path/to/pf1-content \
   --artifact .catalog-preview/release-1/release.json

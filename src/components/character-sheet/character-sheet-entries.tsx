@@ -48,6 +48,10 @@ function isTemporaryRow({ detail }: Row) {
   return isTemporaryEffect({ kind: detail.kind }, detail);
 }
 
+// Armor and shields are equipped in the Equipment block, not switched here.
+const isArmorRow = ({ detail }: Row) =>
+  detail.kind === 'item' && detail.armor !== undefined;
+
 const isCrbCondition = ({ detail }: Row) =>
   detail.kind === 'condition' && detail.conditionKey !== undefined;
 
@@ -141,25 +145,30 @@ function SheetEntryRow({
   const isDisabled = isBusy || maintenance.readOnly;
   const isTemporary = isTemporaryRow(row);
   const isReplaced = conditionEffect?.effect.replacedBy !== undefined;
+  const isGear = isArmorRow(row);
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={row.active}
-        aria-label={`${row.name}: ${row.active ? 'active' : 'inactive'}`}
-        disabled={isDisabled}
-        onClick={() => void actions.setActive(row.entryId, !row.active)}
-        className={cn(
-          'mt-0.5 inline-flex size-11 shrink-0 items-center justify-center border md:size-7',
-          row.active
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-foreground/40 hover:border-foreground text-transparent',
-          'disabled:opacity-50',
-        )}
-      >
-        <Check aria-hidden className="size-4" />
-      </button>
+      {isGear ? (
+        <span aria-hidden className="size-11 shrink-0 md:size-7" />
+      ) : (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={row.active}
+          aria-label={`${row.name}: ${row.active ? 'active' : 'inactive'}`}
+          disabled={isDisabled}
+          onClick={() => void actions.setActive(row.entryId, !row.active)}
+          className={cn(
+            'mt-0.5 inline-flex size-11 shrink-0 items-center justify-center border md:size-7',
+            row.active
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-foreground/40 hover:border-foreground text-transparent',
+            'disabled:opacity-50',
+          )}
+        >
+          <Check aria-hidden className="size-4" />
+        </button>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h3
@@ -178,9 +187,16 @@ function SheetEntryRow({
             <span className={cn(chip, 'text-muted-foreground')}>Temporary</span>
           ) : null}
           {row.active ? null : (
-            <span className={cn(chip, 'text-muted-foreground')}>Inactive</span>
+            <span className={cn(chip, 'text-muted-foreground')}>
+              {isGear ? 'Not equipped' : 'Inactive'}
+            </span>
           )}
         </div>
+        {isGear ? (
+          <p className="text-muted-foreground text-xs">
+            Equipped and enhanced in Equipment.
+          </p>
+        ) : null}
         <p
           className={cn(
             'text-muted-foreground text-xs [overflow-wrap:anywhere]',

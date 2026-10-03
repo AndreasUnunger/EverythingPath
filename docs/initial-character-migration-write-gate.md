@@ -119,6 +119,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:editBaseScores` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editCreationSettings` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editEquipment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editGrantState` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editRaceStatistics` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
@@ -132,6 +133,8 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:selectEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:selectRace` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:setDormantEntryKept` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:setManualProficiency` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:setProficiencyChoice` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:setRacialTraitReplacements` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:setRacialTraitSelected` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/clerk.ts:fulfill` | readOnly | Signature verification only; no writes or scheduling |

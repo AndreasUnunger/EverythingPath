@@ -110,7 +110,10 @@ export function CharacterSheetRaces({
   );
   const hasRace = races.selectedRaceId !== null;
   const raceWarnings = calculated.racial.raceEntryId
-    ? listGrantEntryWarnings(warnings, calculated.racial.raceEntryId)
+    ? listGrantEntryWarnings({
+        warnings,
+        rowId: calculated.racial.raceEntryId,
+      })
     : [];
   const showsStatistics = statistics !== null && statistics.racialHitDice > 0;
   const rowProps = {

@@ -12,6 +12,10 @@ import {
   type SheetWarning,
 } from '~/lib/character-sheet';
 import { representativeRaceCatalog } from '@convex/lib/representativeRaceCatalog';
+import type {
+  ManualProficiency,
+  ProficiencyGrant,
+} from '~/lib/character-sheet-proficiencies';
 import { representativeClassCatalog } from '../../../tests/fixtures/catalog/representative-class-progressions';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
@@ -74,6 +78,8 @@ export type CatalogSheetEntry = {
   /** A Spell Effect's recorded caster level; the default when absent. */
   casterLevel?: number;
   active?: boolean;
+  /** An item's recorded gear state: enhancement, masterwork, material. */
+  itemState?: { enhancement?: number; masterwork?: boolean; material?: string };
 };
 export type Accepted = Pick<SheetWarning, 'check' | 'subject' | 'fingerprint'>;
 export type RaceKey = (typeof representativeRaceCatalog)[number]['_id'];
@@ -100,6 +106,7 @@ export type RacialTrait = {
 };
 
 function entryState(entry: CatalogSheetEntry) {
+  if (entry.detail.kind === 'item') return { kind: 'item', ...entry.itemState };
   if (entry.detail.kind !== 'spellEffect') return { kind: entry.detail.kind };
   return {
     kind: 'spellEffect',
@@ -137,6 +144,8 @@ export function buildSheet({
   racialTraits = [],
   extraCatalog = [],
   hasRaces = race !== undefined || racialTraits.length > 0,
+  classProficiencies = {},
+  manualProficiencies,
 }: {
   scores?: AbilityScores;
   levels?: Level[];
@@ -153,6 +162,13 @@ export function buildSheet({
   /** Further definitions keyed like the representative ones. */
   extraCatalog?: CharacterSheetCatalogEntry[];
   hasRaces?: boolean;
+  /** The Proficiencies a representative class grants at its first level. */
+  classProficiencies?: Partial<Record<ClassKey, ProficiencyGrant[]>>;
+  /** The table's own additions and removals, recorded on the base entry. */
+  manualProficiencies?: {
+    added: ManualProficiency[];
+    removed: ManualProficiency[];
+  };
 } = {}): CharacterSheetSnapshot {
   const campaignId = 'campaign-1' as Id<'campaign'>;
   const baseCatalog: CharacterSheetSnapshot['baseScoresEntry'] = {
@@ -176,6 +192,9 @@ export function buildSheet({
         (entry) =>
           ({
             ...entry,
+            ...(classProficiencies[entry._id]
+              ? { proficiencies: classProficiencies[entry._id] }
+              : {}),
             _creationTime: 3,
             scope: 'character',
             characterId,
@@ -240,6 +259,7 @@ export function buildSheet({
       state: {
         kind: 'base',
         ...(favoredClassIds.length > 0 ? { favoredClassIds } : {}),
+        ...(manualProficiencies ? { proficiencies: manualProficiencies } : {}),
       },
     } as Entry,
     ...levels.map(

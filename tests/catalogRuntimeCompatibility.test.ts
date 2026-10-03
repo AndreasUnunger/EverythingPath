@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:07ff30d26f7390adf23ce462d28f99d90eafb653dc510e7938d56430ebde1a39';
+    'sha256:786419b05306d7a49758654158105a8d98369370d2f733adeb3f5a8cd6a10850';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -37,6 +37,11 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'scripts/catalog/reviewed-casting-tables.json',
     'src/lib/character-sheet-abilities.ts',
     'src/lib/character-sheet-racial.ts',
+    'src/lib/character-sheet-equipment.ts',
+    'src/lib/character-sheet-proficiencies.ts',
+    'src/lib/character-sheet-proficiency-prerequisites.ts',
+    'src/lib/character-sheet-armor-categories.ts',
+    'src/lib/character-sheet-class-levels.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -50,9 +55,12 @@ test('v1 calculation identity matches its pinned implementation and militia proj
   ).toBe(expectedIdentity);
   const importsByFile = [
     [
+      './character-sheet-proficiency-prerequisites',
       'zod',
       './character-sheet-grants',
       './character-sheet-skills',
+      './character-sheet-equipment',
+      './character-sheet-proficiencies',
       './character-sheet-conditions',
       './character-sheet-spellcasting',
       './character-sheet-racial',
@@ -90,9 +98,26 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     [],
     [],
     ['./character-sheet', './character-sheet-skills'],
+    ['./character-sheet', './character-sheet-proficiencies'],
+    [
+      './character-sheet-grants',
+      'zod',
+      './character-sheet-class-levels',
+      './character-sheet-armor-categories',
+    ],
+    [
+      './character-sheet-grants',
+      './character-sheet-class-levels',
+      './character-sheet-proficiencies',
+    ],
+    [],
+    ['./character-sheet-grants'],
   ];
   const exportsByFile: Record<string, string[]> = {
-    'src/lib/character-sheet.ts': ['./character-sheet-abilities'],
+    'src/lib/character-sheet.ts': [
+      './character-sheet-abilities',
+      './character-sheet-proficiencies',
+    ],
   };
   for (const [index, path] of catalogCalculationV1Files.entries()) {
     const ast = ts.createSourceFile(

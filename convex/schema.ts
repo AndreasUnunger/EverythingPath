@@ -1,3 +1,5 @@
+import { armorCategories } from '../src/lib/character-sheet-armor-categories';
+import { proficiencyCategories } from '../src/lib/character-sheet-proficiencies';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { defineSchema, defineTable } from 'convex/server';
@@ -19,7 +21,6 @@ import {
   modifierTargets,
   catalogModifierTargets,
   creatureSizes,
-  proficiencyCategories,
 } from '../src/lib/character-sheet';
 import { conditionKeys } from '../src/lib/character-sheet-conditions';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
@@ -226,6 +227,7 @@ const recordedCatalogEntryFields = {
   catalogOverride: v.optional(v.literal(true)),
   notes: v.optional(v.string()),
   gainedAtClassLevel: v.optional(v.id('characterSheetEntry')),
+  choiceOrder: v.optional(v.number()),
   selectionSource: v.optional(selectionSourceValidator),
 };
 const picksByLevelValidator = v.array(
@@ -243,28 +245,32 @@ export const selectionKindValidator = v.union(
   v.literal('feat'),
   v.literal('trait'),
 );
+export const manualProficiencyValidator = v.union(
+  v.object({
+    category: v.union(
+      ...proficiencyCategories.map((category) => v.literal(category)),
+    ),
+  }),
+  v.object({ baseType: v.string(), asMartial: v.optional(v.literal(true)) }),
+  v.object({ group: v.string() }),
+);
+export const proficiencyGrantValidator = v.union(
+  ...manualProficiencyValidator.members,
+  v.object({ choice: v.literal(true) }),
+);
+export const proficiencyPrerequisiteValidator = v.object({
+  kind: v.literal('proficiency'),
+  proficiency: proficiencyGrantValidator,
+});
 const catalogEntryFields = v.object({
   scope: v.literal('character'),
   characterId: v.id('character'),
   countsAsRaces: v.optional(
     v.union(v.array(v.string()), v.object({ oneOf: v.array(v.string()) })),
   ),
-  proficiencies: v.optional(
-    v.array(
-      v.union(
-        v.object({
-          category: v.union(
-            ...proficiencyCategories.map((value) => v.literal(value)),
-          ),
-        }),
-        v.object({
-          baseType: v.string(),
-          asMartial: v.optional(v.literal(true)),
-        }),
-        v.object({ group: v.string() }),
-        v.object({ choice: v.literal(true) }),
-      ),
-    ),
+  proficiencies: v.optional(v.array(proficiencyGrantValidator)),
+  proficiencyPrerequisites: v.optional(
+    v.array(proficiencyPrerequisiteValidator),
   ),
   grants: v.optional(
     v.array(v.object({ catalogEntryId: v.id('catalogEntry') })),
@@ -304,10 +310,29 @@ export const sheetEntryDetailValidator = v.union(
   v.object({
     kind: v.literal('item'),
     consumable: v.boolean(),
+    material: v.optional(v.string()),
+    weapon: v.optional(
+      v.object({
+        baseType: v.string(),
+        proficiency: v.union(
+          v.literal('simple'),
+          v.literal('martial'),
+          v.literal('exotic'),
+          v.literal('always'),
+        ),
+        groups: v.optional(v.array(v.string())),
+      }),
+    ),
     armor: v.optional(
       v.object({
         slot: v.union(v.literal('armor'), v.literal('shield')),
         armorCheckPenalty: v.number(),
+        category: v.optional(
+          v.union(...armorCategories.map((category) => v.literal(category))),
+        ),
+        bonus: v.optional(v.number()),
+        maxDex: v.optional(v.union(v.number(), v.null())),
+        asf: v.optional(v.number()),
       }),
     ),
   }),
@@ -584,6 +609,7 @@ export const characterSheetEntryValidator = v.union(
       kind: v.literal('item'),
       masterwork: v.optional(v.boolean()),
       enhancement: v.optional(v.number()),
+      material: v.optional(v.union(v.string(), v.null())),
     }),
   }),
   v.object({
@@ -614,6 +640,12 @@ export const characterSheetEntryValidator = v.union(
       kind: v.literal('base'),
       ...creationSettingsValidator.partial().fields,
       favoredClassIds: v.optional(v.array(v.id('catalogEntry'))),
+      proficiencies: v.optional(
+        v.object({
+          added: v.array(manualProficiencyValidator),
+          removed: v.array(manualProficiencyValidator),
+        }),
+      ),
     }),
   }),
   v.object({

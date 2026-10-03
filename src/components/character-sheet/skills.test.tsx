@@ -14,7 +14,7 @@ import type * as NavigationGuard from '~/components/campaign-shell/navigation-gu
 import { calculateCharacterSheetProjections } from '~/lib/character-sheet';
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import { SkillRankCell } from './skill-rank-cell';
-import { ProficiencyChoiceCell } from './class-level-proficiency';
+import { ProficiencyChoice } from './proficiency-choice';
 import {
   buildSheet,
   emptyOwnerCandidates,
@@ -26,7 +26,7 @@ import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Allocating skills and favored-class benefits (#302): ranks spent per Class
 // Level from the Skills block, totals with their breakdowns, budgets and caps
-// as advisory warnings, and the proficiency choice recorded on its row.
+// as advisory warnings. Weapon proficiency choices live in Proficiencies.
 
 type Call = {
   name: string;
@@ -165,8 +165,12 @@ const queryRankInput = (skill: SkillName, level: number) =>
   skillRow(skill).queryByLabelText(`${skill} ranks at level ${level}`);
 const row = (level: number) =>
   screen.getByRole('listitem', { name: `Level ${level}` });
-const proficiencyInput = (level: number) =>
-  within(row(level)).getByLabelText(`Proficiency choice at level ${level}`);
+const clericChoice = (choice: string | null) => ({
+  entryId: 'a',
+  name: 'Cleric',
+  choice,
+});
+const choiceLabel = 'Weapon proficiency choice for Cleric';
 const pick = (select: HTMLElement, value: string) =>
   fireEvent.change(select, { target: { value } });
 const typeInto = (input: HTMLElement, value: string) =>
@@ -298,9 +302,8 @@ test('Enter on pristine rank and proficiency fields saves nothing', async () => 
   render(
     <>
       <SkillRankCell skill="Climb" level={1} ranks={1} save={saveRank} />
-      <ProficiencyChoiceCell
-        level={1}
-        choice="longsword"
+      <ProficiencyChoice
+        row={clericChoice('longsword')}
         save={saveProficiency}
       />
     </>,
@@ -308,9 +311,7 @@ test('Enter on pristine rank and proficiency fields saves nothing', async () => 
   fireEvent.keyDown(screen.getByLabelText('Climb ranks at level 1'), {
     key: 'Enter',
   });
-  fireEvent.keyDown(screen.getByLabelText('Proficiency choice at level 1'), {
-    key: 'Enter',
-  });
+  fireEvent.keyDown(screen.getByLabelText(choiceLabel), { key: 'Enter' });
   await act(async () => {
     await Promise.resolve();
   });
@@ -327,24 +328,24 @@ test('clearing a saved proficiency with Enter writes the cleared choice', async 
       }),
   );
   const view = render(
-    <ProficiencyChoiceCell level={1} choice="" save={save} />,
+    <ProficiencyChoice row={clericChoice(null)} save={save} />,
   );
-  const input = screen.getByLabelText('Proficiency choice at level 1');
+  const input = screen.getByLabelText(choiceLabel);
   typeInto(input, 'longsword');
   fireEvent.blur(input);
   await waitFor(() => expect(save).toHaveBeenCalledWith('longsword'));
   view.rerender(
-    <ProficiencyChoiceCell level={1} choice="longsword" save={save} />,
+    <ProficiencyChoice row={clericChoice('longsword')} save={save} />,
   );
   await act(async () => {
     complete?.();
   });
   expect(
-    screen.queryByRole('button', { name: 'Save proficiency' }),
+    screen.queryByRole('button', { name: 'Save choice for Cleric' }),
   ).not.toBeInTheDocument();
   typeInto(input, '');
   expect(
-    await screen.findByRole('button', { name: 'Save proficiency' }),
+    await screen.findByRole('button', { name: 'Save choice for Cleric' }),
   ).toBeEnabled();
   fireEvent.keyDown(input, { key: 'Enter' });
   await waitFor(() => expect(save).toHaveBeenLastCalledWith(null));
@@ -540,43 +541,6 @@ test('the favored class bonus stays a choice of +1 hp, +1 skill rank or a descri
   expect(ability).toBeEnabled();
 });
 
-test('a proficiency choice is typed on each Class Level and saved as text when left or entered, cleared by a blank, with no grant and no missing-choice warning', async () => {
-  const view = renderSheet(build({ levels: [fighter, rogue] }));
-  const helper = 'Choose a weapon if this class grants a proficiency choice.';
-  expect(proficiencyInput(2)).toHaveAccessibleDescription(helper);
-  typeInto(proficiencyInput(1), 'longsword');
-  fireEvent.blur(proficiencyInput(1));
-  await waitFor(() => expect(calls).toHaveLength(1));
-  expect(lastCall().name).toBe('editLevel');
-  expect(lastCall().args).toMatchObject({
-    entryId: 'a',
-    proficiencyChoice: 'longsword',
-  });
-  expect(lastCall().args).not.toHaveProperty('skillRank');
-  expect(lastCall().args).not.toHaveProperty('classEntryId');
-  const armed: Level = { ...fighter, proficiencyChoice: 'longsword' };
-  await settle(view, { levels: [armed, rogue] });
-  expect(within(row(1)).getByText('Proficiency saved.')).toBeVisible();
-  expect(proficiencyInput(1)).toHaveValue('longsword');
-  expect(proficiencyInput(1)).not.toHaveAccessibleDescription(helper);
-  expect(
-    screen.queryByRole('button', { name: /Accept|Reopen/ }),
-  ).not.toBeInTheDocument();
-  expect(screen.queryByText(/longsword/)).not.toBeInTheDocument();
-
-  typeInto(proficiencyInput(1), '');
-  await within(row(1)).findByRole('button', { name: 'Save proficiency' });
-  fireEvent.keyDown(proficiencyInput(1), { key: 'Enter' });
-  await waitFor(() => expect(calls).toHaveLength(2));
-  expect(lastCall().args).toMatchObject({
-    entryId: 'a',
-    proficiencyChoice: null,
-  });
-  await settle(view, { levels: [fighter, rogue] });
-  expect(proficiencyInput(1)).toHaveValue('');
-  expect(proficiencyInput(1)).toHaveAccessibleDescription(helper);
-});
-
 test('without Class Levels the table still totals every skill and says what to add; an Unspecified level stays allocatable with its budget unresolved', () => {
   const view = renderSheet(build({ levels: [], hasClasses: true }));
   expect(
@@ -610,7 +574,7 @@ test('without Class Levels the table still totals every skill and says what to a
   expect(skills().queryByText('Accept')).not.toBeInTheDocument();
 });
 
-test('maintenance disables every rank and proficiency input with the reason stated once in the block and writes nothing; the table scrolls within the Skills block on a phone', () => {
+test('maintenance disables every rank input with the reason stated once in the block and writes nothing; the table scrolls within the Skills block on a phone', () => {
   Object.defineProperty(window, 'innerWidth', {
     value: 390,
     configurable: true,
@@ -628,7 +592,6 @@ test('maintenance disables every rank and proficiency input with the reason stat
   for (const control of [
     rankInput('Climb', 1),
     rankInput('Perception', 1),
-    proficiencyInput(1),
     ...accepts,
   ])
     expect(control).toBeDisabled();
@@ -637,8 +600,6 @@ test('maintenance disables every rank and proficiency input with the reason stat
   typeInto(rankInput('Climb', 1), '4');
   fireEvent.blur(rankInput('Climb', 1));
   fireEvent.keyDown(rankInput('Climb', 1), { key: 'Enter' });
-  typeInto(proficiencyInput(1), 'longsword');
-  fireEvent.blur(proficiencyInput(1));
   expect(calls).toEqual([]);
 
   const table = skillsRegion().querySelector('[data-skills-table]');
