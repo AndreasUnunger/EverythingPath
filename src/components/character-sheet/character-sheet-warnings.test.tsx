@@ -106,7 +106,7 @@ function sheet({
   accepted?: Accepted[];
   lastOperationId?: string;
 } = {}): CharacterSheetSnapshot {
-  const catalogEntry = {
+  const catalogEntry: CharacterSheetSnapshot['baseScoresEntry'] = {
     _id: 'base-catalogEntry' as Id<'catalogEntry'>,
     _creationTime: 1,
     scope: 'character',
@@ -118,10 +118,10 @@ function sheet({
     sources: [],
     modifiers: abilityKeys.map((ability) => ({
       target: abilityTargets[ability],
-      bonusType: 'base',
+      bonusType: 'base' as const,
       value: scores[ability],
     })),
-  } as unknown as CharacterSheetSnapshot['catalogEntries'][number];
+  };
   const entries: Entry[] = [
     {
       _id: baseEntryId,

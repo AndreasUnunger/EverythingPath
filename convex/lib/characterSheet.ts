@@ -15,6 +15,18 @@ import { updateCanonicalCharacter } from './canonicalCharacters';
 const maxCharacterChildRows = 4096;
 const maxAcceptedWarnings = 8192;
 
+function isBaseCatalogEntry(
+  entry: Doc<'catalogEntry'>,
+): entry is Extract<Doc<'catalogEntry'>, { detail: { kind: 'base' } }> {
+  return entry.detail.kind === 'base';
+}
+
+export function isManualCatalogEntry(
+  entry: Doc<'catalogEntry'>,
+): entry is Extract<Doc<'catalogEntry'>, { detail: { kind: 'manual' } }> {
+  return entry.detail.kind === 'manual';
+}
+
 export function requireFixtureCampaign(campaign: Doc<'campaign'>) {
   if (!campaign.e2eFixture)
     throw new ConvexError(
@@ -105,15 +117,30 @@ export async function loadCharacterSheet(
   const baseScoresEntry = base
     ? await ctx.db.get('catalogEntry', base.catalogEntryId)
     : null;
-  if (baseScoresEntry?.characterId !== args.characterId)
+  if (
+    baseScoresEntry?.characterId !== args.characterId ||
+    !isBaseCatalogEntry(baseScoresEntry)
+  )
     throw new ConvexError('Base scores do not belong to this Character');
-  const catalogEntries = [baseScoresEntry];
+  const catalogEntries: Doc<'catalogEntry'>[] = [baseScoresEntry];
   const acceptedWarnings = await ctx.db
     .query('acceptedWarning')
     .withIndex('by_characterId', (q) => q.eq('characterId', args.characterId))
     .take(maxAcceptedWarnings + 1);
   if (acceptedWarnings.length > maxAcceptedWarnings)
     throw new ConvexError('Character has too many accepted warnings');
+  for (const entry of entries) {
+    if (entry.kind !== 'manual') continue;
+    const catalogEntry = await ctx.db.get('catalogEntry', entry.catalogEntryId);
+    if (
+      catalogEntry?.characterId !== args.characterId ||
+      !isManualCatalogEntry(catalogEntry)
+    )
+      throw new ConvexError(
+        'Personal adjustment does not belong to this Character',
+      );
+    catalogEntries.push(catalogEntry);
+  }
   const classLevels = entries
     .filter((entry) => entry.kind === 'classLevel')
     .sort((a, b) => a.state.position - b.state.position);
@@ -129,6 +156,7 @@ export async function loadCharacterSheet(
     entries: [
       ...entries.filter((entry) => entry.kind === 'base'),
       ...classLevels,
+      ...entries.filter((entry) => entry.kind === 'manual'),
     ],
     catalogEntries,
     baseScoresEntry,

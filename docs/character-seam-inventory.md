@@ -22,6 +22,12 @@ The `characterSheet` harness case creates `E2E character-sheet-campaign` and `E2
 
 `characterSheet.archive` and `characterSheet.deletePrivate` both require an already prepared sheet through `loadWritableSheet`. Archiving additionally requires a fixture campaign; private deletion instead requires the private Character's `sheetDemo` marker and refuses campaign Characters. Legacy campaign Characters without prepared sheets remain on `character.archiveCharacter`, which does not require sheet preparation. Both archive entry points preserve the existing canonical militia refresh behavior.
 
+### Modifier and personal adjustment preparation (#263)
+
+`characterSheet:createPersonalAdjustment`, `editPersonalAdjustment` and `removePersonalAdjustment` extend the same fixture-only sheet API and Write Gate. Each adjustment owns a Character-scoped `manual` Catalog Entry and a Sheet Entry; edits retain its durable rule identity, and removal deletes both. The sheet loader validates every adjustment definition against the owning Character before returning it or resolving its Modifiers. Newly introduced condition references must belong to that Character. A saved reference whose target was removed stays conditional and does not prevent editing the remaining adjustment. Activation changes patch only the active flag, preserving concurrent content edits. This schema widening requires no existing-row backfill.
+
+The shared calculation interface expands closed parent targets, resolves numeric bonus/penalty stacking and effective Sources, and reports applied, suppressed and conditional contributions. The sheet controller exposes the calculated breakdowns and adjustment commands. Editable base scores come from the base Catalog Entry, so an adjustment never becomes part of the saved base score. Formula evaluation, ability damage/drain and permanent projections remain #298's scope. Presentation of breakdowns and the adjustment editor is handed to the separate UI agent through `/tmp/ep-orch/briefs/263/ui-contract.md`; #263's implementation brief assigns that markup and browser interaction evidence separately.
+
 ## Consumers not migrated by #252
 
 “Six scores” below means `strength`, `dexterity`, `constitution`, `intelligence`, `wisdom` and `charisma`. Snapshot consumers already read militia copies rather than current Character rows; their later work must preserve that distinction for frozen history. Ticket assignments identify the owning implementation slice, not a claim that every listed file must be rewritten.

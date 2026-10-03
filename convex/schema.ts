@@ -7,6 +7,12 @@ import {
   recordStorageValidator,
 } from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
+import {
+  abilityTargets,
+  bonusTypes,
+  modifierConditionSchema,
+  modifierTargets,
+} from '../src/lib/character-sheet';
 export const spellValidator = v.object({
   name: v.string(),
   spellLevel: v.string(),
@@ -129,30 +135,54 @@ export const characterValidator = v.object({
   intelligence: v.number(),
 });
 
-export const baseModifierValidator = v.object({
-  target: v.union(
-    v.literal('ability.str'),
-    v.literal('ability.dex'),
-    v.literal('ability.con'),
-    v.literal('ability.int'),
-    v.literal('ability.wis'),
-    v.literal('ability.cha'),
+const modifierConditionValidator = zodOutputToConvex(
+  modifierConditionSchema,
+).extend({
+  situation: v.optional(
+    v.union(
+      v.string(),
+      v.object({ local: v.string() }),
+      v.object({ option: v.id('catalogEntry') }),
+    ),
   ),
-  bonusType: v.literal('base'),
-  value: v.number(),
+  whileActive: v.optional(v.id('catalogEntry')),
 });
-export const catalogEntryValidator = v.object({
+export const modifierValidator = v.object({
+  target: v.union(...modifierTargets.map((target) => v.literal(target))),
+  bonusType: v.union(...bonusTypes.map((type) => v.literal(type))),
+  value: v.number(),
+  condition: v.optional(modifierConditionValidator),
+  stacksWithinEntry: v.optional(v.literal(true)),
+});
+const baseModifierValidator = modifierValidator
+  .pick('target', 'bonusType', 'value')
+  .extend({
+    target: v.union(
+      ...Object.values(abilityTargets).map((target) => v.literal(target)),
+    ),
+    bonusType: v.literal('base'),
+  });
+const catalogEntryFields = v.object({
   scope: v.literal('character'),
   characterId: v.id('character'),
   name: v.string(),
   ruleIdentity: v.string(),
-  stacksWithItself: v.literal(false),
-  modifiers: v.array(baseModifierValidator),
-  detail: v.object({ kind: v.literal('base') }),
+  sourceKey: v.optional(v.string()),
+  stacksWithItself: v.boolean(),
   sources: v.array(
     v.object({ book: v.string(), pages: v.optional(v.string()) }),
   ),
 });
+export const catalogEntryValidator = v.union(
+  catalogEntryFields.extend({
+    modifiers: v.array(baseModifierValidator),
+    detail: v.object({ kind: v.literal('base') }),
+  }),
+  catalogEntryFields.extend({
+    modifiers: v.array(modifierValidator),
+    detail: v.object({ kind: v.literal('manual') }),
+  }),
+);
 export const creationSettingsValidator = v.object({
   abilityMethod: v.union(
     v.object({ kind: v.literal('pointBuy'), budget: v.number() }),
@@ -162,6 +192,13 @@ export const creationSettingsValidator = v.object({
   campaignTraitRequired: v.boolean(),
 });
 export const characterSheetEntryValidator = v.union(
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('manual'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    state: v.object({ kind: v.literal('manual') }),
+  }),
   v.object({
     characterId: v.id('character'),
     kind: v.literal('base'),

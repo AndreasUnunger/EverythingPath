@@ -14,11 +14,13 @@ import { Input } from '~/components/ui/input';
 import {
   abilityKeys,
   abilityLabels,
+  abilityTargets,
   type AbilityScores,
   type CreationSettings,
 } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
 import { InlineWarnings } from './inline-warning';
+import { StatBreakdown } from './stat-breakdown';
 import {
   action,
   Block,
@@ -62,13 +64,15 @@ function PointCounter({
   );
 }
 
-// Label | base input | saved total | modifier, the message under the row.
-const columns = 'grid grid-cols-[minmax(0,1fr)_4.5rem_3rem_3rem] gap-x-3';
+// Label | base input | calculated total | modifier, the message under the row.
+const columns = 'grid grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3rem] gap-x-3';
 
 /**
  * The one permanent base-scores entry: six fields that are always present,
- * with no remove or disable control. Totals show saved choices; a typed
- * draft stays in its field while its save is pending.
+ * with no remove or disable control. The field holds the stored base score;
+ * the total beside it is the calculated score with every adjustment, and
+ * opens its breakdown. A typed draft stays in its field while its save is
+ * pending.
  */
 export function BaseScoresEditor({
   scores,
@@ -77,6 +81,7 @@ export function BaseScoresEditor({
   pointBuy,
   warnings,
   warningController,
+  breakdowns,
   save,
 }: {
   scores: AbilityScores;
@@ -85,6 +90,7 @@ export function BaseScoresEditor({
   pointBuy: ReadySheet['calculated']['pointBuy'];
   warnings: SheetWarningView[];
   warningController: Controller['warnings'];
+  breakdowns: ReadySheet['calculated']['breakdowns'];
   save: Controller['saveBaseScores'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
@@ -152,11 +158,16 @@ export function BaseScoresEditor({
                       className="h-10 text-center font-mono md:h-8"
                     />
                   </FormControl>
-                  <span className="text-right font-mono text-base">
+                  <span className="flex justify-end font-mono text-base">
                     <span className="sr-only">
                       {abilityLabels[ability]} total{' '}
                     </span>
-                    {abilities[ability].score}
+                    <StatBreakdown
+                      label={abilityLabels[ability]}
+                      statistic={breakdowns[abilityTargets[ability]]}
+                      target={abilityTargets[ability]}
+                      className="text-base"
+                    />
                   </span>
                   <span className="text-right font-mono text-base">
                     <span className="sr-only">

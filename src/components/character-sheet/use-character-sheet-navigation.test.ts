@@ -1,13 +1,13 @@
 import { act, renderHook } from '@testing-library/react';
+import type { Id } from '@convex/_generated/dataModel';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { useCharacterSheetNavigation } from './use-character-sheet-navigation';
+import type { CharacterSheetSnapshot } from './use-character-sheet';
+
+type NavigationSnapshot = Pick<CharacterSheetSnapshot, 'campaign'>;
 
 const state = vi.hoisted(() => ({
-  campaign: null as {
-    campaignId: string;
-    campaignName: string;
-    organizationId: string;
-  } | null,
+  campaign: null as NavigationSnapshot['campaign'],
   organizationId: 'origin',
   params: 'from=%2Fcharacters&organizationId=origin',
   authenticated: true,
@@ -21,7 +21,7 @@ vi.mock('@convex/_generated/api', () => ({
 }));
 vi.mock('convex/react', () => ({
   useConvexAuth: () => ({ isAuthenticated: state.authenticated }),
-  useQuery: (_: unknown, args: unknown) => {
+  useQuery: (_: unknown, args: unknown): NavigationSnapshot => {
     state.query(args);
     return { campaign: state.campaign };
   },
@@ -41,7 +41,7 @@ vi.mock('~/components/campaign-shell/navigation-guard', () => ({
 }));
 beforeEach(() => {
   state.campaign = {
-    campaignId: 'alpha',
+    campaignId: 'alpha' as Id<'campaign'>,
     campaignName: 'Ironfang',
     organizationId: 'destination',
   };
@@ -240,7 +240,7 @@ test('a previous sheet activation cannot finish the current sheet organization c
     initialProps: { id: 'hero' },
   });
   state.campaign = {
-    campaignId: 'beta',
+    campaignId: 'beta' as Id<'campaign'>,
     campaignName: 'Kingmaker',
     organizationId: 'other',
   };

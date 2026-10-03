@@ -1,9 +1,10 @@
-import { ConvexError, v } from 'convex/values';
+import { compareValues, ConvexError, v } from 'convex/values';
+import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { query } from './_generated/server';
 import { campaignMutation } from './lib/campaignRuntime';
-import schema, { creationSettingsValidator } from './schema';
+import schema, { creationSettingsValidator, modifierValidator } from './schema';
 import { getUser } from './user';
 import {
   requireCharacterCampaignAccess,
@@ -15,10 +16,14 @@ import {
   defaultAbilityScores,
   calculateCharacterSheet,
   creationSettingsFor,
+  modifierConditionSchema,
+  type Modifier,
+  type BaseModifier,
 } from '../src/lib/character-sheet';
 import {
   deleteCharacterSheet,
   initializeCharacterSheet,
+  isManualCatalogEntry,
   loadCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
   requireFixtureCampaign,
@@ -31,6 +36,25 @@ const scope = {
   characterId: v.id('character'),
 };
 const abilityValue = v.object({ score: v.number(), modifier: v.number() });
+const sourcedModifierValidator = modifierValidator.omit('condition').extend({
+  condition: v.optional(zodOutputToConvex(modifierConditionSchema)),
+  sheetEntryId: v.string(),
+  entryName: v.string(),
+  source: v.string(),
+  builtIn: v.boolean(),
+  stacksWithItself: v.optional(v.boolean()),
+});
+const breakdownValidator = v.object({
+  total: v.number(),
+  applied: v.array(sourcedModifierValidator),
+  suppressed: v.array(
+    sourcedModifierValidator.extend({
+      reason: v.string(),
+      suppressedBy: v.string(),
+    }),
+  ),
+  conditional: v.array(sourcedModifierValidator),
+});
 const calculatedValidator = v.object({
   abilities: v.object({
     strength: abilityValue,
@@ -80,6 +104,14 @@ const calculatedValidator = v.object({
       message: v.string(),
     }),
   ),
+  breakdowns: v.record(v.string(), breakdownValidator),
+  derivedStatistics: v.object({
+    ac: breakdownValidator,
+    touchAc: breakdownValidator,
+    flatFootedAc: breakdownValidator,
+    cmd: breakdownValidator,
+    flatFootedCmd: breakdownValidator,
+  }),
 });
 export const create = campaignMutation({
   args: {
@@ -176,6 +208,10 @@ export const read = query({
 
 const writeScope = { ...scope, operationId: v.string() };
 const rowScope = { ...writeScope, entryId: v.id('characterSheetEntry') };
+const personalAdjustmentFields = {
+  name: v.string(),
+  modifiers: v.array(modifierValidator.omit('stacksWithinEntry')),
+};
 async function loadWritableSheet(ctx: MutationCtx, args: CharacterScope) {
   const sheet = await loadCharacterSheet(ctx, args, { isWritable: true });
   if (!sheet) throw new ConvexError('Character has no sheet');
@@ -211,6 +247,180 @@ function requireNonnegativeInteger(value: number, label: string) {
   if (!Number.isInteger(value) || value < 0)
     throw new ConvexError(`${label} must be a whole number of 0 or more`);
 }
+function modifierReferences(modifiers: readonly Modifier[]) {
+  return modifiers.flatMap((modifier) => {
+    const situation = modifier.condition?.situation;
+    return [
+      modifier.condition?.whileActive,
+      typeof situation === 'object' && 'option' in situation
+        ? situation.option
+        : undefined,
+    ].filter((reference): reference is string => reference !== undefined);
+  });
+}
+function validatePersonalAdjustment({
+  sheet,
+  name,
+  modifiers,
+  previousModifiers = [],
+}: {
+  sheet: NonNullable<Awaited<ReturnType<typeof loadCharacterSheet>>>;
+  name: string;
+  modifiers: readonly Modifier[];
+  previousModifiers?: readonly Modifier[];
+}) {
+  if (!name.trim()) throw new ConvexError('Adjustment name cannot be empty');
+  if (modifiers.length > 256)
+    throw new ConvexError('An adjustment supports at most 256 Modifiers');
+  for (const modifier of modifiers) {
+    requireFiniteNumber(modifier.value);
+    if (modifier.bonusType === 'base')
+      throw new ConvexError('Base scores cannot be personal adjustments');
+  }
+  const previousReferences = new Set(modifierReferences(previousModifiers));
+  for (const reference of modifierReferences(modifiers)) {
+    if (
+      !previousReferences.has(reference) &&
+      !sheet.catalogEntries.some((entry) => entry._id === reference)
+    )
+      throw new ConvexError(
+        'Modifier reference does not belong to this Character',
+      );
+  }
+}
+export const createPersonalAdjustment = campaignMutation({
+  args: { ...writeScope, ...personalAdjustmentFields },
+  returns: v.id('characterSheetEntry'),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    validatePersonalAdjustment({
+      sheet,
+      name: args.name,
+      modifiers: args.modifiers,
+    });
+    if (sheet.entries.length >= 4096)
+      throw new ConvexError('Character sheet is too large');
+    const catalogEntryId = await ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId: args.characterId,
+      name: args.name.trim(),
+      ruleIdentity: `manual:${args.characterId}`,
+      stacksWithItself: false,
+      modifiers: args.modifiers,
+      detail: { kind: 'manual' },
+      sources: [],
+    });
+    await ctx.db.patch('catalogEntry', catalogEntryId, {
+      ruleIdentity: `manual:${catalogEntryId}`,
+    });
+    const entryId = await ctx.db.insert('characterSheetEntry', {
+      characterId: args.characterId,
+      kind: 'manual',
+      active: true,
+      catalogEntryId,
+      state: { kind: 'manual' },
+    });
+    const entry = await ctx.db.get('characterSheetEntry', entryId);
+    const catalogEntry = await ctx.db.get('catalogEntry', catalogEntryId);
+    if (!entry || !catalogEntry)
+      throw new ConvexError('Personal adjustment is unavailable');
+    sheet.entries.push(entry);
+    sheet.catalogEntries.push(catalogEntry);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return entryId;
+  },
+});
+function getPersonalAdjustment(
+  sheet: NonNullable<Awaited<ReturnType<typeof loadCharacterSheet>>>,
+  entryId: Id<'characterSheetEntry'>,
+) {
+  const entry = sheet.entries.find((row) => row._id === entryId);
+  if (entry?.kind !== 'manual')
+    throw new ConvexError(
+      'Personal adjustment does not belong to this Character',
+    );
+  return entry;
+}
+export const editPersonalAdjustment = campaignMutation({
+  args: {
+    ...rowScope,
+    ...v.object(personalAdjustmentFields).partial().fields,
+    active: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const entry = getPersonalAdjustment(sheet, args.entryId);
+    const catalogEntry = sheet.catalogEntries.find(
+      (row) => row._id === entry.catalogEntryId,
+    );
+    if (!catalogEntry || !isManualCatalogEntry(catalogEntry))
+      throw new ConvexError('Personal adjustment is unavailable');
+    const name = args.name?.trim() ?? catalogEntry.name;
+    const modifiers = args.modifiers ?? catalogEntry.modifiers;
+    validatePersonalAdjustment({
+      sheet,
+      name,
+      modifiers,
+      previousModifiers: catalogEntry.modifiers,
+    });
+    if (
+      catalogEntry.name === name &&
+      compareValues(catalogEntry.modifiers, modifiers) === 0 &&
+      (args.active === undefined || args.active === entry.active)
+    )
+      return null;
+    const catalogPatch = {
+      ...(args.name !== undefined ? { name } : {}),
+      ...(args.modifiers !== undefined ? { modifiers } : {}),
+    };
+    if (args.name !== undefined || args.modifiers !== undefined)
+      await ctx.db.patch('catalogEntry', entry.catalogEntryId, catalogPatch);
+    if (args.active !== undefined)
+      await ctx.db.patch('characterSheetEntry', entry._id, {
+        active: args.active,
+      });
+    sheet.catalogEntries = sheet.catalogEntries.map((row) =>
+      row._id === catalogEntry._id && isManualCatalogEntry(row)
+        ? { ...row, name, modifiers }
+        : row,
+    );
+    sheet.entries = sheet.entries.map((row) =>
+      row.kind === 'manual' &&
+      row._id === entry._id &&
+      args.active !== undefined
+        ? { ...row, active: args.active }
+        : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+export const removePersonalAdjustment = campaignMutation({
+  args: rowScope,
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const entry = getPersonalAdjustment(sheet, args.entryId);
+    await ctx.db.delete('characterSheetEntry', entry._id);
+    await ctx.db.delete('catalogEntry', entry.catalogEntryId);
+    sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
+    sheet.catalogEntries = sheet.catalogEntries.filter(
+      (row) => row._id !== entry.catalogEntryId,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
 export const editBaseScores = campaignMutation({
   args: {
     ...writeScope,
@@ -227,10 +437,7 @@ export const editBaseScores = campaignMutation({
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const catalogEntry = sheet.baseScoresEntry;
-    const values = new Map<
-      (typeof abilityTargets)[keyof typeof abilityTargets],
-      number
-    >();
+    const values = new Map<BaseModifier['target'], number>();
     for (const ability of abilityKeys) {
       const value = args.scores[ability];
       if (value !== undefined) {
@@ -249,7 +456,9 @@ export const editBaseScores = campaignMutation({
     if (!hasChanges) return null;
     await ctx.db.patch('catalogEntry', catalogEntry._id, { modifiers });
     sheet.catalogEntries = sheet.catalogEntries.map((entry) =>
-      entry._id === catalogEntry._id ? { ...entry, modifiers } : entry,
+      entry._id === catalogEntry._id && entry.detail.kind === 'base'
+        ? { ...entry, modifiers }
+        : entry,
     );
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
@@ -325,7 +534,7 @@ export const moveClassLevel = campaignMutation({
       throw new ConvexError('Choose a valid Class Level position');
     levels.splice(args.position - 1, 0, entry);
     sheet.entries = [
-      ...sheet.entries.filter((entry) => entry.kind === 'base'),
+      ...sheet.entries.filter((entry) => entry.kind !== 'classLevel'),
       ...(await renumberClassLevels(ctx, levels)),
     ];
     await pruneWarningAcceptancesAndRecordChange(ctx, {
@@ -346,7 +555,7 @@ export const deleteClassLevel = campaignMutation({
       .filter((item) => item.kind === 'classLevel')
       .filter((item) => item._id !== entry._id);
     sheet.entries = [
-      ...sheet.entries.filter((entry) => entry.kind === 'base'),
+      ...sheet.entries.filter((entry) => entry.kind !== 'classLevel'),
       ...(await renumberClassLevels(ctx, levels)),
     ];
     await pruneWarningAcceptancesAndRecordChange(ctx, {

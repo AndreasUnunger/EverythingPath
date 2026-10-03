@@ -1,8 +1,14 @@
 'use client';
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { fieldLabel } from './sheet-parts';
+import { StatBreakdown } from './stat-breakdown';
+import type { useCharacterSheet } from './use-character-sheet';
 
-type Calculated = { level: number; hitDice: number; hp: number | null };
+type Controller = ReturnType<typeof useCharacterSheet>;
+type Calculated = Pick<
+  NonNullable<Controller['sheet']>['calculated'],
+  'level' | 'hitDice' | 'hp' | 'breakdowns'
+>;
 
 // From tablet width the row sticks directly under the shell's top bar, whose
 // height changes with wrapping and the maintenance banner, so it is measured
@@ -36,18 +42,14 @@ function usePinnedUnderTopBar(row: RefObject<HTMLElement | null>) {
   }, [row]);
 }
 
-function Figure({ label, value }: { label: string; value: number | null }) {
+// Level and Hit Dice are counts with nothing to explain; HP opens its
+// breakdown, and while a Class Level still lacks hit points it stays "not
+// complete" rather than showing the partial sum as HP.
+function Figure({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col items-start">
       <dt className={fieldLabel}>{label}</dt>
-      <dd className="font-mono text-xl leading-none">
-        {value ?? (
-          <>
-            <span aria-hidden>—</span>
-            <span className="sr-only">not complete</span>
-          </>
-        )}
-      </dd>
+      <dd className="font-mono text-xl leading-none">{children}</dd>
     </div>
   );
 }
@@ -62,9 +64,11 @@ function Figure({ label, value }: { label: string; value: number | null }) {
 export function SheetSummary({
   name,
   calculated,
+  incompleteHpReason,
 }: {
   name: string;
   calculated: Calculated;
+  incompleteHpReason: string | null;
 }) {
   const row = useRef<HTMLDivElement>(null);
   usePinnedUnderTopBar(row);
@@ -78,9 +82,19 @@ export function SheetSummary({
         {name}
       </h1>
       <dl className="flex flex-wrap items-end gap-x-5 gap-y-1 md:shrink-0 md:flex-nowrap md:justify-end">
-        <Figure label="Level" value={calculated.level} />
-        <Figure label="Hit Dice" value={calculated.hitDice} />
-        <Figure label="HP" value={calculated.hp} />
+        <Figure label="Level">{calculated.level}</Figure>
+        <Figure label="Hit Dice">{calculated.hitDice}</Figure>
+        <Figure label="HP">
+          <StatBreakdown
+            label="HP"
+            statistic={calculated.breakdowns.hp}
+            target="hp"
+            incompleteReason={
+              calculated.hp === null ? incompleteHpReason : null
+            }
+            className="-mx-1 text-xl"
+          />
+        </Figure>
       </dl>
     </div>
   );

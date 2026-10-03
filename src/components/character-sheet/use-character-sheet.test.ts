@@ -5,6 +5,7 @@ import { ConvexError } from 'convex/values';
 import schema from '@convex/schema';
 import {
   defaultAbilityScores,
+  defaultCreationSettings,
   calculateCharacterSheet,
 } from '~/lib/character-sheet';
 import { useCharacterRecord } from '../character-manager/use-character-record';
@@ -40,6 +41,9 @@ vi.mock('@convex/_generated/api', () => ({
       editCreationSettings: 'settings',
       acceptWarning: 'accept',
       reopenWarning: 'reopen',
+      createPersonalAdjustment: 'createAdjustment',
+      editPersonalAdjustment: 'editAdjustment',
+      removePersonalAdjustment: 'removeAdjustment',
     },
   },
 }));
@@ -50,6 +54,12 @@ vi.mock('convex/react', () => ({
       calls.push({ name, args, resolve, reject });
     }),
 }));
+
+function isBaseCatalogEntry(
+  entry: CharacterSheetSnapshot['catalogEntries'][number],
+): entry is CharacterSheetSnapshot['baseScoresEntry'] {
+  return entry.detail.kind === 'base';
+}
 
 async function fixture(acceptPointBuy = false) {
   const t = convexTest(schema, import.meta.glob('../../../convex/**/*.ts'));
@@ -118,14 +128,40 @@ async function fixture(acceptPointBuy = false) {
         hpGained: 5,
       },
     });
+    const adjustmentId = await ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId,
+      name: 'Bull strength',
+      ruleIdentity: 'manual:strength',
+      stacksWithItself: false,
+      detail: { kind: 'manual' },
+      sources: [],
+      modifiers: [
+        { target: 'ability.str', bonusType: 'enhancement', value: 4 },
+      ],
+    });
+    const adjustmentEntryId = await ctx.db.insert('characterSheetEntry', {
+      characterId,
+      kind: 'manual',
+      active: true,
+      catalogEntryId: adjustmentId,
+      state: { kind: 'manual' },
+    });
+    const adjustment = await ctx.db.get('catalogEntry', adjustmentId);
+    if (!adjustment) throw new Error('Missing adjustment');
     const character = await ctx.db.get('character', characterId);
     const catalogEntry = await ctx.db.get('catalogEntry', baseId);
     const entries = await Promise.all(
-      [baseEntryId, firstId, secondId].map((id) =>
+      [baseEntryId, firstId, secondId, adjustmentEntryId].map((id) =>
         ctx.db.get('characterSheetEntry', id),
       ),
     );
-    if (!character || !catalogEntry || entries.some((entry) => entry === null))
+    if (
+      !character ||
+      !catalogEntry ||
+      !isBaseCatalogEntry(catalogEntry) ||
+      entries.some((entry) => entry === null)
+    )
       throw new Error('Fixture missing');
     const completeEntries = entries.filter((entry) => entry !== null);
     const acceptedWarnings = [];
@@ -145,12 +181,12 @@ async function fixture(acceptPointBuy = false) {
       character,
       campaign: { campaignId, campaignName: 'Demo', organizationId: 'org' },
       entries: completeEntries,
-      catalogEntries: [catalogEntry],
+      catalogEntries: [catalogEntry, adjustment],
       baseScoresEntry: catalogEntry,
       calculated: calculateCharacterSheet({
         characterKind: character.kind,
         entries: completeEntries,
-        catalogEntries: [catalogEntry],
+        catalogEntries: [catalogEntry, adjustment],
       }),
       acceptedWarnings,
       revision: 1,
@@ -739,3 +775,133 @@ test.each(['own', 'another session'])(
     await act(async () => call.resolve(null));
   },
 );
+
+test('a personal Strength adjustment changes the total without changing base scores or point buy', async () => {
+  // CRB Ability Scores: point buy purchases the base score before other adjustments.
+  const initial = await fixture();
+  const entries = initial.entries.map((entry) =>
+    entry.kind === 'base'
+      ? { ...entry, state: { ...entry.state, ...defaultCreationSettings } }
+      : entry,
+  );
+  const catalogEntries = initial.catalogEntries.map((entry) =>
+    entry.detail.kind === 'manual'
+      ? {
+          ...entry,
+          detail: { kind: 'manual' as const },
+          modifiers: [
+            {
+              target: 'ability.str' as const,
+              bonusType: 'enhancement' as const,
+              value: 2,
+            },
+          ],
+        }
+      : entry,
+  );
+  snapshot = {
+    ...initial,
+    entries,
+    catalogEntries,
+    calculated: calculateCharacterSheet({
+      entries,
+      catalogEntries,
+      characterKind: 'pc',
+    }),
+  };
+  const view = renderHook(() =>
+    useCharacterSheet({ organizationId: 'org', characterId: 'hero' }),
+  );
+  expect(view.result.current.sheet?.baseScores.strength).toBe(10);
+  expect(view.result.current.sheet?.calculated.abilities.strength.score).toBe(
+    12,
+  );
+  expect(view.result.current.sheet?.calculated.pointBuy?.spent).toBe(0);
+});
+
+test('personal adjustments expose their saved definition and keep refused changes local', async () => {
+  snapshot = await fixture();
+  const view = renderHook(() =>
+    useCharacterSheet({ organizationId: 'org', characterId: 'hero' }),
+  );
+  const adjustment = view.result.current.sheet?.adjustments[0];
+  if (!adjustment) throw new Error('Expected adjustment');
+  expect(adjustment.name).toBe('Bull strength');
+  expect(adjustment.modifiers).toEqual([
+    { target: 'ability.str', bonusType: 'enhancement', value: 4 },
+  ]);
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = view.result.current.adjustments.setActive(
+      adjustment.entryId,
+      false,
+    );
+  });
+  expect(view.result.current.adjustments.status.kind).toBe('saving');
+  expect(calls[0]?.args).toMatchObject({
+    entryId: adjustment.entryId,
+    active: false,
+  });
+  expect(calls[0]?.args).not.toHaveProperty('name');
+  expect(calls[0]?.args).not.toHaveProperty('modifiers');
+  await act(async () => {
+    calls[0]?.reject(new ConvexError('Editing is paused'));
+    await pending;
+  });
+  expect(view.result.current.adjustments.status).toEqual({
+    kind: 'error',
+    message: "Personal adjustment wasn't saved: Editing is paused. Try again.",
+  });
+  expect(view.result.current.sheet?.adjustments[0]?.active).toBe(true);
+});
+
+test('adjustment changes from another player are marked while own echoes stay quiet', async () => {
+  snapshot = await fixture();
+  const initial = snapshot;
+  const view = renderHook(() =>
+    useCharacterSheet({ organizationId: 'org', characterId: 'hero' }),
+  );
+  const adjustment = view.result.current.sheet?.adjustments[0];
+  if (!adjustment) throw new Error('Expected adjustment');
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = view.result.current.adjustments.setActive(
+      adjustment.entryId,
+      false,
+    );
+  });
+  const operationId = calls[0]?.args.operationId;
+  if (typeof operationId !== 'string') throw new Error('Expected operation ID');
+  snapshot = {
+    ...initial,
+    revision: 2,
+    lastOperationId: operationId,
+    entries: initial.entries.map((entry) =>
+      entry.kind === 'manual' ? { ...entry, active: false } : entry,
+    ),
+  };
+  view.rerender();
+  expect(view.result.current.adjustments.hasRemoteChange).toBe(false);
+  await act(async () => {
+    calls[0]?.resolve(null);
+    await pending;
+  });
+  expect(view.result.current.adjustments.status.kind).toBe('saved');
+  snapshot = {
+    ...snapshot,
+    revision: 3,
+    lastOperationId: 'other-player',
+    catalogEntries: snapshot.catalogEntries.map((entry) =>
+      entry.detail.kind === 'manual'
+        ? { ...entry, name: 'Updated strength' }
+        : entry,
+    ),
+  };
+  view.rerender();
+  expect(view.result.current.adjustments.hasRemoteChange).toBe(true);
+  expect(view.result.current.sheet?.adjustments[0]?.name).toBe(
+    'Updated strength',
+  );
+  act(() => view.result.current.adjustments.dismissRemoteChange());
+  expect(view.result.current.adjustments.hasRemoteChange).toBe(false);
+});

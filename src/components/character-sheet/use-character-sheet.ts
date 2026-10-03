@@ -2,9 +2,9 @@
 
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
-import type { FunctionReturnType } from 'convex/server';
+import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 import { useMutation, useQuery } from 'convex/react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import type {
   AbilityScores,
   CreationSettings,
@@ -14,7 +14,14 @@ import {
   createCharacterSheetOperationId,
   isOwnCharacterSheetOperation,
 } from '~/lib/character-sheet-operations';
-import { detectRemoteWarningChange } from '~/lib/character-sheet-changes';
+import { detectRemoteSheetChange } from '~/lib/character-sheet-changes';
+import { parseCharacterSheetBreakdowns } from '~/lib/character-sheet-breakdowns';
+import {
+  calculateCharacterSheet,
+  type ResolveOptions,
+  abilityTargets,
+  type Ability,
+} from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import type { SaveStatus } from './save-status';
@@ -25,6 +32,10 @@ export type CharacterSheetSnapshot = NonNullable<
 export type SheetWarningView = SheetWarning & {
   accepted: boolean;
 };
+export type PersonalAdjustmentInput = Pick<
+  FunctionArgs<typeof api.characterSheet.createPersonalAdjustment>,
+  'name' | 'modifiers'
+>;
 
 function warningKey(warning: SheetWarning) {
   return JSON.stringify([warning.check, warning.subject, warning.fingerprint]);
@@ -44,12 +55,25 @@ export function useCharacterSheet(scope: CharacterScope) {
   const reopenWarning = useMutation(api.characterSheet.reopenWarning);
   const pendingWarnings = useRef(new Set<string>());
   const expectedWarnings = useRef(
-    new Map<string, { accepted: boolean; revision: number }>(),
+    new Map<string, { value: boolean; revision: number }>(),
   );
   const [warningStatuses, setWarningStatuses] = useState<
     Record<string, SaveStatus>
   >({});
   const [hasRemoteWarnings, setHasRemoteWarnings] = useState(false);
+  const createPersonalAdjustment = useMutation(
+    api.characterSheet.createPersonalAdjustment,
+  );
+  const editPersonalAdjustment = useMutation(
+    api.characterSheet.editPersonalAdjustment,
+  );
+  const removePersonalAdjustment = useMutation(
+    api.characterSheet.removePersonalAdjustment,
+  );
+  const adjustmentBusy = useRef(false);
+  const [adjustmentStatus, setAdjustmentStatus] = useState<SaveStatus>({
+    kind: 'idle',
+  });
   const isBusy = useRef(false);
   const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' });
   const [appendedEntryId, setAppendedEntryId] =
@@ -65,7 +89,7 @@ export function useCharacterSheet(scope: CharacterScope) {
       )
     : null;
   const [previousWarnings, setPreviousWarnings] = useState(warningStates);
-  const warningChange = detectRemoteWarningChange({
+  const warningChange = detectRemoteSheetChange({
     previous: previousWarnings,
     next: warningStates,
     expectedOperations: expectedWarnings.current,
@@ -90,14 +114,37 @@ export function useCharacterSheet(scope: CharacterScope) {
   const ordered = sheet?.levels;
   const signature = ordered?.map((entry) => entry._id).join(',') ?? null;
   const [previous, setPrevious] = useState(signature);
-  if (signature !== previous) {
+  const levelChange = detectRemoteSheetChange({
+    previous: previous === null ? null : { levels: previous },
+    next: signature === null ? null : { levels: signature },
+    expectedOperations: new Map(),
+    isOwnOperation: isOwnCharacterSheetOperation(snapshot?.lastOperationId),
+  });
+  if (levelChange.changed) {
     setPrevious(signature);
-    if (
-      previous !== null &&
-      snapshot &&
-      !isOwnCharacterSheetOperation(snapshot.lastOperationId)
-    )
-      setHasRemoteChange(true);
+    if (levelChange.hasRemoteChange) setHasRemoteChange(true);
+  }
+
+  const [hasRemoteAdjustmentChange, setHasRemoteAdjustmentChange] =
+    useState(false);
+  const adjustmentSignature = sheet ? JSON.stringify(sheet.adjustments) : null;
+  const [previousAdjustments, setPreviousAdjustments] =
+    useState(adjustmentSignature);
+  const adjustmentChange = detectRemoteSheetChange({
+    previous:
+      previousAdjustments === null
+        ? null
+        : { adjustments: previousAdjustments },
+    next:
+      adjustmentSignature === null
+        ? null
+        : { adjustments: adjustmentSignature },
+    expectedOperations: new Map(),
+    isOwnOperation: isOwnCharacterSheetOperation(snapshot?.lastOperationId),
+  });
+  if (adjustmentChange.changed) {
+    setPreviousAdjustments(adjustmentSignature);
+    if (adjustmentChange.hasRemoteChange) setHasRemoteAdjustmentChange(true);
   }
 
   function createOperation() {
@@ -120,7 +167,7 @@ export function useCharacterSheet(scope: CharacterScope) {
     if (pendingWarnings.current.has(key)) return;
     pendingWarnings.current.add(key);
     expectedWarnings.current.set(key, {
-      accepted: accept,
+      value: accept,
       revision: snapshot?.revision ?? 0,
     });
     const updateStatus = (status: SaveStatus) =>
@@ -158,29 +205,46 @@ export function useCharacterSheet(scope: CharacterScope) {
     await editClassLevel({ ...createOperation(), entryId, hpGained });
   }
 
-  async function changeLevels(write: () => Promise<unknown>) {
-    if (isBusy.current) return;
-    isBusy.current = true;
-    setStatus({ kind: 'saving' });
-    try {
-      await write();
-      setStatus({ kind: 'saved' });
-    } catch (error) {
-      const failure = classifyWriteFailure(error);
-      setStatus({
-        kind: 'error',
-        message:
-          failure.kind === 'rejected'
-            ? `Class Levels weren't saved${refusalReason(failure.message)} Try again.`
-            : 'Class Levels may not have been saved. Check the levels before trying again.',
-      });
-    } finally {
-      isBusy.current = false;
-    }
-  }
-
   return {
     sheet,
+    previewSituation: (
+      situation: NonNullable<ResolveOptions['situations']>[number],
+    ) =>
+      snapshot
+        ? calculateCharacterSheet(
+            { ...snapshot, characterKind: snapshot.character.kind },
+            { situations: [situation] },
+          )
+        : null,
+    adjustments: {
+      status: adjustmentStatus,
+      hasRemoteChange: hasRemoteAdjustmentChange,
+      dismissRemoteChange: () => setHasRemoteAdjustmentChange(false),
+      create: (input: PersonalAdjustmentInput) =>
+        createPersonalAdjustment({ ...createOperation(), ...input }),
+      edit: (
+        entryId: Id<'characterSheetEntry'>,
+        input: PersonalAdjustmentInput,
+      ) => editPersonalAdjustment({ ...createOperation(), entryId, ...input }),
+      setActive: (entryId: Id<'characterSheetEntry'>, active: boolean) =>
+        guardedWrite({
+          busy: adjustmentBusy,
+          setStatus: setAdjustmentStatus,
+          subject: 'Personal adjustment',
+          inspect: 'it',
+          write: () =>
+            editPersonalAdjustment({ ...createOperation(), entryId, active }),
+        }),
+      remove: (entryId: Id<'characterSheetEntry'>) =>
+        guardedWrite({
+          busy: adjustmentBusy,
+          setStatus: setAdjustmentStatus,
+          subject: 'Personal adjustment',
+          inspect: 'it',
+          write: () =>
+            removePersonalAdjustment({ ...createOperation(), entryId }),
+        }),
+    },
     saveBaseScores,
     saveCreationSettings,
     warnings: {
@@ -199,21 +263,49 @@ export function useCharacterSheet(scope: CharacterScope) {
       dismissRemoteChange: () => setHasRemoteChange(false),
       acknowledgeAppend: () => setAppendedEntryId(null),
       add: () =>
-        changeLevels(async () => {
-          setAppendedEntryId(await addClassLevel(createOperation()));
+        guardedWrite({
+          busy: isBusy,
+          setStatus,
+          subject: 'Class Levels',
+          inspect: 'the levels',
+          write: async () => {
+            setAppendedEntryId(await addClassLevel(createOperation()));
+          },
         }),
       move: (entryId: Id<'characterSheetEntry'>, position: number) =>
-        changeLevels(() =>
-          moveClassLevel({ ...createOperation(), entryId, position }),
-        ),
+        guardedWrite({
+          busy: isBusy,
+          setStatus,
+          subject: 'Class Levels',
+          inspect: 'the levels',
+          write: () =>
+            moveClassLevel({ ...createOperation(), entryId, position }),
+        }),
       remove: (entryId: Id<'characterSheetEntry'>) =>
-        changeLevels(() => deleteClassLevel({ ...createOperation(), entryId })),
+        guardedWrite({
+          busy: isBusy,
+          setStatus,
+          subject: 'Class Levels',
+          inspect: 'the levels',
+          write: () => deleteClassLevel({ ...createOperation(), entryId }),
+        }),
     },
   };
 }
 
 function buildSheetView(snapshot: CharacterSheetSnapshot) {
-  const calculated = snapshot.calculated;
+  const calculated = {
+    ...snapshot.calculated,
+    breakdowns: parseCharacterSheetBreakdowns(snapshot.calculated.breakdowns),
+  };
+  function baseScore(ability: Ability) {
+    const modifier = snapshot.baseScoresEntry.modifiers.find(
+      (item) =>
+        item.target === abilityTargets[ability] && item.bonusType === 'base',
+    );
+    if (!modifier) throw new Error('Base score is unavailable.');
+    return modifier.value;
+  }
   return {
     character: snapshot.character,
     campaign: snapshot.campaign,
@@ -232,17 +324,67 @@ function buildSheetView(snapshot: CharacterSheetSnapshot) {
       }),
     ),
     baseScores: {
-      strength: calculated.abilities.strength.score,
-      dexterity: calculated.abilities.dexterity.score,
-      constitution: calculated.abilities.constitution.score,
-      intelligence: calculated.abilities.intelligence.score,
-      wisdom: calculated.abilities.wisdom.score,
-      charisma: calculated.abilities.charisma.score,
+      strength: baseScore('strength'),
+      dexterity: baseScore('dexterity'),
+      constitution: baseScore('constitution'),
+      intelligence: baseScore('intelligence'),
+      wisdom: baseScore('wisdom'),
+      charisma: baseScore('charisma'),
     },
+    adjustments: snapshot.entries
+      .filter((entry) => entry.kind === 'manual')
+      .map((entry) => {
+        const catalogEntry = snapshot.catalogEntries.find(
+          (item) => item._id === entry.catalogEntryId,
+        );
+        if (!catalogEntry)
+          throw new Error('Personal adjustment is unavailable.');
+        return {
+          entryId: entry._id,
+          catalogEntryId: catalogEntry._id,
+          active: entry.active,
+          name: catalogEntry.name,
+          modifiers: catalogEntry.modifiers,
+        };
+      }),
     levels: snapshot.entries.filter((entry) => entry.kind === 'classLevel'),
     warning:
       snapshot.character.kind === 'pc' && calculated.level === 0
         ? 'This PC has no Class Levels.'
         : null,
   };
+}
+
+async function guardedWrite({
+  busy,
+  setStatus,
+  subject,
+  inspect,
+  write,
+}: {
+  busy: RefObject<boolean>;
+  setStatus: (status: SaveStatus) => void;
+  subject: 'Class Levels' | 'Personal adjustment';
+  inspect: string;
+  write: () => Promise<unknown>;
+}) {
+  if (busy.current) return;
+  busy.current = true;
+  setStatus({ kind: 'saving' });
+  try {
+    await write();
+    setStatus({ kind: 'saved' });
+  } catch (error) {
+    const failure = classifyWriteFailure(error);
+    const agreement = subject === 'Class Levels' ? "weren't" : "wasn't";
+    setStatus({
+      kind: 'error',
+      message:
+        failure.kind === 'rejected'
+          ? `${subject} ${agreement} saved${refusalReason(failure.message)} Try again.`
+          : `${subject} may not have been saved. Check ${inspect} before trying again.`,
+    });
+  } finally {
+    busy.current = false;
+  }
 }

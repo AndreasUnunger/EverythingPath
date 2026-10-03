@@ -2,8 +2,10 @@
 import type { ReactNode } from 'react';
 import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
 import { BaseScoresEditor } from './base-scores-editor';
+import { BreakdownResolverProvider } from './breakdown-resolver';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
+import { PersonalAdjustments } from './personal-adjustments';
 import { CreationSettingsEditor } from './creation-settings-editor';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
@@ -11,6 +13,18 @@ import type { useCharacterSheet } from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type ReadySheet = NonNullable<Controller['sheet']>;
+
+/** Why HP cannot be stated: the Class Levels still without hit points. */
+function describeIncompleteHp(levels: ReadySheet['levels']) {
+  const positions = levels
+    .filter((level) => level.state.hpGained === null)
+    .map((level) => level.state.position);
+  if (positions.length === 0) return null;
+  const list = positions.join(', ');
+  return positions.length === 1
+    ? `Not complete: Class Level ${list} has no hit points yet.`
+    : `Not complete: Class Levels ${list} have no hit points yet.`;
+}
 
 // Existing metadata, shown; this slice has no sheet-side identity editor.
 // The name is in the summary row, so it is not repeated here.
@@ -120,52 +134,66 @@ export function CharacterSheetView({
 }) {
   return (
     <CharacterSheetFrame back={back}>
-      <SheetSummary name={sheet.character.name} calculated={sheet.calculated} />
-      <CampaignRow
-        character={sheet.character}
-        campaignName={campaignName}
-        action={lifecycle}
-      />
-      <RemoteNotice
-        isShown={controller.warnings.hasRemoteChange}
-        message="Warnings updated by another player."
-        subject="warnings"
-        onDismiss={controller.warnings.dismissRemoteChange}
-      />
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-12">
-          <CharacterBlock
-            kind={sheet.character.kind}
-            notes={sheet.character.description}
-          />
+      <BreakdownResolverProvider
+        previewSituation={controller.previewSituation}
+        adjustments={sheet.adjustments}
+      >
+        <SheetSummary
+          name={sheet.character.name}
+          calculated={sheet.calculated}
+          incompleteHpReason={describeIncompleteHp(sheet.levels)}
+        />
+        <CampaignRow
+          character={sheet.character}
+          campaignName={campaignName}
+          action={lifecycle}
+        />
+        <RemoteNotice
+          isShown={controller.warnings.hasRemoteChange}
+          message="Warnings updated by another player."
+          subject="warnings"
+          onDismiss={controller.warnings.dismissRemoteChange}
+        />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-12">
+            <CharacterBlock
+              kind={sheet.character.kind}
+              notes={sheet.character.description}
+            />
+          </div>
+          <div className="min-w-0 lg:col-span-12">
+            <ClassLevels
+              rows={sheet.levels}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
+              levels={controller.levels}
+              saveHitPoints={controller.saveHitPoints}
+            />
+          </div>
+          <div className="min-w-0 lg:col-span-5">
+            <BaseScoresEditor
+              scores={sheet.baseScores}
+              abilities={sheet.calculated.abilities}
+              creationSettings={sheet.calculated.creationSettings}
+              pointBuy={sheet.calculated.pointBuy}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
+              breakdowns={sheet.calculated.breakdowns}
+              save={controller.saveBaseScores}
+            />
+          </div>
+          <div className="min-w-0 lg:col-span-7">
+            <PersonalAdjustments
+              rows={sheet.adjustments}
+              actions={controller.adjustments}
+            />
+            <CreationSettingsEditor
+              settings={sheet.calculated.creationSettings}
+              save={controller.saveCreationSettings}
+            />
+          </div>
         </div>
-        <div className="min-w-0 lg:col-span-12">
-          <ClassLevels
-            rows={sheet.levels}
-            warnings={sheet.warnings}
-            warningController={controller.warnings}
-            levels={controller.levels}
-            saveHitPoints={controller.saveHitPoints}
-          />
-        </div>
-        <div className="min-w-0 lg:col-span-5">
-          <BaseScoresEditor
-            scores={sheet.baseScores}
-            abilities={sheet.calculated.abilities}
-            creationSettings={sheet.calculated.creationSettings}
-            pointBuy={sheet.calculated.pointBuy}
-            warnings={sheet.warnings}
-            warningController={controller.warnings}
-            save={controller.saveBaseScores}
-          />
-        </div>
-        <div className="min-w-0 lg:col-span-7">
-          <CreationSettingsEditor
-            settings={sheet.calculated.creationSettings}
-            save={controller.saveCreationSettings}
-          />
-        </div>
-      </div>
+      </BreakdownResolverProvider>
     </CharacterSheetFrame>
   );
 }

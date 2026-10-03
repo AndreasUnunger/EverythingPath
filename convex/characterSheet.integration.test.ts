@@ -1,7 +1,7 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
 import { afterEach, expect, test, vi } from 'vitest';
-import { api } from './_generated/api';
+import { api, internal } from './_generated/api';
 import schema from './schema';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { initializeCharacterSheet } from './lib/characterSheet';
@@ -1202,3 +1202,975 @@ test('rolled settings retain a saved point-buy budget across queries and reject 
     ).rejects.toThrow('finite');
   }
 });
+
+test('members add a personal adjustment as a Character-scoped Catalog Entry and see it on the shared sheet', async () => {
+  const { owner, member, scope } = await fixture();
+  const entryId = await member.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: '  Training reward  ',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'adjustment',
+    },
+  );
+  const sheet = await owner.query(api.characterSheet.read, scope);
+  const entry = sheet?.entries.find((row) => row._id === entryId);
+  expect(entry).toMatchObject({
+    kind: 'manual',
+    active: true,
+    state: { kind: 'manual' },
+  });
+  if (entry?.kind !== 'manual') throw new Error('Missing adjustment');
+  expect(
+    sheet?.catalogEntries.find((row) => row._id === entry.catalogEntryId),
+  ).toMatchObject({
+    characterId: scope.characterId,
+    scope: 'character',
+    name: 'Training reward',
+    ruleIdentity: expect.any(String),
+    stacksWithItself: false,
+    detail: { kind: 'manual' },
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+  });
+  expect(sheet).toMatchObject({
+    revision: 2,
+    lastOperationId: 'adjustment',
+    updatedBy: 'test|member',
+    calculated: { abilities: { strength: { score: 12, modifier: 1 } } },
+  });
+  expect(sheet?.calculated.breakdowns['ability.str']?.applied).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        entryName: 'Base scores',
+        builtIn: true,
+        value: 10,
+      }),
+      expect.objectContaining({ entryName: 'Training reward', value: 2 }),
+    ]),
+  );
+});
+
+test('members edit and deactivate adjustments without changing their rule identity, then remove them', async () => {
+  const { owner, member, scope } = await fixture();
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'add',
+    },
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  const catalog = before?.catalogEntries.find(
+    (entry) => entry.detail.kind === 'manual',
+  );
+  if (!catalog) throw new Error('Missing adjustment');
+  await member.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    name: 'Revised reward',
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 3 }],
+    active: false,
+    operationId: 'edit',
+  });
+  const edited = await owner.query(api.characterSheet.read, scope);
+  expect(
+    edited?.catalogEntries.find((entry) => entry._id === catalog._id),
+  ).toMatchObject({
+    name: 'Revised reward',
+    ruleIdentity: catalog.ruleIdentity,
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 3 }],
+  });
+  expect(edited?.entries.find((entry) => entry._id === entryId)?.active).toBe(
+    false,
+  );
+  expect(edited?.calculated.abilities.strength.score).toBe(10);
+  expect(edited).toMatchObject({
+    revision: 3,
+    lastOperationId: 'edit',
+    updatedBy: 'test|member',
+  });
+  await member.mutation(api.characterSheet.removePersonalAdjustment, {
+    ...scope,
+    entryId,
+    operationId: 'remove',
+  });
+  const removed = await owner.query(api.characterSheet.read, scope);
+  expect(removed?.entries).toHaveLength(2);
+  expect(removed?.catalogEntries).toHaveLength(1);
+  expect(removed).toMatchObject({ revision: 4, lastOperationId: 'remove' });
+});
+
+test('personal adjustment conditions cannot reference another Character’s Catalog Entry', async () => {
+  const { owner, member, scope, campaignId } = await fixture();
+  const otherId = await owner.mutation(api.characterSheet.create, {
+    organizationId: 'org',
+    campaignId,
+    name: 'Other',
+    kind: 'npc',
+    operationId: 'other',
+  });
+  const other = await owner.query(api.characterSheet.read, {
+    ...scope,
+    characterId: otherId,
+  });
+  if (!other) throw new Error('Missing other sheet');
+  const before = await owner.query(api.characterSheet.read, scope);
+  for (const condition of [
+    { whileActive: other.baseScoresEntry._id },
+    { situation: { option: other.baseScoresEntry._id } },
+  ]) {
+    await expect(
+      member.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        name: 'Borrowed',
+        modifiers: [
+          { target: 'ability.str', bonusType: 'untyped', value: 2, condition },
+        ],
+        operationId: 'forged',
+      }),
+    ).rejects.toThrow('Modifier reference does not belong to this Character');
+  }
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+});
+
+test('unchanged personal adjustments preserve the last edit and durable source identity survives later edits', async () => {
+  const { t, owner, member, scope } = await fixture();
+  const fields = {
+    name: 'Haste effect',
+    modifiers: [
+      { target: 'ability.dex' as const, bonusType: 'dodge' as const, value: 1 },
+    ],
+  };
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    { ...scope, ...fields, operationId: 'add' },
+  );
+  const created = await owner.query(api.characterSheet.read, scope);
+  const catalog = created?.catalogEntries.find(
+    (entry) => entry.detail.kind === 'manual',
+  );
+  if (!catalog) throw new Error('Missing adjustment');
+  // A curated copy already has the original rule's durable identity and shared Source.
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', catalog._id, {
+      ruleIdentity: 'spell:haste',
+      sourceKey: 'haste',
+    }),
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  await member.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    ...fields,
+    active: true,
+    operationId: 'no-change',
+  });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  await member.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    ...fields,
+    name: 'Edited haste effect',
+    operationId: 'edit',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.catalogEntries.find(
+      (entry) => entry._id === catalog._id,
+    ),
+  ).toMatchObject({
+    ruleIdentity: 'spell:haste',
+    sourceKey: 'haste',
+    name: 'Edited haste effect',
+  });
+});
+
+test('personal adjustment writers reject signed-out callers, outsiders, and cross-Character rows', async () => {
+  const { t, owner, member, outsider, scope, campaignId } = await fixture();
+  const fields = {
+    name: 'Reward',
+    modifiers: [
+      {
+        target: 'ability.str' as const,
+        bonusType: 'untyped' as const,
+        value: 2,
+      },
+    ],
+  };
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    { ...scope, ...fields, operationId: 'add' },
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  for (const caller of [t, outsider]) {
+    await expect(
+      caller.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        ...fields,
+        operationId: 'denied',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      caller.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...scope,
+        entryId,
+        ...fields,
+        operationId: 'denied',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      caller.mutation(api.characterSheet.removePersonalAdjustment, {
+        ...scope,
+        entryId,
+        operationId: 'denied',
+      }),
+    ).rejects.toThrow();
+  }
+  const otherId = await owner.mutation(api.characterSheet.create, {
+    organizationId: 'org',
+    campaignId,
+    name: 'Other',
+    kind: 'npc',
+    operationId: 'other',
+  });
+  const otherScope = { ...scope, characterId: otherId };
+  const other = await owner.query(api.characterSheet.read, otherScope);
+  if (!other) throw new Error('Missing other sheet');
+  const [otherEntry] = other.entries;
+  if (!otherEntry) throw new Error('Missing other Character entry');
+  for (const foreignId of [entryId, otherEntry._id]) {
+    await expect(
+      member.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...otherScope,
+        entryId: foreignId,
+        ...fields,
+        operationId: 'denied',
+      }),
+    ).rejects.toThrow('Personal adjustment does not belong');
+    await expect(
+      member.mutation(api.characterSheet.removePersonalAdjustment, {
+        ...otherScope,
+        entryId: foreignId,
+        operationId: 'denied',
+      }),
+    ).rejects.toThrow('Personal adjustment does not belong');
+  }
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  expect(await owner.query(api.characterSheet.read, otherScope)).toEqual(other);
+});
+
+test('every personal adjustment writer obeys maintenance, reopening epochs, and the fixture gate', async () => {
+  const { t, owner, scope, campaignId } = await fixture();
+  const fields = {
+    name: 'Reward',
+    modifiers: [
+      {
+        target: 'ability.str' as const,
+        bonusType: 'untyped' as const,
+        value: 2,
+      },
+    ],
+  };
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    { ...scope, ...fields, operationId: 'add' },
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  const commands = (writeEpoch?: number) => [
+    () =>
+      owner.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        ...fields,
+        operationId: 'blocked',
+        writeEpoch,
+      }),
+    () =>
+      owner.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...scope,
+        entryId,
+        ...fields,
+        name: 'Changed',
+        operationId: 'blocked',
+        writeEpoch,
+      }),
+    () =>
+      owner.mutation(api.characterSheet.removePersonalAdjustment, {
+        ...scope,
+        entryId,
+        operationId: 'blocked',
+        writeEpoch,
+      }),
+  ];
+  const run = await t.mutation(internal.initialMigration.start, {
+    operationId: 'close',
+    expectedEpoch: 0,
+    frontendBuild: '263',
+    catalogManifest: 'catalog',
+    maintenanceBudgetMs: 60000,
+  });
+  for (const command of commands())
+    await expect(command()).rejects.toThrow('MAINTENANCE');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  await t.mutation(internal.initialMigration.abortBeforeActivation, run);
+  for (const command of commands())
+    await expect(command()).rejects.toThrow('RELOAD_REQUIRED');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  await owner.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    ...fields,
+    name: 'After reload',
+    operationId: 'reloaded',
+    writeEpoch: 2,
+  });
+  const reopened = await owner.query(api.characterSheet.read, scope);
+  expect(reopened?.lastOperationId).toBe('reloaded');
+  await t.run((ctx) =>
+    ctx.db.patch('campaign', campaignId, { e2eFixture: undefined }),
+  );
+  for (const command of commands(2))
+    await expect(command()).rejects.toThrow(
+      "Character sheets aren't available for this campaign yet.",
+    );
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(reopened);
+});
+
+test('personal adjustments reject malformed values, excessive Modifiers and curated exceptions without changing the sheet', async () => {
+  const { owner, scope } = await fixture();
+  const modifier = {
+    target: 'ability.str' as const,
+    bonusType: 'untyped' as const,
+    value: 2,
+  };
+  const fields = { name: 'Reward', modifiers: [modifier] };
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    { ...scope, ...fields, operationId: 'add' },
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  for (const invalid of [
+    { ...fields, name: ' ' },
+    ...[NaN, Infinity, -Infinity].map((value) => ({
+      ...fields,
+      modifiers: [{ ...modifier, value }],
+    })),
+    {
+      ...fields,
+      modifiers: Array.from({ length: 257 }, () => modifier),
+    },
+    {
+      ...fields,
+      modifiers: [{ ...modifier, stacksWithinEntry: true }],
+    },
+  ]) {
+    await expect(
+      owner.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        ...invalid,
+        operationId: 'invalid',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      owner.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...scope,
+        entryId,
+        ...invalid,
+        operationId: 'invalid',
+      }),
+    ).rejects.toThrow();
+  }
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+});
+
+test('personal adjustment commands reject base bonuses without changing authoritative base scores', async () => {
+  const { owner, member, scope } = await fixture();
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'reward',
+    },
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  const fields = {
+    name: 'Forged base',
+    modifiers: [
+      { target: 'ability.str' as const, bonusType: 'base' as const, value: 18 },
+    ],
+    operationId: 'forged-base',
+  };
+  await expect(
+    member.mutation(api.characterSheet.createPersonalAdjustment, {
+      ...scope,
+      ...fields,
+    }),
+  ).rejects.toThrow('Base scores cannot be personal adjustments');
+  await expect(
+    member.mutation(api.characterSheet.editPersonalAdjustment, {
+      ...scope,
+      entryId,
+      ...fields,
+    }),
+  ).rejects.toThrow('Base scores cannot be personal adjustments');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+});
+
+test('personal adjustment changes preserve accepted base-score warnings and their point-buy facts', async () => {
+  const { owner, member, scope } = await fixture();
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    scores: { strength: 18 },
+    operationId: 'base',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const warning = initial?.calculated.warnings.find(
+    (item) => item.check === 'pointBuy',
+  );
+  if (!warning) throw new Error('Missing point-buy warning');
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+    operationId: 'accept',
+  });
+  const accepted = await member.query(api.characterSheet.read, scope);
+  async function expectWarningAndBaseScores(strength: number) {
+    const sheet = await member.query(api.characterSheet.read, scope);
+    expect(sheet?.acceptedWarnings).toEqual(accepted?.acceptedWarnings);
+    expect(sheet?.calculated.pointBuy).toEqual({ spent: 17 });
+    expect(sheet?.calculated.warnings).toContainEqual(warning);
+    expect(sheet?.baseScoresEntry.modifiers).toContainEqual({
+      target: 'ability.str',
+      bonusType: 'base',
+      value: 18,
+    });
+    expect(sheet?.calculated.abilities.strength.score).toBe(strength);
+  }
+  const entryId = await member.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'adjustment',
+    },
+  );
+  await expectWarningAndBaseScores(20);
+  await owner.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 4 }],
+    operationId: 'edit',
+  });
+  await expectWarningAndBaseScores(22);
+  await owner.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    active: false,
+    operationId: 'toggle',
+  });
+  await expectWarningAndBaseScores(18);
+  await owner.mutation(api.characterSheet.removePersonalAdjustment, {
+    ...scope,
+    entryId,
+    operationId: 'remove',
+  });
+  await expectWarningAndBaseScores(18);
+});
+
+test('Class Level additions, moves and deletions retain personal adjustments and their contributions', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const first = initial?.entries.find((row) => row.kind === 'classLevel');
+  if (!first) throw new Error('Missing Class Level');
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: first._id,
+    hpGained: 8,
+    operationId: 'hp',
+  });
+  const adjustmentId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Hardiness',
+      modifiers: [{ target: 'ability.con', bonusType: 'untyped', value: 2 }],
+      operationId: 'hardiness',
+    },
+  );
+  async function expectAdjustment(hp: number | null) {
+    const sheet = await member.query(api.characterSheet.read, scope);
+    expect(
+      sheet?.entries.find((row) => row._id === adjustmentId),
+    ).toMatchObject({
+      kind: 'manual',
+      active: true,
+    });
+    expect(sheet?.calculated.abilities.constitution.score).toBe(12);
+    expect(sheet?.calculated.hp).toBe(hp);
+  }
+  await expectAdjustment(9);
+  const secondId = await member.mutation(api.characterSheet.addClassLevel, {
+    ...scope,
+    operationId: 'add-level',
+  });
+  await expectAdjustment(null);
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: secondId,
+    hpGained: 6,
+    operationId: 'second-hp',
+  });
+  await expectAdjustment(16);
+  await member.mutation(api.characterSheet.moveClassLevel, {
+    ...scope,
+    entryId: secondId,
+    position: 1,
+    operationId: 'move',
+  });
+  await expectAdjustment(16);
+  await member.mutation(api.characterSheet.deleteClassLevel, {
+    ...scope,
+    entryId: first._id,
+    operationId: 'delete',
+  });
+  await expectAdjustment(7);
+});
+
+test('private personal adjustments remain owner-only across create, edit, toggle and removal', async () => {
+  const { t, owner, member, outsider } = await fixture();
+  await t.run(async (ctx) => {
+    const user = await ctx.db
+      .query('user')
+      .withIndex('by_tokenIdentifier', (q) =>
+        q.eq('tokenIdentifier', 'test|owner'),
+      )
+      .unique();
+    if (!user) throw new Error('Missing owner');
+    await ctx.db.patch('user', user._id, { characterSheetDemo: true });
+  });
+  const characterId = await owner.mutation(api.characterSheet.create, {
+    name: 'Private Vessa',
+    kind: 'pc',
+    operationId: 'private',
+  });
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      characterId,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'reward',
+    },
+  );
+  const before = await owner.query(api.characterSheet.read, { characterId });
+  for (const caller of [t, member, outsider]) {
+    await expect(
+      caller.mutation(api.characterSheet.createPersonalAdjustment, {
+        characterId,
+        name: 'Intrusion',
+        modifiers: [],
+        operationId: 'intrusion',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      caller.mutation(api.characterSheet.editPersonalAdjustment, {
+        characterId,
+        entryId,
+        active: false,
+        operationId: 'intrusion',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      caller.mutation(api.characterSheet.removePersonalAdjustment, {
+        characterId,
+        entryId,
+        operationId: 'intrusion',
+      }),
+    ).rejects.toThrow();
+  }
+  expect(await owner.query(api.characterSheet.read, { characterId })).toEqual(
+    before,
+  );
+  await owner.mutation(api.characterSheet.editPersonalAdjustment, {
+    characterId,
+    entryId,
+    name: 'Private reward',
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 4 }],
+    operationId: 'edit',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))?.calculated
+      .abilities.strength.score,
+  ).toBe(14);
+  await owner.mutation(api.characterSheet.editPersonalAdjustment, {
+    characterId,
+    entryId,
+    active: false,
+    operationId: 'toggle',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))?.calculated
+      .abilities.strength.score,
+  ).toBe(10);
+  await owner.mutation(api.characterSheet.removePersonalAdjustment, {
+    characterId,
+    entryId,
+    operationId: 'remove',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))?.entries.some(
+      (row) => row.kind === 'manual',
+    ),
+  ).toBe(false);
+});
+
+test.each(['create', 'edit', 'toggle', 'remove'] as const)(
+  '%s personal adjustment prunes stale acceptance while preserving unrelated accepted warnings',
+  async (command) => {
+    const { t, owner, member, scope } = await fixture();
+    const initial = await owner.query(api.characterSheet.read, scope);
+    const level = initial?.entries.find((row) => row.kind === 'classLevel');
+    if (!level) throw new Error('Missing level');
+    await owner.mutation(api.characterSheet.editClassLevel, {
+      ...scope,
+      entryId: level._id,
+      hpGained: 0,
+      operationId: 'hp',
+    });
+    await owner.mutation(api.characterSheet.editBaseScores, {
+      ...scope,
+      scores: { strength: 18 },
+      operationId: 'base',
+    });
+    const entryId = await owner.mutation(
+      api.characterSheet.createPersonalAdjustment,
+      { ...scope, name: 'Reward', modifiers: [], operationId: 'reward' },
+    );
+    const before = await owner.query(api.characterSheet.read, scope);
+    for (const warning of before?.calculated.warnings ?? []) {
+      if (warning.kind !== 'rules') continue;
+      await owner.mutation(api.characterSheet.acceptWarning, {
+        ...scope,
+        check: warning.check,
+        subject: warning.subject,
+        fingerprint: warning.fingerprint,
+        operationId: `accept-${warning.check}`,
+      });
+    }
+    const accepted = await owner.query(api.characterSheet.read, scope);
+    const pointBuy = accepted?.acceptedWarnings.find(
+      (row) => row.check === 'pointBuy',
+    );
+    if (!pointBuy) throw new Error('Missing accepted warning');
+    // Model an obsolete acceptance retained by an older writer.
+    await t.run((ctx) =>
+      ctx.db.patch('acceptedWarning', pointBuy._id, {
+        fingerprint: 'obsolete-facts',
+      }),
+    );
+    if (command === 'create')
+      await member.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        name: 'Another reward',
+        modifiers: [],
+        operationId: command,
+      });
+    else if (command === 'remove')
+      await member.mutation(api.characterSheet.removePersonalAdjustment, {
+        ...scope,
+        entryId,
+        operationId: command,
+      });
+    else
+      await member.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...scope,
+        entryId,
+        ...(command === 'toggle' ? { active: false } : { name: 'New reward' }),
+        operationId: command,
+      });
+    const saved = await owner.query(api.characterSheet.read, scope);
+    expect(saved?.acceptedWarnings).toEqual(
+      accepted?.acceptedWarnings.filter((row) => row.check !== 'pointBuy'),
+    );
+    expect(saved?.calculated.warnings).toEqual(before?.calculated.warnings);
+  },
+);
+
+test('stored same-rule copies and shared haste effects do not inflate sheet totals', async () => {
+  const { t, owner, scope } = await fixture();
+  for (const [name, target, bonusType, ruleIdentity, sourceKey] of [
+    ['Original reward', 'ability.str', 'untyped', 'reward:one', undefined],
+    ['Edited copy', 'ability.str', 'untyped', 'reward:one', undefined],
+    ['Haste', 'ability.dex', 'dodge', 'spell:haste', 'haste'],
+    ['Boots of speed', 'ability.dex', 'dodge', 'item:boots-of-speed', 'haste'],
+  ] as const) {
+    const entryId = await owner.mutation(
+      api.characterSheet.createPersonalAdjustment,
+      {
+        ...scope,
+        name,
+        modifiers: [{ target, bonusType, value: 2 }],
+        operationId: name,
+      },
+    );
+    const sheet = await owner.query(api.characterSheet.read, scope);
+    const entry = sheet?.entries.find((row) => row._id === entryId);
+    if (entry?.kind !== 'manual') throw new Error('Missing adjustment');
+    await t.run((ctx) =>
+      ctx.db.patch('catalogEntry', entry.catalogEntryId, {
+        ruleIdentity,
+        sourceKey,
+      }),
+    );
+  }
+  const sheet = await owner.query(api.characterSheet.read, scope);
+  expect(sheet?.calculated.abilities).toMatchObject({
+    strength: { score: 12 },
+    dexterity: { score: 12 },
+  });
+  expect(sheet?.calculated.breakdowns['ability.str']?.suppressed).toEqual([
+    expect.objectContaining({ source: 'reward:one', value: 2 }),
+  ]);
+  expect(sheet?.calculated.breakdowns['ability.dex']?.suppressed).toEqual([
+    expect.objectContaining({ source: 'haste', value: 2 }),
+  ]);
+});
+
+test('toggling a personal adjustment preserves the latest name and Modifiers edited by another member', async () => {
+  const { owner, member, scope } = await fixture();
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'create',
+    },
+  );
+  await member.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    name: 'Improved reward',
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 4 }],
+    operationId: 'edit',
+  });
+  await owner.mutation(api.characterSheet.editPersonalAdjustment, {
+    ...scope,
+    entryId,
+    active: false,
+    operationId: 'toggle',
+  });
+  const sheet = await member.query(api.characterSheet.read, scope);
+  expect(
+    sheet?.catalogEntries.find((entry) => entry.detail.kind === 'manual'),
+  ).toMatchObject({
+    name: 'Improved reward',
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 4 }],
+  });
+  expect(sheet?.entries.find((entry) => entry._id === entryId)?.active).toBe(
+    false,
+  );
+});
+
+test('sheet reads preserve conditional adjustments and apply only conditions that currently hold', async () => {
+  const { owner, scope } = await fixture();
+  const before = await owner.query(api.characterSheet.read, scope);
+  if (!before) throw new Error('Missing sheet');
+  await owner.mutation(api.characterSheet.createPersonalAdjustment, {
+    ...scope,
+    name: 'Training',
+    operationId: 'conditions',
+    modifiers: [
+      {
+        target: 'ability.str',
+        bonusType: 'untyped',
+        value: 2,
+        condition: { whileActive: before.baseScoresEntry._id },
+      },
+      {
+        target: 'ability.str',
+        bonusType: 'untyped',
+        value: 4,
+        condition: { situation: { local: 'At home' } },
+      },
+    ],
+  });
+  const sheet = await owner.query(api.characterSheet.read, scope);
+  expect(sheet?.calculated.abilities.strength.score).toBe(12);
+  expect(sheet?.calculated.breakdowns['ability.str']?.conditional).toEqual([
+    expect.objectContaining({
+      entryName: 'Training',
+      value: 4,
+      condition: { situation: { local: 'At home' } },
+    }),
+  ]);
+});
+
+test('forged personal adjustment Catalog Entry references fail reads and writes without exposing or changing another Character', async () => {
+  const { t, owner, scope, campaignId } = await fixture();
+  const otherId = await owner.mutation(api.characterSheet.create, {
+    organizationId: 'org',
+    campaignId,
+    name: 'Other',
+    kind: 'npc',
+    operationId: 'other',
+  });
+  const otherScope = { ...scope, characterId: otherId };
+  const fields = {
+    name: 'Reward',
+    modifiers: [
+      {
+        target: 'ability.str' as const,
+        bonusType: 'untyped' as const,
+        value: 2,
+      },
+    ],
+  };
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    { ...scope, ...fields, operationId: 'add' },
+  );
+  const otherEntryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    { ...otherScope, ...fields, operationId: 'add' },
+  );
+  const other = await owner.query(api.characterSheet.read, otherScope);
+  const foreign = other?.entries.find((entry) => entry._id === otherEntryId);
+  if (foreign?.kind !== 'manual') throw new Error('Missing adjustment');
+  await t.run((ctx) =>
+    ctx.db.patch('characterSheetEntry', entryId, {
+      catalogEntryId: foreign.catalogEntryId,
+    }),
+  );
+  await expect(owner.query(api.characterSheet.read, scope)).rejects.toThrow(
+    'Personal adjustment does not belong',
+  );
+  await expect(
+    owner.mutation(api.characterSheet.editPersonalAdjustment, {
+      ...scope,
+      entryId,
+      name: 'Forged',
+      operationId: 'forged',
+    }),
+  ).rejects.toThrow('Personal adjustment does not belong');
+  await expect(
+    owner.mutation(api.characterSheet.removePersonalAdjustment, {
+      ...scope,
+      entryId,
+      operationId: 'forged',
+    }),
+  ).rejects.toThrow('Personal adjustment does not belong');
+  expect(await owner.query(api.characterSheet.read, otherScope)).toEqual(other);
+});
+
+test.each(['whileActive', 'option'] as const)(
+  'members can edit a saved %s condition after its referenced adjustment is removed',
+  async (referenceKind) => {
+    const { owner, member, scope, campaignId } = await fixture();
+    const triggerId = await owner.mutation(
+      api.characterSheet.createPersonalAdjustment,
+      { ...scope, name: 'Trigger', modifiers: [], operationId: 'trigger' },
+    );
+    const withTrigger = await owner.query(api.characterSheet.read, scope);
+    const trigger = withTrigger?.entries.find(
+      (entry) => entry._id === triggerId,
+    );
+    if (trigger?.kind !== 'manual') throw new Error('Missing trigger');
+    const condition =
+      referenceKind === 'whileActive'
+        ? { whileActive: trigger.catalogEntryId }
+        : { situation: { option: trigger.catalogEntryId } };
+    const modifiers = [
+      {
+        target: 'ability.str' as const,
+        bonusType: 'untyped' as const,
+        value: 2,
+        condition,
+      },
+    ];
+    const entryId = await owner.mutation(
+      api.characterSheet.createPersonalAdjustment,
+      {
+        ...scope,
+        name: 'Conditional reward',
+        modifiers,
+        operationId: 'reward',
+      },
+    );
+    await member.mutation(api.characterSheet.removePersonalAdjustment, {
+      ...scope,
+      entryId: triggerId,
+      operationId: 'remove-trigger',
+    });
+    await member.mutation(api.characterSheet.editPersonalAdjustment, {
+      ...scope,
+      entryId,
+      active: false,
+      operationId: 'disable-reward',
+    });
+    const disabled = await owner.query(api.characterSheet.read, scope);
+    expect(
+      disabled?.entries.find((entry) => entry._id === entryId)?.active,
+    ).toBe(false);
+    await member.mutation(api.characterSheet.editPersonalAdjustment, {
+      ...scope,
+      entryId,
+      name: 'Revised conditional reward',
+      active: true,
+      modifiers: modifiers.map((modifier) => ({ ...modifier, value: 4 })),
+      operationId: 'revise-reward',
+    });
+    const revised = await owner.query(api.characterSheet.read, scope);
+    expect(revised?.calculated.abilities.strength.score).toBe(10);
+    expect(revised?.calculated.breakdowns['ability.str']?.conditional).toEqual([
+      expect.objectContaining({
+        entryName: 'Revised conditional reward',
+        value: 4,
+        condition,
+      }),
+    ]);
+
+    const otherId = await owner.mutation(api.characterSheet.create, {
+      organizationId: 'org',
+      campaignId,
+      name: 'Other',
+      kind: 'npc',
+      operationId: 'other',
+    });
+    const other = await owner.query(api.characterSheet.read, {
+      ...scope,
+      characterId: otherId,
+    });
+    if (!other) throw new Error('Missing other sheet');
+    const foreignCondition =
+      referenceKind === 'whileActive'
+        ? { whileActive: other.baseScoresEntry._id }
+        : { situation: { option: other.baseScoresEntry._id } };
+    await expect(
+      member.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...scope,
+        entryId,
+        modifiers: modifiers.map((modifier) => ({
+          ...modifier,
+          condition: foreignCondition,
+        })),
+        operationId: 'foreign-reference',
+      }),
+    ).rejects.toThrow('Modifier reference does not belong to this Character');
+    await expect(
+      member.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        name: 'New missing reference',
+        modifiers,
+        operationId: 'missing-reference',
+      }),
+    ).rejects.toThrow('Modifier reference does not belong to this Character');
+    expect(await owner.query(api.characterSheet.read, scope)).toEqual(revised);
+  },
+);

@@ -31,6 +31,7 @@ test('base Modifiers supply all scores and round odd negative modifiers down', (
     catalogEntries: [
       {
         _id: 'base',
+        ruleIdentity: 'base',
         modifiers: [
           { target: 'ability.str', bonusType: 'base', value: 7 },
           { target: 'ability.dex', bonusType: 'base', value: 10 },
@@ -90,6 +91,7 @@ test.each([
       catalogEntries: [
         {
           _id: 'base',
+          ruleIdentity: 'base',
           modifiers: [
             { target: 'ability.str', bonusType: 'base', value: 10 },
             { target: 'ability.dex', bonusType: 'base', value: 10 },
@@ -160,7 +162,9 @@ test('missing or ambiguous base Catalog Entries remain unresolved instead of inv
       calculateCharacterSheet({
         characterKind: 'pc',
         entries,
-        catalogEntries: [{ _id: 'base', modifiers: invalid }],
+        catalogEntries: [
+          { _id: 'base', ruleIdentity: 'base', modifiers: invalid },
+        ],
       }),
     ).toThrow('six finite Modifiers');
   }
@@ -202,6 +206,7 @@ function warningSheet({
     catalogEntries: [
       {
         _id: 'base',
+        ruleIdentity: 'base',
         modifiers: abilityKeys.map((ability, index) => ({
           target: abilityTargets[ability],
           bonusType: 'base' as const,
@@ -362,4 +367,115 @@ test('recorded HP below one and a PC without levels warn without changing totals
       (item) => item.check === 'levelZero',
     ),
   ).toBe(false);
+});
+
+test('personal Constitution adjustment changes HP and explains built-in Class Level contributions', () => {
+  // CRB Constitution: https://legacy.aonprd.com/coreRulebook/gettingStarted.html#constitution
+  const result = calculateCharacterSheet({
+    characterKind: 'pc',
+    entries: [
+      {
+        _id: 'base-row',
+        kind: 'base',
+        active: true,
+        catalogEntryId: 'base',
+        state: { kind: 'base' },
+      },
+      {
+        _id: 'belt-row',
+        kind: 'manual',
+        active: true,
+        catalogEntryId: 'belt',
+        state: { kind: 'manual' },
+      },
+      {
+        _id: 'level-1',
+        kind: 'classLevel',
+        active: true,
+        state: {
+          kind: 'classLevel',
+          classEntryId: null,
+          position: 1,
+          hpGained: 8,
+        },
+      },
+      {
+        _id: 'level-2',
+        kind: 'classLevel',
+        active: true,
+        state: {
+          kind: 'classLevel',
+          classEntryId: null,
+          position: 2,
+          hpGained: 5,
+        },
+      },
+    ],
+    catalogEntries: [
+      {
+        _id: 'base',
+        ruleIdentity: 'base',
+        modifiers: [
+          { target: 'ability.str', bonusType: 'base', value: 10 },
+          { target: 'ability.dex', bonusType: 'base', value: 10 },
+          { target: 'ability.con', bonusType: 'base', value: 10 },
+          { target: 'ability.int', bonusType: 'base', value: 10 },
+          { target: 'ability.wis', bonusType: 'base', value: 10 },
+          { target: 'ability.cha', bonusType: 'base', value: 10 },
+        ],
+      },
+      {
+        _id: 'belt',
+        name: 'Belt of mighty constitution',
+        ruleIdentity: 'belt',
+        modifiers: [
+          { target: 'ability.con', bonusType: 'enhancement', value: 4 },
+        ],
+      },
+    ],
+  });
+  expect(result.abilities.constitution).toEqual({ score: 14, modifier: 2 });
+  expect(result.hp).toBe(17);
+  expect(result.breakdowns.hp.total).toBe(17);
+  expect(
+    result.breakdowns.hp.applied
+      .filter((item) => item.builtIn)
+      .map((item) => item.value),
+  ).toEqual([8, 5, 4]);
+  expect(
+    result.breakdowns['ability.con'].applied.map((item) => item.entryName),
+  ).toEqual(['Base scores', 'Belt of mighty constitution']);
+});
+
+test('a personal Strength adjustment changes the total without changing base point buy', () => {
+  // #251 §2: six base Modifiers remain the recorded base scores; CRB Table 1–1.
+  const input = warningSheet({ scores: [14, 14, 14, 10, 10, 10], hpGained: 8 });
+  const original = calculateCharacterSheet(input);
+  const adjusted = calculateCharacterSheet({
+    ...input,
+    entries: [
+      ...input.entries,
+      {
+        _id: 'adjustment-row',
+        kind: 'manual',
+        active: true,
+        catalogEntryId: 'adjustment',
+        state: { kind: 'manual' },
+      },
+    ],
+    catalogEntries: [
+      ...input.catalogEntries,
+      {
+        _id: 'adjustment',
+        ruleIdentity: 'adjustment',
+        modifiers: [
+          { target: 'ability.str', bonusType: 'enhancement', value: 2 },
+        ],
+      },
+    ],
+  });
+  expect(original.pointBuy).toEqual({ spent: 15 });
+  expect(adjusted.pointBuy).toEqual({ spent: 15 });
+  expect(adjusted.abilities.strength.score).toBe(16);
+  expect(adjusted.warnings).toEqual(original.warnings);
 });

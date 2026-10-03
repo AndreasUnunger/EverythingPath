@@ -1,14 +1,14 @@
-type WarningStates = Readonly<Record<string, boolean>> | null;
+type SheetStates<Value> = Readonly<Record<string, Value>> | null;
 
-export function detectRemoteWarningChange({
+export function detectRemoteSheetChange<Value extends boolean | string>({
   previous,
   next,
   expectedOperations,
   isOwnOperation,
 }: {
-  previous: WarningStates;
-  next: WarningStates;
-  expectedOperations: ReadonlyMap<string, { accepted: boolean }>;
+  previous: SheetStates<Value>;
+  next: SheetStates<Value>;
+  expectedOperations: ReadonlyMap<string, { value: Value }>;
   isOwnOperation: boolean;
 }) {
   const previousKeys = Object.keys(previous ?? {});
@@ -16,28 +16,28 @@ export function detectRemoteWarningChange({
   const changedFacts =
     previousKeys.length !== nextEntries.length ||
     previousKeys.some((key) => !Object.hasOwn(next ?? {}, key));
-  const changedAcceptances = nextEntries.filter(
-    ([key, accepted]) => accepted !== previous?.[key],
+  const changedValues = nextEntries.filter(
+    ([key, value]) => value !== previous?.[key],
   );
-  const acknowledged = changedAcceptances
-    .filter(
-      ([key, accepted]) => expectedOperations.get(key)?.accepted === accepted,
-    )
+  const acknowledged = changedValues
+    .filter(([key, value]) => expectedOperations.get(key)?.value === value)
     .map(([key]) => key);
-  const unexpectedAcceptance = changedAcceptances.some(
-    ([key, accepted]) =>
-      expectedOperations.get(key)?.accepted !== accepted &&
-      (accepted || previous?.[key] === true),
+  const unexpectedValue = changedValues.some(
+    ([key, value]) =>
+      expectedOperations.get(key)?.value !== value &&
+      (typeof value === 'boolean'
+        ? value || previous?.[key] === true
+        : !isOwnOperation),
   );
   return {
     changed:
       (previous === null) !== (next === null) ||
       changedFacts ||
-      changedAcceptances.length > 0,
+      changedValues.length > 0,
     hasRemoteChange:
       previous !== null &&
       next !== null &&
-      (unexpectedAcceptance || (changedFacts && !isOwnOperation)),
+      (unexpectedValue || (changedFacts && !isOwnOperation)),
     acknowledged,
   };
 }
