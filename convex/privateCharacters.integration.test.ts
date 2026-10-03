@@ -1,11 +1,15 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
-import { expect, test } from 'vitest';
+import { beforeAll, expect, test } from 'vitest';
 import { api, internal } from './_generated/api';
 import schema from './schema';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 
 const modules = import.meta.glob('./**/*.ts');
+
+beforeAll(async () => {
+  await import('./data/spells');
+}, 30_000);
 
 async function fixture() {
   const t = convexTest(schema, modules);
