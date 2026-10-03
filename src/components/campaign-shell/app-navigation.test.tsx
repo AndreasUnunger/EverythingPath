@@ -303,6 +303,26 @@ test('sheet phone navigation preserves its militia origin page and shows one act
   ).not.toHaveAttribute('aria-current');
 });
 
+test('the page strip preserves a player scroll when equal links arrive in a new array', () => {
+  const view = render(<AppPageStrip links={militiaPages} />);
+  const strip = screen.getByRole('navigation', { name: 'Pages' });
+  const current = within(strip).getByRole('link', { name: 'Week 12' });
+  Object.defineProperty(strip, 'clientWidth', { value: 300 });
+  vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue(
+    DOMRect.fromRect({ x: 0, width: 300 }),
+  );
+  vi.spyOn(current, 'getBoundingClientRect').mockImplementation(() =>
+    DOMRect.fromRect({ x: 500 - strip.scrollLeft, width: 200 }),
+  );
+  strip.scrollLeft = 100;
+
+  view.rerender(
+    <AppPageStrip links={militiaPages.map((link) => ({ ...link }))} />,
+  );
+
+  expect(strip.scrollLeft).toBe(100);
+});
+
 test('the page strip keeps its current page visible as it appears, resizes and changes page', () => {
   let notify: () => void = () => undefined;
   const disconnect = vi.fn();

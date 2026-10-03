@@ -83,7 +83,10 @@ async function expectScore(
 ) {
   await expect(findScore(page, name)).toHaveValue(value);
   await expect(
-    findScores(page).getByText(`${name} modifier ${modifier}`),
+    findScores(page).getByRole('button', {
+      name: `${name} modifier ${modifier}, breakdown`,
+      exact: true,
+    }),
   ).toBeAttached();
 }
 async function readRowId(row: Locator) {

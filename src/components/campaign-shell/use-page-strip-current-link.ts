@@ -5,6 +5,7 @@ import type { NavigationLink } from '~/lib/app-navigation';
 
 export function usePageStripCurrentLink(links: NavigationLink[]) {
   const ref = useRef<HTMLElement>(null);
+  const currentHref = links.find((link) => link.active)?.href;
   useEffect(() => {
     const strip = ref.current;
     if (!strip) return;
@@ -23,6 +24,6 @@ export function usePageStripCurrentLink(links: NavigationLink[]) {
     const observer = new ResizeObserver(revealCurrent);
     observer.observe(strip);
     return () => observer.disconnect();
-  }, [links]);
+  }, [currentHref]);
   return ref;
 }
