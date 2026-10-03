@@ -169,9 +169,70 @@ const baseModifierValidator = modifierValidator
     bonusType: v.literal('base'),
     value: v.number(),
   });
+export const grantKeyValidator = v.object({
+  source: v.string(),
+  classLevel: v.optional(v.number()),
+  entry: v.string(),
+});
+export const selectionReferenceValidator = v.union(
+  v.object({ kind: v.literal('grant'), grantKey: grantKeyValidator }),
+  v.object({ kind: v.literal('entry'), entryId: v.id('characterSheetEntry') }),
+);
+export const selectionSourceValidator = v.union(
+  v.object({
+    kind: v.literal('classPrompt'),
+    source: v.string(),
+    classLevel: v.number(),
+    list: v.string(),
+  }),
+  v.object({ kind: v.literal('slot'), grantedBy: selectionReferenceValidator }),
+  v.object({
+    kind: v.literal('prompt'),
+    source: selectionReferenceValidator,
+    list: v.string(),
+    classLevel: v.optional(v.number()),
+  }),
+);
+const recordedCatalogEntryFields = {
+  grantKey: v.optional(grantKeyValidator),
+  kept: v.optional(v.literal(true)),
+  catalogOverride: v.optional(v.literal(true)),
+  notes: v.optional(v.string()),
+  gainedAtClassLevel: v.optional(v.id('characterSheetEntry')),
+  selectionSource: v.optional(selectionSourceValidator),
+};
+const picksByLevelValidator = v.array(
+  v.object({
+    classLevel: v.number(),
+    list: v.string(),
+    count: v.number(),
+  }),
+);
+export const selectionKindValidator = v.union(
+  v.literal('race'),
+  v.literal('racialTrait'),
+  v.literal('archetype'),
+  v.literal('classFeature'),
+  v.literal('feat'),
+  v.literal('trait'),
+);
 const catalogEntryFields = v.object({
   scope: v.literal('character'),
   characterId: v.id('character'),
+  grants: v.optional(
+    v.array(v.object({ catalogEntryId: v.id('catalogEntry') })),
+  ),
+  grantsSlots: v.optional(
+    v.array(
+      v.object({
+        kind: v.union(v.literal('feat'), v.literal('trait')),
+        count: v.number(),
+        featTypes: v.optional(v.array(v.string())),
+        feats: v.optional(v.array(v.id('catalogEntry'))),
+        ignoresPrerequisites: v.optional(v.boolean()),
+      }),
+    ),
+  ),
   name: v.string(),
   ruleIdentity: v.string(),
   sourceKey: v.optional(v.string()),
@@ -198,6 +259,43 @@ export const abilityChangeKindValidator = v.union(
   v.literal('abilityDrain'),
 );
 export const catalogEntryValidator = v.union(
+  catalogEntryFields.extend({
+    modifiers: v.array(modifierValidator),
+    detail: v.union(
+      v.object({
+        kind: v.literal('race'),
+        racialTraits: v.array(v.id('catalogEntry')),
+      }),
+      v.object({
+        kind: v.literal('racialTrait'),
+        raceEntryIds: v.array(v.id('catalogEntry')),
+        replaces: v.array(v.id('catalogEntry')),
+      }),
+      v.object({
+        kind: v.literal('archetype'),
+        classEntryIds: v.array(v.id('catalogEntry')),
+        replaces: v.array(
+          v.object({
+            classLevel: v.number(),
+            catalogEntryId: v.id('catalogEntry'),
+          }),
+        ),
+        adds: v.array(
+          v.object({
+            classLevel: v.number(),
+            catalogEntryId: v.id('catalogEntry'),
+          }),
+        ),
+        picksByLevel: v.optional(picksByLevelValidator),
+      }),
+      v.object({
+        kind: v.literal('classFeature'),
+        picksByLevel: v.optional(picksByLevelValidator),
+      }),
+      v.object({ kind: v.literal('feat') }),
+      v.object({ kind: v.literal('trait') }),
+    ),
+  }),
   // Prepared sheets created before advancement held class names only.
   catalogEntryFields.extend({
     modifiers: v.array(modifierValidator),
@@ -271,6 +369,78 @@ export const favoredClassBonusValidator = v.union(
 export const characterSheetEntryValidator = v.union(
   v.object({
     characterId: v.id('character'),
+    kind: v.literal('race'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('race'),
+      choice: v.optional(v.union(v.string(), v.null())),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('racialTrait'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('racialTrait'),
+      choice: v.optional(v.union(v.string(), v.null())),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('archetype'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('archetype'),
+      choice: v.optional(v.union(v.string(), v.null())),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('classFeature'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('classFeature'),
+      choice: v.optional(v.union(v.string(), v.null())),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('feat'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('feat'),
+      choice: v.optional(v.union(v.string(), v.null())),
+      slot: v.optional(
+        v.union(
+          v.literal('general'),
+          v.object({ grantedBy: selectionReferenceValidator }),
+        ),
+      ),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('trait'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('trait'),
+      choice: v.optional(v.union(v.string(), v.null())),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
     kind: v.literal('abilityDamage'),
     active: v.boolean(),
     state: v.object({
@@ -294,6 +464,7 @@ export const characterSheetEntryValidator = v.union(
     kind: v.literal('spellEffect'),
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
     state: v.object({
       kind: v.literal('spellEffect'),
       casterLevel: v.number(),
@@ -304,6 +475,7 @@ export const characterSheetEntryValidator = v.union(
     kind: v.literal('condition'),
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
     state: v.object({ kind: v.literal('condition') }),
   }),
   v.object({
@@ -311,22 +483,30 @@ export const characterSheetEntryValidator = v.union(
     kind: v.literal('item'),
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
-    state: v.object({ kind: v.literal('item') }),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('item'),
+      masterwork: v.optional(v.boolean()),
+    }),
   }),
   v.object({
     characterId: v.id('character'),
     kind: v.literal('spell'),
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
+    ...recordedCatalogEntryFields,
     state: v.object({ kind: v.literal('spell') }),
   }),
   v.object({
     characterId: v.id('character'),
     kind: v.literal('manual'),
-    gainedAtClassLevel: v.optional(v.id('characterSheetEntry')),
     active: v.boolean(),
     catalogEntryId: v.id('catalogEntry'),
-    state: v.object({ kind: v.literal('manual') }),
+    ...recordedCatalogEntryFields,
+    state: v.object({
+      kind: v.literal('manual'),
+      choice: v.optional(v.union(v.string(), v.null())),
+    }),
   }),
   v.object({
     characterId: v.id('character'),

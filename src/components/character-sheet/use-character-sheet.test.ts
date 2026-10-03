@@ -1095,7 +1095,7 @@ test('Character Sheet Entries and ability changes expose save acknowledgements a
   expect(
     view.result.current.sheet?.permanentCalculated.abilities.strength.score,
   ).toBe(14);
-  let pending: Promise<void> | undefined;
+  let pending: Promise<boolean> | undefined;
   act(() => {
     pending = view.result.current.abilityChanges.setActive(
       initial.entries[0]!._id,

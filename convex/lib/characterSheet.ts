@@ -1,3 +1,4 @@
+import { resolveCharacterSheetGrants } from '../../src/lib/character-sheet-grants';
 import { ConvexError } from 'convex/values';
 import { representativeClassCatalog } from './representativeClassCatalog';
 import type { Doc, Id } from '../_generated/dataModel';
@@ -195,15 +196,31 @@ export async function pruneWarningAcceptancesAndRecordChange(
   });
   requireWholeCalculatedAbilities(calculated);
   requireWholeCalculatedAbilities(permanent);
+  const availableGrantIds = resolveCharacterSheetGrants({
+    entries: sheet.entries,
+    catalogEntries: sheet.catalogEntries,
+    characterKind: sheet.character.kind,
+  })
+    .allEntries.filter((row) => row.origin === 'grant')
+    .map((row) => row.entry._id);
   for (const accepted of sheet.acceptedWarnings) {
-    const stillApplies = calculated.warnings.some(
+    const stillApplies = calculated.warningsForAcceptance.some(
       (warning) =>
         warning.kind === 'rules' &&
         warning.check === accepted.check &&
         warning.subject === accepted.subject &&
         warning.fingerprint === accepted.fingerprint,
     );
-    if (!stillApplies) await ctx.db.delete('acceptedWarning', accepted._id);
+    // No row is needed for an untouched Grant's warning acceptance. Its facts
+    // are checked again when the absent source returns.
+    const absentGrant =
+      accepted.subject.startsWith('grant:') &&
+      !availableGrantIds.some(
+        (id) =>
+          accepted.subject === id || accepted.subject.startsWith(`${id}:`),
+      );
+    if (!stillApplies && !absentGrant)
+      await ctx.db.delete('acceptedWarning', accepted._id);
   }
   await ctx.db.patch('character', sheet.character._id, {
     sheetRevision: (sheet.character.sheetRevision ?? 0) + 1,

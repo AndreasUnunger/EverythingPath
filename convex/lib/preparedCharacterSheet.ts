@@ -101,29 +101,75 @@ export async function readCharacterSheetData(
     !isBaseCatalogEntry(baseScoresEntry)
   )
     throw new ConvexError('Base scores do not belong to this Character');
-  const catalogEntries: Doc<'catalogEntry'>[] = [baseScoresEntry];
-  async function readClassDefinition(
-    classEntryId: Id<'catalogEntry'>,
+  // Recorded state and future Grants both depend on local catalog definitions.
+  // Validate the complete prepared catalog, including untouched nested grants.
+  const catalogEntries: Doc<'catalogEntry'>[] = [...definitions];
+  const definitionsById = new Map<string, Doc<'catalogEntry'>>(
+    definitions.map((row) => [row._id, row]),
+  );
+  const dependencies = definitions.flatMap(listCatalogDependencies);
+  const classIds = [
+    ...(base?.state.favoredClassIds ?? []),
+    ...entries.flatMap((entry) =>
+      entry.kind === 'classLevel' && entry.state.classEntryId
+        ? [entry.state.classEntryId]
+        : [],
+    ),
+  ];
+  const missingIds = [
+    ...new Set([
+      ...dependencies
+        .filter(({ kind }) => kind !== 'definition')
+        .map(({ id }) => id),
+      ...classIds,
+    ]),
+  ].filter((id) => !definitionsById.has(id));
+  const missingDefinitions = new Map(
+    await Promise.all(
+      missingIds.map(async (id) => {
+        const catalogEntryId = ctx.db.normalizeId('catalogEntry', id);
+        if (!catalogEntryId)
+          throw new ConvexError(
+            'Catalog dependency does not belong to this Character',
+          );
+        return [id, await ctx.db.get('catalogEntry', catalogEntryId)] as const;
+      }),
+    ),
+  );
+  function requireDefinition(id: string, message: string) {
+    const definition = definitionsById.get(id);
+    if (!definition) throw new ConvexError(message);
+    return definition;
+  }
+  function readClassDefinition(
+    classEntryId: string,
     message = 'Class does not belong to this Character',
   ) {
-    const local = definitions.find((row) => row._id === classEntryId);
+    const local = definitionsById.get(classEntryId);
     if (local?.detail.kind === 'class') return local;
-    // Missing definitions remain Unspecified. Existing foreign references still fail.
-    const referenced = await ctx.db.get('catalogEntry', classEntryId);
-    if (referenced) throw new ConvexError(message);
+    // Missing definitions remain Unspecified. Existing foreign references fail.
+    if (local || missingDefinitions.get(classEntryId))
+      throw new ConvexError(message);
     return null;
   }
-  for (const definition of definitions) {
-    if (definition.detail.kind !== 'class') continue;
-    if ('counterpartOf' in definition.detail && definition.detail.counterpartOf)
-      await readClassDefinition(
-        definition.detail.counterpartOf,
+  for (const { id, kind } of dependencies) {
+    if (kind === 'definition')
+      requireDefinition(
+        id,
+        'Catalog dependency does not belong to this Character',
+      );
+    else if (kind === 'class')
+      readClassDefinition(
+        id,
         'Class counterpart does not belong to this Character',
       );
-    catalogEntries.push(definition);
+    else if (!definitionsById.has(id) && missingDefinitions.get(id))
+      throw new ConvexError(
+        'Catalog dependency does not belong to this Character',
+      );
   }
   for (const classId of base?.state.favoredClassIds ?? [])
-    await readClassDefinition(classId);
+    readClassDefinition(classId);
   for (const entry of entries) {
     if (
       entry.kind === 'base' ||
@@ -133,33 +179,28 @@ export async function readCharacterSheetData(
       continue;
     if (entry.kind === 'classLevel') {
       if (entry.state.classEntryId !== null)
-        await readClassDefinition(entry.state.classEntryId);
+        readClassDefinition(entry.state.classEntryId);
       continue;
     }
-    const definition = definitions.find(
-      (row) => row._id === entry.catalogEntryId,
+    const definition = requireDefinition(
+      entry.catalogEntryId,
+      entry.kind === 'manual'
+        ? 'Personal adjustment does not belong to this Character'
+        : 'Catalog Entry does not belong to this Character',
     );
-    if (
-      definition?.characterId !== character._id ||
-      definition.detail.kind !== entry.kind
-    )
-      throw new ConvexError(
-        entry.kind === 'manual'
-          ? 'Personal adjustment does not belong to this Character'
-          : 'Catalog Entry does not belong to this Character',
-      );
-    if (!catalogEntries.some((row) => row._id === definition._id))
-      catalogEntries.push(definition);
+    if (definition.detail.kind !== entry.kind)
+      throw new ConvexError('Catalog Entry does not match this sheet entry');
   }
-  const { current: calculated, permanent: permanentCalculated } =
-    calculateActiveCharacterSheet({
-      entries,
-      catalogEntries,
-      characterKind: character.kind,
-      sheetMode: character.sheetMode,
-    });
+  const { current: calculated, permanent } = calculateActiveCharacterSheet({
+    entries,
+    catalogEntries,
+    characterKind: character.kind,
+    sheetMode: character.sheetMode,
+  });
   requireWholeCalculatedAbilities(calculated);
-  requireWholeCalculatedAbilities(permanentCalculated);
+  requireWholeCalculatedAbilities(permanent);
+  const { resolvedEntries: _resolvedEntries, ...permanentCalculated } =
+    permanent;
   const classLevels = entries
     .filter((entry) => entry.kind === 'classLevel')
     .sort((a, b) => a.state.position - b.state.position);
@@ -181,4 +222,48 @@ export async function readCharacterSheetData(
     lastOperationId: character.sheetLastOperationId ?? null,
     updatedBy: character.sheetUpdatedBy ?? null,
   };
+}
+
+export type CatalogDependency = {
+  id: string;
+  kind: 'definition' | 'class' | 'condition';
+};
+
+/** Every catalog reference, including future Grants and modifier conditions. */
+export function listCatalogDependencies(
+  definition: Doc<'catalogEntry'>,
+): CatalogDependency[] {
+  const dependencies: CatalogDependency[] = (definition.grants ?? []).map(
+    ({ catalogEntryId }) => ({ id: catalogEntryId, kind: 'definition' }),
+  );
+  for (const slot of definition.grantsSlots ?? [])
+    for (const id of slot.feats ?? [])
+      dependencies.push({ id, kind: 'definition' });
+  for (const modifier of definition.modifiers) {
+    if (!('condition' in modifier) || !modifier.condition) continue;
+    const { whileActive, situation } = modifier.condition;
+    if (whileActive) dependencies.push({ id: whileActive, kind: 'condition' });
+    if (typeof situation === 'object' && 'option' in situation)
+      dependencies.push({ id: situation.option, kind: 'condition' });
+  }
+  const detail = definition.detail;
+  const add = (ids: readonly Id<'catalogEntry'>[]) =>
+    dependencies.push(
+      ...ids.map((id) => ({ id, kind: 'definition' as const })),
+    );
+  if (detail.kind === 'class') {
+    if ('counterpartOf' in detail && detail.counterpartOf)
+      dependencies.push({ id: detail.counterpartOf, kind: 'class' });
+    if ('featuresByLevel' in detail)
+      add(detail.featuresByLevel.map((feature) => feature.catalogEntryId));
+  } else if (detail.kind === 'race') add(detail.racialTraits);
+  else if (detail.kind === 'racialTrait')
+    add([...detail.raceEntryIds, ...detail.replaces]);
+  else if (detail.kind === 'archetype')
+    add([
+      ...detail.classEntryIds,
+      ...detail.adds.map((feature) => feature.catalogEntryId),
+      ...detail.replaces.map((feature) => feature.catalogEntryId),
+    ]);
+  return dependencies;
 }

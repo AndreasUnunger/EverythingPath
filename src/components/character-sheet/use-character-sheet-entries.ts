@@ -28,7 +28,7 @@ export type SheetEntryEditInput = Pick<
   'name' | 'modifiers' | 'detail' | 'casterLevel' | 'active'
 >;
 
-function useEntryWriteStatus({
+export function useEntryWriteStatus({
   signature,
   operationId,
   subject,
@@ -37,37 +37,50 @@ function useEntryWriteStatus({
   operationId: string | null | undefined;
   subject: string;
 }) {
-  const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' });
-  const [previous, setPrevious] = useState(signature);
+  const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
+  const [previous, setPrevious] = useState({ signature, operationId });
   const [hasRemoteChange, setHasRemoteChange] = useState(false);
-  const busy = useRef(false);
-  if (previous !== signature) {
-    setPrevious(signature);
-    if (previous !== null && !isOwnCharacterSheetOperation(operationId))
+  const pending = useRef(new Set<string>());
+  if (previous.signature !== signature) {
+    setPrevious({ signature, operationId });
+    if (
+      previous.signature !== null &&
+      signature !== null &&
+      (!isOwnCharacterSheetOperation(operationId) ||
+        previous.operationId === operationId)
+    )
       setHasRemoteChange(true);
   }
-  async function write(action: () => Promise<unknown>) {
-    if (busy.current) return;
-    busy.current = true;
-    setStatus({ kind: 'saving' });
+  async function write(
+    action: () => Promise<unknown>,
+    { key = '', subject: entrySubject = subject } = {},
+  ) {
+    if (pending.current.has(key)) return false;
+    pending.current.add(key);
+    const update = (status: SaveStatus) =>
+      setStatuses((current) => ({ ...current, [key]: status }));
+    update({ kind: 'saving' });
     try {
       await action();
-      setStatus({ kind: 'saved' });
+      update({ kind: 'saved' });
+      return true;
     } catch (error) {
       const failure = classifyWriteFailure(error);
-      setStatus({
+      update({
         kind: 'error',
         message:
           failure.kind === 'rejected'
-            ? `${subject} wasn't saved${refusalReason(failure.message)} Try again.`
-            : `${subject} may not have been saved. Check it before trying again.`,
+            ? `${entrySubject} wasn't saved${refusalReason(failure.message)} Try again.`
+            : `${entrySubject} may not have been saved. Check it before trying again.`,
       });
+      return false;
     } finally {
-      busy.current = false;
+      pending.current.delete(key);
     }
   }
   return {
-    status,
+    status: statuses[''] ?? { kind: 'idle' as const },
+    statusFor: (key: string): SaveStatus => statuses[key] ?? { kind: 'idle' },
     hasRemoteChange,
     dismissRemoteChange: () => setHasRemoteChange(false),
     write,

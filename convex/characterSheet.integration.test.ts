@@ -89,6 +89,14 @@ test('campaign members read a new Character with permanent base scores and one e
   );
 });
 
+test('sheet reads expose resolver rows only in the current calculation', async () => {
+  const { member, scope } = await fixture();
+  const sheet = await member.query(api.characterSheet.read, scope);
+  expect(sheet?.calculated.resolvedEntries).toEqual([]);
+  expect(sheet?.permanentCalculated).not.toHaveProperty('resolvedEntries');
+  expect(sheet?.permanentCalculated.level).toBe(1);
+});
+
 test('saving unchanged base scores preserves the sheet revision and last editor', async () => {
   const { owner, member, scope } = await fixture();
   const before = await owner.query(api.characterSheet.read, scope);

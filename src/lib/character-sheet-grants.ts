@@ -1,0 +1,648 @@
+import { isTemporaryEffect } from './character-sheet';
+import {
+  createCatalogSheetEntryState,
+  isSelectableCatalogSheetEntryKind,
+} from './character-sheet-entries';
+import type {
+  CharacterSheetCatalogEntry,
+  CharacterSheetInput,
+  SheetEntry,
+  SheetWarning,
+} from './character-sheet';
+
+export type GrantKey = { source: string; classLevel?: number; entry: string };
+export type SelectionReference =
+  | { kind: 'entry'; entryId: string }
+  | { kind: 'grant'; grantKey: GrantKey };
+export type DormantReason =
+  | { kind: 'sourceMissing' }
+  | { kind: 'replaced'; byEntryIds: string[] };
+export type ResolvedSheetEntry = {
+  entry: SheetEntry;
+  origin: 'grant' | 'selection';
+  recorded: boolean;
+  storedEntryId?: string;
+  dormant: boolean;
+  counting: boolean;
+  reason?: DormantReason;
+};
+
+export function formatGrantKeyId(key: GrantKey) {
+  return `grant:${key.source.length}:${key.source}:${key.classLevel ?? ''}:${key.entry.length}:${key.entry}`;
+}
+
+export function hasGrantAncestor(id: string, ancestorId: string): boolean {
+  let source = id;
+  while (source !== ancestorId) {
+    const prefix = /^grant:(\d+):/.exec(source);
+    if (!prefix) return false;
+    const sourceLength = Number(prefix[1]);
+    if (!Number.isSafeInteger(sourceLength)) return false;
+    const sourceEnd = prefix[0].length + sourceLength;
+    const suffix = /^:(\d*):(\d+):/.exec(source.slice(sourceEnd));
+    if (!suffix) return false;
+    const entryLength = Number(suffix[2]);
+    if (!Number.isSafeInteger(entryLength)) return false;
+    const end = sourceEnd + suffix[0].length + entryLength;
+    // Warning subjects can append a field after the canonical Grant id.
+    if (end > source.length || (end < source.length && source[end] !== ':'))
+      return false;
+    source = source.slice(prefix[0].length, sourceEnd);
+  }
+  return true;
+}
+
+export function characterSheetClassFamily(
+  definition: CharacterSheetCatalogEntry,
+  catalogEntries: readonly CharacterSheetCatalogEntry[],
+) {
+  const counterpart =
+    definition.detail?.kind === 'class' && 'counterpartOf' in definition.detail
+      ? definition.detail.counterpartOf
+      : undefined;
+  return counterpart
+    ? (catalogEntries.find((entry) => entry._id === counterpart)
+        ?.ruleIdentity ?? counterpart)
+    : definition.ruleIdentity;
+}
+
+export function normalizeCharacterSheetChoiceName(name: string) {
+  return name
+    .replace(/\s*\(UC\)\s*/gi, '')
+    .trim()
+    .toLowerCase();
+}
+
+function buildGrantedEntry(
+  definition: CharacterSheetCatalogEntry,
+  grantKey: GrantKey,
+): SheetEntry | undefined {
+  const kind = definition.detail?.kind;
+  if (
+    !kind ||
+    !isSelectableCatalogSheetEntryKind(kind) ||
+    kind === 'race' ||
+    kind === 'archetype'
+  )
+    return undefined;
+  const casterLevel =
+    definition.detail?.kind === 'spellEffect'
+      ? definition.detail.defaultCasterLevel
+      : undefined;
+  return {
+    _id: formatGrantKeyId(grantKey),
+    active: true,
+    catalogEntryId: definition._id,
+    grantKey,
+    ...createCatalogSheetEntryState(kind, undefined, casterLevel),
+  };
+}
+
+type GrantNode = {
+  row: ResolvedSheetEntry;
+  sourcePresent: boolean;
+  parents: string[];
+  replacedBy: string[];
+  ancestry: Set<string>;
+  projectionExcluded: boolean;
+};
+
+type GrantGraph = {
+  input: CharacterSheetInput;
+  catalog: Map<string, CharacterSheetCatalogEntry>;
+  nodes: Map<string, GrantNode>;
+  classCounts: Map<string, number>;
+  selectedClasses: Map<string, CharacterSheetCatalogEntry>;
+};
+
+function getCatalogRuleIdentity(graph: GrantGraph, id: string) {
+  return graph.catalog.get(id)?.ruleIdentity ?? id;
+}
+
+function getClassFamily(
+  graph: GrantGraph,
+  definition: CharacterSheetCatalogEntry,
+) {
+  return characterSheetClassFamily(definition, graph.input.catalogEntries);
+}
+
+function getFeatureName(definition: CharacterSheetCatalogEntry | undefined) {
+  return definition?.name
+    ? normalizeCharacterSheetChoiceName(definition.name)
+    : undefined;
+}
+
+function buildGrantGraph(input: CharacterSheetInput): GrantGraph {
+  const catalog = new Map(
+    input.catalogEntries.map((entry) => [entry._id, entry]),
+  );
+  const nodes = new Map<string, GrantNode>();
+  for (const entry of input.entries) {
+    const grantKey = 'grantKey' in entry ? entry.grantKey : undefined;
+    const id = grantKey ? formatGrantKeyId(grantKey) : entry._id;
+    nodes.set(id, {
+      row: {
+        entry: { ...entry, _id: id },
+        origin: grantKey ? 'grant' : 'selection',
+        recorded: true,
+        storedEntryId: entry._id,
+        dormant: false,
+        counting: false,
+      },
+      sourcePresent: !grantKey,
+      parents: [],
+      replacedBy: [],
+      ancestry: new Set(
+        'catalogEntryId' in entry
+          ? [
+              catalog.get(entry.catalogEntryId)?.ruleIdentity ??
+                entry.catalogEntryId,
+            ]
+          : [],
+      ),
+      projectionExcluded: false,
+    });
+  }
+  return {
+    input,
+    catalog,
+    nodes,
+    classCounts: new Map(),
+    selectedClasses: new Map(),
+  };
+}
+
+function getClassFeatureRuleIdentity(
+  graph: GrantGraph,
+  source: CharacterSheetCatalogEntry,
+  definition: CharacterSheetCatalogEntry,
+  classLevel: number,
+) {
+  const { catalog } = graph;
+  if (
+    source.detail?.kind !== 'class' ||
+    !('counterpartOf' in source.detail) ||
+    !source.detail.counterpartOf
+  )
+    return definition.ruleIdentity;
+  const original = catalog.get(source.detail.counterpartOf);
+  const features =
+    original?.detail?.kind === 'class' && 'featuresByLevel' in original.detail
+      ? original.detail.featuresByLevel
+      : [];
+  const match = features?.find(
+    (feature) =>
+      feature.classLevel === classLevel &&
+      getFeatureName(catalog.get(feature.catalogEntryId)) !== undefined &&
+      getFeatureName(catalog.get(feature.catalogEntryId)) ===
+        getFeatureName(definition),
+  );
+  return match
+    ? getCatalogRuleIdentity(graph, match.catalogEntryId)
+    : definition.ruleIdentity;
+}
+
+function addGrantNode(
+  graph: GrantGraph,
+  {
+    source,
+    catalogEntryId,
+    classLevel,
+    parentId,
+    canonicalEntry,
+  }: {
+    source: CharacterSheetCatalogEntry;
+    catalogEntryId: string;
+    classLevel?: number;
+    parentId?: string;
+    canonicalEntry?: string;
+  },
+) {
+  const { catalog, nodes } = graph;
+  const definition = catalog.get(catalogEntryId);
+  if (!definition) return;
+  const parentNode = parentId ? nodes.get(parentId) : undefined;
+  if (parentNode?.ancestry.has(definition.ruleIdentity)) return;
+  const key = {
+    source:
+      source.detail?.kind === 'class'
+        ? getClassFamily(graph, source)
+        : source.ruleIdentity,
+    ...(classLevel === undefined ? {} : { classLevel }),
+    entry: canonicalEntry ?? definition.ruleIdentity,
+  };
+  const grantId = formatGrantKeyId(key);
+  let node = nodes.get(grantId);
+  if (!node) {
+    const entry = buildGrantedEntry(definition, key);
+    if (!entry) return;
+    node = {
+      row: {
+        entry,
+        origin: 'grant',
+        recorded: false,
+        dormant: false,
+        counting: false,
+      },
+      sourcePresent: false,
+      parents: [],
+      replacedBy: [],
+      ancestry: new Set([
+        ...(parentNode?.ancestry ?? []),
+        definition.ruleIdentity,
+      ]),
+      projectionExcluded: false,
+    };
+    nodes.set(grantId, node);
+  }
+  if (parentNode)
+    node.ancestry = new Set([...parentNode.ancestry, definition.ruleIdentity]);
+  if (
+    node.row.recorded &&
+    'catalogEntryId' in node.row.entry &&
+    !('catalogOverride' in node.row.entry && node.row.entry.catalogOverride)
+  )
+    node.row.entry = { ...node.row.entry, catalogEntryId: definition._id };
+  if (parentId) {
+    if (!node.parents.includes(parentId)) node.parents.push(parentId);
+  } else node.sourcePresent = true;
+  return node;
+}
+
+function addClassGrants(graph: GrantGraph) {
+  const { input, catalog, classCounts, selectedClasses } = graph;
+  for (const row of input.entries
+    .filter((entry) => entry.kind === 'classLevel')
+    .sort((a, b) => a.state.position - b.state.position)) {
+    const definition = catalog.get(row.state.classEntryId ?? '');
+    if (definition?.detail?.kind !== 'class') continue;
+    const count = (classCounts.get(getClassFamily(graph, definition)) ?? 0) + 1;
+    classCounts.set(getClassFamily(graph, definition), count);
+    selectedClasses.set(definition._id, definition);
+    const features =
+      'featuresByLevel' in definition.detail
+        ? (definition.detail.featuresByLevel ?? [])
+        : [];
+    for (const feature of features) {
+      if (feature.classLevel === count) {
+        const featureDefinition = catalog.get(feature.catalogEntryId);
+        if (featureDefinition)
+          addGrantNode(graph, {
+            source: definition,
+            catalogEntryId: feature.catalogEntryId,
+            classLevel: count,
+            canonicalEntry: getClassFeatureRuleIdentity(
+              graph,
+              definition,
+              featureDefinition,
+              count,
+            ),
+          });
+      }
+    }
+  }
+}
+
+function addRaceGrants(graph: GrantGraph) {
+  const { catalog, nodes } = graph;
+  for (const node of nodes.values()) {
+    const entry = node.row.entry;
+    if (entry.kind !== 'race') continue;
+    const definition = catalog.get(entry.catalogEntryId);
+    if (definition?.detail?.kind !== 'race') continue;
+    for (const id of definition.detail.racialTraits)
+      addGrantNode(graph, {
+        source: definition,
+        catalogEntryId: id,
+        parentId: entry._id,
+      });
+  }
+}
+
+function applyArchetypeReplacements(graph: GrantGraph) {
+  const { catalog, nodes, classCounts, selectedClasses } = graph;
+  for (const node of nodes.values()) {
+    const entry = node.row.entry;
+    if (node.row.origin !== 'selection' || entry.kind !== 'archetype') continue;
+    const definition = catalog.get(entry.catalogEntryId);
+    if (definition?.detail?.kind !== 'archetype') continue;
+    const detail = definition.detail;
+    const eligibleClasses = [...selectedClasses.values()].filter((baseClass) =>
+      detail.classEntryIds.some(
+        (id) =>
+          getCatalogRuleIdentity(graph, id) === baseClass.ruleIdentity ||
+          getCatalogRuleIdentity(graph, id) ===
+            getClassFamily(graph, baseClass),
+      ),
+    );
+    node.sourcePresent = eligibleClasses.length > 0;
+    const processedFamilies = new Set<string>();
+    for (const baseClass of eligibleClasses) {
+      const family = getClassFamily(graph, baseClass);
+      if (processedFamilies.has(family)) continue;
+      processedFamilies.add(family);
+      const count = classCounts.get(family) ?? 0;
+      for (const added of detail.adds) {
+        if (added.classLevel <= count)
+          addGrantNode(graph, {
+            source: definition,
+            catalogEntryId: added.catalogEntryId,
+            classLevel: added.classLevel,
+            parentId: entry._id,
+          });
+      }
+      for (const replaced of nodes.values()) {
+        const key =
+          'grantKey' in replaced.row.entry
+            ? replaced.row.entry.grantKey
+            : undefined;
+        if (key?.source !== family) continue;
+        if (
+          detail.replaces.some(
+            (replacement) =>
+              replacement.classLevel === key.classLevel &&
+              (getCatalogRuleIdentity(graph, replacement.catalogEntryId) ===
+                key.entry ||
+                (getFeatureName(catalog.get(replacement.catalogEntryId)) !==
+                  undefined &&
+                  getFeatureName(catalog.get(replacement.catalogEntryId)) ===
+                    getFeatureName(
+                      'catalogEntryId' in replaced.row.entry
+                        ? catalog.get(replaced.row.entry.catalogEntryId)
+                        : undefined,
+                    ))),
+          )
+        )
+          replaced.replacedBy.push(entry._id);
+      }
+    }
+  }
+}
+
+function getGrantAncestry(
+  graph: GrantGraph,
+  id: string,
+  visited = new Set<string>(),
+): Set<string> {
+  const node = graph.nodes.get(id);
+  if (!node || visited.has(id)) return new Set();
+  visited.add(id);
+  const parent =
+    'grantKey' in node.row.entry ? node.row.entry.grantKey?.source : undefined;
+  return new Set([
+    ...node.ancestry,
+    ...(parent ? getGrantAncestry(graph, parent, visited) : []),
+  ]);
+}
+
+function addNestedGrants(graph: GrantGraph) {
+  const { catalog, nodes } = graph;
+  // Map iteration visits newly added nodes, deriving the full reachable Grant graph.
+  for (const node of nodes.values()) {
+    const entry = node.row.entry;
+    if (!('catalogEntryId' in entry)) continue;
+    const definition = catalog.get(entry.catalogEntryId);
+    if (!definition) continue;
+    node.ancestry = getGrantAncestry(graph, entry._id);
+    for (const child of definition.grants ?? [])
+      addGrantNode(graph, {
+        source: { ...definition, ruleIdentity: entry._id },
+        catalogEntryId: child.catalogEntryId,
+        classLevel:
+          'grantKey' in entry ? entry.grantKey?.classLevel : undefined,
+        parentId: entry._id,
+      });
+  }
+}
+
+function applyRacialTraitReplacements(graph: GrantGraph) {
+  const { catalog, nodes } = graph;
+  const races = [...nodes.values()].filter(
+    ({ row }) => row.entry.kind === 'race',
+  );
+  for (const node of nodes.values()) {
+    const entry = node.row.entry;
+    if (node.row.origin !== 'selection' || entry.kind !== 'racialTrait')
+      continue;
+    const detail = catalog.get(entry.catalogEntryId)?.detail;
+    if (detail?.kind !== 'racialTrait') continue;
+    node.sourcePresent = false;
+    node.parents = races
+      .filter(
+        ({ row }) =>
+          'catalogEntryId' in row.entry &&
+          detail.raceEntryIds.some(
+            (id) =>
+              getCatalogRuleIdentity(graph, id) ===
+              getCatalogRuleIdentity(
+                graph,
+                'catalogEntryId' in row.entry ? row.entry.catalogEntryId : '',
+              ),
+          ),
+      )
+      .map(({ row }) => row.entry._id);
+    for (const replaced of nodes.values()) {
+      const grantKey =
+        'grantKey' in replaced.row.entry
+          ? replaced.row.entry.grantKey
+          : undefined;
+      if (
+        !grantKey ||
+        !detail.raceEntryIds.some(
+          (id) => getCatalogRuleIdentity(graph, id) === grantKey.source,
+        )
+      )
+        continue;
+      if (
+        replaced.row.origin !== 'grant' ||
+        !('catalogEntryId' in replaced.row.entry) ||
+        !detail.replaces.some(
+          (id) =>
+            getCatalogRuleIdentity(graph, id) ===
+            getCatalogRuleIdentity(
+              graph,
+              'catalogEntryId' in replaced.row.entry
+                ? replaced.row.entry.catalogEntryId
+                : '',
+            ),
+        )
+      )
+        continue;
+      replaced.replacedBy.push(entry._id);
+    }
+  }
+}
+
+function evaluateGrantGraph(
+  graph: GrantGraph,
+  options: { permanentOnly?: boolean },
+) {
+  const { catalog, nodes, classCounts, selectedClasses } = graph;
+  const referenceId = (reference: SelectionReference) =>
+    reference.kind === 'entry'
+      ? reference.entryId
+      : formatGrantKeyId(reference.grantKey);
+  const evaluated = new Set<string>();
+  const visiting = new Set<string>();
+  function countsNow(id: string): boolean {
+    const node = nodes.get(id);
+    if (!node) return false;
+    if (evaluated.has(id)) return node.row.counting;
+    if (visiting.has(id)) return false;
+    visiting.add(id);
+    const entry = node.row.entry;
+    const parentAvailability = node.parents.map(countsNow);
+    const sourcePresent =
+      node.sourcePresent || parentAvailability.some(Boolean);
+    node.projectionExcluded =
+      options.permanentOnly === true &&
+      (isTemporaryEffect(
+        entry,
+        'catalogEntryId' in entry
+          ? catalog.get(entry.catalogEntryId)?.detail
+          : undefined,
+      ) ||
+        (node.parents.length > 0 &&
+          node.parents.every(
+            (parent) => nodes.get(parent)?.projectionExcluded,
+          )));
+    const dependency =
+      ('selectionSource' in entry ? entry.selectionSource : undefined) ??
+      (entry.kind === 'feat' &&
+      entry.state.slot &&
+      entry.state.slot !== 'general'
+        ? { kind: 'slot' as const, grantedBy: entry.state.slot.grantedBy }
+        : undefined);
+    const dependencyPresent = (() => {
+      if (dependency?.kind === 'classPrompt') {
+        return (
+          (classCounts.get(dependency.source) ?? 0) >= dependency.classLevel &&
+          [...selectedClasses.values()].some((definition) => {
+            const detail = definition.detail;
+            return (
+              getClassFamily(graph, definition) === dependency.source &&
+              detail?.kind === 'class' &&
+              'picksByLevel' in detail &&
+              Boolean(
+                detail.picksByLevel?.some(
+                  (prompt) =>
+                    prompt.classLevel === dependency.classLevel &&
+                    normalizeCharacterSheetChoiceName(prompt.list) ===
+                      normalizeCharacterSheetChoiceName(dependency.list) &&
+                    prompt.count > 0,
+                ),
+              )
+            );
+          })
+        );
+      }
+      if (dependency) {
+        const parentId = referenceId(
+          dependency.kind === 'slot' ? dependency.grantedBy : dependency.source,
+        );
+        const parent = nodes.get(parentId)?.row.entry;
+        const parentCatalog =
+          parent && 'catalogEntryId' in parent
+            ? catalog.get(parent.catalogEntryId)
+            : undefined;
+        const hasEntitlement =
+          dependency.kind === 'slot'
+            ? parentCatalog?.grantsSlots?.some(
+                (slot) => slot.kind === entry.kind && slot.count > 0,
+              )
+            : parentCatalog?.detail &&
+              'picksByLevel' in parentCatalog.detail &&
+              parentCatalog.detail.picksByLevel?.some(
+                (prompt) =>
+                  normalizeCharacterSheetChoiceName(prompt.list) ===
+                    normalizeCharacterSheetChoiceName(dependency.list) &&
+                  prompt.count > 0 &&
+                  (dependency.classLevel === undefined ||
+                    prompt.classLevel === dependency.classLevel),
+              );
+        const parentCounting = countsNow(parentId);
+        node.projectionExcluded ||=
+          nodes.get(parentId)?.projectionExcluded === true;
+        return parentCounting && Boolean(hasEntitlement);
+      }
+      return true;
+    })();
+    const available = sourcePresent && dependencyPresent;
+    const replacements = available ? node.replacedBy.filter(countsNow) : [];
+    node.row.dormant = !available || replacements.length > 0;
+    node.row.reason = replacements.length
+      ? { kind: 'replaced', byEntryIds: replacements }
+      : !available
+        ? { kind: 'sourceMissing' }
+        : undefined;
+    node.row.counting =
+      entry.active &&
+      !node.projectionExcluded &&
+      (!node.row.dormant || ('kept' in entry && entry.kept === true));
+    visiting.delete(id);
+    evaluated.add(id);
+    return node.row.counting;
+  }
+  for (const id of nodes.keys()) countsNow(id);
+}
+
+function buildGrantWarnings(graph: GrantGraph) {
+  const { catalog, nodes } = graph;
+  return [...nodes.values()]
+    .map(({ row }) => row)
+    .filter((row) => row.dormant && 'kept' in row.entry && row.entry.kept)
+    .map((row) => {
+      const name =
+        'catalogEntryId' in row.entry
+          ? catalog.get(row.entry.catalogEntryId)?.name
+          : undefined;
+      const replacers =
+        row.reason?.kind === 'replaced'
+          ? row.reason.byEntryIds.flatMap((id) => {
+              const entry = nodes.get(id)?.row.entry;
+              const name =
+                entry && 'catalogEntryId' in entry
+                  ? catalog.get(entry.catalogEntryId)?.name
+                  : undefined;
+              return name ? [name] : [];
+            })
+          : [];
+      return {
+        kind: 'rules',
+        check: 'keptDormant',
+        target: { kind: 'entry', entryId: row.entry._id },
+        subject: row.entry._id,
+        fingerprint: JSON.stringify([
+          ('grantKey' in row.entry ? row.entry.grantKey : undefined) ??
+            row.entry._id,
+          row.reason,
+        ]),
+        message: `${name ?? 'Entry'}: kept, although ${replacers.length ? `${replacers.join(' and ')} ${replacers.length === 1 ? 'replaces' : 'replace'} it` : 'its source is unavailable'}.`,
+      } satisfies SheetWarning;
+    });
+}
+
+export function resolveCharacterSheetGrants(
+  input: CharacterSheetInput,
+  options: { permanentOnly?: boolean } = {},
+) {
+  const graph = buildGrantGraph(input);
+  addClassGrants(graph);
+  addRaceGrants(graph);
+  applyArchetypeReplacements(graph);
+  addNestedGrants(graph);
+  applyRacialTraitReplacements(graph);
+  evaluateGrantGraph(graph, options);
+  const allEntries = [...graph.nodes.values()].map(({ row }) => row);
+  const entries = allEntries.filter(
+    (row) => row.recorded || !row.dormant || row.reason?.kind === 'replaced',
+  );
+  return {
+    entries,
+    allEntries,
+    countingEntries: entries
+      .filter((row) => row.counting)
+      .map(({ entry }) => entry),
+    warnings: buildGrantWarnings(graph),
+  };
+}

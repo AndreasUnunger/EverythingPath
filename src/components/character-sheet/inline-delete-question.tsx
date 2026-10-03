@@ -23,6 +23,7 @@ export function InlineDeleteQuestion({
   details,
   subject,
   deleteLabel = 'Delete',
+  keepLabel = 'Keep',
   isBusy,
   isKeepDisabled = false,
   className,
@@ -36,7 +37,9 @@ export function InlineDeleteQuestion({
   /** Read out after each answer, so "Delete" and "Keep" name their target. */
   subject: string;
   /** The destructive answer's verb, when "Delete" is not the word. */
-  deleteLabel?: 'Delete' | 'Remove';
+  deleteLabel?: 'Delete' | 'Remove' | 'Discard saved state';
+  /** The harmless answer, when "Keep" already means something else here. */
+  keepLabel?: string;
   /** Another write is pending: Delete waits for it. */
   isBusy: boolean;
   isKeepDisabled?: boolean;
@@ -99,7 +102,7 @@ export function InlineDeleteQuestion({
         disabled={isKeepDisabled}
         onClick={onKeep}
       >
-        Keep <span className="sr-only">{subject}</span>
+        {keepLabel} <span className="sr-only">{subject}</span>
       </Button>
       <MaintenanceReason notice={maintenance} />
       {children}

@@ -111,17 +111,22 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:createSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:deleteClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:deletePrivate` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:discardDormantEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editBaseScores` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editCreationSettings` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editGrantState` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editSelection` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:moveClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:removeAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:removePersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:removeSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:reopenWarning` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:selectEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:setDormantEntryKept` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/clerk.ts:fulfill` | readOnly | Signature verification only; no writes or scheduling |
 | `convex/cutover.ts:activate` | retired | Retired: always rejects; never mutates |
 | `convex/cutover.ts:initialize` | retired | Retired: always rejects; never mutates |

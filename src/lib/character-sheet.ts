@@ -1,4 +1,7 @@
+import type { Infer, GenericId } from 'convex/values';
+import type { characterSheetEntryValidator } from '../../convex/schema';
 import { z } from 'zod';
+import { resolveCharacterSheetGrants } from './character-sheet-grants';
 import {
   advancementBudgets,
   advancementWarnings,
@@ -80,11 +83,13 @@ export const warningChecks = [
   'favoredClassPrestige',
   'skillRankCap',
   'classVersions',
+  'keptDormant',
 ] as const;
 export const characterSheetWarningSchema = z.object({
   kind: z.enum(['incomplete', 'unresolved', 'rules']),
   check: z.enum(warningChecks),
   target: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('entry'), entryId: z.string() }),
     z.object({ kind: z.literal('pointBuy') }),
     z.object({
       kind: z.literal('classLevel'),
@@ -167,58 +172,31 @@ export type CharacterSheetCatalogEntry = {
   stacksWithItself?: boolean;
   modifiers: readonly Modifier[];
   detail?: SheetCatalogEntryDetail;
+  grants?: readonly { catalogEntryId: string }[];
+  grantsSlots?: readonly {
+    kind: 'feat' | 'trait';
+    count: number;
+    featTypes?: readonly string[];
+    feats?: readonly string[];
+    ignoresPrerequisites?: boolean;
+  }[];
 };
-export type SheetEntry = { _id: string } & (
-  | {
-      kind: 'base';
-      active: true;
-      catalogEntryId: string;
-      state: {
-        kind: 'base';
-        favoredClassIds?: readonly string[];
-      } & Partial<CreationSettings>;
-    }
-  | {
-      kind: 'manual';
-      active: boolean;
-      catalogEntryId: string;
-      state: { kind: 'manual' };
-    }
-  | {
-      [Kind in 'abilityDamage' | 'abilityDrain']: {
-        kind: Kind;
-        active: boolean;
-        state: { kind: Kind; ability: Ability; points: number };
-      };
-    }['abilityDamage' | 'abilityDrain']
-  | {
-      kind: 'spellEffect';
-      active: boolean;
-      catalogEntryId: string;
-      state: { kind: 'spellEffect'; casterLevel: number };
-    }
-  | {
-      [Kind in 'condition' | 'item' | 'spell']: {
-        kind: Kind;
-        active: boolean;
-        catalogEntryId: string;
-        state: { kind: Kind };
-      };
-    }['condition' | 'item' | 'spell']
-  | {
-      kind: 'classLevel';
-      active: true;
-      state: {
-        kind: 'classLevel';
-        classEntryId: string | null;
-        position: number;
-        hpGained: number | null;
-        favoredClassBonus?: FavoredClassBonus | null;
-        abilityIncrease?: Ability | null;
-        skillRanks?: Record<string, number>;
-      };
-    }
-);
+// The resolver uses synthetic row identities, while stored references retain the
+// schema's exact discriminated state and metadata fields.
+type ResolveSheetIds<Value> =
+  Value extends GenericId<string>
+    ? string
+    : Value extends readonly (infer Item)[]
+      ? ResolveSheetIds<Item>[]
+      : Value extends object
+        ? { [Key in keyof Value]: ResolveSheetIds<Value[Key]> }
+        : Value;
+type ResolveStoredSheetEntry<Entry> = Entry extends { characterId: unknown }
+  ? ResolveSheetIds<Omit<Entry, 'characterId'>> & { _id: string }
+  : never;
+export type SheetEntry = ResolveStoredSheetEntry<
+  Infer<typeof characterSheetEntryValidator>
+>;
 
 export function creationSettingsFor(
   base: Extract<SheetEntry, { kind: 'base' }>,
@@ -233,7 +211,37 @@ export function creationSettingsFor(
 }
 
 export type SheetCatalogEntryDetail =
-  | { kind: 'spellEffect'; lastsOverOneDay?: boolean }
+  | { kind: 'race'; racialTraits: readonly string[] }
+  | {
+      kind: 'racialTrait';
+      raceEntryIds: readonly string[];
+      replaces: readonly string[];
+    }
+  | {
+      kind: 'archetype';
+      classEntryIds: readonly string[];
+      replaces: readonly { classLevel: number; catalogEntryId: string }[];
+      adds: readonly { classLevel: number; catalogEntryId: string }[];
+      picksByLevel?: readonly {
+        classLevel: number;
+        list: string;
+        count: number;
+      }[];
+    }
+  | {
+      kind: 'classFeature';
+      picksByLevel?: readonly {
+        classLevel: number;
+        list: string;
+        count: number;
+      }[];
+    }
+  | { kind: 'feat' | 'trait' }
+  | {
+      kind: 'spellEffect';
+      lastsOverOneDay?: boolean;
+      defaultCasterLevel?: number;
+    }
   | { kind: 'item'; consumable?: boolean }
   | CharacterSheetClassDetail
   | { kind: 'class' }
@@ -511,9 +519,17 @@ function permanentIntelligenceFor(
   formulaCache: FormulaCache,
 ) {
   const permanentOptions = { ...options, permanentOnly: true };
-  const { drainModifiers } = abilityChangesFor(input.entries, permanentOptions);
+  const countingInput = {
+    ...input,
+    entries: resolveCharacterSheetGrants(input, permanentOptions)
+      .countingEntries,
+  };
+  const { drainModifiers } = abilityChangesFor(
+    countingInput.entries,
+    permanentOptions,
+  );
   const modifiers = [
-    ...sourceCatalogModifiers(input, permanentOptions),
+    ...sourceCatalogModifiers(countingInput, permanentOptions),
     ...drainModifiers,
     ...advancement.modifiers,
   ].filter((modifier) => modifier.target === 'ability.int');
@@ -521,7 +537,7 @@ function permanentIntelligenceFor(
   const intelligence = resolveTarget(
     'ability.int',
     modifiers,
-    calculationContext(input, advancement, {}, permanentOptions),
+    calculationContext(countingInput, advancement, {}, permanentOptions),
     breakdowns,
     formulaCache,
     [],
@@ -601,12 +617,14 @@ function calculateDerivedStatistics(
 }
 
 function calculateSheetProjection(
-  input: CharacterSheetInput,
+  recordedInput: CharacterSheetInput,
   options: ResolveOptions,
   formulaCache: FormulaCache,
-  { base, baseModifiers } = baseScoresFor(input),
+  { base, baseModifiers } = baseScoresFor(recordedInput),
   permanentIntelligence?: number,
 ) {
+  const grants = resolveCharacterSheetGrants(recordedInput, options);
+  const input = { ...recordedInput, entries: grants.countingEntries };
   const sourced = sourceCatalogModifiers(input, options);
   const advancement = resolveAdvancement(input);
   const { levels } = advancement;
@@ -654,10 +672,64 @@ function calculateSheetProjection(
       permanentIntelligence ??
       (options.permanentOnly
         ? abilities.intelligence.modifier
-        : permanentIntelligenceFor(input, advancement, options, formulaCache)),
+        : permanentIntelligenceFor(
+            recordedInput,
+            advancement,
+            options,
+            formulaCache,
+          )),
   });
+  const warnings = [
+    ...sheetWarnings({
+      characterKind: input.characterKind,
+      base,
+      levels,
+      baseModifiers,
+      creationSettings,
+      pointBuy,
+      hp,
+    }),
+    ...advancementWarnings({
+      characterKind: input.characterKind,
+      advancement,
+      classLevels: advancementResult.classLevels,
+      favoredClassIds: base.state.favoredClassIds ?? [],
+      favoredClassCount: input.favoredClassCount ?? 1,
+      catalogEntries: input.catalogEntries,
+    }),
+    ...formulaWarnings,
+    ...grants.warnings,
+  ].filter(
+    (warning) =>
+      input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
+  );
+  const dormantModifiers = sourceCatalogModifiers(
+    {
+      ...input,
+      entries: grants.allEntries
+        .filter((row) => row.dormant && !row.counting)
+        .map(({ entry }) => ({ ...entry, active: true })),
+    },
+    options,
+  );
+  const dormantWarnings: SheetWarning[] = [];
+  for (const modifier of dormantModifiers) {
+    try {
+      resolveModifierValue(modifier, context, breakdowns, formulaCache);
+    } catch (error) {
+      if (!(error instanceof FormulaError)) throw error;
+      recordFormulaWarning(dormantWarnings, modifier, error);
+    }
+  }
   return {
     abilities,
+    resolvedEntries: grants.entries.filter(
+      ({ entry }) =>
+        entry.kind !== 'base' &&
+        entry.kind !== 'classLevel' &&
+        entry.kind !== 'abilityDamage' &&
+        entry.kind !== 'abilityDrain',
+    ),
     abilityModifierBreakdowns: calculateAbilityModifierBreakdowns(
       abilities,
       abilityDamage,
@@ -668,29 +740,8 @@ function calculateSheetProjection(
     hp,
     creationSettings,
     pointBuy,
-    warnings: [
-      ...sheetWarnings({
-        characterKind: input.characterKind,
-        base,
-        levels,
-        baseModifiers,
-        creationSettings,
-        pointBuy,
-        hp,
-      }),
-      ...advancementWarnings({
-        characterKind: input.characterKind,
-        advancement,
-        classLevels: advancementResult.classLevels,
-        favoredClassIds: base.state.favoredClassIds ?? [],
-        favoredClassCount: input.favoredClassCount ?? 1,
-        catalogEntries: input.catalogEntries,
-      }),
-      ...formulaWarnings,
-    ].filter(
-      (warning) =>
-        input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
-    ),
+    warnings,
+    warningsForAcceptance: [...warnings, ...dormantWarnings],
     breakdowns,
     derivedStatistics: calculateDerivedStatistics(
       breakdowns,

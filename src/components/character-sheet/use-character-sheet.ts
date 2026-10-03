@@ -22,6 +22,7 @@ import {
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
+import { useCharacterSheetGrants } from './use-character-sheet-grants';
 import type { SaveStatus } from './save-status';
 import { buildCharacterSheetView } from './character-sheet-view-model';
 import { useBuildOutCharacter } from './use-build-out-character';
@@ -51,6 +52,7 @@ export function useCharacterSheet(scope: CharacterScope) {
   const buildOut = useBuildOutCharacter(scope);
   const snapshot = useQuery(api.characterSheet.read, scope);
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
+  const grants = useCharacterSheetGrants(scope, snapshot);
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);
   const addClassLevel = useMutation(api.characterSheet.addClassLevel);
@@ -205,6 +207,7 @@ export function useCharacterSheet(scope: CharacterScope) {
 
   return {
     ...entryWrites,
+    grants,
     sheet,
     buildOut: {
       ...buildOut,

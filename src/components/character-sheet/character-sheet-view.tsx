@@ -7,6 +7,7 @@ import { BreakdownResolverProvider } from './breakdown-resolver';
 import { BuildOutControl } from './build-out-control';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
+import { CharacterSheetGrants } from './character-sheet-grants';
 import { ClassLevels, type UnplacedSelection } from './class-levels';
 import { DefensesBlock } from './defenses-block';
 import { FavoredClassesEditor } from './favored-classes-editor';
@@ -37,9 +38,7 @@ function describeIncompleteHp(levels: ReadySheet['levels']) {
 function listUnplacedSelections(sheet: ReadySheet): UnplacedSelection[] {
   return sheet.unplacedSelections.map((selection) => ({
     entryId: selection._id,
-    name:
-      sheet.adjustments.find((row) => row.entryId === selection._id)?.name ??
-      'Selection',
+    name: selection.name,
   }));
 }
 
@@ -142,8 +141,8 @@ function CampaignRow({
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Class Levels,
  * and Ability scores with their damage and drain in the left five of the
- * sheet's twelve columns, with personal adjustments, sheet entries and the
- * creation settings beside them. Each calculation warning sits by its
+ * sheet's twelve columns, with personal adjustments, sheet entries, granted
+ * and dormant entries and the creation settings beside them. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
  * formula under its Modifier); only another player's acceptances are
  * announced for the sheet.
@@ -246,6 +245,12 @@ export function CharacterSheetView({
             <CharacterSheetEntries
               rows={sheet.sheetEntries}
               actions={controller.sheetEntries}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
+            />
+            <CharacterSheetGrants
+              sections={sheet.grants}
+              actions={controller.grants}
               warnings={sheet.warnings}
               warningController={controller.warnings}
             />

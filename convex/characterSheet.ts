@@ -2,21 +2,44 @@ import {
   maxCharacterChildRows,
   maxAcceptedWarnings,
   requireAbilityScore,
+  listCatalogDependencies,
 } from './lib/preparedCharacterSheet';
-import { isCatalogSheetEntry } from '../src/lib/character-sheet-entries';
-import { compareValues, ConvexError, v } from 'convex/values';
+import {
+  characterSheetClassFamily,
+  hasGrantAncestor,
+  resolveCharacterSheetGrants,
+  normalizeCharacterSheetChoiceName,
+  type GrantKey,
+} from '../src/lib/character-sheet-grants';
+import {
+  createCatalogSheetEntryState,
+  isSelectableCatalogSheetEntryKind,
+  isCatalogSheetEntry,
+  type SelectableCatalogSheetEntryKind,
+} from '../src/lib/character-sheet-entries';
+import {
+  compareValues,
+  ConvexError,
+  v,
+  type Infer,
+  type Validator,
+} from 'convex/values';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
+import type { WithoutSystemFields } from 'convex/server';
 import type { MutationCtx } from './_generated/server';
 import { query } from './_generated/server';
 import { legacyCharacterMutation as campaignMutation } from './lib/campaignRuntime';
 import schema, {
   creationSettingsValidator,
+  favoredClassBonusValidator,
+  characterSheetEntryValidator,
   modifierValidator,
   abilityValidator,
   abilityChangeKindValidator,
   sheetEntryDetailValidator,
-  favoredClassBonusValidator,
+  grantKeyValidator,
+  selectionSourceValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -36,6 +59,7 @@ import {
   characterSheetWarningSchema,
   type Modifier,
   type BaseModifier,
+  type SheetEntry,
 } from '../src/lib/character-sheet';
 import {
   deleteCharacterSheet,
@@ -73,7 +97,45 @@ const breakdownValidator = v.object({
   ),
   conditional: v.array(sourcedModifierValidator),
 });
+// Stored state shapes flow directly into the read DTO; only resolver identity differs.
+const resolvedSheetEntryValidator = v.union(
+  ...characterSheetEntryValidator.members.map((member) =>
+    member.extend({
+      _id: v.string(),
+      _creationTime: v.optional(v.number()),
+      characterId: v.optional(v.id('character')),
+    }),
+  ),
+);
+const resolvedEntryValidator = v.object({
+  entry: resolvedSheetEntryValidator as Validator<
+    SheetEntry & {
+      characterId?: Id<'character'>;
+      _creationTime?: number;
+    },
+    'required',
+    string
+  >,
+  origin: v.union(v.literal('grant'), v.literal('selection')),
+  recorded: v.boolean(),
+  dormant: v.boolean(),
+  counting: v.boolean(),
+  storedEntryId: v.optional(v.string()),
+  reason: v.optional(
+    v.union(
+      v.object({ kind: v.literal('sourceMissing') }),
+      v.object({
+        kind: v.literal('replaced'),
+        byEntryIds: v.array(v.string()),
+      }),
+    ),
+  ),
+});
 const calculatedValidator = v.object({
+  resolvedEntries: v.array(resolvedEntryValidator),
+  warningsForAcceptance: v.array(
+    zodOutputToConvex(characterSheetWarningSchema),
+  ),
   abilities: v.object({
     strength: abilityValue,
     dexterity: abilityValue,
@@ -205,7 +267,7 @@ export const read = query({
       catalogEntries: v.array(schema.doc('catalogEntry')),
       baseScoresEntry: schema.doc('catalogEntry'),
       calculated: calculatedValidator,
-      permanentCalculated: calculatedValidator,
+      permanentCalculated: calculatedValidator.omit('resolvedEntries'),
       acceptedWarnings: v.array(schema.doc('acceptedWarning')),
       revision: v.number(),
       lastOperationId: v.union(v.string(), v.null()),
@@ -410,7 +472,7 @@ function getPersonalAdjustment(
   entryId: Id<'characterSheetEntry'>,
 ) {
   const entry = sheet.entries.find((row) => row._id === entryId);
-  if (entry?.kind !== 'manual')
+  if (entry?.kind !== 'manual' || entry.grantKey)
     throw new ConvexError(
       'Personal adjustment does not belong to this Character',
     );
@@ -474,18 +536,53 @@ export const editPersonalAdjustment = campaignMutation({
     return null;
   },
 });
+function isCatalogDefinitionReferenced(
+  sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
+  catalogEntryId: Id<'catalogEntry'>,
+  removedEntryId: Id<'characterSheetEntry'>,
+) {
+  if (
+    sheet.entries.some(
+      (entry) =>
+        entry._id !== removedEntryId &&
+        (('catalogEntryId' in entry &&
+          entry.catalogEntryId === catalogEntryId) ||
+          (entry.kind === 'classLevel' &&
+            entry.state.classEntryId === catalogEntryId) ||
+          (entry.kind === 'base' &&
+            entry.state.favoredClassIds?.includes(catalogEntryId))),
+    )
+  )
+    return true;
+  return sheet.catalogEntries.some(
+    (definition) =>
+      definition._id !== catalogEntryId &&
+      listCatalogDependencies(definition).some(
+        ({ id, kind }) => kind !== 'condition' && id === catalogEntryId,
+      ),
+  );
+}
+async function removeCatalogSelection(
+  ctx: MutationCtx,
+  sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
+  entry: Doc<'characterSheetEntry'> & { catalogEntryId: Id<'catalogEntry'> },
+) {
+  await ctx.db.delete('characterSheetEntry', entry._id);
+  if (!isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, entry._id)) {
+    await ctx.db.delete('catalogEntry', entry.catalogEntryId);
+    sheet.catalogEntries = sheet.catalogEntries.filter(
+      (row) => row._id !== entry.catalogEntryId,
+    );
+  }
+  sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
+}
 export const removePersonalAdjustment = campaignMutation({
   args: rowScope,
   returns: v.null(),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const entry = getPersonalAdjustment(sheet, args.entryId);
-    await ctx.db.delete('characterSheetEntry', entry._id);
-    await ctx.db.delete('catalogEntry', entry.catalogEntryId);
-    sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
-    sheet.catalogEntries = sheet.catalogEntries.filter(
-      (row) => row._id !== entry.catalogEntryId,
-    );
+    await removeCatalogSelection(ctx, sheet, entry);
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -952,7 +1049,7 @@ function getSheetEntry(
   entryId: Id<'characterSheetEntry'>,
 ) {
   const entry = sheet.entries.find((row) => row._id === entryId);
-  if (!isCatalogSheetEntry(entry))
+  if (!isCatalogSheetEntry(entry) || entry.grantKey)
     throw new ConvexError(
       'Character Sheet Entry does not belong to this Character',
     );
@@ -1121,13 +1218,538 @@ export const removeSheetEntry = campaignMutation({
   returns: v.null(),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
-    const { entry, catalog } = getSheetEntry(sheet, args.entryId);
-    await ctx.db.delete('characterSheetEntry', entry._id);
-    await ctx.db.delete('catalogEntry', catalog._id);
-    sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
-    sheet.catalogEntries = sheet.catalogEntries.filter(
-      (row) => row._id !== catalog._id,
+    const { entry } = getSheetEntry(sheet, args.entryId);
+    await removeCatalogSelection(ctx, sheet, entry);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+const dormantTargetValidator = v.union(
+  v.object({ grantKey: grantKeyValidator }),
+  v.object({ entryId: v.id('characterSheetEntry') }),
+);
+const grantStateValidator = v.object({
+  active: v.optional(v.boolean()),
+  choice: v.optional(v.union(v.string(), v.null())),
+  notes: v.optional(v.string()),
+  catalogEntryId: v.optional(v.id('catalogEntry')),
+});
+
+type WritableSheet = Awaited<ReturnType<typeof loadWritableSheet>>;
+function findResolvedEntry(
+  sheet: WritableSheet,
+  target: { grantKey: GrantKey } | { entryId: Id<'characterSheetEntry'> },
+) {
+  const resolved = sheet.calculated.resolvedEntries.find((row) =>
+    'grantKey' in target
+      ? row.origin === 'grant' &&
+        compareValues(
+          'grantKey' in row.entry ? row.entry.grantKey : undefined,
+          target.grantKey,
+        ) === 0
+      : row.storedEntryId === target.entryId && row.origin === 'selection',
+  );
+  if (!resolved)
+    throw new ConvexError('Entry does not belong to this Character');
+  return resolved;
+}
+function requireCatalogSheetDefinition(
+  sheet: WritableSheet,
+  id: Id<'catalogEntry'>,
+) {
+  const definition = sheet.catalogEntries.find((row) => row._id === id);
+  if (!definition)
+    throw new ConvexError('Catalog Entry does not belong to this Character');
+  if (!isSelectableCatalogSheetEntryKind(definition.detail.kind))
+    throw new ConvexError('Choose a feature or Selection');
+  return { ...definition, kind: definition.detail.kind };
+}
+async function persistRecordedEntry(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+  row: WithoutSystemFields<Doc<'characterSheetEntry'>>,
+  previousId?: Id<'characterSheetEntry'>,
+) {
+  // The concrete document is checked by the schema before it enters the sheet.
+  if (previousId) await ctx.db.replace('characterSheetEntry', previousId, row);
+  else if (sheet.entries.length >= maxCharacterChildRows)
+    throw new ConvexError('Character sheet is too large');
+  const id = previousId ?? (await ctx.db.insert('characterSheetEntry', row));
+  const stored = await ctx.db.get('characterSheetEntry', id);
+  if (!stored) throw new ConvexError('Entry is unavailable');
+  sheet.entries = [
+    ...sheet.entries.filter((entry) => entry._id !== id),
+    stored,
+  ];
+  return id;
+}
+
+export const editGrantState = campaignMutation({
+  args: {
+    ...writeScope,
+    grantKey: grantKeyValidator,
+    state: grantStateValidator,
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const resolved = findResolvedEntry(sheet, { grantKey: args.grantKey });
+    const previous = sheet.entries.find(
+      (row) => row._id === resolved.storedEntryId,
     );
+    if (!('catalogEntryId' in resolved.entry) || resolved.entry.kind === 'base')
+      throw new ConvexError('Grant definition is unavailable');
+    const catalogEntryId =
+      args.state.catalogEntryId ??
+      ctx.db.normalizeId('catalogEntry', resolved.entry.catalogEntryId);
+    if (!catalogEntryId)
+      throw new ConvexError('Grant definition is unavailable');
+    const definition = requireCatalogSheetDefinition(sheet, catalogEntryId);
+    const resolvedCatalogEntryId = resolved.entry.catalogEntryId;
+    const resolvedDefinition = sheet.catalogEntries.find(
+      (row) => row._id === resolvedCatalogEntryId,
+    );
+    if (
+      definition.ruleIdentity !== resolvedDefinition?.ruleIdentity ||
+      definition.detail.kind !== resolved.entry.kind
+    )
+      throw new ConvexError(
+        'A Grant copy must retain its rule identity and kind',
+      );
+    const choice =
+      args.state.choice ??
+      ('choice' in resolved.entry.state
+        ? resolved.entry.state.choice
+        : undefined);
+    const row = {
+      characterId: sheet.character._id,
+      catalogEntryId,
+      ...buildRecordedCatalogState(
+        ctx,
+        resolved.entry,
+        args.state.choice === null ? null : choice,
+      ),
+      active: args.state.active ?? resolved.entry.active,
+      grantKey: args.grantKey,
+      ...(args.state.catalogEntryId !== undefined ||
+      (previous && 'catalogOverride' in previous && previous.catalogOverride)
+        ? { catalogOverride: true as const }
+        : {}),
+      ...(previous && 'kept' in previous && previous.kept
+        ? { kept: true as const }
+        : {}),
+      ...(args.state.notes !== undefined
+        ? { notes: args.state.notes }
+        : 'notes' in resolved.entry && resolved.entry.notes !== undefined
+          ? { notes: resolved.entry.notes }
+          : {}),
+    };
+    await persistRecordedEntry(ctx, sheet, row, previous?._id);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const setDormantEntryKept = campaignMutation({
+  args: { ...writeScope, target: dormantTargetValidator, kept: v.boolean() },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const resolved = findResolvedEntry(sheet, args.target);
+    if (!resolved.dormant)
+      throw new ConvexError('Only dormant entries can be kept or un-kept');
+    const previous = sheet.entries.find(
+      (entry) => entry._id === resolved.storedEntryId,
+    );
+    if (previous && 'kept' in previous && Boolean(previous.kept) === args.kept)
+      return null;
+    if (!previous && !args.kept) return null;
+    if (previous) {
+      if (!('catalogEntryId' in previous) || previous.kind === 'base')
+        throw new ConvexError('Only features and Selections can be kept');
+      const { _id, _creationTime, ...row } = previous;
+      const definition = requireCatalogSheetDefinition(
+        sheet,
+        previous.catalogEntryId,
+      );
+      const defaultState = createCatalogSheetEntryState(
+        previous.kind,
+        undefined,
+        definition.detail.kind === 'spellEffect'
+          ? definition.detail.defaultCasterLevel
+          : undefined,
+      ).state;
+      const state =
+        'choice' in previous.state && previous.state.choice === null
+          ? Object.fromEntries(
+              Object.entries(previous.state).filter(
+                ([key]) => key !== 'choice',
+              ),
+            )
+          : previous.state;
+      if (
+        !args.kept &&
+        previous.grantKey &&
+        previous.active &&
+        !previous.notes &&
+        !previous.catalogOverride &&
+        !previous.selectionSource &&
+        !previous.gainedAtClassLevel &&
+        compareValues(state, defaultState) === 0
+      ) {
+        await ctx.db.delete('characterSheetEntry', _id);
+        sheet.entries = sheet.entries.filter((entry) => entry._id !== _id);
+      } else
+        await persistRecordedEntry(
+          ctx,
+          sheet,
+          { ...row, kept: args.kept ? true : undefined },
+          _id,
+        );
+    } else {
+      if (
+        !('catalogEntryId' in resolved.entry) ||
+        !('grantKey' in resolved.entry) ||
+        !resolved.entry.grantKey
+      )
+        throw new ConvexError('Grant definition is unavailable');
+      const catalogEntryId = ctx.db.normalizeId(
+        'catalogEntry',
+        resolved.entry.catalogEntryId,
+      );
+      if (!catalogEntryId)
+        throw new ConvexError('Grant definition is unavailable');
+      requireCatalogSheetDefinition(sheet, catalogEntryId);
+      await persistRecordedEntry(ctx, sheet, {
+        characterId: sheet.character._id,
+        catalogEntryId,
+        ...buildRecordedCatalogState(ctx, resolved.entry),
+        active: resolved.entry.active,
+        grantKey: resolved.entry.grantKey,
+        kept: true,
+      });
+    }
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const discardDormantEntry = campaignMutation({
+  args: { ...writeScope, target: dormantTargetValidator },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const resolved = findResolvedEntry(sheet, args.target);
+    if (!resolved.dormant)
+      throw new ConvexError('Only dormant entries can be discarded');
+    const previous = sheet.entries.find(
+      (entry) => entry._id === resolved.storedEntryId,
+    );
+    if (!previous)
+      throw new ConvexError('This entry has no recorded state to discard');
+    const discardedIds = new Set<string>([resolved.entry._id, previous._id]);
+    if (resolved.origin === 'selection' && 'catalogEntryId' in previous) {
+      for (const grant of resolveCharacterSheetGrants({
+        entries: sheet.entries,
+        catalogEntries: sheet.catalogEntries,
+        characterKind: sheet.character.kind,
+      }).allEntries) {
+        if (
+          grant.origin !== 'grant' ||
+          !hasGrantAncestor(grant.entry._id, resolved.entry._id)
+        )
+          continue;
+        discardedIds.add(grant.entry._id);
+        if (grant.storedEntryId) {
+          discardedIds.add(grant.storedEntryId);
+          const stored = sheet.entries.find(
+            (entry) => entry._id === grant.storedEntryId,
+          );
+          if (stored) await ctx.db.delete('characterSheetEntry', stored._id);
+        }
+      }
+      sheet.entries = sheet.entries.filter(
+        (entry) => !discardedIds.has(entry._id) || entry._id === previous._id,
+      );
+      await removeCatalogSelection(ctx, sheet, previous);
+    } else {
+      await ctx.db.delete('characterSheetEntry', previous._id);
+      sheet.entries = sheet.entries.filter(
+        (entry) => entry._id !== previous._id,
+      );
+    }
+    const belongsToDiscardedEntry = (subject: string) =>
+      [...discardedIds].some(
+        (id) => subject === id || subject.startsWith(`${id}:`),
+      ) ||
+      (resolved.origin === 'selection' &&
+        hasGrantAncestor(subject, resolved.entry._id));
+    for (const accepted of sheet.acceptedWarnings.filter((accepted) =>
+      belongsToDiscardedEntry(accepted.subject),
+    ))
+      await ctx.db.delete('acceptedWarning', accepted._id);
+    sheet.acceptedWarnings = sheet.acceptedWarnings.filter(
+      (accepted) => !belongsToDiscardedEntry(accepted.subject),
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+const selectionFields = {
+  active: v.optional(v.boolean()),
+  choice: v.optional(v.union(v.string(), v.null())),
+  notes: v.optional(v.string()),
+  selectionSource: v.optional(v.union(selectionSourceValidator, v.null())),
+  gainedAtClassLevel: v.optional(
+    v.union(v.id('characterSheetEntry'), v.null()),
+  ),
+};
+function requireSelectionReferences(
+  sheet: WritableSheet,
+  source: Infer<typeof selectionSourceValidator> | null | undefined,
+  gainedAtClassLevel?: Id<'characterSheetEntry'> | null,
+) {
+  if (gainedAtClassLevel) getClassLevel(sheet, gainedAtClassLevel);
+  if (!source) return source;
+  if (source.kind === 'classPrompt') {
+    if (!Number.isSafeInteger(source.classLevel) || source.classLevel < 1)
+      throw new ConvexError('Enter a positive whole prompt level');
+    const sourceDefinition = sheet.catalogEntries.find(
+      (row) =>
+        row.ruleIdentity === source.source && row.detail.kind === 'class',
+    );
+    if (!sourceDefinition)
+      throw new ConvexError(
+        'Class prompt source does not belong to this Character',
+      );
+    const family = characterSheetClassFamily(
+      sourceDefinition,
+      sheet.catalogEntries,
+    );
+    const selectedIds = new Set(
+      sheet.entries.flatMap((row) =>
+        row.kind === 'classLevel' && row.state.classEntryId
+          ? [row.state.classEntryId]
+          : [],
+      ),
+    );
+    const familyDefinitions = sheet.catalogEntries.filter(
+      (row) =>
+        row.detail.kind === 'class' &&
+        characterSheetClassFamily(row, sheet.catalogEntries) === family,
+    );
+    const selectedDefinitions = familyDefinitions.filter((row) =>
+      selectedIds.has(row._id),
+    );
+    const definitions = selectedDefinitions.length
+      ? selectedDefinitions
+      : familyDefinitions;
+    const list = normalizeCharacterSheetChoiceName(source.list);
+    if (
+      !definitions.some(
+        (row) =>
+          row.detail.kind === 'class' &&
+          'picksByLevel' in row.detail &&
+          row.detail.picksByLevel.some(
+            (prompt) =>
+              prompt.classLevel === source.classLevel &&
+              normalizeCharacterSheetChoiceName(prompt.list) === list,
+          ),
+      )
+    )
+      throw new ConvexError('Choose a prompt defined by this class');
+    return { ...source, source: family, list };
+  }
+  const reference = source.kind === 'slot' ? source.grantedBy : source.source;
+  const resolved = sheet.calculated.resolvedEntries.find((row) =>
+    reference.kind === 'entry'
+      ? row.entry._id === reference.entryId ||
+        row.storedEntryId === reference.entryId
+      : 'grantKey' in row.entry &&
+        compareValues(row.entry.grantKey, reference.grantKey) === 0,
+  );
+  if (!resolved)
+    throw new ConvexError('Selection source does not belong to this Character');
+  if (source.kind === 'prompt') {
+    if (!source.list.trim()) throw new ConvexError('Choose a prompt list');
+    if (source.classLevel !== undefined)
+      requireNonnegativeInteger(source.classLevel, 'Prompt level');
+  }
+  const normalizedReference =
+    resolved.origin === 'grant' &&
+    'grantKey' in resolved.entry &&
+    resolved.entry.grantKey
+      ? { kind: 'grant' as const, grantKey: resolved.entry.grantKey }
+      : reference;
+  return source.kind === 'slot'
+    ? { ...source, grantedBy: normalizedReference }
+    : { ...source, source: normalizedReference };
+}
+export const selectEntry = campaignMutation({
+  args: {
+    ...writeScope,
+    ...selectionFields,
+    catalogEntryId: v.id('catalogEntry'),
+  },
+  returns: v.id('characterSheetEntry'),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const definition = requireCatalogSheetDefinition(
+      sheet,
+      args.catalogEntryId,
+    );
+    requireEntryChoice(definition.detail.kind, args.choice);
+    const selectionSource = requireSelectionReferences(
+      sheet,
+      args.selectionSource,
+      args.gainedAtClassLevel,
+    );
+    const id = await persistRecordedEntry(ctx, sheet, {
+      ...createCatalogSheetEntryState(
+        definition.kind,
+        args.choice,
+        definition.detail.kind === 'spellEffect'
+          ? definition.detail.defaultCasterLevel
+          : undefined,
+      ),
+      characterId: sheet.character._id,
+      catalogEntryId: definition._id,
+      active: args.active ?? true,
+      ...(args.notes !== undefined ? { notes: args.notes } : {}),
+      ...(selectionSource ? { selectionSource } : {}),
+      ...(args.gainedAtClassLevel
+        ? { gainedAtClassLevel: args.gainedAtClassLevel }
+        : {}),
+    });
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return id;
+  },
+});
+function requireEntryChoice(kind: string, choice: string | null | undefined) {
+  if (
+    choice !== undefined &&
+    ['condition', 'item', 'spell', 'spellEffect'].includes(kind)
+  )
+    throw new ConvexError('This entry does not have a recorded choice');
+}
+type RecordedCatalogEntry = Extract<
+  Doc<'characterSheetEntry'>,
+  { kind: SelectableCatalogSheetEntryKind }
+>;
+type RecordedCatalogState<Entry = RecordedCatalogEntry> =
+  Entry extends Doc<'characterSheetEntry'>
+    ? Pick<Entry, 'kind' | 'state'>
+    : never;
+function buildRecordedCatalogState(
+  ctx: MutationCtx,
+  entry: SheetEntry,
+  choice?: string | null,
+): RecordedCatalogState {
+  requireEntryChoice(entry.kind, choice);
+  if (!isSelectableCatalogSheetEntryKind(entry.kind))
+    throw new ConvexError('Choose a feature or Selection');
+  if (entry.kind === 'feat') {
+    const slot = entry.state.slot;
+    const reference = typeof slot === 'object' ? slot.grantedBy : undefined;
+    if (reference?.kind === 'entry') {
+      const entryId = ctx.db.normalizeId(
+        'characterSheetEntry',
+        reference.entryId,
+      );
+      if (!entryId)
+        throw new ConvexError(
+          'Selection source does not belong to this Character',
+        );
+      return {
+        kind: 'feat',
+        state: {
+          ...entry.state,
+          ...(choice === undefined ? {} : { choice }),
+          slot: { grantedBy: { kind: 'entry', entryId } },
+        },
+      };
+    }
+  }
+  // Preserve every schema-defined recorded field; the kind/state discriminants
+  // originate in the same schema member and are unchanged by a choice edit.
+  return {
+    kind: entry.kind,
+    state: { ...entry.state, ...(choice === undefined ? {} : { choice }) },
+  } as RecordedCatalogState;
+}
+export const editSelection = campaignMutation({
+  args: {
+    ...rowScope,
+    ...selectionFields,
+    catalogEntryId: v.optional(v.id('catalogEntry')),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const previous = sheet.entries.find((row) => row._id === args.entryId);
+    if (
+      !previous ||
+      !('catalogEntryId' in previous) ||
+      previous.kind === 'base' ||
+      previous.grantKey
+    )
+      throw new ConvexError('Selection does not belong to this Character');
+    const definition = sheet.catalogEntries.find(
+      (row) => row._id === (args.catalogEntryId ?? previous.catalogEntryId),
+    );
+    if (!definition)
+      throw new ConvexError('Catalog Entry does not belong to this Character');
+    if (definition.detail.kind !== previous.kind)
+      throw new ConvexError('A Selection must retain its kind');
+    // An unchanged broken Class Level link remains unplaced rather than guessed.
+    const unchangedSource =
+      args.selectionSource === undefined ||
+      compareValues(args.selectionSource, previous.selectionSource) === 0;
+    const selectionSource = unchangedSource
+      ? previous.selectionSource
+      : requireSelectionReferences(sheet, args.selectionSource);
+    if (
+      args.gainedAtClassLevel &&
+      args.gainedAtClassLevel !== previous.gainedAtClassLevel
+    )
+      getClassLevel(sheet, args.gainedAtClassLevel);
+    const choice =
+      args.choice !== undefined
+        ? args.choice
+        : 'choice' in previous.state
+          ? previous.state.choice
+          : undefined;
+    const row = {
+      ...buildRecordedCatalogState(ctx, previous, choice),
+      characterId: sheet.character._id,
+      catalogEntryId: definition._id,
+      active: args.active ?? previous.active,
+      notes: args.notes ?? previous.notes,
+      ...(previous.kept ? { kept: previous.kept } : {}),
+      selectionSource: selectionSource ?? undefined,
+      gainedAtClassLevel:
+        args.gainedAtClassLevel === null
+          ? undefined
+          : (args.gainedAtClassLevel ?? previous.gainedAtClassLevel),
+    };
+    await persistRecordedEntry(ctx, sheet, row, previous._id);
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
