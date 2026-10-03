@@ -1,3 +1,4 @@
+import type { ConditionKey } from '../../src/lib/character-sheet-conditions.ts';
 import type { CuratedItemAbility } from './curation.ts';
 import type { ImportKind } from './inventory.ts';
 import {
@@ -445,6 +446,15 @@ export const detailMappers = {
 
 type ImportedDetail = ReturnType<(typeof detailMappers)[ImportKind]>;
 export type PreviewDetail =
+  | {
+      kind: 'condition';
+      conditionKey: ConditionKey;
+      unmodeled: string[];
+      deniesDexterityBonus: boolean;
+      citations: string[];
+      sourceSections: string[];
+      curationInputs: Record<string, string>;
+    }
   | Exclude<ImportedDetail, { kind: 'itemAbility' }>
   | (Extract<ImportedDetail, { kind: 'itemAbility' }> &
       Omit<CuratedItemAbility, 'sourceKey'>);

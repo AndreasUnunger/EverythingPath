@@ -17,6 +17,7 @@ import {
   emptyOwnerCandidates,
   type CatalogSheetEntry,
 } from './character-sheet-test-fixture';
+import { defaultAbilityScores } from '~/lib/character-sheet';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Sheet entries (#298): Spell Effects, conditions, items and recorded Spells
@@ -81,7 +82,9 @@ vi.mock(
   () => import('../weekly-draft-workspace/native-select-test-double'),
 );
 
-const page = () => <CharacterSheetBlocks blocks={['scores', 'entries']} />;
+const page = () => (
+  <CharacterSheetBlocks blocks={['scores', 'entries', 'defenses', 'offense']} />
+);
 function renderSheet(initial: CharacterSheetSnapshot) {
   snapshot = initial;
   const view = render(page());
@@ -264,8 +267,9 @@ test('an existing Spell Effect keeps its kind fixed while its caster level is ov
     }),
   );
   expect(within(row('Shield')).getByText('Spell Effect · CL 12')).toBeVisible();
-  expect(within(editor('Edit')).getByRole('status')).toHaveTextContent(
-    'Saved.',
+  expect(within(editor('Edit')).getByText('Saved.')).toHaveAttribute(
+    'role',
+    'status',
   );
 });
 
@@ -535,8 +539,9 @@ test("a refused save keeps the classification and Modifier drafts; another playe
   expect(
     within(region()).queryByText(/changed|another player/),
   ).not.toBeInTheDocument();
-  expect(within(editor('Edit')).getByRole('status')).toHaveTextContent(
-    'Saved.',
+  expect(within(editor('Edit')).getByText('Saved.')).toHaveAttribute(
+    'role',
+    'status',
   );
 });
 
@@ -557,4 +562,316 @@ test('maintenance disables adding, switching, removing and every editor field, w
   expect(button('Save entry')).toBeDisabled();
   fireEvent.submit(editor('Edit'));
   expect(calls).toEqual([]);
+});
+
+// CRB conditions (#311): chosen by name, their rules and uncalculated
+// quantities read on the row, their numbers in the current totals only.
+
+const crbCondition = (
+  id: string,
+  name: string,
+  conditionKey: NonNullable<
+    Extract<CatalogSheetEntry['detail'], { kind: 'condition' }>['conditionKey']
+  >,
+  modifiers: CatalogSheetEntry['modifiers'],
+): CatalogSheetEntry => ({
+  id,
+  name,
+  detail: { kind: 'condition', conditionKey },
+  modifiers,
+});
+const blinded = crbCondition('entry-6', 'Blinded', 'blinded', [
+  { target: 'ac', bonusType: 'untyped', value: -2 },
+  {
+    target: 'skill.per',
+    bonusType: 'untyped',
+    value: -4,
+    condition: { situation: 'opposed-perception' },
+  },
+]);
+const fatigued = crbCondition('entry-7', 'Fatigued', 'fatigued', [
+  { target: 'ability.str', bonusType: 'untyped', value: -2 },
+  { target: 'ability.dex', bonusType: 'untyped', value: -2 },
+]);
+const exhausted = crbCondition('entry-8', 'Exhausted', 'exhausted', [
+  { target: 'ability.str', bonusType: 'untyped', value: -6 },
+  { target: 'ability.dex', bonusType: 'untyped', value: -6 },
+]);
+const grappled = crbCondition('entry-9', 'Grappled', 'grappled', [
+  { target: 'ability.dex', bonusType: 'untyped', value: -4 },
+  { target: 'attack', bonusType: 'untyped', value: -2 },
+]);
+const pinned = crbCondition('entry-10', 'Pinned', 'pinned', [
+  { target: 'ac', bonusType: 'untyped', value: -4 },
+]);
+const shakenModifiers: CatalogSheetEntry['modifiers'] = [
+  { target: 'attack', bonusType: 'untyped', value: -2 },
+  { target: 'saves', bonusType: 'untyped', value: -2 },
+  { target: 'skills', bonusType: 'untyped', value: -2 },
+];
+const prone = crbCondition('entry-11', 'Prone', 'prone', [
+  { target: 'attack.melee', bonusType: 'untyped', value: -4 },
+  {
+    target: 'ac',
+    bonusType: 'untyped',
+    value: 4,
+    condition: { situation: 'ranged-attack' },
+  },
+  {
+    target: 'ac',
+    bonusType: 'untyped',
+    value: -4,
+    condition: { situation: 'melee-attack' },
+  },
+]);
+const invisible = crbCondition('entry-12', 'Invisible', 'invisible', [
+  {
+    target: 'attack',
+    bonusType: 'untyped',
+    value: 2,
+    condition: { situation: 'sighted-opponent' },
+  },
+]);
+const energyDrained = crbCondition(
+  'entry-13',
+  'Energy Drained',
+  'energy-drained',
+  [],
+);
+const dazed = crbCondition('entry-14', 'Dazed', 'dazed', []);
+
+const armorClass = (total: number) =>
+  within(screen.getByRole('region', { name: 'Defenses' })).getByRole('button', {
+    name: `Armor Class ${total}, breakdown`,
+  });
+const conditionCards = () =>
+  screen.getByRole('radiogroup', { name: 'CRB condition' });
+
+test('a saved Blinded condition reads its rules on the row and denies the Dexterity bonus to AC but not to Reflex; switched off it keeps its CRB selection and the totals recover', async () => {
+  const dexterous = { ...defaultAbilityScores, dexterity: 14 };
+  const view = renderSheet(
+    buildSheet({ scores: dexterous, sheetEntries: [blinded] }),
+  );
+  expect(row('Blinded')).toHaveTextContent(
+    '-2 to All AC · -4 to Perception (on opposed Perception checks)',
+  );
+  expect(within(row('Blinded')).getByText('Rules')).toBeVisible();
+  expect(row('Blinded')).toHaveTextContent(/The creature cannot see/);
+  expect(within(row('Blinded')).getByText('Not calculated')).toBeVisible();
+  expect(row('Blinded')).toHaveTextContent(
+    /Total concealment \(50% miss chance\)/,
+  );
+  expect(armorClass(8)).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Reflex save +2, breakdown' }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Initiative +2, breakdown' }),
+  ).toBeVisible();
+  fireEvent.click(armorClass(8));
+  const breakdown = screen.getByRole('group', {
+    name: 'Armor Class breakdown',
+  });
+  expect(within(breakdown).getByText('Not applied')).toBeVisible();
+  expect(breakdown).toHaveTextContent(
+    /Dexterity bonus and dodge bonuses are denied by this condition\. \(Blinded\)/,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Close breakdown' }));
+
+  fireEvent.click(screen.getByRole('switch', { name: 'Blinded: active' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().args).toEqual(
+    expect.objectContaining({ entryId: 'entry-6', active: false }),
+  );
+  expect(lastCall().args).not.toHaveProperty('detail');
+  await act(async () => {
+    lastCall().resolve(null);
+  });
+  view.show(
+    buildSheet({
+      scores: dexterous,
+      sheetEntries: [{ ...blinded, active: false }],
+      lastOperationId: operationOf(lastCall()),
+    }),
+  );
+  expect(within(row('Blinded')).getByText('Inactive')).toBeVisible();
+  expect(within(row('Blinded')).queryByText('Rules')).not.toBeInTheDocument();
+  expect(armorClass(12)).toBeVisible();
+  fireEvent.click(button('Edit Blinded'));
+  expect(
+    within(conditionCards()).getByRole('radio', { name: 'Blinded' }),
+  ).toBeChecked();
+  expect(editor('Edit')).toHaveTextContent(/The creature cannot see/);
+});
+
+test('current ability totals carry a condition while the permanent values exclude it; Prone and Invisible stay conditional; rules-only conditions report what is not calculated', () => {
+  renderSheet(
+    buildSheet({
+      sheetEntries: [fatigued, prone, invisible, energyDrained, dazed],
+    }),
+  );
+  expect(strength(8)).toBeVisible();
+  const permanentRows = screen
+    .getAllByText('Permanent')
+    .map((label) => label.parentElement?.textContent);
+  expect(permanentRows).toEqual([
+    expect.stringMatching(/^Strength Permanent\s*10\s*\+0$/),
+    expect.stringMatching(/^Dexterity Permanent\s*10\s*\+0$/),
+  ]);
+  expect(
+    screen.getByText(
+      'Permanent values exclude short-duration spells, conditions, consumables and ability damage.',
+    ),
+  ).toBeVisible();
+
+  // Fatigued's Dexterity penalty leaves AC 9; Prone changes it only in a
+  // Situation, so the ordinary total stays and the breakdown previews both.
+  expect(armorClass(9)).toBeVisible();
+  fireEvent.click(armorClass(9));
+  const breakdown = screen.getByRole('group', {
+    name: 'Armor Class breakdown',
+  });
+  expect(within(breakdown).getByText('Only when…')).toBeVisible();
+  expect(breakdown).toHaveTextContent(/vs\. ranged attacks.*becomes.*13/);
+  expect(breakdown).toHaveTextContent(/vs\. melee attacks.*becomes.*5/);
+  fireEvent.click(screen.getByRole('button', { name: 'Close breakdown' }));
+  expect(row('Invisible')).toHaveTextContent(
+    '+2 to All attacks (vs. opponents that cannot see you)',
+  );
+  expect(row('Invisible')).toHaveTextContent(/Not calculated/);
+
+  expect(row('Energy Drained')).toHaveTextContent(
+    'No numeric Modifiers. Its rules say what it does.',
+  );
+  expect(row('Energy Drained')).toHaveTextContent(
+    /Not calculated.*Negative-level count is not recorded/,
+  );
+  expect(row('Dazed')).toHaveTextContent(/can take no actions/);
+  expect(
+    within(row('Dazed')).queryByText('Not calculated'),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+});
+
+test('Exhausted replaces Fatigued and Pinned replaces Grappled without doubling penalties; switching the winner off restores the survivor, and every row stays editable', async () => {
+  const view = renderSheet(
+    buildSheet({ sheetEntries: [fatigued, exhausted, grappled, pinned] }),
+  );
+  expect(row('Fatigued')).toHaveTextContent(
+    'Replaced by Exhausted. Its Modifiers do not apply.',
+  );
+  expect(within(row('Fatigued')).queryByText('Rules')).not.toBeInTheDocument();
+  expect(row('Grappled')).toHaveTextContent(
+    'Replaced by Pinned. Its Modifiers do not apply.',
+  );
+  expect(row('Exhausted')).toHaveTextContent(/Moves at half speed/);
+  expect(strength(4)).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Dexterity 4, breakdown' }),
+  ).toBeVisible();
+  expect(armorClass(3)).toBeVisible();
+  for (const name of ['Fatigued', 'Exhausted', 'Grappled', 'Pinned'])
+    expect(button(`Edit ${name}`)).toBeEnabled();
+
+  fireEvent.click(screen.getByRole('switch', { name: 'Exhausted: active' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  await act(async () => {
+    lastCall().resolve(null);
+  });
+  view.show(
+    buildSheet({
+      sheetEntries: [
+        fatigued,
+        { ...exhausted, active: false },
+        grappled,
+        pinned,
+      ],
+      lastOperationId: operationOf(lastCall()),
+    }),
+  );
+  expect(row('Fatigued')).not.toHaveTextContent('Replaced by');
+  expect(row('Fatigued')).toHaveTextContent(/Can neither run nor charge/);
+  expect(within(row('Exhausted')).getByText('Inactive')).toBeVisible();
+  expect(strength(8)).toBeVisible();
+});
+
+test('two Shaken selections count as Frightened once: the row keeps its name, reads what it counts as, and the saves take one penalty', () => {
+  renderSheet(
+    buildSheet({
+      sheetEntries: [
+        crbCondition('entry-15', 'Shaken', 'shaken', shakenModifiers),
+        crbCondition('entry-16', 'Shaken', 'shaken', shakenModifiers),
+      ],
+    }),
+  );
+  const [first, second] = within(region()).getAllByRole('listitem', {
+    name: 'Shaken',
+  });
+  expect(first).toHaveTextContent('Counts as Frightened.');
+  expect(first).toHaveTextContent(/Flees from the source of its fear/);
+  expect(second).toHaveTextContent(
+    'Replaced by Frightened. Its Modifiers do not apply.',
+  );
+  expect(
+    screen.getByRole('button', { name: 'Will save -2, breakdown' }),
+  ).toBeVisible();
+  expect(screen.queryByText('Frightened', { selector: 'h3' })).toBeNull();
+});
+
+test("customizing a saved condition keeps the draft through another player's change to the same entry, and an own save echo is quiet", async () => {
+  const view = renderSheet(buildSheet({ sheetEntries: [blinded] }));
+  fireEvent.click(button('Edit Blinded'));
+  fireEvent.click(button('Customize condition'));
+  fireEvent.change(field('Name'), { target: { value: 'Blind (adapted)' } });
+  expect(field('Modifier 1 value')).toHaveValue('-2');
+
+  const theirs: CatalogSheetEntry = {
+    ...blinded,
+    name: 'Blinded (house rule)',
+    detail: { kind: 'condition' },
+  };
+  view.show(buildSheet({ sheetEntries: [theirs], lastOperationId: 'theirs' }));
+  expect(within(region()).getByText('Sheet entries changed.')).toBeVisible();
+  expect(
+    within(editor('Edit')).getByText(
+      'This entry changed while you were editing. Your edits are kept.',
+    ),
+  ).toBeVisible();
+  expect(field('Name')).toHaveValue('Blind (adapted)');
+  expect(
+    within(conditionCards()).getByRole('radio', { name: 'Custom condition' }),
+  ).toBeChecked();
+  expect(screen.queryByText('Rules · CRB')).not.toBeInTheDocument();
+
+  fireEvent.click(button('Save entry'));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().name).toBe('editSheetEntry');
+  expect(lastCall().args).toMatchObject({
+    entryId: 'entry-6',
+    name: 'Blind (adapted)',
+    detail: { kind: 'condition' },
+    modifiers: blinded.modifiers,
+  });
+  await act(async () => {
+    lastCall().resolve(null);
+  });
+  view.show(
+    buildSheet({
+      sheetEntries: [{ ...theirs, name: 'Blind (adapted)' }],
+      lastOperationId: operationOf(lastCall()),
+    }),
+  );
+  fireEvent.click(button('Dismiss entries update'));
+  fireEvent.click(button('Dismiss entry update'));
+  expect(
+    within(region()).queryByText(/changed|another player/),
+  ).not.toBeInTheDocument();
+  expect(within(editor('Edit')).getByText('Saved.')).toHaveAttribute(
+    'role',
+    'status',
+  );
+  expect(row('Blind (adapted)')).toHaveTextContent('-2 to All AC');
+  expect(
+    within(row('Blind (adapted)')).queryByText('Rules'),
+  ).not.toBeInTheDocument();
 });

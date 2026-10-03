@@ -46,5 +46,20 @@
       "https://gitlab.com/foundryvtt_pathfinder1e/pf1-content/-/blob/11.4.0/OGL.txt",
       "Only the book line is available in the pinned compilation. Inherited notices and printed comparison remain unreviewed; do not use the AoN Numeria block."
     ]
+  },
+  "CRB": {
+    "title": "Pathfinder RPG Core Rulebook",
+    "notice": "Pathfinder RPG Core Rulebook. Copyright 2009, Paizo Publishing, LLC; Author: Jason Bulmahn, based on material by Jonathan Tweet, Monte Cook, and Skip Williams.",
+    "checkedAgainst": "pf1-content",
+    "checkedOn": "2026-10-03",
+    "aliases": [
+      "PZO1110"
+    ],
+    "reviewStatus": "reviewed",
+    "provenance": [
+      "https://gitlab.com/foundryvtt_pathfinder1e/pf1-content/-/blob/11.4.0/OGL.txt",
+      "sha256:10bcdc68296b48cc250f38e49de09c9a73645163d7ac7f76e77346a755c35cdc",
+      "Offline comparison against the exact Pathfinder RPG Core Rulebook Section15 line in src/lib/catalog/data/resources.json (pf1-content compilation). The inherited OGL and SRD lines remain in shipped legal resources; not printed-book verification."
+    ]
   }
 }

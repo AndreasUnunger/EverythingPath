@@ -158,6 +158,7 @@ export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
               <CharacterSheetEntries
                 key={block}
                 rows={sheet.sheetEntries}
+                conditionEffects={sheet.calculated.conditionEffects}
                 actions={controller.sheetEntries}
                 warnings={sheet.warnings}
                 warningController={controller.warnings}

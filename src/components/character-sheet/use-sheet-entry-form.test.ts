@@ -4,6 +4,206 @@ import { ConvexError } from 'convex/values';
 import { useSheetEntryForm } from './use-sheet-entry-form';
 import type { SheetEntryInput } from './use-character-sheet-entries';
 
+test('ordinary edits of a curated condition preserve its key so canonical mechanics remain guarded', async () => {
+  const value: SheetEntryInput = {
+    name: 'Blinded',
+    detail: { kind: 'condition', conditionKey: 'blinded' },
+    modifiers: [{ target: 'ac', bonusType: 'untyped', value: -2 }],
+  };
+  const save = vi
+    .fn()
+    .mockRejectedValue(
+      new ConvexError('A CRB condition must use its canonical Modifiers'),
+    );
+  const view = renderHook(() => useSheetEntryForm({ value, save }));
+  act(() =>
+    view.result.current.adjustmentForm.setValue('modifiers.0.value', '-3', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('failed');
+  });
+  expect(save).toHaveBeenCalledWith({
+    ...value,
+    modifiers: [{ target: 'ac', bonusType: 'untyped', value: -3 }],
+  });
+});
+
+test('selecting a CRB condition fills its canonical mechanics and submits its trusted key', async () => {
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useSheetEntryForm({ save }));
+  expect(view.result.current.form.getValues('conditionSelection')).toEqual({
+    kind: 'custom',
+  });
+  expect(view.result.current.conditionOptions).toHaveLength(34);
+  expect(
+    view.result.current.conditionOptions.map((option) => option.name),
+  ).toContain('Unconscious');
+  act(() => view.result.current.selectCondition('fatigued'));
+  expect(view.result.current.form.getValues('conditionSelection')).toEqual({
+    kind: 'crb',
+    key: 'fatigued',
+  });
+  expect(view.result.current.selectedCondition?.name).toBe('Fatigued');
+  expect(view.result.current.fields).toHaveLength(2);
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  expect(save).toHaveBeenCalledWith({
+    name: 'Fatigued',
+    modifiers: [
+      { target: 'ability.str', bonusType: 'untyped', value: -2 },
+      { target: 'ability.dex', bonusType: 'untyped', value: -2 },
+    ],
+    detail: { kind: 'condition', conditionKey: 'fatigued' },
+  });
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  expect(save).toHaveBeenCalledTimes(1);
+});
+
+test('an unchanged curated condition stays selected without writing, and a condition without numeric mechanics saves no blank modifier', async () => {
+  const value: SheetEntryInput = {
+    name: 'Dazed',
+    modifiers: [],
+    detail: { kind: 'condition', conditionKey: 'dazed' },
+  };
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useSheetEntryForm({ value, save }));
+  expect(view.result.current.selectedCondition?.name).toBe('Dazed');
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  expect(save).not.toHaveBeenCalled();
+  const create = renderHook(() => useSheetEntryForm({ save }));
+  act(() => create.result.current.selectCondition('dazed'));
+  expect(create.result.current.fields).toHaveLength(0);
+  await act(async () => {
+    expect(await create.result.current.save()).toBe('saved');
+  });
+  expect(save).toHaveBeenCalledWith(value);
+});
+
+test('explicit custom detach keeps the selected name and modifiers and permits intentional edits', async () => {
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useSheetEntryForm({ save }));
+  act(() => {
+    view.result.current.selectCondition('fatigued');
+    view.result.current.detachCondition();
+  });
+  expect(view.result.current.selectedCondition).toBeNull();
+  expect(view.result.current.form.getValues('conditionSelection')).toEqual({
+    kind: 'custom',
+  });
+  expect(view.result.current.adjustmentForm.getValues('name')).toBe('Fatigued');
+  expect(view.result.current.fields).toHaveLength(2);
+  act(() => {
+    view.result.current.adjustmentForm.setValue('name', 'Narrative fatigue', {
+      shouldDirty: true,
+    });
+    view.result.current.adjustmentForm.setValue('modifiers.0.value', '-1', {
+      shouldDirty: true,
+    });
+  });
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  expect(save).toHaveBeenCalledWith({
+    name: 'Narrative fatigue',
+    detail: { kind: 'condition' },
+    modifiers: [
+      { target: 'ability.str', bonusType: 'untyped', value: -1 },
+      { target: 'ability.dex', bonusType: 'untyped', value: -2 },
+    ],
+  });
+});
+
+test('a selected condition draft survives a save refusal and retains its readable rule limits', async () => {
+  const save = vi
+    .fn()
+    .mockRejectedValue(
+      new ConvexError({ code: 'MAINTENANCE', message: 'paused' }),
+    );
+  const view = renderHook(() => useSheetEntryForm({ save }));
+  act(() => view.result.current.selectCondition('paralyzed'));
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('failed');
+  });
+  expect(view.result.current.status.kind).toBe('error');
+  expect(view.result.current.form.getValues('conditionSelection')).toEqual({
+    kind: 'crb',
+    key: 'paralyzed',
+  });
+  expect(view.result.current.adjustmentForm.getValues('name')).toBe(
+    'Paralyzed',
+  );
+  expect(view.result.current.selectedCondition?.unmodeled).toContainEqual(
+    expect.stringContaining('Strength 0'),
+  );
+});
+
+test('a dirty condition selection stays together when another player changes the entry, and its own save echo stays quiet', async () => {
+  const value: SheetEntryInput = {
+    name: 'Fatigued',
+    detail: { kind: 'condition', conditionKey: 'fatigued' },
+    modifiers: [
+      { target: 'ability.str', bonusType: 'untyped', value: -2 },
+      { target: 'ability.dex', bonusType: 'untyped', value: -2 },
+    ],
+  };
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(({ value }) => useSheetEntryForm({ value, save }), {
+    initialProps: { value },
+  });
+  act(() => view.result.current.selectCondition('exhausted'));
+  view.rerender({
+    value: {
+      name: 'Dazed',
+      modifiers: [],
+      detail: { kind: 'condition', conditionKey: 'dazed' },
+    },
+  });
+  expect(view.result.current.selectedCondition?.name).toBe('Exhausted');
+  expect(view.result.current.adjustmentForm.getValues('name')).toBe(
+    'Exhausted',
+  );
+  expect(view.result.current.hasRemoteChange).toBe(true);
+  act(() => view.result.current.dismissRemoteChange());
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  const submitted: SheetEntryInput = {
+    name: 'Exhausted',
+    detail: { kind: 'condition', conditionKey: 'exhausted' },
+    modifiers: [
+      { target: 'ability.str', bonusType: 'untyped', value: -6 },
+      { target: 'ability.dex', bonusType: 'untyped', value: -6 },
+    ],
+  };
+  expect(save).toHaveBeenCalledWith(submitted);
+  view.rerender({ value: submitted });
+  expect(view.result.current.hasRemoteChange).toBe(false);
+  expect(view.result.current.selectedCondition?.name).toBe('Exhausted');
+});
+
+test('custom conditions show an in-app required name error and keep an invalid draft without saving', async () => {
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useSheetEntryForm({ save }));
+  act(() => view.result.current.removeModifier(0));
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('failed');
+  });
+  expect(
+    view.result.current.adjustmentForm.formState.errors.name?.message,
+  ).toBe('Adjustment name is required');
+  expect(save).not.toHaveBeenCalled();
+  expect(view.result.current.form.getValues('conditionSelection')).toEqual({
+    kind: 'custom',
+  });
+});
+
 test('Spell Effects prefill caster level and blank overrides restore the default while saving formulas', async () => {
   const save = vi.fn().mockResolvedValue(null);
   const value: SheetEntryInput = {

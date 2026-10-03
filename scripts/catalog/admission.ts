@@ -14,7 +14,38 @@ import {
   resolveNotice,
 } from '../../src/lib/catalog/resolve-notice.ts';
 
-type ImportArtifact = Awaited<ReturnType<typeof importCatalog>>;
+type ImportedArtifact = Awaited<ReturnType<typeof importCatalog>>;
+export type AdmissionArtifact = Omit<
+  ImportedArtifact,
+  'comparison' | 'catalog'
+> & {
+  catalog: ImportedArtifact['catalog'] & {
+    localResources?: { path: string; sha256: string }[];
+  };
+  comparison: Omit<ImportedArtifact['comparison'], 'records' | 'packs'> & {
+    records: (Omit<
+      ImportedArtifact['comparison']['records'][number],
+      'repo'
+    > & { repo: string })[];
+    packs: (Omit<ImportedArtifact['comparison']['packs'][number], 'repo'> & {
+      repo: string;
+    })[];
+  };
+};
+export type AdmissionSource = {
+  catalog: Pick<AdmissionArtifact['catalog'], 'entries'> &
+    Partial<
+      Pick<
+        AdmissionArtifact['catalog'],
+        'resources' | 'remaps' | 'localResources'
+      >
+    >;
+  comparison: Pick<AdmissionArtifact['comparison'], 'records' | 'packs'>;
+  curation?: Pick<
+    AdmissionArtifact['curation'],
+    'missing' | 'unresolvedMechanics'
+  >;
+};
 export type AdmissionRow = {
   externalKey: string;
   name: string;
@@ -47,7 +78,7 @@ type BindingInput = {
   evidenceIds: string[];
 };
 type BindingContext = {
-  artifact: ImportArtifact;
+  artifact: AdmissionSource;
   evidence: AttributionEvidence;
   registry: Section15Registry;
 };
@@ -69,7 +100,10 @@ function buildCatalogIndexes({
   artifact,
   registry,
 }: Pick<BindingContext, 'artifact' | 'registry'>) {
-  const entries = [...artifact.catalog.entries, ...artifact.catalog.resources];
+  const entries = [
+    ...artifact.catalog.entries,
+    ...(artifact.catalog.resources ?? []),
+  ];
   const entriesByKey = new Map(
     entries.map((entry) => [entry.externalKey, entry]),
   );
@@ -115,7 +149,7 @@ function createBindingBuilder({
       mappingFingerprint = computeFingerprint({
         upstreamKey: entry.upstreamKey,
         externalKey: entry.externalKey,
-        remaps: artifact.catalog.remaps,
+        remaps: artifact.catalog.remaps ?? [],
       });
       mappingFingerprints.set(entry.externalKey, mappingFingerprint);
     }
@@ -336,17 +370,17 @@ function collectInventoryFailures({
   entries,
   duplicateAssessments,
 }: {
-  artifact: ImportArtifact;
+  artifact: AdmissionSource;
   entries: PreviewEntry[];
   duplicateAssessments: AttributionAssessment[];
 }) {
   const failures: AdmissionFailure[] = [];
-  for (const input of artifact.curation.missing)
+  for (const input of artifact.curation?.missing ?? [])
     failures.push({
       externalKey: input.externalKey,
       reason: `Missing curation record: ${input.kind} ${input.target} (${input.textSha256}).`,
     });
-  for (const record of artifact.curation.unresolvedMechanics)
+  for (const record of artifact.curation?.unresolvedMechanics ?? [])
     failures.push({
       externalKey: record.externalKey,
       reason: `Unresolved curation mechanics: ${record.diagnostics.map((diagnostic) => diagnostic.text).join(' ')}`,

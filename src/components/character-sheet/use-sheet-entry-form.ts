@@ -2,6 +2,12 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import {
+  conditionKeys,
+  conditionDefinitions,
+  getConditionDefinition,
+  type ConditionKey,
+} from '~/lib/character-sheet-conditions';
 import { useSheetFormState } from './use-sheet-form-state';
 import type { SheetEntryInput } from './use-character-sheet-entries';
 import {
@@ -12,9 +18,16 @@ import {
 function wholeNumber(raw: string) {
   return /^\d+$/.test(raw.trim()) && Number.isSafeInteger(Number(raw));
 }
+const conditionSelectionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('custom') }),
+  z.object({ kind: z.literal('crb'), key: z.enum(conditionKeys) }),
+]);
+export type ConditionSelection = z.infer<typeof conditionSelectionSchema>;
+
 const schema = z
   .object({
     kind: z.enum(['spellEffect', 'condition', 'item', 'spell']),
+    conditionSelection: conditionSelectionSchema,
     lastsOverOneDay: z.boolean(),
     consumable: z.boolean(),
     defaultCasterLevel: z.string(),
@@ -42,10 +55,14 @@ const schema = z
       });
   });
 
-function formValues(value?: SheetEntryInput) {
+function formValues(value?: SheetEntryInput): z.infer<typeof schema> {
   const detail = value?.detail;
   return {
     kind: detail?.kind ?? 'condition',
+    conditionSelection:
+      detail?.kind === 'condition' && detail.conditionKey
+        ? { kind: 'crb', key: detail.conditionKey }
+        : { kind: 'custom' },
     lastsOverOneDay: detail?.kind === 'spellEffect' && detail.lastsOverOneDay,
     consumable: detail?.kind === 'item' && detail.consumable,
     defaultCasterLevel: String(
@@ -69,6 +86,14 @@ function classificationDetail(
     };
   if (classification.kind === 'item')
     return { kind: 'item', consumable: classification.consumable };
+  if (
+    classification.kind === 'condition' &&
+    classification.conditionSelection.kind === 'crb'
+  )
+    return {
+      kind: 'condition',
+      conditionKey: classification.conditionSelection.key,
+    };
   return { kind: classification.kind };
 }
 
@@ -154,6 +179,34 @@ export function useSheetEntryForm({
     })();
     return outcome;
   }
+  const kind = form.watch('kind');
+  const conditionSelection = form.watch('conditionSelection');
+  const selectedCondition =
+    kind === 'condition' && conditionSelection.kind === 'crb'
+      ? getConditionDefinition(conditionSelection.key)
+      : null;
+  function selectCondition(key: ConditionKey) {
+    const definition = getConditionDefinition(key);
+    const options = { shouldDirty: true, shouldValidate: true };
+    form.setValue('kind', 'condition', options);
+    form.setValue('conditionSelection', { kind: 'crb', key }, options);
+    adjustment.form.setValue('name', definition.name, options);
+    adjustment.form.setValue(
+      'modifiers',
+      definition.modifiers.map(({ value, ...modifier }) => ({
+        ...modifier,
+        value: String(value),
+      })),
+      options,
+    );
+  }
+  function detachCondition() {
+    form.setValue(
+      'conditionSelection',
+      { kind: 'custom' },
+      { shouldDirty: true },
+    );
+  }
   return {
     form,
     adjustmentForm: adjustment.form,
@@ -166,6 +219,10 @@ export function useSheetEntryForm({
       state.dismissRemoteChange();
       adjustment.dismissRemoteChange();
     },
+    conditionOptions: conditionDefinitions,
+    selectedCondition,
+    selectCondition,
+    detachCondition,
     save,
   };
 }

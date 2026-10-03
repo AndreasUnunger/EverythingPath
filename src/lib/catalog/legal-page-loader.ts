@@ -1,5 +1,9 @@
 import { buildLegalPageData } from './legal-page-data';
-import { legalResources, section15Registry } from './reviewed-data';
+import {
+  conditionRequiredNotices,
+  legalResources,
+  section15Registry,
+} from './reviewed-data';
 import { releaseLegalInputsSchema } from './release-legal-inputs';
 
 export async function loadLegalPageData(
@@ -9,7 +13,7 @@ export async function loadLegalPageData(
     registry: section15Registry,
     resources: legalResources,
     permanentNoticeSuperset: legalResources.permanentNoticeSuperset,
-    requiredNotices: [],
+    requiredNotices: conditionRequiredNotices,
   };
   let inputs: Parameters<typeof buildLegalPageData>[0] = defaults;
   try {

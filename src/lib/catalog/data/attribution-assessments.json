@@ -1,1 +1,648 @@
-[]
+[
+  {
+    "externalKey": "local/crb-condition/bleed",
+    "status": "confirmed",
+    "contentFingerprint": "c06456337a9f9e7c5f025cfea579367e7a3510da38c1de118a55bcb55cf517d4",
+    "mappingFingerprint": "d0621368f007f09afcfff3e1192d552c33a226e911be8707f21c9a8fb80ccabc",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/blinded",
+    "status": "confirmed",
+    "contentFingerprint": "411af2b2a48cf00d55446475ab580ac80c85f506023895d8ed23d32723f85402",
+    "mappingFingerprint": "0a49b8519edf87067c358cef874da868ab2e0b80d26fd7ffcd506c77d7d55744",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/broken",
+    "status": "confirmed",
+    "contentFingerprint": "12c96caa9723fd280fffdf0479987d15040da56551f57a4ebb31f987d5061bbf",
+    "mappingFingerprint": "f9af87dc367fd1f138cb89a34537f1d7b31a5e16561aefad2d1813c285dee762",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/confused",
+    "status": "confirmed",
+    "contentFingerprint": "7410a026788f618b4ff7b16b0335e014756419199ad5fda8448d7c84a9eb3905",
+    "mappingFingerprint": "3333de46ad23c94def25b47929e878c591ed68274e41734c1056251b48aa100f",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/cowering",
+    "status": "confirmed",
+    "contentFingerprint": "27bc2db63c3c87d118a68a8261f0a19ed03fe0e745305dbaf1ccae8d80cf70fb",
+    "mappingFingerprint": "30d07c392f8292b9f8b27e96076d130293042249ec9d3a75c582561904368a21",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/dazed",
+    "status": "confirmed",
+    "contentFingerprint": "f9614a29cd23db21d2d0529edbc70e16124e66396dfb5133581b4533f381e392",
+    "mappingFingerprint": "67148ce4453992add650eb1dbb7e38eff9b050350a96dd19a8cdd819b3a6782d",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/dazzled",
+    "status": "confirmed",
+    "contentFingerprint": "c4a5013c007e422605bd929d82dee4327eda827c2b87946f810f4e09f16e37dc",
+    "mappingFingerprint": "999ac49f198703ccaa6a32ac0f4a2c53979c7bc62a0e86db6db057bfce40cf3f",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/dead",
+    "status": "confirmed",
+    "contentFingerprint": "b107d6e8d2b20d537f33823fc4b402d600fe4205243c6e6702e109776393a64c",
+    "mappingFingerprint": "9794726ed017a2814c3d74c8fa47e4b086d73fa721af28adf85522b2dcf25e9d",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/deafened",
+    "status": "confirmed",
+    "contentFingerprint": "229416ecc624026b89193ec4d881fce1345ba24d036e9ce75e137da13a817076",
+    "mappingFingerprint": "e0605c769468646838970fae9cb9da1deaba772ac602f099e4fa0a56cef8be1c",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/disabled",
+    "status": "confirmed",
+    "contentFingerprint": "07d70123b5dc2467daf6d3bef4f76514b59b1ae9f47e9ac5650fa1b97e610168",
+    "mappingFingerprint": "dd07583db3e317070e6b7b13f54a0dd06af036acba8027b44e2daf7b6afaf5cc",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/dying",
+    "status": "confirmed",
+    "contentFingerprint": "c84d8f1bc6d77ec39cbe8f0fb07011c86cd9a9a9d5538cc30458c7c81815431a",
+    "mappingFingerprint": "d91455cc2886564640d60138438ffbe1390f758cd8c9bf4cb56fff4ac5b96fbf",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/energy-drained",
+    "status": "confirmed",
+    "contentFingerprint": "d7257560866e451ad30831dcd5e72891d231b0898bab84f4b00094e48689f467",
+    "mappingFingerprint": "1e3394d14eabf1f751db4255c8feeec927ee13ba96b4fa7444d9a8410ba61449",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/entangled",
+    "status": "confirmed",
+    "contentFingerprint": "87a7eb93624fe066020b2aaf165d82553605f6c2488d26a0d3d6c8bf03fe02b0",
+    "mappingFingerprint": "22d210ee741bdaa9fa54042cd5fe11d894a6810d441a555c30b90a5a099888b0",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/exhausted",
+    "status": "confirmed",
+    "contentFingerprint": "fe38c850017429e11b8de3c862c86ba1eb058a165fecec7b68ca252453c02b19",
+    "mappingFingerprint": "ae71c29e325449ed3aaaadb774dd755a322875cb49600ac772e27949952238a6",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/fascinated",
+    "status": "confirmed",
+    "contentFingerprint": "2b5b4166409d7578bb9ac7a13e6f1e8295264bf822205b47bf3180592676077e",
+    "mappingFingerprint": "2d3411a4e17897d379ef2bca8cfcd5a2139fcec205a427f6d3dbfd1195552869",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/fatigued",
+    "status": "confirmed",
+    "contentFingerprint": "6854d16ca6e965e17403d4b43ea4a07daf493dea49f29048e07221a003b1be4c",
+    "mappingFingerprint": "6a9bdcbd62824379c991be9e06f939c362f763a7bf13a40d823e82191e7c5122",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/flat-footed",
+    "status": "confirmed",
+    "contentFingerprint": "390483d73cfa197b60305aa71b698b63342c94f52eb20dfcfb019c0416e60a94",
+    "mappingFingerprint": "0f2d27de674f77eb607cf037574fbed5805ae856ab1f9d3ee3ac18d89ceec5da",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/frightened",
+    "status": "confirmed",
+    "contentFingerprint": "f80a5dc9430ac6d9bbb0776a28e1a6e838d4eb47187944b99abbd43a91d2a3cb",
+    "mappingFingerprint": "61922c0ca36e839eb7721d95ab451314691ccd1b28f63a251021fb13a1371408",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/grappled",
+    "status": "confirmed",
+    "contentFingerprint": "0f3457439ad9881779aec4eddc267ee3c3787a84092d8d1ddcd8b61e62b3487d",
+    "mappingFingerprint": "7dd88d54d3309b812a2b5bad3821c0fbe183d8c6c7a3acc84cbc93eee555e75b",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/helpless",
+    "status": "confirmed",
+    "contentFingerprint": "8c0d9d6cd5a41b5a955f4a80d9c6db68567594ef74728cb8e695b690b5e5c3f8",
+    "mappingFingerprint": "e1eb551498c5f0ebb2e8d4e666c30405d5c7827946193b50c405a385d8908b55",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/incorporeal",
+    "status": "confirmed",
+    "contentFingerprint": "01f750256dfc69e8e85365942d7e7618f620dd0bb573a3d00218ca5d601264e1",
+    "mappingFingerprint": "68fcedc6dc8d454d22fdc78a75f394bb950d100eb6f843b4c7060bc8744a32cc",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/invisible",
+    "status": "confirmed",
+    "contentFingerprint": "29f162e37d087933fa85421464594048163504c71c5575fbf2842cbbc46f49f1",
+    "mappingFingerprint": "72ec28e431d30f798392486adf684796bd09feab4fb21c99c1014bcdbcd3ac42",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/nauseated",
+    "status": "confirmed",
+    "contentFingerprint": "e7a3e4b0f98a299dcfc8437e47a234632cf9bfeb1be9eaa0ccf7bd679fb27ed2",
+    "mappingFingerprint": "7e5070b02259e2aa2c43fb9d3b97b560bac6fe72a71f6ef451630a75beddbd8c",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/panicked",
+    "status": "confirmed",
+    "contentFingerprint": "648504ca0158325618cf80cc99c245463d234a0ade4962a60e1d85517a847db3",
+    "mappingFingerprint": "e485d12825a8222d7873b7aa7fd6ea2ef5e65337ee129d91ceee0db40aead2a3",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/paralyzed",
+    "status": "confirmed",
+    "contentFingerprint": "7c51fa7be8d9a72140a0dbea9e6125f1361549a7bf92b329d416895f27246b54",
+    "mappingFingerprint": "02ebe004f64eba4ccee125d7613cce8ea6aac1802643383fffcc08868db0445f",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/petrified",
+    "status": "confirmed",
+    "contentFingerprint": "c85f6b3a7a6998f7e64c1156b68d3b3bee064171b81b1cd95d396632099c0be8",
+    "mappingFingerprint": "3eb6a69cd78700bc99d04a814f82516a5b0cb84fe9dfcd72ee7e6fc04b4e392c",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/pinned",
+    "status": "confirmed",
+    "contentFingerprint": "0afd996894c6e0004862788904d64ed892590080060b3832e81b291f844adff4",
+    "mappingFingerprint": "bc14ccc3d642baaeabf85035d2cb8c4461bbe6208b9c2b595d43a601a483bd88",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/prone",
+    "status": "confirmed",
+    "contentFingerprint": "bff13dd2e37db2fd48db8d53a94c993afa47063d7bf9a8db6e25e381d181567e",
+    "mappingFingerprint": "fda8099b8cbc6c0b1b1821d61e6b2ad2a290f0d537457762efb4c73f48c384c9",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/shaken",
+    "status": "confirmed",
+    "contentFingerprint": "cd0c3d0a92d2389705f40230ea4fece87f5d905e3dd35adae40b4517ae25dc37",
+    "mappingFingerprint": "aaa3d5e65333b1271d780942e0693bdf7660099cac11f595ebbdb6d16ca33e42",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/sickened",
+    "status": "confirmed",
+    "contentFingerprint": "1c4d6f0939e8177dfeacd701248ebfe6495a6fdf74c992062ced2e0616deaa92",
+    "mappingFingerprint": "2fa22cadd7c1085b048666533c4610f10aa3f69cbaa18510daf03166cdd955c7",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/stable",
+    "status": "confirmed",
+    "contentFingerprint": "ad4222ec436fc15e68bf0fa3cf516ecce4c02ed1a0bfaf628beb2679cf0abacc",
+    "mappingFingerprint": "cf859373154a681549e93046906c2cfe0ac7ef86a79456735ba39b2df99e983e",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/staggered",
+    "status": "confirmed",
+    "contentFingerprint": "534a72e2672c89c483c8314816f216f77c0118a8df99a4a2d83dff786270a34d",
+    "mappingFingerprint": "0cf6da220c95120c4fc9b87834525354e9b7ffd3e9b99232d235551e6d6afeb9",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/stunned",
+    "status": "confirmed",
+    "contentFingerprint": "f79c48f173c83d26b6c641dfffe7ae099b95c4c6dceb2e4e36fd06ebb3fe004b",
+    "mappingFingerprint": "0fa70d836e4a2c69168e7f2d81a13cfa7a83512cb846cfc68183d3df5f00a371",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  },
+  {
+    "externalKey": "local/crb-condition/unconscious",
+    "status": "confirmed",
+    "contentFingerprint": "0cfda3cff1ab5eb99b553c6fee05505679c385f0f4920730b381eb6cf08c7f2b",
+    "mappingFingerprint": "c0bc71ec34c4f8c5e0c7eabb2ab64a0c56ab399ef54e7900f49c807b4ce5689e",
+    "evidenceFingerprints": {
+      "crb-conditions-311": "ad80baeb1b9a4ec1df8910a3a7b99b40e799c402cc8432263c372b8277623a4c",
+      "crb-conditions-311-rebase": "e09b014e77b85c0ca1756023bada6ab271e3413e4e623c58aa4306d52eafa6a8"
+    },
+    "noticeFingerprints": {
+      "CRB": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+    },
+    "requiredNotices": [
+      "CRB"
+    ],
+    "rationale": "Locally authored exclusively from the agreed CRB Conditions corpus and cited supporting CRB sections. Supported numerical outputs and every explicit unmodeled quantity were reviewed against that corpus. Inherited CRB/OGL/SRD notice text compared verbatim against pinned pf1-content compilation, not a printed-book comparison.",
+    "reviewedBy": "Codex offline condition curation for ticket #311",
+    "reviewedOn": "2026-10-03"
+  }
+]

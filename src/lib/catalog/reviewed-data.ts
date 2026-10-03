@@ -1,3 +1,4 @@
+import { conditionDefinitions } from '../character-sheet-conditions.ts';
 import { reviewedAdmissionSchema } from './admission-schema.ts';
 import { legalResourcesSchema } from './legal-types.ts';
 import registryData from './data/section15-registry.json';
@@ -13,3 +14,11 @@ export const reviewedAdmission = reviewedAdmissionSchema.parse({
 
 export const section15Registry = reviewedAdmission.registry;
 export const legalResources = legalResourcesSchema.parse(resourcesData);
+
+export const conditionRequiredNotices = [
+  ...new Set(
+    conditionDefinitions.flatMap((condition) =>
+      condition.sources.map((source) => source.book),
+    ),
+  ),
+];

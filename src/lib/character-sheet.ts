@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { resolveCharacterSheetGrants } from './character-sheet-grants';
 import { resolveSkills } from './character-sheet-skills';
 import {
+  resolveSheetConditions,
+  type ConditionKey,
+} from './character-sheet-conditions';
+import {
   advancementBudgets,
   advancementWarnings,
   resolveAdvancement,
@@ -254,7 +258,8 @@ export type SheetCatalogEntryDetail =
     }
   | CharacterSheetClassDetail
   | { kind: 'class' }
-  | { kind: 'base' | 'manual' | 'condition' | 'spell' };
+  | { kind: 'condition'; conditionKey?: ConditionKey }
+  | { kind: 'base' | 'manual' | 'spell' };
 
 export function isTemporaryEffect(
   entry: Pick<SheetEntry, 'kind'>,
@@ -570,6 +575,8 @@ function calculateDerivedStatistics(
     dexterity: abilities.dexterity.modifier,
     specialSize,
     maxDexterityBonus: options.armorMaxDexterityBonus,
+    deniedDexterityBy: options.deniedDexterityBy,
+    flatFootedBy: options.flatFootedBy,
   });
   function dependentStatistic(
     target: LeafTarget,
@@ -634,19 +641,74 @@ function calculateSheetProjection(
 ) {
   const grants = resolveCharacterSheetGrants(recordedInput, options);
   const input = { ...recordedInput, entries: grants.countingEntries };
-  const sourced = sourceCatalogModifiers(input, options);
-  const advancement = resolveAdvancement(input);
+  const conditions = resolveSheetConditions({
+    input,
+    permanentOnly: options.permanentOnly,
+  });
+  const effectiveInput = conditions.input;
+  const sourced = sourceCatalogModifiers(effectiveInput, options);
+  const advancement = resolveAdvancement(effectiveInput);
   const { levels } = advancement;
   const { abilityDamage, drainModifiers } = abilityChangesFor(
-    input.entries,
+    effectiveInput.entries,
     options,
   );
+  const grappled = conditions.effects.find(
+    (effect) => !effect.replacedBy && effect.conditionKey === 'grappled',
+  );
+  const invisible = conditions.effects.filter(
+    (effect) => !effect.replacedBy && effect.conditionKey === 'invisible',
+  );
+  const invisibilityReason =
+    'While grappled, invisibility grants only +2 CMD to avoid being grappled.';
+  const conditionEffects = conditions.effects.map((effect) =>
+    grappled && invisible.includes(effect)
+      ? { ...effect, notes: [...effect.notes, invisibilityReason] }
+      : effect,
+  );
+  const replacementSuppression = conditionEffects.flatMap((effect) => {
+    if (!effect.replacedBy) return [];
+    const winner = conditionEffects.find(
+      (item) => item.sheetEntryId === effect.replacedBy,
+    );
+    return [
+      {
+        sheetEntryId: effect.sheetEntryId,
+        suppressedBy: effect.replacedBy,
+        reason: `Replaced by ${winner?.name ?? 'another condition'}.`,
+        includesConditional: true,
+      },
+    ];
+  });
+  const conditionSuppression = [
+    ...replacementSuppression,
+    ...(grappled
+      ? invisible.map((effect) => ({
+          sheetEntryId: effect.sheetEntryId,
+          suppressedBy: grappled.sheetEntryId,
+          reason: invisibilityReason,
+        }))
+      : []),
+  ];
   const context = calculationContext(
-    input,
+    effectiveInput,
     advancement,
     abilityDamage,
-    options,
+    {
+      ...options,
+      conditionSuppression,
+      abilityPenaltyEntryIds: conditionEffects
+        .filter((effect) => !effect.replacedBy)
+        .map((effect) => effect.sheetEntryId),
+    },
   );
+  const derivedOptions = {
+    ...options,
+    deniedDexterityBy: conditions.deniedDexterityBy,
+    flatFootedBy: conditionEffects.find(
+      (effect) => !effect.replacedBy && effect.conditionKey === 'flat-footed',
+    )?.sheetEntryId,
+  };
   const size = specialSizeModifiers[options.size ?? 'medium'];
   if (size)
     sourced.push({
@@ -666,7 +728,7 @@ function calculateSheetProjection(
   );
   const abilities = calculateAbilities(breakdowns, abilityDamage);
   const skillProjection = resolveSkills({
-    input,
+    input: effectiveInput,
     advancement,
     abilities,
     breakdowns,
@@ -748,6 +810,7 @@ function calculateSheetProjection(
         entry.kind !== 'abilityDrain',
     ),
     skills: skillProjection.skills,
+    conditionEffects,
     abilityModifierBreakdowns: calculateAbilityModifierBreakdowns(
       abilities,
       abilityDamage,
@@ -764,7 +827,7 @@ function calculateSheetProjection(
     derivedStatistics: calculateDerivedStatistics(
       breakdowns,
       abilities,
-      options,
+      derivedOptions,
     ),
   };
 }
@@ -1227,6 +1290,8 @@ const specialSizeModifiers = {
 export type ResolveOptions = {
   size?: keyof typeof specialSizeModifiers;
   armorMaxDexterityBonus?: number;
+  deniedDexterityBy?: string;
+  flatFootedBy?: string;
   permanentOnly?: boolean;
   level?: number;
   hitDice?: number;
@@ -1235,6 +1300,13 @@ export type ResolveOptions = {
   arcaneCasterLevel?: number;
   preModifierCasterLevel?: number;
   abilityDamage?: Partial<Record<Ability, number>>;
+  abilityPenaltyEntryIds?: readonly string[];
+  conditionSuppression?: readonly {
+    sheetEntryId: string;
+    suppressedBy: string;
+    reason: string;
+    includesConditional?: boolean;
+  }[];
   situations?: readonly (
     | string
     | { local: string; sheetEntryId: string }
@@ -1544,6 +1616,7 @@ function resolveTarget(
 ): ResolvedStatistic {
   const active: SourcedModifier[] = [];
   const conditional: SourcedModifier[] = [];
+  const conditionSuppressed: SuppressedModifier[] = [];
   for (const modifier of modifiers.filter((item) => item.target === target)) {
     try {
       const value = resolveModifierValue(
@@ -1558,14 +1631,53 @@ function resolveTarget(
         ...displayModifier
       } = modifier;
       const resolved = { ...displayModifier, value };
-      if (conditionApplies(modifier, options)) active.push(resolved);
-      else conditional.push(resolved);
+      const suppression = options.conditionSuppression?.find(
+        (item) => item.sheetEntryId === modifier.sheetEntryId,
+      );
+      if (
+        !suppression?.includesConditional &&
+        !conditionApplies(modifier, options)
+      )
+        conditional.push(resolved);
+      else if (suppression)
+        conditionSuppressed.push({
+          ...resolved,
+          reason: suppression.reason,
+          suppressedBy: suppression.suppressedBy,
+        });
+      else active.push(resolved);
     } catch (error) {
       if (!(error instanceof FormulaError)) throw error;
       recordFormulaWarning(warnings, modifier, error);
     }
   }
-  return { ...resolveStatistic(active), conditional };
+  const statistic = resolveStatistic(active);
+  statistic.suppressed.push(...conditionSuppressed);
+  if (target.startsWith('ability.')) {
+    const penalties = statistic.applied.filter(
+      (modifier) =>
+        modifier.value < 0 &&
+        options.abilityPenaltyEntryIds?.includes(modifier.sheetEntryId),
+    );
+    const penalty = penalties.reduce(
+      (sum, modifier) => sum + modifier.value,
+      0,
+    );
+    const otherScore = statistic.total - penalty;
+    const limitedPenalty = Math.max(penalty, -Math.max(0, otherScore - 1));
+    if (limitedPenalty !== penalty) {
+      statistic.applied.push(
+        builtIn({
+          target,
+          id: `condition-score-floor:${target}`,
+          name: 'Condition penalty minimum score',
+          value: limitedPenalty - penalty,
+        }),
+      );
+      statistic.total = otherScore + limitedPenalty;
+    }
+  }
+  return { ...statistic, conditional };
 }
 
 function resolveCalculation(
@@ -1694,12 +1806,16 @@ function deriveDefenses({
   dexterity,
   specialSize,
   maxDexterityBonus,
+  deniedDexterityBy,
+  flatFootedBy,
 }: {
   breakdowns: Record<LeafTarget, ResolvedStatistic>;
   strength: number;
   dexterity: number;
   specialSize: number;
   maxDexterityBonus?: number;
+  deniedDexterityBy?: string;
+  flatFootedBy?: string;
 }) {
   const acLeaves = [
     breakdowns['ac.armor'],
@@ -1718,20 +1834,45 @@ function deriveDefenses({
   ];
   const losesDexBonus = (item: SourcedModifier) =>
     item.sheetEntryId === 'builtin:dexterity' && item.value > 0;
-  const ac = composeStatistics({
-    statistics: acLeaves,
-    builtIns: acBase,
-    includes: () => true,
-    name: 'AC',
-  });
-  const touchAc = composeStatistics({
-    statistics: acLeaves,
-    builtIns: acBase,
-    includes: (item) =>
-      item.target === 'ac.other' &&
-      !['armor', 'shield', 'naturalArmor'].includes(item.bonusType),
-    name: 'touch AC',
-  });
+  const denied = (item: SourcedModifier) =>
+    Boolean(deniedDexterityBy) &&
+    (losesDexBonus(item) || (item.bonusType === 'dodge' && item.value > 0));
+  function explainDeniedDexterity(
+    statistic: ResolvedStatistic,
+  ): ResolvedStatistic {
+    return {
+      ...statistic,
+      suppressed: statistic.suppressed.map((modifier) =>
+        denied(modifier)
+          ? {
+              ...modifier,
+              suppressedBy: deniedDexterityBy ?? modifier.suppressedBy,
+              reason:
+                'Dexterity bonus and dodge bonuses are denied by this condition.',
+            }
+          : modifier,
+      ),
+    };
+  }
+  const ac = explainDeniedDexterity(
+    composeStatistics({
+      statistics: acLeaves,
+      builtIns: acBase,
+      includes: (item) => !denied(item),
+      name: 'AC',
+    }),
+  );
+  const touchAc = explainDeniedDexterity(
+    composeStatistics({
+      statistics: acLeaves,
+      builtIns: acBase,
+      includes: (item) =>
+        !denied(item) &&
+        item.target === 'ac.other' &&
+        !['armor', 'shield', 'naturalArmor'].includes(item.bonusType),
+      name: 'touch AC',
+    }),
+  );
   const flatFootedAc = composeStatistics({
     statistics: acLeaves,
     builtIns: acBase,
@@ -1785,7 +1926,7 @@ function deriveDefenses({
     composeStatistics({
       statistics: [cmdAc, breakdowns.cmd, breakdowns.bab],
       builtIns: cmdBase,
-      includes: () => true,
+      includes: (item) => !(flatFootedBy && losesDexBonus(item)),
       name: 'CMD',
     }),
   );

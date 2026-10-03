@@ -2,6 +2,8 @@ import { mkdir, writeFile, realpath, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { importCatalog } from './catalog/import.ts';
+import { appendConditionResources } from './catalog/conditions.ts';
+import type { AdmissionArtifact } from './catalog/admission.ts';
 import {
   assessCatalogAdmission,
   computeFingerprint,
@@ -26,6 +28,7 @@ function parsePreviewArguments() {
       out: { type: 'string', default: '.catalog-preview' },
       attribution: { type: 'string' },
       curation: { type: 'string' },
+      conditions: { type: 'boolean' },
       help: { type: 'boolean' },
       'allow-unverified-checkouts': { type: 'boolean' },
     },
@@ -34,7 +37,7 @@ function parsePreviewArguments() {
   });
   if (values.help) {
     process.stdout.write(
-      'Usage: pnpm catalog:preview --system PATH --content PATH [--out PATH] [--attribution PATH] [--curation PATH] [--allow-unverified-checkouts]\nInputs must be clean Git checkouts at the pinned commits. The override marks fixture/development output as unverified. --attribution supplies reviewed admission JSON instead of the committed evidence. --curation supplies note records instead of the committed overlay. Admission and curation failures write reports and exit nonzero.\n',
+      'Usage: pnpm catalog:preview --system PATH --content PATH [--out PATH] [--attribution PATH] [--curation PATH] [--conditions] [--allow-unverified-checkouts]\nInputs must be clean Git checkouts at the pinned commits. The override marks fixture/development output as unverified. --attribution supplies reviewed admission JSON instead of the committed evidence. --curation supplies note records instead of the committed overlay. --conditions includes locally authored CRB conditions and their fingerprinted resources. Admission and curation failures write reports and exit nonzero.\n',
     );
     return;
   }
@@ -106,7 +109,7 @@ async function extractCatalog({
   });
 }
 
-type CatalogArtifact = Awaited<ReturnType<typeof importCatalog>>;
+type CatalogArtifact = AdmissionArtifact;
 function buildPreviewReports({
   result,
   reviewedInputs,
@@ -129,6 +132,7 @@ function buildPreviewReports({
     purpose: 'preview',
     inputVerification,
     inputs: result.catalog.inputs,
+    localResources: result.catalog.localResources ?? [],
     extractionFingerprint: computeFingerprint(result),
     reviewedInputsFingerprint: computeFingerprint(reviewedInputs),
     legalResourcesFingerprint: computeFingerprint(legalResources),
@@ -200,7 +204,10 @@ async function main() {
     ...paths,
     allowUnverified: values['allow-unverified-checkouts'] === true,
   });
-  const result = await extractCatalog(paths);
+  const extracted = await extractCatalog(paths);
+  const result = values.conditions
+    ? await appendConditionResources(extracted)
+    : extracted;
   const reviewedInputs = await loadReviewedInputs(paths.attributionPath);
   const { admission, files } = buildPreviewReports({
     result,

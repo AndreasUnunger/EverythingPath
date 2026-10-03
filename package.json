@@ -31,6 +31,7 @@
     "lint:unused": "knip",
     "catalog:preview": "node --import tsx scripts/catalog-preview.ts",
     "catalog:release": "node --import tsx scripts/catalog-release.ts",
+    "catalog:conditions": "node --import tsx scripts/catalog-conditions.ts",
     "catalog:curate": "node --import tsx scripts/catalog-curate.ts",
     "check:initial-migration-writers": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-initial-migration-writers.ts"
   },

@@ -229,6 +229,7 @@ export function CharacterSheetView({
             />
             <CharacterSheetEntries
               rows={sheet.sheetEntries}
+              conditionEffects={sheet.calculated.conditionEffects}
               actions={controller.sheetEntries}
               warnings={sheet.warnings}
               warningController={controller.warnings}

@@ -26,6 +26,9 @@ test('legal notices use committed defaults before a prepared release is active',
   expect(page.sections[0]?.notices).toEqual([legalResources.ogl]);
   expect(page.sections[2]?.notices).toEqual([legalResources.section8]);
   expect(page.sections[3]?.notices).toEqual([legalResources.paizo]);
+  expect(page.sections[1]?.notices.map((notice) => notice.title)).toContain(
+    'Pathfinder RPG Core Rulebook',
+  );
 });
 
 test('legal notices publish the prepared active release inputs when available', async () => {

@@ -14,7 +14,7 @@ Use clean upstream checkouts at the pins documented in [the import runbook](READ
 pnpm catalog:release build \
   --number 1 \
   --schema character-sheet-v1 \
-  --calculation sha256:cc474fdaf2c6250def0c92d4b9d290b396434c49abedcdf84c70cf685cf99abf \
+  --calculation sha256:173da22ced925eb64ac4bad5725e373a936d51f8ec4ff214785939076701a8eb \
   --system /path/to/foundryvtt-pathfinder1 \
   --content /path/to/pf1-content \
   --artifact .catalog-preview/release-1/release.json
@@ -22,7 +22,7 @@ pnpm catalog:release build \
 
 `--attribution`, `--curation`, `--remaps` and `--legal` select explicit reviewed JSON inputs instead of the committed defaults. `--previous` supplies the complete artifact of the authoritative active release when one exists. The number must increase beyond that comparison base. The backend checks the declared base number and artifact fingerprint against its actual active release, so a prepared private artifact cannot masquerade as an active comparison base. A fresh local directory does not grant reuse of a number already registered with the backend.
 
-`--rule-resources PATH` supplies an array of `{ "key": "builtin:stable-name", "payload": ... }` supporting-resource records. Their structured bodies are frozen in the artifact, not merely hashed as input. The application's actual `convex/lib/representativeClassCatalog.ts` seed data is always captured as `builtin:representative-class-catalog`, with its source fingerprint and compatibility identities. Capturing this existing representative seed does not certify full class curation or offer it as new selectable content. There are no casting tables or additional local catalog dataset yet; those absences are explicit inputs. New local content must use the attribution/curation import seam rather than disguising selectable definitions as authored resources.
+`--rule-resources PATH` supplies an array of `{ "key": "builtin:stable-name", "payload": ... }` supporting-resource records. Their structured bodies are frozen in the artifact, not merely hashed as input. The application's actual `convex/lib/representativeClassCatalog.ts` seed data is always captured as `builtin:representative-class-catalog`, with its source fingerprint and compatibility identities. Capturing this existing representative seed does not certify full class curation or offer it as new selectable content. No casting tables are authored yet; that absence is an explicit input. [Reviewed CRB conditions](conditions.md) are local selectable content supplied through `appendConditionResources` and the ordinary attribution/curation seam. Preview opts in with `catalog:preview --conditions`; `catalog:release build` has no conditions flag. A programmatic release build must explicitly append the candidates and fingerprint their `conditionReleaseResourcePaths` as documented in condition curation. New local content must use the attribution/curation import seam rather than disguising selectable definitions as authored resources.
 
 The output directory must be empty or contain only its release artifact, and cannot overlap source inputs. Output is written only after the admission, curation, inventory/structure/reference and legal gates pass. Holds remain valid individually reported outcomes, including changed accepted assessments. A failing gate creates no release artifact. Repeating an identical build at the same path leaves identical bytes; changed inputs/output at that path fail without overwriting it. The immutable backend binding also rejects reuse across independent local directories.
 

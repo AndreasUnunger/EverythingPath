@@ -47,7 +47,9 @@ const resourceKinds = new Set<ImportKind>([
   'eidolonEvolution',
 ]);
 export function isResource(entry: PreviewEntry) {
-  return resourceKinds.has(entry.detail.kind);
+  return (
+    entry.detail.kind !== 'condition' && resourceKinds.has(entry.detail.kind)
+  );
 }
 
 const buffKinds = new Map<string, ImportKind>([

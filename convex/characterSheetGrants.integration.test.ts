@@ -104,6 +104,95 @@ test('untouched class Grants count without materializing sheet rows', async () =
   expect(sheet?.calculated.abilities.strength.score).toBe(12);
 });
 
+test('a granted condition retains its notes through dormancy, Keep and source restoration without leaking permanent effects', async () => {
+  const { t, owner, member, scope, featureId, level, fighter } =
+    await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', featureId, {
+      name: 'Fatigued',
+      ruleIdentity: 'local/crb-condition/fatigued',
+      detail: { kind: 'condition', conditionKey: 'fatigued' },
+      modifiers: [
+        { target: 'ability.str', bonusType: 'untyped', value: -2 },
+        { target: 'ability.dex', bonusType: 'untyped', value: -2 },
+      ],
+    }),
+  );
+  const grantKey = {
+    source: 'fighter',
+    classLevel: 1,
+    entry: 'local/crb-condition/fatigued',
+  };
+  await member.mutation(api.characterSheet.editGrantState, {
+    ...scope,
+    grantKey,
+    state: { notes: 'From the forced march' },
+    operationId: 'record-condition',
+  });
+  const active = await owner.query(api.characterSheet.read, scope);
+  expect(active?.calculated.abilities.strength.score).toBe(8);
+  expect(active?.calculated.conditionEffects).toContainEqual(
+    expect.objectContaining({ conditionKey: 'fatigued' }),
+  );
+  expect(active?.permanentCalculated.abilities.strength.score).toBe(10);
+  expect(active?.permanentCalculated.conditionEffects).toEqual([]);
+
+  await member.mutation(api.characterSheet.deleteClassLevel, {
+    ...scope,
+    entryId: level._id,
+    operationId: 'lose-source',
+  });
+  const dormant = await owner.query(api.characterSheet.read, scope);
+  expect(dormant?.calculated.abilities.strength.score).toBe(10);
+  expect(dormant?.calculated.conditionEffects).toEqual([]);
+  expect(dormant?.calculated.resolvedEntries).toContainEqual(
+    expect.objectContaining({
+      dormant: true,
+      counting: false,
+      entry: expect.objectContaining({ notes: 'From the forced march' }),
+    }),
+  );
+
+  await owner.mutation(api.characterSheet.setDormantEntryKept, {
+    ...scope,
+    target: { grantKey },
+    kept: true,
+    operationId: 'keep-condition',
+  });
+  const kept = await member.query(api.characterSheet.read, scope);
+  expect(kept?.calculated.abilities.strength.score).toBe(8);
+  expect(kept?.calculated.warnings).toContainEqual(
+    expect.objectContaining({ check: 'keptDormant' }),
+  );
+  expect(kept?.permanentCalculated.abilities.strength.score).toBe(10);
+  expect(kept?.permanentCalculated.conditionEffects).toEqual([]);
+
+  await member.mutation(api.characterSheet.setDormantEntryKept, {
+    ...scope,
+    target: { grantKey },
+    kept: false,
+    operationId: 'unkeep-condition',
+  });
+  await owner.mutation(api.characterSheet.addClassLevel, {
+    ...scope,
+    classEntryId: fighter._id,
+    operationId: 'restore-source',
+  });
+  const restored = await member.query(api.characterSheet.read, scope);
+  expect(restored?.calculated.abilities.strength.score).toBe(8);
+  expect(restored?.calculated.conditionEffects).toHaveLength(1);
+  expect(restored?.calculated.resolvedEntries).toContainEqual(
+    expect.objectContaining({
+      dormant: false,
+      counting: true,
+      recorded: true,
+      entry: expect.objectContaining({ notes: 'From the forced march' }),
+    }),
+  );
+  expect(restored?.permanentCalculated.abilities.strength.score).toBe(10);
+  expect(restored?.permanentCalculated.conditionEffects).toEqual([]);
+});
+
 test.each(['replaced', 'sourceMissing'] as const)(
   'un-Keep removes Keep-only state from an untouched %s Grant',
   async (reason) => {

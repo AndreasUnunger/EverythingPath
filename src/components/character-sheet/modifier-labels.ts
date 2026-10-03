@@ -174,6 +174,15 @@ const sharedSituationText: Record<string, string> = {
   orcsGoblinoids: 'vs. orcs and goblinoids',
   bullRushTrip: 'vs. bull rush and trip while standing on the ground',
   sneak: 'when flanking or the target is denied its Dex bonus',
+  // The CRB conditions' own Situations (docs/catalog-import/conditions.md).
+  'opposed-perception': 'on opposed Perception checks',
+  'sight-based': 'on sight-based Perception checks',
+  'reaction-check': 'on skill checks made as reactions',
+  'grapple-or-escape': 'on grapple or escape checks',
+  'grapple-while-invisible': 'vs. grapple while invisible',
+  'sighted-opponent': 'vs. opponents that cannot see you',
+  'ranged-attack': 'vs. ranged attacks',
+  'melee-attack': 'vs. melee attacks',
 };
 
 /** A key the table does not know still reads as words: `undead` → "vs. undead". */

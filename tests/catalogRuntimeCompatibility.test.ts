@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:cc474fdaf2c6250def0c92d4b9d290b396434c49abedcdf84c70cf685cf99abf';
+    'sha256:173da22ced925eb64ac4bad5725e373a936d51f8ec4ff214785939076701a8eb';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -29,6 +29,8 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-grants.ts',
     'src/lib/character-sheet-entries.ts',
     'src/lib/character-sheet-skills.ts',
+    'src/lib/character-sheet-conditions.ts',
+    'src/lib/catalog/data/reviewed-conditions.json',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -45,6 +47,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       'zod',
       './character-sheet-grants',
       './character-sheet-skills',
+      './character-sheet-conditions',
       './character-sheet-advancement',
       './character-sheet-formulas',
     ],
@@ -58,6 +61,8 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ['./character-sheet', './character-sheet-entries'],
     [],
     ['./character-sheet'],
+    ['zod', './catalog/data/reviewed-conditions.json'],
+    [],
   ];
   for (const [index, path] of catalogCalculationV1Files.entries()) {
     const ast = ts.createSourceFile(

@@ -29,6 +29,10 @@ import {
   sumRanksBySkill,
   skillDefinitions,
 } from '../src/lib/character-sheet-skills';
+import {
+  conditionEffectSchema,
+  getConditionDefinition,
+} from '../src/lib/character-sheet-conditions';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { WithoutSystemFields } from 'convex/server';
@@ -141,6 +145,7 @@ const calculatedValidator = v.object({
   warningsForAcceptance: v.array(
     zodOutputToConvex(characterSheetWarningSchema),
   ),
+  conditionEffects: v.array(zodOutputToConvex(conditionEffectSchema)),
   abilities: v.object({
     strength: abilityValue,
     dexterity: abilityValue,
@@ -1129,6 +1134,60 @@ function validateSheetEntryDetail(
   } else if (casterLevel !== undefined)
     throw new ConvexError('Only a Spell Effect has a caster level');
 }
+function canonicalConditionFields({
+  detail,
+  name,
+  modifiers,
+  selectDefinition = false,
+}: {
+  detail: typeof sheetEntryDetailValidator.type;
+  name?: string;
+  modifiers?: readonly Modifier[];
+  selectDefinition?: boolean;
+}) {
+  if (detail.kind !== 'condition' || detail.conditionKey === undefined)
+    return null;
+  const definition = getConditionDefinition(detail.conditionKey);
+  if (name !== undefined && name.trim() !== definition.name)
+    throw new ConvexError('A CRB condition must use its canonical name');
+  if (
+    modifiers !== undefined &&
+    !(selectDefinition && modifiers.length === 0) &&
+    compareValues([...modifiers], definition.modifiers) !== 0
+  )
+    throw new ConvexError('A CRB condition must use its canonical Modifiers');
+  return {
+    name: definition.name,
+    modifiers: definition.modifiers,
+    ruleIdentity: definition.ruleIdentity,
+    sourceKey: definition.ruleIdentity,
+    sources: definition.sources,
+  };
+}
+function buildCatalogIdentityPatch({
+  canonical,
+  catalog,
+}: {
+  canonical: ReturnType<typeof canonicalConditionFields>;
+  catalog: ReturnType<typeof getSheetEntry>['catalog'];
+}) {
+  if (canonical)
+    return {
+      ruleIdentity: canonical.ruleIdentity,
+      sourceKey: canonical.sourceKey,
+      sources: canonical.sources,
+    };
+  if (
+    catalog.detail.kind === 'condition' &&
+    catalog.detail.conditionKey !== undefined
+  )
+    return {
+      ruleIdentity: `sheetEntry:${catalog._id}`,
+      sourceKey: undefined,
+      sources: [],
+    };
+  return {};
+}
 export const createSheetEntry = campaignMutation({
   args: {
     ...writeScope,
@@ -1139,10 +1198,16 @@ export const createSheetEntry = campaignMutation({
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
+    const canonical = canonicalConditionFields({
+      ...args,
+      selectDefinition: true,
+    });
+    const name = canonical?.name ?? args.name.trim();
+    const modifiers = canonical?.modifiers ?? args.modifiers;
     validatePersonalAdjustment({
       sheet,
-      name: args.name,
-      modifiers: args.modifiers,
+      name,
+      modifiers,
     });
     validateSheetEntryDetail(args.detail, args.casterLevel);
     if (sheet.entries.length >= maxCharacterChildRows)
@@ -1150,16 +1215,18 @@ export const createSheetEntry = campaignMutation({
     const catalogEntryId = await ctx.db.insert('catalogEntry', {
       scope: 'character',
       characterId: args.characterId,
-      name: args.name.trim(),
-      ruleIdentity: `sheetEntry:${args.characterId}`,
+      name,
+      ruleIdentity: canonical?.ruleIdentity ?? `sheetEntry:${args.characterId}`,
+      ...(canonical ? { sourceKey: canonical.sourceKey } : {}),
       stacksWithItself: false,
-      modifiers: args.modifiers,
+      modifiers,
       detail: args.detail,
-      sources: [],
+      sources: canonical?.sources ?? [],
     });
-    await ctx.db.patch('catalogEntry', catalogEntryId, {
-      ruleIdentity: `sheetEntry:${catalogEntryId}`,
-    });
+    if (!canonical)
+      await ctx.db.patch('catalogEntry', catalogEntryId, {
+        ruleIdentity: `sheetEntry:${catalogEntryId}`,
+      });
     const common = {
       characterId: args.characterId,
       active: true,
@@ -1212,8 +1279,10 @@ export const editSheetEntry = campaignMutation({
     const detail = args.detail ?? catalog.detail;
     if (detail.kind !== entry.kind)
       throw new ConvexError('A Character Sheet Entry kind cannot be changed');
-    const name = args.name?.trim() ?? catalog.name;
-    const modifiers = args.modifiers ?? catalog.modifiers;
+    const canonical = canonicalConditionFields({ ...args, detail });
+    const name = canonical?.name ?? args.name?.trim() ?? catalog.name;
+    const modifiers =
+      canonical?.modifiers ?? args.modifiers ?? catalog.modifiers;
     validatePersonalAdjustment({
       sheet,
       name,
@@ -1249,6 +1318,7 @@ export const editSheetEntry = campaignMutation({
       name,
       modifiers,
       detail,
+      ...buildCatalogIdentityPatch({ canonical, catalog }),
     });
     await ctx.db.patch('characterSheetEntry', entry._id, patch);
     const updated = await ctx.db.get('characterSheetEntry', entry._id);

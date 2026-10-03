@@ -18,6 +18,7 @@ import {
   modifierConditionSchema,
   modifierTargets,
 } from '../src/lib/character-sheet';
+import { conditionKeys } from '../src/lib/character-sheet-conditions';
 export const spellValidator = v.object({
   name: v.string(),
   spellLevel: v.string(),
@@ -241,13 +242,19 @@ const catalogEntryFields = v.object({
     v.object({ book: v.string(), pages: v.optional(v.string()) }),
   ),
 });
+export const conditionKeyValidator = v.union(
+  ...conditionKeys.map((key) => v.literal(key)),
+);
 export const sheetEntryDetailValidator = v.union(
   v.object({
     kind: v.literal('spellEffect'),
     lastsOverOneDay: v.boolean(),
     defaultCasterLevel: v.number(),
   }),
-  v.object({ kind: v.literal('condition') }),
+  v.object({
+    kind: v.literal('condition'),
+    conditionKey: v.optional(conditionKeyValidator),
+  }),
   v.object({
     kind: v.literal('item'),
     consumable: v.boolean(),

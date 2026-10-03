@@ -7,6 +7,7 @@ import { useInitialMigrationMaintenance } from '~/components/use-initial-migrati
 import { Button } from '~/components/ui/button';
 import { isTemporaryEffect } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
+import { ConditionRules, rulesOnlyText } from './condition-rules';
 import { SheetEntryEditor } from './sheet-entry-editor';
 import { sheetEntryKindLabels } from './sheet-entry-classification-fields';
 import { InlineWarnings } from './inline-warning';
@@ -21,7 +22,11 @@ import type { SheetEntryInput } from './use-character-sheet-entries';
 import { useCreateThenEdit } from './use-create-then-edit';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
-type Row = NonNullable<Controller['sheet']>['sheetEntries'][number];
+type ReadySheet = NonNullable<Controller['sheet']>;
+type Row = ReadySheet['sheetEntries'][number];
+type ConditionEffect = ReadySheet['calculated']['conditionEffects'][number];
+/** A row's calculated condition effect, with the name of what replaced it. */
+type RowConditionEffect = { effect: ConditionEffect; replacementName?: string };
 type EntryId = Id<'characterSheetEntry'>;
 type OpenEditor = { kind: 'new' } | { kind: 'entry'; entryId: EntryId } | null;
 type WarningProps = {
@@ -43,10 +48,62 @@ function isTemporaryRow({ detail }: Row) {
   return isTemporaryEffect({ kind: detail.kind }, detail);
 }
 
+const isCrbCondition = ({ detail }: Row) =>
+  detail.kind === 'condition' && detail.conditionKey !== undefined;
+
 function describeModifiers(row: Row) {
   if (row.detail.kind === 'spell') return 'Grants no Modifiers.';
-  if (row.modifiers.length === 0) return 'No Modifiers.';
+  if (row.modifiers.length === 0)
+    return isCrbCondition(row) ? rulesOnlyText : 'No Modifiers.';
   return row.modifiers.map(describeModifier).join(' · ');
+}
+
+// Replacement and escalation are stated in words beside the recorded name,
+// which the row keeps: Shaken stays Shaken, and reads what it counts as.
+function ConditionEffectDetails({
+  row,
+  conditionEffect,
+  showRules,
+}: {
+  row: Row;
+  conditionEffect: RowConditionEffect;
+  /** Off while the row's editor previews the same rules below. */
+  showRules: boolean;
+}) {
+  const { effect, replacementName } = conditionEffect;
+  if (effect.replacedBy !== undefined)
+    return (
+      <p className="text-muted-foreground text-xs">
+        Replaced by {replacementName ?? 'another condition'}. Its Modifiers do
+        not apply.
+      </p>
+    );
+  return (
+    <>
+      {effect.name !== row.name ? (
+        <p className="text-xs text-sky-300">Counts as {effect.name}.</p>
+      ) : null}
+      {showRules ? (
+        <ConditionRules
+          notes={effect.notes}
+          unmodeled={effect.unmodeled}
+          className="mt-1"
+        />
+      ) : null}
+    </>
+  );
+}
+
+function findRowConditionEffect(
+  row: Row,
+  effects: ConditionEffect[],
+): RowConditionEffect | undefined {
+  const effect = effects.find((item) => item.sheetEntryId === row.entryId);
+  if (!effect) return undefined;
+  const winner = effects.find(
+    (item) => item.sheetEntryId === effect.replacedBy,
+  );
+  return winner ? { effect, replacementName: winner.name } : { effect };
 }
 
 function toInput(row: Row): SheetEntryInput {
@@ -64,6 +121,7 @@ function toInput(row: Row): SheetEntryInput {
 // open, the editor shows each one under the Modifier it is about.
 function SheetEntryRow({
   row,
+  conditionEffect,
   isBusy,
   isOpen,
   actions,
@@ -72,6 +130,7 @@ function SheetEntryRow({
   onEdit,
 }: WarningProps & {
   row: Row;
+  conditionEffect?: RowConditionEffect;
   isBusy: boolean;
   isOpen: boolean;
   actions: Controller['sheetEntries'];
@@ -81,6 +140,7 @@ function SheetEntryRow({
   const nameId = useId();
   const isDisabled = isBusy || maintenance.readOnly;
   const isTemporary = isTemporaryRow(row);
+  const isReplaced = conditionEffect?.effect.replacedBy !== undefined;
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
       <button
@@ -121,9 +181,21 @@ function SheetEntryRow({
             <span className={cn(chip, 'text-muted-foreground')}>Inactive</span>
           )}
         </div>
-        <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]">
+        <p
+          className={cn(
+            'text-muted-foreground text-xs [overflow-wrap:anywhere]',
+            isReplaced && 'line-through',
+          )}
+        >
           {describeModifiers(row)}
         </p>
+        {conditionEffect ? (
+          <ConditionEffectDetails
+            row={row}
+            conditionEffect={conditionEffect}
+            showRules={!isOpen}
+          />
+        ) : null}
         {isOpen ? null : (
           <InlineWarnings
             warnings={warnings}
@@ -213,16 +285,21 @@ function EntryEditor({
 /**
  * Spell Effects, conditions, items and recorded Spells on the Character:
  * each with its name, classification, active state and Modifiers, toggled,
- * edited and removed in place. One editor is open at a time, keyed by its
- * entry so switching rows never carries a draft over.
+ * edited and removed in place. An active CRB condition also reads its rules,
+ * what it counts as, or what replaced it, from the sheet's calculation. One
+ * editor is open at a time, keyed by its entry so switching rows never
+ * carries a draft over.
  */
 export function CharacterSheetEntries({
   rows,
+  conditionEffects = [],
   actions,
   warnings,
   warningController,
 }: WarningProps & {
   rows: Row[];
+  /** The current calculation's condition effects, by entry. */
+  conditionEffects?: ConditionEffect[];
   actions: Controller['sheetEntries'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
@@ -254,6 +331,10 @@ export function CharacterSheetEntries({
               <li key={row.entryId} aria-label={row.name}>
                 <SheetEntryRow
                   row={row}
+                  conditionEffect={findRowConditionEffect(
+                    row,
+                    conditionEffects,
+                  )}
                   isBusy={isBusy}
                   isOpen={openEntryId === row.entryId}
                   actions={actions}

@@ -4,9 +4,11 @@ import { useInitialMigrationMaintenance } from '~/components/use-initial-migrati
 import { Button } from '~/components/ui/button';
 import { Form } from '~/components/ui/form';
 import { AdjustmentNameField, ModifierListFields } from './adjustment-fields';
+import { ConditionPicker, FixedConditionFacts } from './condition-fields';
 import {
   SheetEntryKindCards,
   SheetEntryKindFields,
+  type SheetEntryKind,
 } from './sheet-entry-classification-fields';
 import { action, RemoteNotice, SaveFeedback } from './sheet-parts';
 import type {
@@ -31,11 +33,62 @@ function dropBlankModifiers(editor: Editor) {
     .forEach((row) => editor.removeModifier(row.index));
 }
 
+// A chosen CRB condition's name and Modifiers are the rules' own, shown as
+// facts; a custom condition (and every other kind) types them in.
+function EntryDefinitionFields({
+  editor,
+  kind,
+  isDisabled,
+  warnings,
+  warningController,
+}: {
+  editor: Editor;
+  kind: SheetEntryKind;
+  isDisabled: boolean;
+  warnings: SheetWarningView[];
+  warningController?: Controller['warnings'];
+}) {
+  if (editor.selectedCondition)
+    return (
+      <FixedConditionFacts
+        condition={editor.selectedCondition}
+        isDisabled={isDisabled}
+        onCustomize={editor.detachCondition}
+      />
+    );
+  return (
+    <Form {...editor.adjustmentForm}>
+      <AdjustmentNameField
+        control={editor.adjustmentForm.control}
+        isDisabled={isDisabled}
+      />
+      {kind === 'spell' ? (
+        <p className="text-muted-foreground text-xs">
+          A recorded Spell grants no Modifiers.
+        </p>
+      ) : (
+        <ModifierListFields
+          editor={{
+            form: editor.adjustmentForm,
+            fields: editor.fields,
+            addModifier: editor.addModifier,
+            removeModifier: editor.removeModifier,
+          }}
+          isDisabled={isDisabled}
+          warnings={warnings}
+          warningController={warningController}
+        />
+      )}
+    </Form>
+  );
+}
+
 /**
  * One Character Sheet Entry, edited in place: its kind with what that kind
- * needs, its name and the Modifiers it grants. A new entry chooses its
- * kind; an existing one keeps it. Saving, saved and failures read here; a
- * new editor closes after a clean save.
+ * needs, its name and the Modifiers it grants. A Condition is chosen from
+ * the Core Rulebook's by name, or is the player's own. A new entry chooses
+ * its kind; an existing one keeps it. Saving, saved and failures read here;
+ * a new editor closes after a clean save.
  */
 export function SheetEntryEditor({
   value,
@@ -117,29 +170,22 @@ export function SheetEntryEditor({
           defaultCasterLevel={defaultCasterLevel}
         />
       </Form>
-      <Form {...editor.adjustmentForm}>
-        <AdjustmentNameField
-          control={editor.adjustmentForm.control}
+      {kind === 'condition' ? (
+        <ConditionPicker
+          options={editor.conditionOptions}
+          value={editor.form.watch('conditionSelection')}
           isDisabled={isDisabled}
+          onSelect={editor.selectCondition}
+          onCustom={editor.detachCondition}
         />
-        {kind === 'spell' ? (
-          <p className="text-muted-foreground text-xs">
-            A recorded Spell grants no Modifiers.
-          </p>
-        ) : (
-          <ModifierListFields
-            editor={{
-              form: editor.adjustmentForm,
-              fields: editor.fields,
-              addModifier: editor.addModifier,
-              removeModifier: editor.removeModifier,
-            }}
-            isDisabled={isDisabled}
-            warnings={warnings}
-            warningController={warningController}
-          />
-        )}
-      </Form>
+      ) : null}
+      <EntryDefinitionFields
+        editor={editor}
+        kind={kind}
+        isDisabled={isDisabled}
+        warnings={warnings}
+        warningController={warningController}
+      />
       {isRemoved ? (
         <p role="status" className="text-xs text-sky-300">
           This entry is no longer on the sheet. Save adds it as a new entry.
