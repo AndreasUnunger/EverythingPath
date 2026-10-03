@@ -15,16 +15,15 @@ import {
   isOwnCharacterSheetOperation,
 } from '~/lib/character-sheet-operations';
 import { detectRemoteSheetChange } from '~/lib/character-sheet-changes';
-import { parseCharacterSheetBreakdowns } from '~/lib/character-sheet-breakdowns';
 import {
   calculateCharacterSheet,
   type ResolveOptions,
-  abilityTargets,
-  type Ability,
 } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import type { SaveStatus } from './save-status';
+import { buildCharacterSheetView } from './character-sheet-view-model';
+import { useBuildOutCharacter } from './use-build-out-character';
 
 export type CharacterSheetSnapshot = NonNullable<
   FunctionReturnType<typeof api.characterSheet.read>
@@ -42,6 +41,7 @@ function warningKey(warning: SheetWarning) {
 }
 
 export function useCharacterSheet(scope: CharacterScope) {
+  const buildOut = useBuildOutCharacter(scope);
   const snapshot = useQuery(api.characterSheet.read, scope);
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);
@@ -79,7 +79,7 @@ export function useCharacterSheet(scope: CharacterScope) {
   const [appendedEntryId, setAppendedEntryId] =
     useState<Id<'characterSheetEntry'> | null>(null);
   const [hasRemoteChange, setHasRemoteChange] = useState(false);
-  const sheet = snapshot ? buildSheetView(snapshot) : snapshot;
+  const sheet = snapshot ? buildCharacterSheetView(snapshot) : snapshot;
   const warningStates = sheet
     ? Object.fromEntries(
         sheet.warnings.map((warning) => [
@@ -207,6 +207,11 @@ export function useCharacterSheet(scope: CharacterScope) {
 
   return {
     sheet,
+    buildOut: {
+      ...buildOut,
+      available: sheet?.canBuildOut ?? false,
+      run: () => buildOut.run(sheet?.character),
+    },
     previewSituation: (
       situation: NonNullable<ResolveOptions['situations']>[number],
     ) =>
@@ -290,69 +295,6 @@ export function useCharacterSheet(scope: CharacterScope) {
           write: () => deleteClassLevel({ ...createOperation(), entryId }),
         }),
     },
-  };
-}
-
-function buildSheetView(snapshot: CharacterSheetSnapshot) {
-  const calculated = {
-    ...snapshot.calculated,
-    breakdowns: parseCharacterSheetBreakdowns(snapshot.calculated.breakdowns),
-  };
-  function baseScore(ability: Ability) {
-    const modifier = snapshot.baseScoresEntry.modifiers.find(
-      (item) =>
-        item.target === abilityTargets[ability] && item.bonusType === 'base',
-    );
-    if (!modifier) throw new Error('Base score is unavailable.');
-    return modifier.value;
-  }
-  return {
-    character: snapshot.character,
-    owner: snapshot.owner,
-    campaign: snapshot.campaign,
-    calculated,
-    warnings: calculated.warnings.map(
-      (warning): SheetWarningView => ({
-        ...warning,
-        accepted:
-          warning.kind === 'rules' &&
-          snapshot.acceptedWarnings.some(
-            (accepted) =>
-              accepted.check === warning.check &&
-              accepted.subject === warning.subject &&
-              accepted.fingerprint === warning.fingerprint,
-          ),
-      }),
-    ),
-    baseScores: {
-      strength: baseScore('strength'),
-      dexterity: baseScore('dexterity'),
-      constitution: baseScore('constitution'),
-      intelligence: baseScore('intelligence'),
-      wisdom: baseScore('wisdom'),
-      charisma: baseScore('charisma'),
-    },
-    adjustments: snapshot.entries
-      .filter((entry) => entry.kind === 'manual')
-      .map((entry) => {
-        const catalogEntry = snapshot.catalogEntries.find(
-          (item) => item._id === entry.catalogEntryId,
-        );
-        if (!catalogEntry)
-          throw new Error('Personal adjustment is unavailable.');
-        return {
-          entryId: entry._id,
-          catalogEntryId: catalogEntry._id,
-          active: entry.active,
-          name: catalogEntry.name,
-          modifiers: catalogEntry.modifiers,
-        };
-      }),
-    levels: snapshot.entries.filter((entry) => entry.kind === 'classLevel'),
-    warning:
-      snapshot.character.kind === 'pc' && calculated.level === 0
-        ? 'This PC has no Class Levels.'
-        : null,
   };
 }
 

@@ -381,7 +381,7 @@ test('Character edits refresh Militia Character Facts without changing assignmen
     });
   }
   const unchangedFacts = await owner.query(api.canonicalLedger.read, scope);
-  expect(unchangedFacts.revision).toBe(updated.revision + 2);
+  expect(unchangedFacts.revision).toBe(updated.revision);
   expect(unchangedFacts.state.militiaSnapshot).toEqual(
     updated.state.militiaSnapshot,
   );

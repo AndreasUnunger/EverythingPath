@@ -317,7 +317,7 @@ test('an adjustment switched off keeps its definition and stays editable, return
   ).not.toBeInTheDocument();
 });
 
-test('a blank value and a malformed value get distinct messages and write nothing; negative and fractional values save', async () => {
+test('a blank value and a malformed value get distinct messages and write nothing; fractional ability adjustments require correction', async () => {
   renderSheet(buildSheet());
   fireEvent.click(button('Add personal adjustment'));
   fireEvent.click(button('Save adjustment'));
@@ -338,10 +338,16 @@ test('a blank value and a malformed value get distinct messages and write nothin
   expect(calls).toEqual([]);
   fireEvent.change(field('Modifier 1 value'), { target: { value: '-2.5' } });
   fireEvent.click(button('Save adjustment'));
+  expect(
+    await screen.findByText('Ability score modifiers must be whole numbers'),
+  ).toBeVisible();
+  expect(calls).toEqual([]);
+  fireEvent.change(field('Modifier 1 value'), { target: { value: '-2' } });
+  fireEvent.click(button('Save adjustment'));
   await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().args).toMatchObject({
     name: 'Table reward',
-    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: -2.5 }],
+    modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: -2 }],
   });
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });

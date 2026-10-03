@@ -208,6 +208,7 @@ function Characters({
     teamsHref: page.links.teams,
     onEdit: page.dialog.openEdit,
     rosterRow: correction?.rosterRow ?? null,
+    buildOut: page.buildOut,
   };
   const rows =
     page.rows.length > 0 &&

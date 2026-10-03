@@ -187,7 +187,7 @@ test('record APIs store PC or NPC for legacy submissions and leave a stored kind
   expect(await storedKinds()).toEqual(['npc', 'npc', 'npc']);
 });
 
-test('every character write moves its roster mirror with the record in the same source revision', async () => {
+test('changed Character facts and roster kinds share one source revision, while unchanged kinds preserve reviews', async () => {
   const context = await fixture();
   const { member, scope, officer, npc, absent, livePeople } = context;
   const people = await seedRoster(context, {
@@ -218,12 +218,13 @@ test('every character write moves its roster mirror with the record in the same 
     characterId: officer,
     patch: { kind: 'npc' },
   });
+  expect(await revision()).toBe(before + 1);
   await member.mutation(api.character.updateCharacter, {
     organizationId: 'org',
     characterId: npc,
     patch: { kind: 'pc' },
   });
-  expect(await revision()).toBe(before + 3);
+  expect(await revision()).toBe(before + 2);
   // Membership, order and Hit Dice overrides, including null and zero, stay.
   expect(await tail()).toEqual([
     { characterId: officer, kind: 'npc', hitDice: null },
@@ -246,7 +247,7 @@ test('every character write moves its roster mirror with the record in the same 
 test('a correction cannot restore an old kind: the save mirrors current records, and a stale one is refused', async () => {
   const context = await fixture();
   const { member, scope, officer, npc, absent, livePeople } = context;
-  await seedRoster(context, { officer: 'pc', npc: 'pc', absent: 'npc' });
+  await seedRoster(context, { officer: 'pc', npc: 'npc', absent: 'npc' });
   const ledger = await member.query(api.canonicalLedger.read, scope);
   // Another player makes Vessa a PC before this correction is saved.
   await member.mutation(api.character.updateCharacter, {

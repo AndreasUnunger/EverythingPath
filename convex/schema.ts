@@ -123,7 +123,7 @@ export const characterValidator = v.object({
   description: v.string(),
   kind: characterKindValidator,
   isActive: v.boolean(),
-  sheetMode: v.optional(v.literal('full')),
+  sheetMode: v.optional(v.union(v.literal('militiaOnly'), v.literal('full'))),
   sheetRevision: v.optional(v.number()),
   sheetLastOperationId: v.optional(v.string()),
   sheetUpdatedBy: v.optional(v.string()),
@@ -176,6 +176,10 @@ const catalogEntryFields = v.object({
 });
 export const catalogEntryValidator = v.union(
   catalogEntryFields.extend({
+    modifiers: v.array(modifierValidator),
+    detail: v.object({ kind: v.literal('class') }),
+  }),
+  catalogEntryFields.extend({
     modifiers: v.array(baseModifierValidator),
     detail: v.object({ kind: v.literal('base') }),
   }),
@@ -216,7 +220,7 @@ export const characterSheetEntryValidator = v.union(
     active: v.literal(true),
     state: v.object({
       kind: v.literal('classLevel'),
-      classEntryId: v.null(),
+      classEntryId: v.union(v.id('catalogEntry'), v.null()),
       position: v.number(),
       hpGained: v.union(v.number(), v.null()),
     }),

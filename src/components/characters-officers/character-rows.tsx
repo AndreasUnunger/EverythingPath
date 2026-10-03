@@ -1,20 +1,30 @@
-import { Check, CircleAlert, Minus, Pencil } from 'lucide-react';
+import { Check, ChevronRight, CircleAlert, Minus, Pencil } from 'lucide-react';
 import { useId } from 'react';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import {
+  GuardedLink,
+  useNavigationGuard,
+} from '~/components/campaign-shell/navigation-guard';
+import { CharacterOwnerControl } from '~/components/character-sheet/character-owner-control';
+import { useCharacterOwnership } from '~/components/character-sheet/use-character-ownership';
+import { BuildOutControl } from '~/components/character-sheet/build-out-control';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
+import type { Ability } from '~/lib/character-sheet';
 import {
   managesText,
   ROLE_LABELS,
-  type CharacterRow,
   type OfficerRole,
 } from '~/lib/officer-board';
 import { cn } from '~/lib/utils';
-import { ArchivedBadge, chip, roleCardId, Warnings } from './parts';
+import { action, ArchivedBadge, chip, roleCardId, Warnings } from './parts';
 import type { RosterRowControl } from './use-character-corrections';
+import type {
+  CharactersPage,
+  MilitiaCharacterRow,
+} from './use-characters-page';
 
 export type RowsProps = {
-  rows: CharacterRow[];
+  rows: MilitiaCharacterRow[];
   /**
    * Whether the militia exists: without it there is no roster to be on and
    * no role card for a chip to reach.
@@ -24,7 +34,18 @@ export type RowsProps = {
   onEdit: (characterId: string) => void;
   /** A row's controls while Correct roster is open; null otherwise. */
   rosterRow: ((characterId: string) => RosterRowControl | null) | null;
+  buildOut: CharactersPage['buildOut'];
 };
+
+/** The six permanent scores in sheet order, with their short labels. */
+const SCORES = [
+  ['strength', 'STR'],
+  ['dexterity', 'DEX'],
+  ['constitution', 'CON'],
+  ['intelligence', 'INT'],
+  ['wisdom', 'WIS'],
+  ['charisma', 'CHA'],
+] as const satisfies readonly (readonly [Ability, string])[];
 
 const dash = <span className="text-muted-foreground">—</span>;
 const switchControl =
@@ -38,7 +59,29 @@ function showRoleCard(role: OfficerRole) {
   card.focus({ preventScroll: true });
 }
 
-function KindChip({ kind }: { kind: CharacterRow['kind'] }) {
+function OwnerCell({
+  row,
+  isLabelled = false,
+}: {
+  row: MilitiaCharacterRow;
+  isLabelled?: boolean;
+}) {
+  const ownership = useCharacterOwnership(
+    row.ownershipScope,
+    row.owner,
+    row.ownerLastOperationId,
+    row.ownershipAvailable,
+  );
+  return (
+    <CharacterOwnerControl
+      characterName={row.name}
+      ownership={ownership}
+      isLabelled={isLabelled}
+    />
+  );
+}
+
+function KindChip({ kind }: { kind: MilitiaCharacterRow['kind'] }) {
   return (
     <span className={cn(chip, kind === 'pc' && 'border-primary text-primary')}>
       {kind === 'pc' ? 'PC' : 'NPC'}
@@ -137,7 +180,7 @@ function HitDice({
   row,
   control,
 }: {
-  row: CharacterRow;
+  row: MilitiaCharacterRow;
   control: RosterRowControl | null;
 }) {
   if (control?.hitDice) return <HitDiceField field={control.hitDice} />;
@@ -176,7 +219,7 @@ function Teams({
   manages,
   href,
 }: {
-  manages: CharacterRow['manages'];
+  manages: MilitiaCharacterRow['manages'];
   href: string;
 }) {
   if (manages === null) return dash;
@@ -193,117 +236,227 @@ function Teams({
   );
 }
 
-function EditButton({
+// The phone card's Level and six scores, the same facts as the table's
+// columns, labelled above each number.
+function ScoresGrid({ row }: { row: MilitiaCharacterRow }) {
+  return (
+    <dl className="grid grid-cols-7 gap-1 text-center">
+      {[
+        ['Level', row.level] as const,
+        ...SCORES.map(
+          ([ability, text]) => [text, row.scores[ability]] as const,
+        ),
+      ].map(([text, value]) => (
+        <div key={text} className="flex flex-col gap-0.5">
+          <dt className="text-muted-foreground font-mono text-[11px] uppercase">
+            {text}
+          </dt>
+          <dd className="font-mono text-base">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// Build out, one way, from the row: an accepted change opens the sheet it
+// made; a refusal stays here beside the button that asked.
+function BuildOutButton({
   row,
-  onEdit,
+  buildOut,
 }: {
-  row: CharacterRow;
+  row: MilitiaCharacterRow;
+  buildOut: RowsProps['buildOut'];
+}) {
+  const guard = useNavigationGuard();
+  return (
+    <BuildOutControl
+      name={row.name}
+      isMine={buildOut.characterId === row.characterId}
+      buildOut={{
+        ...buildOut,
+        run: () =>
+          buildOut.run(row.characterId).then((characterId) => {
+            if (characterId && row.sheetHref) guard.navigate(row.sheetHref);
+          }),
+      }}
+    />
+  );
+}
+
+function SheetLink({ name, href }: { name: string; href: string }) {
+  return (
+    <Button asChild variant="ghost" size="sm" className={action}>
+      <GuardedLink href={href} aria-label={`Sheet for ${name}`}>
+        Sheet
+        <ChevronRight aria-hidden />
+      </GuardedLink>
+    </Button>
+  );
+}
+
+// A minimal Character builds out from here; a full one opens its sheet.
+function SheetAction({
+  row,
+  buildOut,
+}: {
+  row: MilitiaCharacterRow;
+  buildOut: RowsProps['buildOut'];
+}) {
+  if (row.canBuildOut) return <BuildOutButton row={row} buildOut={buildOut} />;
+  if (row.sheetHref) return <SheetLink name={row.name} href={row.sheetHref} />;
+  return null;
+}
+
+function RowActions({
+  row,
+  buildOut,
+  onEdit,
+  className,
+}: {
+  row: MilitiaCharacterRow;
+  buildOut: RowsProps['buildOut'];
   onEdit: RowsProps['onEdit'];
+  className?: string;
 }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="size-11 md:size-9"
-      aria-label={`Edit ${row.name}`}
-      onClick={() => onEdit(row.characterId)}
-    >
-      <Pencil />
-    </Button>
+    <div className={cn('flex flex-wrap items-center gap-1', className)}>
+      <SheetAction row={row} buildOut={buildOut} />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-11 md:size-9"
+        aria-label={`Edit ${row.name}`}
+        onClick={() => onEdit(row.characterId)}
+      >
+        <Pencil />
+      </Button>
+    </div>
   );
 }
 
 const th =
   'text-muted-foreground px-2 py-2 text-left font-mono text-xs font-normal tracking-wide uppercase';
 const td = 'px-2 py-2 align-top';
+const scoreTh = 'px-1 text-center';
+const scoreTd = 'px-1 text-center font-mono';
 
-// From 768px: one row per character.
+// From 768px: one row per character. The scores are the narrowest columns,
+// so Level and the six numbers read beside the roles on a tablet; any
+// overflow scrolls within the table, never the page.
 export function CharacterTable({
   rows,
   hasBoard,
   teamsHref,
   onEdit,
   rosterRow,
+  buildOut,
 }: RowsProps) {
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-foreground/20 border-b">
-          {hasBoard && (
-            <th scope="col" className={th}>
-              On roster
-            </th>
-          )}
-          <th scope="col" className={cn(th, 'w-full')}>
-            Character
-          </th>
-          <th scope="col" className={th}>
-            Kind
-          </th>
-          <th scope="col" className={cn(th, 'whitespace-nowrap')}>
-            Hit Dice
-          </th>
-          <th scope="col" className={cn(th, 'whitespace-nowrap')}>
-            Officer roles
-          </th>
-          <th scope="col" className={th}>
-            Teams
-          </th>
-          <th scope="col" className={th}>
-            <span className="sr-only">Edit</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => {
-          const control = rosterRow?.(row.characterId) ?? null;
-          return (
-            <tr
-              key={row.characterId}
-              className={cn(
-                'border-foreground/10 border-b',
-                row.archived && 'opacity-60',
-              )}
-            >
-              {hasBoard && (
-                <td className={cn(td, 'whitespace-nowrap')}>
-                  {control ? (
-                    <RosterSwitch name={row.name} control={control} />
-                  ) : (
-                    <OnRoster onRoster={row.onRoster} />
-                  )}
-                </td>
-              )}
-              <th scope="row" className={cn(td, 'text-left font-normal')}>
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-sans text-base font-semibold [overflow-wrap:anywhere]">
-                    {row.name}
-                  </span>
-                  {row.archived && <ArchivedBadge />}
-                </span>
-                <Warnings warnings={row.warnings} />
+    <div className="min-w-0 overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-foreground/20 border-b">
+            {hasBoard && (
+              <th scope="col" className={th}>
+                On roster
               </th>
-              <td className={td}>
-                <KindChip kind={row.kind} />
-              </td>
-              <td className={td}>
-                <HitDice row={row} control={control} />
-              </td>
-              <td className={td}>
-                <RoleChips roles={row.roles} hasBoard={hasBoard} />
-              </td>
-              <td className={cn(td, 'whitespace-nowrap')}>
-                <Teams manages={row.manages} href={teamsHref} />
-              </td>
-              <td className={cn(td, 'py-1 text-right')}>
-                <EditButton row={row} onEdit={onEdit} />
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+            )}
+            <th scope="col" className={cn(th, 'w-full')}>
+              Character
+            </th>
+            <th scope="col" className={th}>
+              Owner
+            </th>
+            <th scope="col" className={th}>
+              Kind
+            </th>
+            <th scope="col" className={cn(th, scoreTh)}>
+              Level
+            </th>
+            {SCORES.map(([ability, text]) => (
+              <th key={ability} scope="col" className={cn(th, scoreTh)}>
+                {text}
+              </th>
+            ))}
+            <th scope="col" className={cn(th, 'whitespace-nowrap')}>
+              Hit Dice
+            </th>
+            <th scope="col" className={cn(th, 'whitespace-nowrap')}>
+              Officer roles
+            </th>
+            <th scope="col" className={th}>
+              Teams
+            </th>
+            <th scope="col" className={th}>
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const control = rosterRow?.(row.characterId) ?? null;
+            return (
+              <tr
+                key={row.characterId}
+                className={cn(
+                  'border-foreground/10 border-b',
+                  row.archived && 'opacity-60',
+                )}
+              >
+                {hasBoard && (
+                  <td className={cn(td, 'whitespace-nowrap')}>
+                    {control ? (
+                      <RosterSwitch name={row.name} control={control} />
+                    ) : (
+                      <OnRoster onRoster={row.onRoster} />
+                    )}
+                  </td>
+                )}
+                <th scope="row" className={cn(td, 'text-left font-normal')}>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-sans text-base font-semibold [overflow-wrap:anywhere]">
+                      {row.name}
+                    </span>
+                    {row.archived && <ArchivedBadge />}
+                  </span>
+                  <Warnings warnings={row.warnings} />
+                </th>
+                <td className={td}>
+                  <OwnerCell row={row} />
+                </td>
+                <td className={td}>
+                  <KindChip kind={row.kind} />
+                </td>
+                <td className={cn(td, scoreTd)}>{row.level}</td>
+                {SCORES.map(([ability]) => (
+                  <td key={ability} className={cn(td, scoreTd)}>
+                    {row.scores[ability]}
+                  </td>
+                ))}
+                <td className={td}>
+                  <HitDice row={row} control={control} />
+                </td>
+                <td className={td}>
+                  <RoleChips roles={row.roles} hasBoard={hasBoard} />
+                </td>
+                <td className={td}>
+                  <Teams manages={row.manages} href={teamsHref} />
+                </td>
+                <td className={cn(td, 'py-1')}>
+                  <RowActions
+                    row={row}
+                    buildOut={buildOut}
+                    onEdit={onEdit}
+                    className="justify-end"
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -313,7 +466,8 @@ function CharacterCard({
   teamsHref,
   onEdit,
   rosterRow,
-}: { row: CharacterRow } & Omit<RowsProps, 'rows'>) {
+  buildOut,
+}: { row: MilitiaCharacterRow } & Omit<RowsProps, 'rows'>) {
   const headingId = useId();
   const control = rosterRow?.(row.characterId) ?? null;
   return (
@@ -337,9 +491,6 @@ function CharacterCard({
             {row.hitDice} HD
           </span>
         )}
-        <div className="-mt-2 -mr-2">
-          <EditButton row={row} onEdit={onEdit} />
-        </div>
       </div>
       {control && (
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
@@ -347,6 +498,8 @@ function CharacterCard({
           <HitDice row={row} control={control} />
         </div>
       )}
+      <OwnerCell row={row} isLabelled />
+      <ScoresGrid row={row} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {row.archived && <ArchivedBadge />}
         {hasBoard && !control && <OnRoster onRoster={row.onRoster} />}
@@ -354,11 +507,18 @@ function CharacterCard({
         <Teams manages={row.manages} href={teamsHref} />
       </div>
       <Warnings warnings={row.warnings} />
+      <RowActions
+        row={row}
+        buildOut={buildOut}
+        onEdit={onEdit}
+        className="-mr-2 justify-end"
+      />
     </li>
   );
 }
 
-// Below 768px: one card per character with the same facts as a table row.
+// Below 768px: one card per character with the same facts as a table row,
+// the scores in a row of their own and the actions last, touch-sized.
 export function CharacterCards({ rows, ...props }: RowsProps) {
   return (
     <ul className="space-y-3">

@@ -32,9 +32,11 @@ import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as lib_characterAccess from "../lib/characterAccess.js";
+import type * as lib_characterMilitiaOnlySheet from "../lib/characterMilitiaOnlySheet.js";
 import type * as lib_characterOwnership from "../lib/characterOwnership.js";
 import type * as lib_characterSheet from "../lib/characterSheet.js";
 import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
+import type * as lib_preparedCharacterSheet from "../lib/preparedCharacterSheet.js";
 import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
 import type * as lib_writeGate from "../lib/writeGate.js";
 import type * as migrations from "../migrations.js";
@@ -76,9 +78,11 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   "lib/characterAccess": typeof lib_characterAccess;
+  "lib/characterMilitiaOnlySheet": typeof lib_characterMilitiaOnlySheet;
   "lib/characterOwnership": typeof lib_characterOwnership;
   "lib/characterSheet": typeof lib_characterSheet;
   "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
+  "lib/preparedCharacterSheet": typeof lib_preparedCharacterSheet;
   "lib/retiredWorkflow": typeof lib_retiredWorkflow;
   "lib/writeGate": typeof lib_writeGate;
   migrations: typeof migrations;

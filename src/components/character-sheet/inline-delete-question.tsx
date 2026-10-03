@@ -9,14 +9,17 @@ const answerButton = 'h-11 md:h-8';
 
 /**
  * A deletion asked in place (approved prototype) where a trash control
- * stood: the question, Delete and Keep, then maintenance and anything the
- * caller reports beside them. Focus lands on Keep, the harmless answer, and
- * returns there when Delete is sent, so it never rests on a disabled button.
- * Escape answers Keep. The caller owns the write and what follows it.
+ * stood: the question, what it would remove, Delete and Keep, then
+ * maintenance and anything the caller reports beside them. Focus lands on
+ * Keep, the harmless answer, and returns there when Delete is sent, so it
+ * never rests on a disabled button. Escape answers Keep. The caller owns
+ * the write and what follows it.
  */
 export function InlineDeleteQuestion({
   question,
+  details,
   subject,
+  deleteLabel = 'Delete',
   isBusy,
   isKeepDisabled = false,
   className,
@@ -25,8 +28,12 @@ export function InlineDeleteQuestion({
   children,
 }: {
   question: string;
+  /** What the answer removes, read with the question. */
+  details?: ReactNode;
   /** Read out after each answer, so "Delete" and "Keep" name their target. */
   subject: string;
+  /** The destructive answer's verb, when "Delete" is not the word. */
+  deleteLabel?: 'Delete' | 'Remove';
   /** Another write is pending: Delete waits for it. */
   isBusy: boolean;
   isKeepDisabled?: boolean;
@@ -37,11 +44,13 @@ export function InlineDeleteQuestion({
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const questionId = useId();
+  const detailsId = useId();
   const keep = useRef<HTMLButtonElement>(null);
   return (
     <div
       role="group"
       aria-labelledby={questionId}
+      aria-describedby={details ? detailsId : undefined}
       className={cn(
         'flex flex-wrap items-center gap-x-1 gap-y-1 text-xs',
         className,
@@ -56,6 +65,11 @@ export function InlineDeleteQuestion({
       <p id={questionId} className="px-1">
         {question}
       </p>
+      {details ? (
+        <div id={detailsId} className="w-full px-1">
+          {details}
+        </div>
+      ) : null}
       <Button
         type="button"
         size="sm"
@@ -68,7 +82,7 @@ export function InlineDeleteQuestion({
           onDelete();
         }}
       >
-        Delete <span className="sr-only">{subject}</span>
+        {deleteLabel} <span className="sr-only">{subject}</span>
       </Button>
       <Button
         ref={keep}

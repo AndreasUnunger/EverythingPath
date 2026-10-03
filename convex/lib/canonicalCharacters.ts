@@ -4,7 +4,10 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { MutationCtx } from '../_generated/server';
 import type { Id } from '../_generated/dataModel';
 import { militiaSetupSchema } from '../../src/lib/canonical-setup';
-import { militiaSnapshotSchema } from '../../src/lib/canonical-weekly-source';
+import {
+  militiaSnapshotSchema,
+  weeklySourceKey,
+} from '../../src/lib/canonical-weekly-source';
 import {
   mirrorRosterKinds,
   normalizeCharacterKind,
@@ -30,7 +33,7 @@ export async function updateCanonicalCharacter(
     .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
     .unique();
   if (!source) return;
-  const facts = calculateMilitiaCharacterFacts(character);
+  const facts = await calculateMilitiaCharacterFacts(ctx, character);
   const characters = source.snapshot.characters.some(
     (c) => c.characterId === characterId,
   )
@@ -40,17 +43,24 @@ export async function updateCanonicalCharacter(
     : [...source.snapshot.characters, facts];
   // The record owns the kind: its roster mirror follows in the same write.
   const kind = character.kind;
+  const roster = {
+    ...source.snapshot.roster,
+    people: source.snapshot.roster.people.map((p) =>
+      p.characterId === characterId ? { ...p, kind } : p,
+    ),
+  };
+  if (
+    weeklySourceKey(characters) ===
+      weeklySourceKey(source.snapshot.characters) &&
+    weeklySourceKey(roster) === weeklySourceKey(source.snapshot.roster)
+  )
+    return;
   await ctx.db.patch('canonicalMilitiaState', source._id, {
     revision: source.revision + 1,
     snapshot: {
       ...source.snapshot,
       characters,
-      roster: {
-        ...source.snapshot.roster,
-        people: source.snapshot.roster.people.map((p) =>
-          p.characterId === characterId ? { ...p, kind } : p,
-        ),
-      },
+      roster,
     },
   });
 }

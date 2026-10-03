@@ -60,6 +60,7 @@ const rowButton = 'size-11 md:size-8';
 // and while another structural change is pending.
 function LevelActions({
   level,
+  levelName,
   headingId,
   isFirst,
   isLast,
@@ -68,6 +69,8 @@ function LevelActions({
   onDelete,
 }: {
   level: number;
+  /** The row's class name, so the question names what is deleted. */
+  levelName: string;
   headingId: string;
   isFirst: boolean;
   isLast: boolean;
@@ -81,7 +84,7 @@ function LevelActions({
   if (isConfirmingDelete)
     return (
       <InlineDeleteQuestion
-        question={`Delete Unspecified (level ${level})?`}
+        question={`Delete ${levelName} (level ${level})?`}
         subject={`level ${level}`}
         isBusy={isBusy}
         className={actionsCell}
@@ -152,7 +155,7 @@ function LevelActions({
  * so its typed hit points, focus and field error travel with it. Its label
  * is its current position. The row's own warnings sit by the field they
  * are about: the class still to choose, the hit points still to enter or
- * below the rule.
+ * below the rule. A minimal sheet outlines no missing class.
  */
 export function ClassLevelRow({
   row,
@@ -162,6 +165,7 @@ export function ClassLevelRow({
   warningController,
   saveHitPoints,
   isChangingLevels,
+  showMissingChoices,
   moveLevel,
   onDelete,
 }: {
@@ -172,6 +176,7 @@ export function ClassLevelRow({
   warningController: Controller['warnings'];
   saveHitPoints: Controller['saveHitPoints'];
   isChangingLevels: boolean;
+  showMissingChoices: boolean;
   moveLevel: Controller['levels']['move'];
   onDelete: () => void;
 }) {
@@ -202,7 +207,14 @@ export function ClassLevelRow({
       <div className="col-span-2 flex flex-col gap-1 md:col-span-1 md:col-start-2 md:row-start-1 md:py-1.5">
         <p className="flex items-center gap-2">
           <span className={cn(fieldLabel, 'md:sr-only')}>Class</span>
-          <span className={cn(chip, missingChoice)}>Unspecified</span>
+          <span
+            className={cn(
+              chip,
+              showMissingChoices && row.isUnspecified && missingChoice,
+            )}
+          >
+            {row.className}
+          </span>
         </p>
         <InlineWarnings
           warnings={listFieldWarnings(warnings, 'class')}
@@ -278,6 +290,7 @@ export function ClassLevelRow({
       </Form>
       <LevelActions
         level={level}
+        levelName={row.className}
         headingId={headingId}
         isFirst={index === 0}
         isLast={index === count - 1}

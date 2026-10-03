@@ -34,9 +34,12 @@ vi.mock('@convex/_generated/api', () => ({
       createCharacter: 'createCharacter',
       updateCharacter: 'updateCharacter',
       archiveCharacter: 'archiveCharacter',
+      reassignOwner: 'reassignOwner',
+      listOwnerCandidates: 'listOwnerCandidates',
     },
     canonicalDraftPersistence: { workspace: 'workspace', observe: 'observe' },
     canonicalLedger: { read: 'read', save: 'save' },
+    characterSheet: { buildOut: 'buildOut' },
   },
 }));
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
@@ -47,6 +50,11 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
   }),
 }));
 vi.mock('convex/react', () => ({
+  usePaginatedQuery: () => ({
+    results: [],
+    status: 'Exhausted',
+    loadMore: vi.fn(),
+  }),
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });

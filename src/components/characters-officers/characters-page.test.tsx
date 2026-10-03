@@ -29,7 +29,13 @@ type StoredCharacter = {
   intelligence: number;
   wisdom: number;
   charisma: number;
+  owner?: { userId: string; name: string; isMine: boolean } | null;
+  ownershipAvailable?: boolean;
+  ownerLastOperationId?: string;
   isActive?: boolean;
+  sheetMode?: 'militiaOnly' | 'full';
+  sheetRevision?: number;
+  classLevels?: { entryId: string; position: number; name: string }[];
 };
 type Call = {
   name: string;
@@ -39,6 +45,9 @@ type Call = {
 };
 let calls: Call[] = [];
 let queries: Record<string, unknown> = {};
+let readOnly = false;
+const navigate = vi.fn();
+
 vi.mock('@convex/_generated/api', () => ({
   api: {
     character: {
@@ -46,19 +55,30 @@ vi.mock('@convex/_generated/api', () => ({
       createCharacter: 'createCharacter',
       updateCharacter: 'updateCharacter',
       archiveCharacter: 'archiveCharacter',
+      reassignOwner: 'reassignOwner',
+      listOwnerCandidates: 'listOwnerCandidates',
     },
     canonicalDraftPersistence: { workspace: 'workspace', observe: 'observe' },
     canonicalLedger: { read: 'read', save: 'save' },
+    characterSheet: { buildOut: 'buildOut' },
   },
 }));
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => ({
-    kind: 'ready',
-    readOnly: false,
-    message: '',
+    kind: readOnly ? 'maintenance' : 'ready',
+    readOnly,
+    message: readOnly ? 'Editing is paused for maintenance.' : '',
   }),
 }));
 vi.mock('convex/react', () => ({
+  usePaginatedQuery: () => ({
+    results: [
+      { userId: 'ada', name: 'Ada', isMine: false },
+      { userId: 'bryn', name: 'Bryn', isMine: true },
+    ],
+    status: 'Exhausted',
+    loadMore: vi.fn(),
+  }),
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });
@@ -78,6 +98,11 @@ vi.mock('~/components/campaign-shell/navigation-guard', () => ({
       {children}
     </a>
   ),
+  useNavigationGuard: () => ({
+    navigate,
+    requestDeparture: vi.fn(),
+    hasPendingWork: () => false,
+  }),
 }));
 // Radix Select needs layout APIs jsdom lacks; a native select keeps the
 // labelled control and its PC/NPC options.
@@ -264,6 +289,8 @@ async function press(name: string, container = dialog()) {
 
 beforeEach(() => {
   calls = [];
+  readOnly = false;
+  navigate.mockReset();
   setQueries();
 });
 afterEach(() => {
@@ -458,10 +485,9 @@ describe('character table', () => {
     delete window.matchMedia;
   });
 
-  test('the officers ledger keeps archived rows marked and ownership belongs to campaign Characters', () => {
+  test('the officers ledger keeps archived rows marked with an Owner column', () => {
     render(page());
-    expect(screen.queryByRole('columnheader', { name: 'Owner' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Assign owner/ })).toBeNull();
+    expect(screen.getByRole('columnheader', { name: 'Owner' })).toBeVisible();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Show archived' }));
     expect(within(rowOf('Dalla Rook')).getByText('archived')).toBeVisible();
   });
@@ -808,3 +834,555 @@ describe('record dialog', () => {
     expect(field('Hit Dice')).toHaveValue('4');
   });
 });
+
+// Prepared records (#261): a minimal Character's Level and permanent scores
+// are the ledger's to edit, with Build out one way; a full one reads them
+// from its sheet. Neither is labelled as such.
+describe('prepared records', () => {
+  const fighter = { entryId: 'fighter-level', position: 2, name: 'Fighter' };
+  const wizard = { entryId: 'wizard-level', position: 3, name: 'Wizard' };
+  const prepared = () => [
+    character('hessa', 'Hessa', {
+      sheetMode: 'militiaOnly',
+      sheetRevision: 3,
+      level: 3,
+      strength: 16,
+      classLevels: [
+        { entryId: 'first-level', position: 1, name: 'Unspecified' },
+        fighter,
+        wizard,
+      ],
+    }),
+    character('kesh', 'Kesh', {
+      sheetMode: 'full',
+      sheetRevision: 8,
+      level: 5,
+      strength: 10.5,
+      description: 'Rides with the militia.',
+    }),
+    character('tobin', 'Tobin', { sheetMode: 'militiaOnly', level: 0 }),
+    ...records(),
+  ];
+  function withOverride(list: StoredCharacter[], hitDice: number) {
+    const source = militia(list);
+    const roster = source.snapshot.roster;
+    roster.people = roster.people.map((person) =>
+      person.characterId === 'hessa' ? { ...person, hitDice } : person,
+    );
+    return source;
+  }
+  async function openEdit(name: string) {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: `Edit ${name}` }));
+    });
+    return screen.getByRole('dialog', { name: 'Edit character' });
+  }
+  const cellsOf = (row: HTMLElement) =>
+    within(row)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+  const removalQuestion = () =>
+    screen.getByRole('group', { name: 'Remove Class Levels?' });
+  const buildOutButton = (name: string) =>
+    screen.getByRole('button', { name: `Build out ${name}` });
+
+  beforeEach(() => {
+    setQueries(prepared(), withOverride(prepared(), 0));
+  });
+
+  test('rows show Level and the six scores beside the roster facts, with Build out or the sheet and no presentation label', () => {
+    render(page());
+    const headers = within(table())
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent);
+    expect(headers).toEqual([
+      'On roster',
+      'Character',
+      'Owner',
+      'Kind',
+      'Level',
+      'STR',
+      'DEX',
+      'CON',
+      'INT',
+      'WIS',
+      'CHA',
+      'Hit Dice',
+      'Officer roles',
+      'Teams',
+      'Actions',
+    ]);
+    // Hessa's explicit zero override stands beside her level.
+    expect(cellsOf(rowOf('Hessa')).slice(0, 11)).toEqual([
+      'On roster',
+      '',
+      'PC',
+      '3',
+      '16',
+      '10',
+      '10',
+      '10',
+      '10',
+      '10',
+      '0 HD',
+    ]);
+    expect(
+      within(rowOf('Hessa')).getByRole('button', {
+        name: 'Build out Hessa',
+      }),
+    ).toBeEnabled();
+    expect(
+      within(rowOf('Hessa')).queryByRole('link', { name: /Sheet/ }),
+    ).toBeNull();
+    expect(cellsOf(rowOf('Kesh')).slice(3, 5)).toEqual(['5', '10.5']);
+    expect(
+      within(rowOf('Kesh')).getByRole('link', { name: 'Sheet for Kesh' }),
+    ).toHaveAttribute(
+      'href',
+      '/characters/kesh?from=%2Fcampaigns%2Fcampaign%2Fofficers&organizationId=org',
+    );
+    expect(
+      within(rowOf('Kesh')).queryByRole('button', { name: /Build out/ }),
+    ).toBeNull();
+    // An unprepared record keeps Edit alone; roster warnings stay.
+    expect(within(rowOf('Bren Ironhand')).getAllByRole('button')).toHaveLength(
+      3,
+    );
+    expect(rowOf('Bren Ironhand')).toHaveTextContent(
+      'Bren Ironhand holds more than one officer role.',
+    );
+    expect(screen.queryByText(/Militia-only|^Full$|Status/)).toBeNull();
+    expect(screen.queryByText(/\d+ warnings?/)).toBeNull();
+  });
+
+  test('phone cards stack Level, scores and the actions', () => {
+    window.matchMedia = vi.fn(() => ({
+      matches: false,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
+    render(page());
+    const card = required(
+      screen.getByRole('heading', { name: 'Hessa' }).closest('li'),
+    );
+    const terms = within(card)
+      .getAllByRole('term')
+      .map((term) => term.textContent);
+    expect(terms).toEqual(['Level', 'STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']);
+    expect(
+      within(card).getByText('Level').nextElementSibling,
+    ).toHaveTextContent('3');
+    expect(
+      within(card).getByRole('button', { name: 'Build out Hessa' }),
+    ).toBeVisible();
+    expect(
+      within(card).getByRole('button', { name: 'Edit Hessa' }),
+    ).toBeVisible();
+    const kesh = required(
+      screen.getByRole('heading', { name: 'Kesh' }).closest('li'),
+    );
+    expect(
+      within(kesh).getByRole('link', { name: 'Sheet for Kesh' }),
+    ).toBeVisible();
+    // @ts-expect-error jsdom has no matchMedia by default
+    delete window.matchMedia;
+  });
+
+  test('a prepared record is edited as Level; an increase saves at once and leaves the roster override alone', async () => {
+    render(page());
+    await openEdit('Hessa');
+    expect(
+      within(dialog()).queryByRole('textbox', { name: 'Hit Dice' }),
+    ).toBeNull();
+    expect(field('Level')).toHaveValue('3');
+    type('Level', '5');
+    type('STR', '17');
+    await press('Save');
+    expect(
+      screen.queryByRole('group', { name: 'Remove Class Levels?' }),
+    ).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(required(calls[0]).args).toEqual({
+      operationId: expect.any(String),
+      organizationId: 'org',
+      characterId: 'hessa',
+      patch: { level: 5, strength: 17 },
+    });
+    await act(async () => required(calls[0]).resolve(null));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(calls.map((call) => call.name)).toEqual(['updateCharacter']);
+  });
+
+  test('a prepared level of zero is valid while empty, negative and fractional values are refused in place', async () => {
+    render(page());
+    await openEdit('Hessa');
+    type('Level', '');
+    await press('Save');
+    expect(within(dialog()).getByText('Level is required')).toBeVisible();
+    type('Level', '-1');
+    await press('Save');
+    expect(
+      within(dialog()).getByText('Level must be at least 0'),
+    ).toBeVisible();
+    type('Level', '1.5');
+    await press('Save');
+    expect(
+      within(dialog()).getByText('Level must be a whole number'),
+    ).toBeVisible();
+    type('STR', 'strong');
+    await press('Save');
+    expect(within(dialog()).getByText('STR must be a number')).toBeVisible();
+    expect(calls).toEqual([]);
+    expect(
+      within(within(dialog()).getByRole('alert')).getByRole('button', {
+        name: 'Level',
+      }),
+    ).toBeVisible();
+  });
+
+  test('lowering the level names every trailing row first; Keep writes nothing and keeps the input, Escape is Keep', async () => {
+    render(page());
+    await openEdit('Hessa');
+    type('Level', '1');
+    type('Notes', 'Scout');
+    type('STR', '10');
+    const save = within(dialog()).getByRole('button', { name: 'Save' });
+    save.focus();
+    await press('Save');
+    const question = removalQuestion();
+    expect(question).toHaveAccessibleDescription(
+      /Lowering the level to 1 removes these Class Levels\./,
+    );
+    expect(
+      within(question)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Level 2 · Fighter', 'Level 3 · Wizard']);
+    expect(calls).toEqual([]);
+    const keep = within(question).getByRole('button', {
+      name: 'Keep Class Levels',
+    });
+    expect(keep).toHaveFocus();
+    // The form waits underneath, visible but inert.
+    expect(dialog().querySelector('form')).toHaveAttribute('inert');
+    await act(async () => {
+      fireEvent.click(keep);
+    });
+    expect(
+      screen.queryByRole('group', { name: 'Remove Class Levels?' }),
+    ).toBeNull();
+    expect(dialog().querySelector('form')).not.toHaveAttribute('inert');
+    expect(field('Level')).toHaveValue('1');
+    expect(field('Level')).toHaveFocus();
+    expect(field('Notes')).toHaveValue('Scout');
+    expect(field('STR')).toHaveValue('10');
+    expect(calls).toEqual([]);
+    // Escape answers Keep too, and never closes the dialog.
+    await press('Save');
+    await act(async () => {
+      fireEvent.keyDown(
+        within(removalQuestion()).getByRole('button', {
+          name: 'Keep Class Levels',
+        }),
+        { key: 'Escape' },
+      );
+    });
+    expect(
+      screen.queryByRole('group', { name: 'Remove Class Levels?' }),
+    ).toBeNull();
+    expect(dialog()).toBeVisible();
+    expect(field('Notes')).toHaveValue('Scout');
+    expect(calls).toEqual([]);
+  });
+
+  test('Remove sends the named rows and revision with the edits; a conflict keeps the input and the next question names the live rows', async () => {
+    const view = render(page());
+    await openEdit('Hessa');
+    type('Level', '1');
+    type('Notes', 'Scout');
+    await press('Save');
+    await press('Remove Class Levels', removalQuestion());
+    expect(calls).toHaveLength(1);
+    expect(required(calls[0]).args).toEqual({
+      operationId: expect.any(String),
+      organizationId: 'org',
+      characterId: 'hessa',
+      patch: { level: 1, description: 'Scout' },
+      confirmedRemovedLevelIds: ['fighter-level', 'wizard-level'],
+      expectedSheetRevision: 3,
+    });
+    expect(
+      within(dialog()).getByRole('button', { name: 'Saving…' }),
+    ).toBeDisabled();
+    // Another player changed the sheet first: the write is refused, the
+    // input stays, and a new Save asks about the rows as they are now.
+    const list = prepared();
+    list[0] = character('hessa', 'Hessa', {
+      sheetMode: 'militiaOnly',
+      sheetRevision: 4,
+      level: 3,
+      strength: 16,
+      classLevels: [
+        { entryId: 'first-level', position: 1, name: 'Unspecified' },
+        { entryId: 'rogue-level', position: 2, name: 'Rogue' },
+        wizard,
+      ],
+    });
+    setQueries(list, withOverride(list, 0));
+    view.rerender(page());
+    await act(async () =>
+      required(calls[0]).reject(
+        new ConvexError('The sheet changed. Check it and try again.'),
+      ),
+    );
+    expect(within(dialog()).getByRole('alert')).toHaveTextContent(
+      'The sheet changed. Check it and try again.',
+    );
+    expect(
+      screen.queryByRole('group', { name: 'Remove Class Levels?' }),
+    ).toBeNull();
+    expect(field('Level')).toHaveValue('1');
+    expect(field('Notes')).toHaveValue('Scout');
+    await press('Save');
+    expect(
+      within(removalQuestion())
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Level 2 · Rogue', 'Level 3 · Wizard']);
+    await press('Remove Class Levels', removalQuestion());
+    expect(required(calls[1]).args).toMatchObject({
+      confirmedRemovedLevelIds: ['rogue-level', 'wizard-level'],
+      expectedSheetRevision: 4,
+    });
+    await act(async () => required(calls[1]).resolve(null));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  test('Archive resumes after Remove with the unsaved edits', async () => {
+    render(page());
+    await openEdit('Hessa');
+    type('Level', '2');
+    type('Name', 'Hessa Thorn');
+    await press('Archive');
+    expect(
+      within(removalQuestion())
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Level 3 · Wizard']);
+    await press('Remove Class Levels', removalQuestion());
+    expect(required(calls[0]).args).toEqual({
+      operationId: expect.any(String),
+      organizationId: 'org',
+      characterId: 'hessa',
+      patch: { name: 'Hessa Thorn', level: 2, isActive: false },
+      confirmedRemovedLevelIds: ['wizard-level'],
+      expectedSheetRevision: 3,
+    });
+    expect(
+      within(dialog()).getByRole('button', { name: 'Archiving…' }),
+    ).toBeDisabled();
+  });
+
+  test('a full record reads its level and scores from the sheet while name, Notes, kind and Archive stay editable', async () => {
+    render(page());
+    await openEdit('Kesh');
+    expect(
+      within(dialog()).queryByRole('textbox', { name: 'Level' }),
+    ).toBeNull();
+    expect(within(dialog()).queryByRole('textbox', { name: 'STR' })).toBeNull();
+    const statistics = within(dialog()).getByRole('group', {
+      name: 'Level and scores',
+    });
+    expect(
+      within(statistics)
+        .getAllByRole('term')
+        .map((term) => term.textContent),
+    ).toEqual(['Level', 'STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']);
+    expect(
+      within(statistics).getByText('Level').nextElementSibling,
+    ).toHaveTextContent('5');
+    expect(
+      within(statistics).getByText('STR').nextElementSibling,
+    ).toHaveTextContent('10.5');
+    expect(
+      within(statistics).getByRole('link', { name: 'Open sheet' }),
+    ).toHaveAttribute(
+      'href',
+      '/characters/kesh?from=%2Fcampaigns%2Fcampaign%2Fofficers&organizationId=org',
+    );
+    expect(field('Name')).toBeEnabled();
+    type('Name', 'Kesh of Phaendar');
+    type('Notes', 'Rides ahead.');
+    fireEvent.change(within(dialog()).getByRole('combobox', { name: 'Kind' }), {
+      target: { value: 'npc' },
+    });
+    await press('Save');
+    expect(required(calls[0]).args).toEqual({
+      operationId: expect.any(String),
+      organizationId: 'org',
+      characterId: 'kesh',
+      patch: {
+        name: 'Kesh of Phaendar',
+        description: 'Rides ahead.',
+        kind: 'npc',
+      },
+    });
+    await act(async () => required(calls[0]).resolve(null));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await openEdit('Kesh');
+    type('Notes', 'Left the militia.');
+    await press('Archive');
+    expect(required(calls[1]).args).toEqual({
+      operationId: expect.any(String),
+      organizationId: 'org',
+      characterId: 'kesh',
+      patch: { description: 'Left the militia.', isActive: false },
+    });
+  });
+
+  test('Build out from a row performs one request, opens that sheet and disappears with the full response', async () => {
+    const view = render(page());
+    expect(calls).toEqual([]);
+    await act(async () => {
+      fireEvent.click(buildOutButton('Hessa'));
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      name: 'buildOut',
+      args: {
+        organizationId: 'org',
+        characterId: 'hessa',
+        operationId: expect.any(String),
+      },
+    });
+    const pending = within(rowOf('Hessa')).getByRole('button', {
+      name: 'Building out… Hessa',
+    });
+    expect(pending).toBeDisabled();
+    expect(buildOutButton('Tobin')).toBeDisabled();
+    await act(async () => {
+      fireEvent.click(pending);
+    });
+    expect(calls).toHaveLength(1);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => required(calls[0]).resolve('hessa'));
+    expect(navigate).toHaveBeenCalledWith(
+      '/characters/hessa?from=%2Fcampaigns%2Fcampaign%2Fofficers&organizationId=org',
+    );
+    expect(within(rowOf('Hessa')).getByRole('status')).toHaveTextContent(
+      'Character built out.',
+    );
+    expect(buildOutButton('Tobin')).toBeEnabled();
+    const list = prepared();
+    list[0] = { ...required(list[0]), sheetMode: 'full' };
+    setQueries(list, withOverride(list, 0));
+    view.rerender(page());
+    expect(
+      within(rowOf('Hessa')).queryByRole('button', { name: /Build out/ }),
+    ).toBeNull();
+    expect(
+      within(rowOf('Hessa')).getByRole('link', { name: 'Sheet for Hessa' }),
+    ).toHaveAttribute(
+      'href',
+      '/characters/hessa?from=%2Fcampaigns%2Fcampaign%2Fofficers&organizationId=org',
+    );
+    expect(calls).toHaveLength(1);
+  });
+
+  test('a refused Build out stays beside its row and the ledger stays put', async () => {
+    render(page());
+    await act(async () => {
+      fireEvent.click(buildOutButton('Tobin'));
+    });
+    await act(async () =>
+      required(calls[0]).reject(
+        new ConvexError('This character was already built out'),
+      ),
+    );
+    expect(within(rowOf('Tobin')).getByRole('alert')).toHaveTextContent(
+      "Character wasn't built out: This character was already built out. Try again.",
+    );
+    expect(within(rowOf('Hessa')).queryByRole('alert')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(buildOutButton('Tobin')).toBeEnabled();
+    expect(buildOutButton('Hessa')).toBeEnabled();
+  });
+
+  test('maintenance disables Build out and the record writes with the reason beside them, and Cancel still closes', async () => {
+    readOnly = true;
+    render(page());
+    expect(buildOutButton('Hessa')).toBeDisabled();
+    expect(rowOf('Hessa')).toHaveTextContent(
+      'Editing is paused for maintenance.',
+    );
+    await act(async () => {
+      fireEvent.click(buildOutButton('Hessa'));
+    });
+    expect(calls).toEqual([]);
+    await openEdit('Hessa');
+    expect(
+      within(dialog()).getByRole('button', { name: 'Save' }),
+    ).toBeDisabled();
+    expect(
+      within(dialog()).getByRole('button', { name: 'Archive' }),
+    ).toBeDisabled();
+    expect(
+      within(dialog()).getByText('Editing is paused for maintenance.'),
+    ).toBeVisible();
+    await press('Cancel');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+});
+
+test('a prepared officers ledger row assigns an owner beside its Level, scores and Build out', async () => {
+  const hero = character('hessa', 'Hessa', {
+    sheetMode: 'militiaOnly',
+    level: 3,
+    strength: 16,
+    owner: { userId: 'ada', name: 'Ada', isMine: false },
+    ownershipAvailable: true,
+  });
+  setQueries([hero], militia([hero]));
+  const view = render(page());
+  expect(screen.getByRole('columnheader', { name: 'Owner' })).toBeVisible();
+  expect(screen.getByRole('columnheader', { name: 'Level' })).toBeVisible();
+  expect(within(rowOf('Hessa')).getByText('Ada')).toBeVisible();
+  expect(within(rowOf('Hessa')).getByText('16')).toBeVisible();
+  expect(
+    within(rowOf('Hessa')).getByRole('button', { name: 'Build out Hessa' }),
+  ).toBeEnabled();
+  fireEvent.click(
+    within(rowOf('Hessa')).getByRole('button', {
+      name: 'Assign owner for Hessa',
+    }),
+  );
+  const picker = within(screen.getByRole('dialog', { name: 'Choose owner' }));
+  fireEvent.click(picker.getByRole('radio', { name: /Bryn/ }));
+  await act(async () =>
+    fireEvent.click(picker.getByRole('button', { name: 'Assign owner' })),
+  );
+  expect(calls[0]?.name).toBe('reassignOwner');
+  expect(calls[0]?.args).toMatchObject({
+    characterId: 'hessa',
+    campaignId: 'campaign',
+    organizationId: 'org',
+    ownerUserId: 'bryn',
+  });
+  const changed = {
+    ...hero,
+    owner: { userId: 'bryn', name: 'Bryn', isMine: true },
+    ownerLastOperationId: String(calls[0]?.args.operationId),
+  };
+  setQueries([changed], militia([changed]));
+  view.rerender(page());
+  await act(async () => calls[0]?.resolve(null));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(within(rowOf('Hessa')).getByText('Bryn')).toBeVisible();
+  expect(within(rowOf('Hessa')).getByText('Owner assigned.')).toBeVisible();
+});
+
+function required<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined)
+    throw new Error('Expected fixture value');
+  return value;
+}

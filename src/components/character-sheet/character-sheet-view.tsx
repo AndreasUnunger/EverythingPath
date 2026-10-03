@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
 import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
+import { BuildOutControl } from './build-out-control';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
 import { PersonalAdjustments } from './personal-adjustments';
@@ -27,16 +28,24 @@ function describeIncompleteHp(levels: ReadySheet['levels']) {
 }
 
 // Existing metadata, shown; this slice has no sheet-side identity editor.
-// The name is in the summary row, so it is not repeated here.
+// The name is in the summary row, so it is not repeated here. A minimal
+// Character offers its one-way Build out here, once.
 function CharacterBlock({
   kind,
   notes,
+  buildOut,
 }: {
   kind: CharacterKind;
   notes: string;
+  buildOut: Controller['buildOut'];
 }) {
   return (
-    <Block title="Character">
+    <Block
+      title="Character"
+      aside={
+        buildOut.available ? <BuildOutControl buildOut={buildOut} /> : null
+      }
+    >
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 md:grid-cols-4 lg:grid-cols-8">
         <div className="flex flex-col gap-0.5">
           <dt className={fieldLabel}>Kind</dt>
@@ -159,12 +168,15 @@ export function CharacterSheetView({
             <CharacterBlock
               kind={sheet.character.kind}
               notes={sheet.character.description}
+              buildOut={controller.buildOut}
             />
           </div>
           <div className="min-w-0 lg:col-span-12">
             <ClassLevels
               rows={sheet.levels}
               warnings={sheet.warnings}
+              advisory={sheet.warning}
+              showMissingChoices={sheet.showMissingChoices}
               warningController={controller.warnings}
               levels={controller.levels}
               saveHitPoints={controller.saveHitPoints}

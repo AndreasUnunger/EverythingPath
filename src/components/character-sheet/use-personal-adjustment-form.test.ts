@@ -11,7 +11,7 @@ type FormModifier = ReturnType<
   typeof usePersonalAdjustmentForm
 >['fields'][number];
 
-test('personal adjustments distinguish missing and malformed values and accept numeric departures', async () => {
+test('personal adjustments distinguish missing, malformed and fractional ability values; other Modifiers accept fractions', async () => {
   const saved: PersonalAdjustmentInput[] = [];
   const view = renderHook(() =>
     usePersonalAdjustmentForm({
@@ -52,10 +52,22 @@ test('personal adjustments distinguish missing and malformed values and accept n
   await act(async () => {
     await view.result.current.save();
   });
+  expect(
+    view.result.current.form.getFieldState('modifiers.0.value').error?.message,
+  ).toBe('Ability score modifiers must be whole numbers');
+  expect(saved).toEqual([]);
+  act(() =>
+    view.result.current.form.setValue('modifiers.0.target', 'save.will', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => {
+    await view.result.current.save();
+  });
   expect(saved).toEqual([
     {
       name: 'Table reward',
-      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: -2.5 }],
+      modifiers: [{ target: 'save.will', bonusType: 'untyped', value: -2.5 }],
     },
   ]);
   expect(view.result.current.status.kind).toBe('saved');

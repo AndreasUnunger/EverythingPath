@@ -1,4 +1,5 @@
 'use client';
+import { TriangleAlert } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
@@ -33,6 +34,17 @@ function findRowInput(entryId: string) {
     ?.querySelector<HTMLInputElement>('input');
 }
 
+// The minimal sheet's advisory, plain and once: nothing here is accepted.
+function Advisory({ message }: { message: string | null }) {
+  if (message === null) return null;
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-amber-300">
+      <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
+      <span className="min-w-0 [overflow-wrap:anywhere]">{message}</span>
+    </p>
+  );
+}
+
 function findRowDeleteButton(entryId: string) {
   return document
     .getElementById(getLevelAnchorId(entryId))
@@ -45,17 +57,23 @@ function findRowDeleteButton(entryId: string) {
  * another-player feedback. Every level may be removed; at zero the PC rule
  * warns, acceptably, and Level 1 can be appended again. Total HP is the sum
  * of these rows, so while it cannot resolve the reason reads here, under
- * them, rather than growing the pinned summary.
+ * them, rather than growing the pinned summary. A minimal sheet shows no
+ * missing-class outline and only its one advisory, the PC with no levels.
  */
 export function ClassLevels({
   rows,
   warnings,
+  advisory,
+  showMissingChoices,
   warningController,
   levels,
   saveHitPoints,
 }: {
   rows: ReadySheet['levels'];
   warnings: SheetWarningView[];
+  /** The minimal sheet's only warning; null on a full sheet or at a level. */
+  advisory: string | null;
+  showMissingChoices: boolean;
   warningController: Controller['warnings'];
   levels: Controller['levels'];
   saveHitPoints: Controller['saveHitPoints'];
@@ -138,6 +156,7 @@ export function ClassLevels({
                   warningController={warningController}
                   saveHitPoints={saveHitPoints}
                   isChangingLevels={isBusy}
+                  showMissingChoices={showMissingChoices}
                   moveLevel={levels.move}
                   onDelete={() => {
                     if (maintenance.readOnly) return;
@@ -149,14 +168,18 @@ export function ClassLevels({
             </ul>
           </>
         )}
-        <InlineWarnings
-          warnings={warnings.filter(
-            (warning) =>
-              warning.target.kind === 'classLevels' ||
-              warning.target.kind === 'hitPoints',
-          )}
-          controller={warningController}
-        />
+        {showMissingChoices ? (
+          <InlineWarnings
+            warnings={warnings.filter(
+              (warning) =>
+                warning.target.kind === 'classLevels' ||
+                warning.target.kind === 'hitPoints',
+            )}
+            controller={warningController}
+          />
+        ) : (
+          <Advisory message={advisory} />
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-sm">
           <span className="text-muted-foreground">
             Level {rows.length + 1} as

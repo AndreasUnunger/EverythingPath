@@ -37,6 +37,17 @@ function buildNumberField(label: string, isOptional = false) {
   });
 }
 
+function buildIntegerField(label: string) {
+  return buildNumberField(label).pipe(
+    z
+      .string()
+      .refine(
+        (value) => Number.isSafeInteger(Number(value)),
+        `${label} must be a whole number`,
+      ),
+  );
+}
+
 function buildNonnegativeIntegerField(label: string) {
   return buildNumberField(label).pipe(
     z
@@ -207,12 +218,12 @@ export function useClassLevelForm({
 }
 
 const baseScoresSchema = z.object({
-  strength: buildNumberField(abilityLabels.strength),
-  dexterity: buildNumberField(abilityLabels.dexterity),
-  constitution: buildNumberField(abilityLabels.constitution),
-  intelligence: buildNumberField(abilityLabels.intelligence),
-  wisdom: buildNumberField(abilityLabels.wisdom),
-  charisma: buildNumberField(abilityLabels.charisma),
+  strength: buildIntegerField(abilityLabels.strength),
+  dexterity: buildIntegerField(abilityLabels.dexterity),
+  constitution: buildIntegerField(abilityLabels.constitution),
+  intelligence: buildIntegerField(abilityLabels.intelligence),
+  wisdom: buildIntegerField(abilityLabels.wisdom),
+  charisma: buildIntegerField(abilityLabels.charisma),
 });
 
 type BaseScoreValues = z.infer<typeof baseScoresSchema>;

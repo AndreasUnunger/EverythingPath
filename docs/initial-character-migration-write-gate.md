@@ -13,11 +13,13 @@ This is the recoverable **pre-activation** window for the initial Character Shee
    ```
 
    These identity strings are recorded evidence, not validation of build/catalog readiness. Those gates belong to the later activation implementation.
+
 4. Query internal `initialMigration:status` with a fresh `{now}`. Confirm `closed: true`, `authority: "legacy"`, the expected run and epoch, and the recorded `startedAt`/`deadline`. Save the response in the deployment's rehearsal record. Read campaigns, Characters, membership-scoped data, saved drafts and history through their normal queries. Try representative writes: they must return maintenance without changes. The same status query is safe for monitoring or recovering a lost response; resample `now` on every poll so `budgetExceeded` reflects elapsed time. For example:
 
    ```sh
    pnpm exec convex run initialMigration:status "$(node -p 'JSON.stringify({now: Date.now()})')"
    ```
+
 5. Do not exceed the declared budget. Status reports `budgetExceeded: true` when the active Maintenance Window reaches its deadline; monitor it with fresh timestamps and abort promptly when preparation cannot finish. This ticket has no candidate backfill/resume/activation endpoint. Until those later tickets exist, rehearsal ends by aborting. An expired deadline does not automatically reopen: an automatic reopen could race future migration work. The operator explicitly aborts if preparation cannot finish within the budget, including after an abandoned worker or failed build/site publication.
 6. Before activation only, execute internal `initialMigration:abortBeforeActivation` with the exact saved `{runId, epoch}`. Example command shape:
 
@@ -27,6 +29,7 @@ This is the recoverable **pre-activation** window for the initial Character Shee
    ```
 
    Verify `closed: false`, `authority: "legacy"`, `run.state: "aborted"` and a newer control epoch. The older run receipt remains audit evidence. All accepted pre-closure data is still present; the abort does not restore a backup or discard accepted data. Any independently paused weekly-board gate remains paused.
+
 7. Reload the browser before making a new edit; old tabs and delayed commands cannot resume. A page first loaded during maintenance also pins that maintenance epoch and must reload after an abort advances the epoch. Verify a freshly entered edit succeeds and the old command still fails. Do not substitute the fresh epoch into a rejected command or automatically retry it. Existing legacy browser bundles without epoch support must load the compatible frontend even after abort.
 8. Verify identity provider redelivery after reopening. Signed Clerk identity and membership events receive retryable HTTP 503 only for the Write Gate rejections `MAINTENANCE` or `RELOAD_REQUIRED`. Invalid signatures, malformed payloads, invalid provider timestamps and membership events referencing unknown users receive HTTP 400; these permanent failures require correction, not unchanged redelivery. After reopening, redeliveries are accepted regardless of whether the event was emitted during the Maintenance Window. Idempotent upserts recheck current local state and compare the provider timestamp with the affected record's stored timestamp, preventing an older event from overwriting a newer projection. No explicit reconciliation or re-stamping of events is required for the Maintenance Window. Signature verification happens before any database access; the receiving mutation reads the Write Gate once.
 9. A later attempt uses a **new** operation identity and the current epoch, takes a new source inventory, and validates all candidates again. Old completion markers cannot authorize activation. After sheet activation, abort must reject; recovery is forward-only under the later activation runbook.
@@ -46,6 +49,8 @@ Future private-candidate writers (#319) need a separate, reviewed migration inte
 `MaintenanceBanner` and the controls that disable editing use `useInitialMigrationMaintenance`. The hook supplies loading, unavailable, maintenance and reload-required notices; the banner presents the notice and the reload action, and controls explain why editing is unavailable. Existing saved data remains readable throughout; no client operation is automatically replayed. `cutover:status` has no application consumer; its compatibility projection remains covered by the accepted-campaign and initial-migration integration tests.
 
 The activation ticket must distinguish a **legacy Character writer** from **any writer**. Today `authority === 'sheet'` fences all ordinary gated writers and identity webhooks, including spell imports and fixtures, even with a current Write Epoch. Activation must deliberately preserve the required non-Character writers while retiring legacy Character writes. Draft retirement's closed-only housekeeping gate is the reviewed exception; this pre-activation ticket does not authorize a broader bypass.
+
+The #261 `characterSheet:buildOut` writer uses the composed campaign gate. Ledger level and permanent-score edits enter through the inventoried `character:updateCharacter` writer; roster Hit Dice override edits, including zero, enter through `canonicalLedger:save`. All use the same maintenance and Write Epoch checks as their other edits. Prepared ledger edits and sheet persistence also refresh current Militia Character Facts within their already-gated transaction. Every prepared sheet writer, including ledger level/score edits and Build out, prunes Accepted Warnings against the in-memory sheet after the edit via `pruneWarningAcceptancesAndRecordChange`; the Hit Dice override remains a militia snapshot correction rather than a sheet edit. This isolated fixture behavior does not activate production sheets. `convex/characterMilitiaSheet.integration.test.ts` proves Build out and ledger edits reject while the gate is closed, preserve saved reads, reject stale commands after abort, and accept a fresh command carrying the reopened epoch.
 
 ## Inventory and completeness check
 
@@ -91,6 +96,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:acceptWarning` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:addClassLevel` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:archive` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:buildOut` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:create` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:createPersonalAdjustment` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:deleteClassLevel` | Shared write gate (epoch + maintenance) |

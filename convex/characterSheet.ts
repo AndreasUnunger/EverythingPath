@@ -1,3 +1,8 @@
+import {
+  maxCharacterChildRows,
+  maxAcceptedWarnings,
+  requireAbilityScore,
+} from './lib/preparedCharacterSheet';
 import { compareValues, ConvexError, v } from 'convex/values';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { Id } from './_generated/dataModel';
@@ -27,6 +32,7 @@ import {
 import {
   deleteCharacterSheet,
   initializeCharacterSheet,
+  insertClassLevel,
   isManualCatalogEntry,
   loadCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
@@ -215,12 +221,28 @@ export const read = query({
         entries: sheet.entries,
         catalogEntries: sheet.catalogEntries,
         characterKind: sheet.character.kind,
+        sheetMode: sheet.character.sheetMode,
       }),
     };
   },
 });
 
 const writeScope = { ...scope, operationId: v.string() };
+export const buildOut = campaignMutation({
+  args: writeScope,
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    if (sheet.character.sheetMode === 'full') return null;
+    await ctx.db.patch('character', args.characterId, { sheetMode: 'full' });
+    sheet.character = { ...sheet.character, sheetMode: 'full' };
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
 const rowScope = { ...writeScope, entryId: v.id('characterSheetEntry') };
 const personalAdjustmentFields = {
   name: v.string(),
@@ -288,6 +310,11 @@ function validatePersonalAdjustment({
     throw new ConvexError('An adjustment supports at most 256 Modifiers');
   for (const modifier of modifiers) {
     requireFiniteNumber(modifier.value);
+    if (
+      modifier.target.startsWith('ability.') &&
+      !Number.isSafeInteger(modifier.value)
+    )
+      throw new ConvexError('Ability Modifiers must be whole numbers');
     if (modifier.bonusType === 'base')
       throw new ConvexError('Base scores cannot be personal adjustments');
   }
@@ -312,7 +339,7 @@ export const createPersonalAdjustment = campaignMutation({
       name: args.name,
       modifiers: args.modifiers,
     });
-    if (sheet.entries.length >= 4096)
+    if (sheet.entries.length >= maxCharacterChildRows)
       throw new ConvexError('Character sheet is too large');
     const catalogEntryId = await ctx.db.insert('catalogEntry', {
       scope: 'character',
@@ -455,7 +482,7 @@ export const editBaseScores = campaignMutation({
     for (const ability of abilityKeys) {
       const value = args.scores[ability];
       if (value !== undefined) {
-        requireFiniteNumber(value);
+        requireAbilityScore(value);
         values.set(abilityTargets[ability], value);
       }
     }
@@ -470,9 +497,7 @@ export const editBaseScores = campaignMutation({
     if (!hasChanges) return null;
     await ctx.db.patch('catalogEntry', catalogEntry._id, { modifiers });
     sheet.catalogEntries = sheet.catalogEntries.map((entry) =>
-      entry._id === catalogEntry._id && entry.detail.kind === 'base'
-        ? { ...entry, modifiers }
-        : entry,
+      entry._id === catalogEntry._id ? { ...catalogEntry, modifiers } : entry,
     );
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
@@ -486,29 +511,19 @@ export const addClassLevel = campaignMutation({
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
-    if (sheet.entries.length >= 4096)
+    if (sheet.entries.length >= maxCharacterChildRows)
       throw new ConvexError('Character sheet is too large');
-    const entryId = await ctx.db.insert('characterSheetEntry', {
-      characterId: args.characterId,
-      kind: 'classLevel',
-      active: true,
-      state: {
-        kind: 'classLevel',
-        classEntryId: null,
-        position:
-          sheet.entries.filter((entry) => entry.kind === 'classLevel').length +
-          1,
-        hpGained: null,
-      },
-    });
-    const entry = await ctx.db.get('characterSheetEntry', entryId);
-    if (!entry) throw new ConvexError('Class Level is unavailable');
+    const entry = await insertClassLevel(
+      ctx,
+      args.characterId,
+      sheet.entries.filter((row) => row.kind === 'classLevel').length + 1,
+    );
     sheet.entries.push(entry);
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
     });
-    return entryId;
+    return entry._id;
   },
 });
 export const editClassLevel = campaignMutation({
@@ -619,6 +634,7 @@ export const acceptWarning = campaignMutation({
       entries: sheet.entries,
       catalogEntries: sheet.catalogEntries,
       characterKind: sheet.character.kind,
+      sheetMode: sheet.character.sheetMode,
     });
     const warning = calculated.warnings.find(
       (item) =>
@@ -638,7 +654,7 @@ export const acceptWarning = campaignMutation({
         (item) => item._id !== previous._id,
       );
     }
-    if (sheet.acceptedWarnings.length >= 8192)
+    if (sheet.acceptedWarnings.length >= maxAcceptedWarnings)
       throw new ConvexError('Character has too many accepted warnings');
     await ctx.db.insert('acceptedWarning', {
       characterId: args.characterId,

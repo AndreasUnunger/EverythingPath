@@ -296,7 +296,7 @@ test('a later remote overwrite stays authoritative when the earlier save reply f
   expect(view.result.current.form.formState.dirtyFields.hpGained).toBe(true);
 });
 
-test('recorded fractional scores do not block unrelated edits and fractional HP stays saveable', async () => {
+test('recorded fractional ability scores require correction while fractional HP stays saveable', async () => {
   const scores = {
     strength: 10,
     dexterity: 10,
@@ -322,7 +322,10 @@ test('recorded fractional scores do not block unrelated edits and fractional HP 
   await act(async () => {
     await abilities.result.current.save();
   });
-  expect(saved).toEqual({ strength: 14 });
+  expect(saved).toEqual({});
+  expect(
+    abilities.result.current.form.getFieldState('wisdom').error?.message,
+  ).toBe('Wisdom must be a whole number');
   let hp: number | null = null;
   const level = renderHook(() =>
     useClassLevelForm({

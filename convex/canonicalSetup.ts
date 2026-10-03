@@ -5,6 +5,8 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { query, type MutationCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import type { ReadCtx } from './types';
+import { loadPreparedCharacterSheets } from './lib/preparedCharacterSheet';
+import { calculateMilitiaCharacterFacts } from './lib/militiaCharacterFacts';
 import {
   openDraft,
   requireOrganizationMembership,
@@ -60,6 +62,7 @@ export const options = query({
       .take(257);
     if (characters.length > 256)
       throw new ConvexError('This campaign exceeds the setup character limit');
+    const sheets = await loadPreparedCharacterSheets(ctx, characters, campaign);
     const draft = await ctx.db
       .query('canonicalWeeklyDraft')
       .withIndex('by_campaignId_and_status', (q) =>
@@ -69,18 +72,16 @@ export const options = query({
     return {
       name: campaign.name,
       started: !!draft,
-      characters: characters.map((character) => ({
-        characterId: character._id,
-        name: character.name,
-        level: character.level,
-        strength: character.strength,
-        dexterity: character.dexterity,
-        constitution: character.constitution,
-        intelligence: character.intelligence,
-        wisdom: character.wisdom,
-        charisma: character.charisma,
-        isActive: character.isActive,
-      })),
+      characters: await Promise.all(
+        characters.map(async (character, index) => ({
+          ...(await calculateMilitiaCharacterFacts(
+            ctx,
+            character,
+            sheets[index] ?? null,
+          )),
+          name: character.name,
+        })),
+      ),
     };
   },
 });
@@ -199,20 +200,8 @@ async function requireReviewedCharacters(
     const character = id && (await ctx.db.get('character', id));
     if (character?.campaignId !== campaignId)
       throw new ConvexError('Choose characters belonging to this campaign');
-    for (const stat of [
-      'level',
-      'strength',
-      'dexterity',
-      'constitution',
-      'intelligence',
-      'wisdom',
-      'charisma',
-    ] as const)
-      if (person[stat] !== character[stat])
-        throw new ConvexError(
-          'Character facts changed. Reload setup to review the ledger.',
-        );
-    if (person.isActive !== character.isActive)
+    const facts = await calculateMilitiaCharacterFacts(ctx, character);
+    if (weeklySourceKey(person) !== weeklySourceKey(facts))
       throw new ConvexError(
         'Character facts changed. Reload setup to review the ledger.',
       );

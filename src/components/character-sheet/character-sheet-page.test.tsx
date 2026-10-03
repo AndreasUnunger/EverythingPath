@@ -51,6 +51,7 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
 vi.mock('@convex/_generated/api', () => ({
   api: {
     characterSheet: {
+      buildOut: 'buildOut',
       read: 'read',
       editBaseScores: 'scores',
       editClassLevel: 'hp',
@@ -124,8 +125,9 @@ vi.mock('~/components/campaign-shell/navigation-guard', () => ({
 }));
 
 const characterId = 'character-1' as Id<'character'>;
-type Level = { id: string; hp: number | null };
+type Level = { id: string; hp: number | null; className?: string };
 type Entry = CharacterSheetSnapshot['entries'][number];
+type CatalogEntry = CharacterSheetSnapshot['catalogEntries'][number];
 
 function sheet({
   scores = defaultAbilityScores,
@@ -135,6 +137,8 @@ function sheet({
   isActive = true,
   campaignId = 'campaign-1' as Id<'campaign'>,
   ownershipAvailable = true,
+  sheetMode = 'full',
+  kind = 'pc',
 }: {
   scores?: AbilityScores;
   levels?: Level[];
@@ -144,6 +148,8 @@ function sheet({
   /** `null` for a private Character, which has none. */
   campaignId?: Id<'campaign'> | null;
   ownershipAvailable?: boolean;
+  sheetMode?: 'militiaOnly' | 'full';
+  kind?: 'pc' | 'npc';
 } = {}): CharacterSheetSnapshot {
   const catalogEntry: CharacterSheetSnapshot['baseScoresEntry'] = {
     _id: 'base-catalogEntry' as Id<'catalogEntry'>,
@@ -161,6 +167,17 @@ function sheet({
       value: scores[ability],
     })),
   };
+  const classEntries = levels.flatMap((level) =>
+    level.className
+      ? [
+          {
+            _id: `class-${level.className}` as Id<'catalogEntry'>,
+            name: level.className,
+            modifiers: [],
+          } as unknown as CatalogEntry,
+        ]
+      : [],
+  );
   const entries: Entry[] = [
     {
       _id: 'base-entry' as Id<'characterSheetEntry'>,
@@ -183,7 +200,7 @@ function sheet({
           active: true,
           state: {
             kind: 'classLevel',
-            classEntryId: null,
+            classEntryId: level.className ? `class-${level.className}` : null,
             position: index + 1,
             hpGained: level.hp,
           },
@@ -207,19 +224,20 @@ function sheet({
       name,
       description: 'Rides with the militia.',
       ownerId: 'owner',
-      kind: 'pc',
+      kind,
       isActive,
-      sheetMode: 'full',
+      sheetMode,
       level: 1,
       ...defaultAbilityScores,
     },
     entries,
-    catalogEntries: [catalogEntry],
+    catalogEntries: [catalogEntry, ...classEntries],
     baseScoresEntry: catalogEntry,
     calculated: calculateCharacterSheet({
-      characterKind: 'pc',
+      characterKind: kind,
+      sheetMode,
       entries,
-      catalogEntries: [catalogEntry],
+      catalogEntries: [catalogEntry, ...classEntries],
     }),
     acceptedWarnings: [],
     revision: 1,
@@ -474,9 +492,15 @@ test('score fields tell an empty value from a malformed one, and unusual scores 
   fireEvent.change(score('Strength'), { target: { value: '-2' } });
   fireEvent.change(score('Dexterity'), { target: { value: '99.5' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save scores' }));
+  expect(
+    await within(scoresRegion()).findByText('Dexterity must be a whole number'),
+  ).toBeVisible();
+  expect(calls).toEqual([]);
+  fireEvent.change(score('Dexterity'), { target: { value: '99' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save scores' }));
   await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().name).toBe('scores');
-  expect(lastCall().args.scores).toEqual({ strength: -2, dexterity: 99.5 });
+  expect(lastCall().args.scores).toEqual({ strength: -2, dexterity: 99 });
   expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
   await act(async () => {
     lastCall().resolve(null);
@@ -1334,4 +1358,119 @@ test('a private sheet keeps its private row and never offers an owner', () => {
   expect(
     screen.getByRole('button', { name: 'Delete character' }),
   ).toBeVisible();
+});
+
+// Build out and the minimal sheet (#261): the one-way action lives in the
+// page body; a minimal sheet asks for no choices and warns once at most.
+function characterRegion() {
+  return within(screen.getByRole('region', { name: 'Character' }));
+}
+const minimal = (levels: Level[], kind: 'pc' | 'npc' = 'pc') =>
+  sheet({ levels, sheetMode: 'militiaOnly', kind });
+
+test('a minimal sheet offers Build out once; a visit never runs it, a click runs it once, and the full response takes it away', async () => {
+  const view = renderSheet(minimal([{ id: 'a', hp: 6 }]));
+  expect(calls).toEqual([]);
+  expect(screen.getAllByRole('button', { name: 'Build out' })).toHaveLength(1);
+  const buildOut = characterRegion().getByRole('button', { name: 'Build out' });
+  fireEvent.click(buildOut);
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().name).toBe('buildOut');
+  expect(lastCall().args).toEqual({
+    organizationId: 'org',
+    characterId,
+    operationId: expect.any(String),
+  });
+  const pending = characterRegion().getByRole('button', {
+    name: 'Building out…',
+  });
+  expect(pending).toBeDisabled();
+  fireEvent.click(pending);
+  expect(calls).toHaveLength(1);
+  await act(async () => lastCall().resolve(characterId));
+  expect(characterRegion().getByRole('status')).toHaveTextContent(
+    'Character built out.',
+  );
+  view.show(
+    sheet({
+      levels: [{ id: 'a', hp: 6 }],
+      lastOperationId: operationOf(lastCall()),
+    }),
+  );
+  expect(screen.queryByRole('button', { name: /Build out/ })).toBeNull();
+  // Now a full sheet: its missing class is a choice again.
+  expect(within(row('Level 1')).getByText('Choose a class.')).toBeVisible();
+  expect(calls).toHaveLength(1);
+  expect(screen.queryByText(/Full|Militia-only|revision/)).toBeNull();
+});
+
+test('a minimal sheet asks for no class, warns a PC once at level zero and an NPC never', () => {
+  const view = renderSheet(minimal([{ id: 'a', hp: null }]));
+  expect(within(row('Level 1')).getByText('Unspecified')).not.toHaveClass(
+    'ring-sky-400/80',
+  );
+  expect(screen.queryByText('Choose a class.')).toBeNull();
+  expect(screen.queryByText('Enter hit points gained.')).toBeNull();
+  expect(screen.queryByText(/warnings?$/)).toBeNull();
+  expect(screen.queryByText('A PC has no Class Levels.')).toBeNull();
+  view.show(minimal([]));
+  expect(screen.getAllByText('A PC has no Class Levels.')).toHaveLength(1);
+  expect(screen.queryByText('This PC has no Class Levels.')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Accept|Reopen/ })).toBeNull();
+  expect(screen.getByText('No Class Levels yet.')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Level up' })).toBeEnabled();
+  view.show(minimal([], 'npc'));
+  expect(screen.queryByText(/no Class Levels\./)).toBeNull();
+  expect(screen.getByRole('button', { name: 'Build out' })).toBeEnabled();
+});
+
+test('a refused Build out stays beside the action, and maintenance disables it with the reason', async () => {
+  const view = renderSheet(minimal([{ id: 'a', hp: 6 }]));
+  fireEvent.click(characterRegion().getByRole('button', { name: 'Build out' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  await act(async () =>
+    lastCall().reject(new ConvexError('This character is archived')),
+  );
+  expect(characterRegion().getByRole('alert')).toHaveTextContent(
+    "Character wasn't built out: This character is archived. Try again.",
+  );
+  expect(
+    characterRegion().getByRole('button', { name: 'Build out' }),
+  ).toBeEnabled();
+  expect(
+    screen.getByRole('link', { name: 'Characters & officers' }),
+  ).toBeVisible();
+  const message = 'Editing is paused for maintenance.';
+  maintenance.mockReturnValue({ kind: 'maintenance', readOnly: true, message });
+  view.show(minimal([{ id: 'a', hp: 6 }], 'pc'));
+  const buildOut = characterRegion().getByRole('button', { name: 'Build out' });
+  expect(buildOut).toBeDisabled();
+  expect(characterRegion().getByText(message)).toBeVisible();
+  fireEvent.click(buildOut);
+  expect(calls).toHaveLength(1);
+});
+
+test('a named class shows in its row and in its delete question', () => {
+  renderSheet(
+    sheet({
+      levels: [
+        { id: 'a', hp: 10, className: 'Fighter' },
+        { id: 'b', hp: null },
+      ],
+    }),
+  );
+  expect(within(row('Level 1')).getByText('Fighter')).toBeVisible();
+  expect(within(row('Level 1')).queryByText('Choose a class.')).toBeNull();
+  expect(within(row('Level 2')).getByText('Unspecified')).toHaveClass(
+    'ring-sky-400/80',
+  );
+  fireEvent.click(
+    within(row('Level 1')).getByRole('button', { name: 'Delete level 1' }),
+  );
+  expect(
+    within(row('Level 1')).getByRole('group', {
+      name: 'Delete Fighter (level 1)?',
+    }),
+  ).toBeVisible();
+  expect(screen.queryByRole('button', { name: /Build out/ })).toBeNull();
 });

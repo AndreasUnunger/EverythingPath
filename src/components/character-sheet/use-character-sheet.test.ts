@@ -38,6 +38,7 @@ vi.mock('@convex/_generated/api', () => ({
       moveClassLevel: 'move',
       deleteClassLevel: 'delete',
       create: 'create',
+      buildOut: 'buildOut',
       editCreationSettings: 'settings',
       acceptWarning: 'accept',
       reopenWarning: 'reopen',
@@ -60,6 +61,14 @@ function isBaseCatalogEntry(
 ): entry is CharacterSheetSnapshot['baseScoresEntry'] {
   return entry.detail.kind === 'base';
 }
+
+vi.mock('~/components/use-initial-migration-maintenance', () => ({
+  useInitialMigrationMaintenance: () => ({
+    kind: 'ready',
+    readOnly: false,
+    message: '',
+  }),
+}));
 
 async function fixture(acceptPointBuy = false) {
   const t = convexTest(schema, import.meta.glob('../../../convex/**/*.ts'));
@@ -276,13 +285,21 @@ test('a remote reorder carries row HP with its identity, and deleting the final 
     revision: 3,
     lastOperationId: 'delete-other',
     entries: initial.entries.filter((entry) => entry.kind === 'base'),
-    calculated: { ...initial.calculated, level: 0, hitDice: 0, hp: 0 },
+    calculated: calculateCharacterSheet({
+      entries: initial.entries.filter((entry) => entry.kind === 'base'),
+      catalogEntries: initial.catalogEntries,
+      characterKind: 'pc',
+    }),
   };
   view.rerender();
   expect(view.result.current.sheet?.calculated.level).toBe(0);
   expect(view.result.current.sheet?.calculated.hp).toBe(0);
-  expect(view.result.current.sheet?.warning).toBe(
-    'This PC has no Class Levels.',
+  expect(view.result.current.sheet?.warning).toBeNull();
+  expect(view.result.current.sheet?.warnings).toContainEqual(
+    expect.objectContaining({
+      check: 'levelZero',
+      message: 'A PC has no Class Levels.',
+    }),
   );
 });
 
@@ -742,7 +759,11 @@ test.each(['own', 'another session'])(
       useCharacterRecord({
         organizationId: 'org',
         campaignId,
-        record: initial.character,
+        record: {
+          ...initial.character,
+          owner: initial.owner,
+          ownershipAvailable: initial.campaign?.ownershipAvailable ?? false,
+        },
         onSaved: vi.fn(),
       }),
     );
@@ -911,3 +932,114 @@ test('adjustment changes from another player are marked while own echoes stay qu
   act(() => view.result.current.adjustments.dismissRemoteChange());
   expect(view.result.current.adjustments.hasRemoteChange).toBe(false);
 });
+
+test('a minimal sheet offers Build out and shows only the structured level-zero warning', async () => {
+  const initial = await fixture(true);
+  const entries = initial.entries.filter((entry) => entry.kind === 'base');
+  snapshot = {
+    ...initial,
+    character: { ...initial.character, sheetMode: 'militiaOnly' },
+    entries,
+    calculated: calculateCharacterSheet({
+      entries,
+      catalogEntries: initial.catalogEntries,
+      characterKind: 'pc',
+      sheetMode: 'militiaOnly',
+    }),
+  };
+  const view = renderHook(() =>
+    useCharacterSheet({
+      organizationId: 'org',
+      characterId: initial.character._id,
+    }),
+  );
+  expect(view.result.current.sheet?.warnings).toEqual([
+    expect.objectContaining({
+      check: 'levelZero',
+      target: { kind: 'classLevels' },
+      accepted: false,
+    }),
+  ]);
+  expect(view.result.current.sheet?.showMissingChoices).toBe(false);
+  expect(view.result.current.sheet?.warning).toBe('A PC has no Class Levels.');
+  expect(view.result.current.buildOut.available).toBe(true);
+  snapshot = {
+    ...snapshot,
+    character: { ...snapshot.character, kind: 'npc' },
+    calculated: calculateCharacterSheet({
+      entries,
+      catalogEntries: initial.catalogEntries,
+      characterKind: 'npc',
+      sheetMode: 'militiaOnly',
+    }),
+  };
+  view.rerender();
+  expect(view.result.current.sheet?.warnings).toEqual([]);
+  expect(view.result.current.sheet?.warning).toBeNull();
+});
+
+test.each(['own', 'another session'])(
+  'Build out from %s announces new warnings only to other sessions',
+  async (session) => {
+    const initial = await fixture();
+    snapshot = {
+      ...initial,
+      character: { ...initial.character, sheetMode: 'militiaOnly' },
+      calculated: calculateCharacterSheet({
+        ...initial,
+        characterKind: initial.character.kind,
+        sheetMode: 'militiaOnly',
+      }),
+    };
+    const view = renderHook(() =>
+      useCharacterSheet({
+        organizationId: 'org',
+        characterId: initial.character._id,
+      }),
+    );
+    expect(view.result.current.sheet?.warnings).toEqual([]);
+    let pending: Promise<unknown> | undefined;
+    act(() => {
+      pending = view.result.current.buildOut.run();
+    });
+    const call = required(calls[0]);
+    expect(call.name).toBe('buildOut');
+    snapshot = {
+      ...initial,
+      character: { ...initial.character, sheetMode: 'full' },
+      revision: 2,
+      lastOperationId:
+        session === 'own'
+          ? String(call.args.operationId)
+          : 'other-session:build-out',
+    };
+    view.rerender();
+    expect(view.result.current.sheet?.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          check: 'class',
+          target: {
+            kind: 'classLevel',
+            entryId: required(initial.entries[1])._id,
+            field: 'class',
+          },
+        }),
+      ]),
+    );
+    expect(view.result.current.sheet?.showMissingChoices).toBe(true);
+    expect(view.result.current.buildOut.available).toBe(false);
+    expect(view.result.current.warnings.hasRemoteChange).toBe(
+      session !== 'own',
+    );
+    await act(async () => {
+      call.resolve(null);
+      await pending;
+    });
+  },
+);
+
+function required<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined)
+    throw new Error('Expected fixture value');
+  return value;
+}

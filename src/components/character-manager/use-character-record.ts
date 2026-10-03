@@ -6,14 +6,20 @@ import type { Id } from '@convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import { useRef, useState } from 'react';
 import { useForm, type UseFormReturn } from 'react-hook-form';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import {
-  characterFormSchema,
+  characterLedgerDetails,
+  characterMetadataKeys,
+} from '~/lib/character-ledger';
+import {
+  characterRecordFormSchema,
   defaultCharacterFormValues,
   getCharacterErrorMessage,
   toCharacterFormValues,
   toCharacterPayload,
   type CharacterFormValues,
   type CharacterRecord,
+  type MilitiaOnlyClassLevel,
 } from './types';
 
 export type CharacterRecordForm = {
@@ -24,6 +30,16 @@ export type CharacterRecordForm = {
   submitError: string | undefined;
   /** The write in flight: its button shows progress, every button waits. */
   pending: 'save' | 'archive' | null;
+  levelLabel: 'Level' | 'Hit Dice';
+  statisticsReadOnly: boolean;
+  sheetHref: string | null;
+  readOnly: boolean;
+  removalConfirmation: {
+    levels: MilitiaOnlyClassLevel[];
+    targetLevel: number;
+    confirm: () => void;
+    cancel: () => void;
+  } | null;
   save: () => void;
   /** Archives or un-archives the record together with the edited fields. */
   toggleArchive: () => void;
@@ -53,11 +69,21 @@ export function useCharacterRecord({
     record ? toCharacterFormValues(record) : defaultCharacterFormValues,
   );
   const form = useForm<CharacterFormValues>({
-    resolver: zodResolver(characterFormSchema),
+    resolver: zodResolver(characterRecordFormSchema(record)),
     defaultValues: initialValues,
   });
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState<CharacterRecordForm['pending']>(null);
+  const [removal, setRemoval] = useState<{
+    values: CharacterFormValues;
+    archive: boolean;
+    levels: MilitiaOnlyClassLevel[];
+    revision: number | undefined;
+  } | null>(null);
+  const maintenance = useInitialMigrationMaintenance();
+  const { statisticsReadOnly, sheetHref } = record
+    ? characterLedgerDetails(record, { campaignId, organizationId })
+    : { statisticsReadOnly: false, sheetHref: null };
   // Set before validation settles, so a second press never writes twice.
   const busy = useRef(false);
   const createCharacter = useMutation(api.character.createCharacter);
@@ -69,11 +95,17 @@ export function useCharacterRecord({
   function edits(values: CharacterFormValues) {
     const payload = toCharacterPayload(values);
     return Object.fromEntries(
-      Object.entries(payload).filter(
-        ([key]) =>
+      Object.entries(payload).filter(([key]) => {
+        if (
+          statisticsReadOnly &&
+          !characterMetadataKeys.some((metadataKey) => metadataKey === key)
+        )
+          return false;
+        return (
           values[key as keyof CharacterFormValues] !==
-          initialValues[key as keyof CharacterFormValues],
-      ),
+          initialValues[key as keyof CharacterFormValues]
+        );
+      }),
     ) as Partial<typeof payload>;
   }
 
@@ -81,6 +113,7 @@ export function useCharacterRecord({
     current: CharacterRecord,
     values: CharacterFormValues,
     archive: boolean,
+    confirmedRemoval?: NonNullable<typeof removal>,
   ) {
     const patch = edits(values);
     const changed = Object.keys(patch).length > 0;
@@ -97,14 +130,24 @@ export function useCharacterRecord({
         organizationId,
         characterId: current._id,
         patch: archive ? { ...patch, isActive } : patch,
+        ...(confirmedRemoval && {
+          confirmedRemovedLevelIds: confirmedRemoval.levels.map(
+            (level) => level.entryId,
+          ),
+          expectedSheetRevision: confirmedRemoval.revision,
+        }),
       });
   }
 
-  async function write(values: CharacterFormValues, archive: boolean) {
+  async function write(
+    values: CharacterFormValues,
+    archive: boolean,
+    confirmedRemoval?: NonNullable<typeof removal>,
+  ) {
     setPending(archive ? 'archive' : 'save');
     setSubmitError(undefined);
     try {
-      if (record) await writeRecord(record, values, archive);
+      if (record) await writeRecord(record, values, archive, confirmedRemoval);
       else
         await createCharacter({
           organizationId,
@@ -128,10 +171,30 @@ export function useCharacterRecord({
   }
 
   function submit(archive: boolean) {
-    if (busy.current) return;
+    if (busy.current || maintenance.readOnly || removal) return;
     busy.current = true;
     void form
-      .handleSubmit((values) => write(values, archive))()
+      .handleSubmit((values) => {
+        const levels =
+          !statisticsReadOnly &&
+          values.level !== initialValues.level &&
+          record?.classLevels
+            ? record.classLevels.filter(
+                (level) => level.position > Number(values.level),
+              )
+            : [];
+        if (levels.length > 0) {
+          setSubmitError(undefined);
+          setRemoval({
+            values,
+            archive,
+            levels,
+            revision: record?.sheetRevision,
+          });
+          return;
+        }
+        return write(values, archive);
+      })()
       .finally(() => {
         busy.current = false;
       });
@@ -142,6 +205,25 @@ export function useCharacterRecord({
     record,
     submitError,
     pending,
+    levelLabel: record?.sheetMode ? 'Level' : 'Hit Dice',
+    statisticsReadOnly,
+    sheetHref,
+    readOnly: maintenance.readOnly,
+    removalConfirmation: removal
+      ? {
+          levels: removal.levels,
+          targetLevel: Number(removal.values.level),
+          cancel: () => setRemoval(null),
+          confirm: () => {
+            if (busy.current || maintenance.readOnly) return;
+            busy.current = true;
+            setRemoval(null);
+            void write(removal.values, removal.archive, removal).finally(() => {
+              busy.current = false;
+            });
+          },
+        }
+      : null,
     save: () => submit(false),
     toggleArchive: () => submit(true),
     clearError: () => setSubmitError(undefined),

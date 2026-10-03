@@ -6,7 +6,9 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useMemo, useState } from 'react';
 import type { CharacterRecord } from '~/components/character-manager/types';
+import { useBuildOutCharacter } from '~/components/character-sheet/use-build-out-character';
 import { campaignPath, militiaPath, weekPath } from '~/lib/campaign-routes';
+import { characterLedgerDetails } from '~/lib/character-ledger';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import {
   archiveKeeps,
@@ -22,6 +24,14 @@ type Snapshot = CanonicalWeekState['militiaSnapshot'];
 
 /** Which record dialog is open: a new record, or an existing one by id. */
 export type RecordDialogTarget = { kind: 'add' } | { kind: 'edit'; id: string };
+export type MilitiaCharacterRow = CharacterRow &
+  ReturnType<typeof characterLedgerDetails> &
+  Pick<
+    CharacterRecord,
+    'owner' | 'ownershipAvailable' | 'ownerLastOperationId'
+  > & {
+    ownershipScope: CampaignScope & { characterId: Id<'character'> };
+  };
 
 export type CharactersPageView =
   | { status: 'loading' }
@@ -39,7 +49,10 @@ export type CharactersPageView =
       /** Pending Change Officer Role actions of the open week. */
       pending: PendingRoleChange[];
       /** Rows shown with the current Show archived choice. */
-      rows: CharacterRow[];
+      rows: MilitiaCharacterRow[];
+      buildOut: Omit<ReturnType<typeof useBuildOutCharacter>, 'run'> & {
+        run: (characterId: string) => Promise<Id<'character'> | null>;
+      };
       counts: { onRoster: number; notOnRoster: number };
       /** "No active characters." / "No archived characters.", or null. */
       emptyMessage: string | null;
@@ -71,6 +84,7 @@ export function useCharactersPage({
   campaignId,
   organizationId,
 }: CampaignScope): CharactersPageView {
+  const buildOut = useBuildOutCharacter({ organizationId });
   const { data: records } = useQuery({
     ...convexQuery(api.character.listByCampaign, {
       campaignId,
@@ -126,23 +140,44 @@ export function useCharactersPage({
     return { status: 'loading' };
   if (!sameScope) setScoped({ campaignId, organizationId, target: null });
 
-  const names = new Map(records.map((record) => [record._id, record.name]));
+  const loadedRecords = records;
+  const names = new Map(
+    loadedRecords.map((record) => [record._id, record.name]),
+  );
   const militia = source
     ? { militiaId: source.key.militiaId, draftId: source.key.draftId }
     : null;
 
   function present(snapshot: Snapshot | null): CharactersPage {
+    const recordById = new Map(
+      loadedRecords.map((record) => [String(record._id), record]),
+    );
     const rows = characterRows({
-      records: records!,
+      records: loadedRecords,
       roster: snapshot?.roster ?? null,
       characters: snapshot?.characters ?? [],
+    }).map((row) => {
+      const current = recordById.get(row.characterId);
+      if (!current) throw new Error('Character is unavailable.');
+      return {
+        ...row,
+        ...characterLedgerDetails(current, { campaignId, organizationId }),
+        owner: current.owner,
+        ownershipAvailable: current.ownershipAvailable,
+        ownerLastOperationId: current.ownerLastOperationId,
+        ownershipScope: {
+          campaignId,
+          organizationId,
+          characterId: current._id,
+        },
+      };
     });
     const visible = showArchived ? rows : rows.filter((row) => !row.archived);
     const activeCount = rows.filter((row) => !row.archived).length;
     const archivedCount = rows.length - activeCount;
     const record =
       target?.kind === 'edit'
-        ? records!.find((value) => value._id === target.id)
+        ? loadedRecords.find((value) => value._id === target.id)
         : undefined;
     const editedRow =
       target?.kind === 'edit'
@@ -151,7 +186,7 @@ export function useCharactersPage({
     return {
       status: 'ready',
       militia,
-      records: records!,
+      records: loadedRecords,
       officers: snapshot
         ? {
             focus: snapshot.focus,
@@ -166,6 +201,13 @@ export function useCharactersPage({
         : null,
       pending,
       rows: visible,
+      buildOut: {
+        ...buildOut,
+        run: (id) => {
+          const current = recordById.get(id);
+          return buildOut.run(current);
+        },
+      },
       counts: {
         onRoster: rows.filter((row) => row.onRoster).length,
         notOnRoster: rows.filter((row) => !row.onRoster && !row.archived)

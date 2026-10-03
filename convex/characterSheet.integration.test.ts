@@ -445,7 +445,7 @@ test('prepared writes stay gated on ordinary campaigns and respect the campaign 
   });
 });
 
-test('HP can be cleared, out-of-rules finite scores persist, and malformed numbers or positions are rejected', async () => {
+test('HP can be cleared, out-of-rules whole scores persist, and malformed numbers or positions are rejected', async () => {
   const { owner, scope } = await fixture();
   const sheet = await owner.query(api.characterSheet.read, scope);
   const row = sheet?.entries.find((entry) => entry.kind === 'classLevel');
@@ -467,13 +467,13 @@ test('HP can be cleared, out-of-rules finite scores persist, and malformed numbe
   });
   await owner.mutation(api.characterSheet.editBaseScores, {
     ...scope,
-    scores: { strength: -4, wisdom: 99.5 },
+    scores: { strength: -4, wisdom: 99 },
     operationId: 'override',
   });
   const before = await owner.query(api.characterSheet.read, scope);
   expect(before?.calculated).toMatchObject({
     hp: null,
-    abilities: { strength: { score: -4 }, wisdom: { score: 99.5 } },
+    abilities: { strength: { score: -4 }, wisdom: { score: 99 } },
   });
   for (const value of [NaN, Infinity, -Infinity]) {
     await expect(
@@ -504,7 +504,7 @@ test('HP can be cleared, out-of-rules finite scores persist, and malformed numbe
   expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
 });
 
-test('a prepared sheet leaves legacy Character facts, current militia and frozen history authoritative', async () => {
+test('an isolated prepared sheet refreshes current militia facts while frozen history stays unchanged', async () => {
   vi.useFakeTimers();
   const t = convexTest(schema, modules);
   const owner = t.withIdentity({ tokenIdentifier: 'test|gm' });
@@ -545,10 +545,6 @@ test('a prepared sheet leaves legacy Character facts, current militia and frozen
     campaignId,
     militiaId,
   });
-  const characters = await member.query(api.character.listByCampaign, {
-    campaignId,
-    organizationId: 'org',
-  });
   await t.run(async (ctx) => {
     await ctx.db.patch('campaign', campaignId, {
       e2eFixture: {
@@ -588,10 +584,20 @@ test('a prepared sheet leaves legacy Character facts, current militia and frozen
     campaignId,
     organizationId: 'org',
   });
-  expect(after).toMatchObject(characters);
-  expect(
-    await member.query(api.canonicalLedger.read, { campaignId, militiaId }),
-  ).toEqual(ledger);
+  expect(after).toMatchObject([
+    { _id: seeded.characterId, level: 0, strength: 30, charisma: 35 },
+  ]);
+  const current = await member.query(api.canonicalLedger.read, {
+    campaignId,
+    militiaId,
+  });
+  expect(current.revision).toBe(ledger.revision + 3);
+  expect(current.state.militiaSnapshot.characters).toMatchObject([
+    { characterId: seeded.characterId, level: 0, strength: 30, charisma: 35 },
+  ]);
+  expect(current.state.militiaSnapshot.roster).toEqual(
+    ledger.state.militiaSnapshot.roster,
+  );
   expect(await owner.query(api.canonicalHistory.read, historyArgs)).toEqual(
     history,
   );
@@ -617,7 +623,7 @@ test('a prepared sheet leaves legacy Character facts, current militia and frozen
   expect(archived?.entries).toEqual(beforeArchive?.entries);
   expect(archived?.catalogEntries).toEqual(beforeArchive?.catalogEntries);
   expect(archivedLedger.state.militiaSnapshot.characters).toEqual(
-    ledger.state.militiaSnapshot.characters.map((character) =>
+    current.state.militiaSnapshot.characters.map((character) =>
       character.characterId === seeded.characterId
         ? { ...character, isActive: false }
         : character,
@@ -632,7 +638,7 @@ test('a prepared sheet leaves legacy Character facts, current militia and frozen
     campaignId,
     militiaId,
   });
-  expect(restored.state.militiaSnapshot).toEqual(ledger.state.militiaSnapshot);
+  expect(restored.state.militiaSnapshot).toEqual(current.state.militiaSnapshot);
 
   expect(await owner.query(api.canonicalHistory.read, historyArgs)).toEqual(
     history,

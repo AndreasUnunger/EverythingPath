@@ -5,21 +5,20 @@ import type { ReadCtx } from '../types';
 import {
   abilityKeys,
   abilityTargets,
-  calculateCharacterSheet,
   defaultAbilityScores,
   defaultCreationSettings,
+  calculateCharacterSheet,
+  type AbilityScores,
 } from '../../src/lib/character-sheet';
 import { requireCharacterAccess, type CharacterScope } from './characterAccess';
 import { updateCanonicalCharacter } from './canonicalCharacters';
-
-const maxCharacterChildRows = 4096;
-const maxAcceptedWarnings = 8192;
-
-function isBaseCatalogEntry(
-  entry: Doc<'catalogEntry'>,
-): entry is Extract<Doc<'catalogEntry'>, { detail: { kind: 'base' } }> {
-  return entry.detail.kind === 'base';
-}
+import {
+  readCharacterSheetData,
+  maxCharacterChildRows,
+  maxAcceptedWarnings,
+  requireAbilityScore,
+  requireWholeCalculatedAbilities,
+} from './preparedCharacterSheet';
 
 export function isManualCatalogEntry(
   entry: Doc<'catalogEntry'>,
@@ -34,14 +33,50 @@ export function requireFixtureCampaign(
   if (!campaign.e2eFixture) throw new ConvexError(message);
 }
 
+export function requireCharacterLevel(level: number) {
+  if (!Number.isInteger(level) || level < 0 || level >= maxCharacterChildRows)
+    throw new ConvexError(
+      `Enter a whole level between 0 and ${maxCharacterChildRows - 1}`,
+    );
+}
+
+export async function insertClassLevel(
+  ctx: MutationCtx,
+  characterId: Id<'character'>,
+  position: number,
+) {
+  const entryId = await ctx.db.insert('characterSheetEntry', {
+    characterId,
+    kind: 'classLevel',
+    active: true,
+    state: { kind: 'classLevel', classEntryId: null, position, hpGained: null },
+  });
+  const entry = await ctx.db.get('characterSheetEntry', entryId);
+  if (entry?.kind !== 'classLevel')
+    throw new ConvexError('Class Level is unavailable');
+  return entry;
+}
+
 export async function initializeCharacterSheet(
   ctx: MutationCtx,
   {
     characterId,
     operationId,
     updatedBy,
-  }: { characterId: Id<'character'>; operationId: string; updatedBy: string },
+    sheetMode = 'full',
+    level = 1,
+    scores = defaultAbilityScores,
+  }: {
+    characterId: Id<'character'>;
+    operationId: string;
+    updatedBy: string;
+    sheetMode?: 'militiaOnly' | 'full';
+    level?: number;
+    scores?: AbilityScores;
+  },
 ) {
+  requireCharacterLevel(level);
+  for (const ability of abilityKeys) requireAbilityScore(scores[ability]);
   const existing = await ctx.db
     .query('characterSheetEntry')
     .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
@@ -58,7 +93,7 @@ export async function initializeCharacterSheet(
     modifiers: abilityKeys.map((ability) => ({
       target: abilityTargets[ability],
       bonusType: 'base',
-      value: defaultAbilityScores[ability],
+      value: scores[ability],
     })),
   });
   await ctx.db.insert('characterSheetEntry', {
@@ -71,23 +106,15 @@ export async function initializeCharacterSheet(
       ...defaultCreationSettings,
     },
   });
-  await ctx.db.insert('characterSheetEntry', {
-    characterId,
-    kind: 'classLevel',
-    active: true,
-    state: {
-      kind: 'classLevel',
-      classEntryId: null,
-      position: 1,
-      hpGained: null,
-    },
-  });
+  for (let position = 1; position <= level; position++)
+    await insertClassLevel(ctx, characterId, position);
   await ctx.db.patch('character', characterId, {
-    sheetMode: 'full',
+    sheetMode,
     sheetRevision: 1,
     sheetLastOperationId: operationId,
     sheetUpdatedBy: updatedBy,
   });
+  await updateCanonicalCharacter(ctx, characterId);
 }
 
 export async function loadCharacterSheet(
@@ -118,46 +145,8 @@ export async function loadCharacterSheetFromAccess(
     }
   }
   if (!character.sheetMode) return null;
-  // Convex transaction limits bound this prepared sheet; overflow must not silently truncate it.
-  const entries = await ctx.db
-    .query('characterSheetEntry')
-    .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
-    .take(maxCharacterChildRows + 1);
-  if (entries.length > maxCharacterChildRows)
-    throw new ConvexError('Character sheet is too large to load');
-  const base = entries.find((entry) => entry.kind === 'base');
-  const baseScoresEntry = base
-    ? await ctx.db.get('catalogEntry', base.catalogEntryId)
-    : null;
-  if (
-    baseScoresEntry?.characterId !== character._id ||
-    !isBaseCatalogEntry(baseScoresEntry)
-  )
-    throw new ConvexError('Base scores do not belong to this Character');
-  const catalogEntries: Doc<'catalogEntry'>[] = [baseScoresEntry];
-  const acceptedWarnings = await ctx.db
-    .query('acceptedWarning')
-    .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
-    .take(maxAcceptedWarnings + 1);
-  if (acceptedWarnings.length > maxAcceptedWarnings)
-    throw new ConvexError('Character has too many accepted warnings');
-  for (const entry of entries) {
-    if (entry.kind !== 'manual') continue;
-    const catalogEntry = await ctx.db.get('catalogEntry', entry.catalogEntryId);
-    if (
-      catalogEntry?.characterId !== character._id ||
-      !isManualCatalogEntry(catalogEntry)
-    )
-      throw new ConvexError(
-        'Personal adjustment does not belong to this Character',
-      );
-    catalogEntries.push(catalogEntry);
-  }
-  const classLevels = entries
-    .filter((entry) => entry.kind === 'classLevel')
-    .sort((a, b) => a.state.position - b.state.position);
   return {
-    character,
+    ...(await readCharacterSheetData(ctx, character)),
     campaign: campaign
       ? {
           campaignId: campaign._id,
@@ -166,17 +155,6 @@ export async function loadCharacterSheetFromAccess(
           ownershipAvailable: Boolean(campaign.e2eFixture),
         }
       : null,
-    entries: [
-      ...entries.filter((entry) => entry.kind === 'base'),
-      ...classLevels,
-      ...entries.filter((entry) => entry.kind === 'manual'),
-    ],
-    catalogEntries,
-    baseScoresEntry,
-    acceptedWarnings,
-    revision: character.sheetRevision ?? 0,
-    lastOperationId: character.sheetLastOperationId ?? null,
-    updatedBy: character.sheetUpdatedBy ?? null,
     actor: user.tokenIdentifier,
   };
 }
@@ -195,6 +173,7 @@ export async function pruneWarningAcceptancesAndRecordChange(
       entries: sheet.entries,
       catalogEntries: sheet.catalogEntries,
       characterKind: sheet.character.kind,
+      sheetMode: sheet.character.sheetMode,
     }),
   }: {
     sheet: LoadedCharacterSheet;
@@ -202,6 +181,7 @@ export async function pruneWarningAcceptancesAndRecordChange(
     calculated?: ReturnType<typeof calculateCharacterSheet>;
   },
 ) {
+  requireWholeCalculatedAbilities(calculated);
   for (const accepted of sheet.acceptedWarnings) {
     const stillApplies = calculated.warnings.some(
       (warning) =>
@@ -217,6 +197,7 @@ export async function pruneWarningAcceptancesAndRecordChange(
     sheetLastOperationId: operationId,
     sheetUpdatedBy: sheet.actor,
   });
+  await updateCanonicalCharacter(ctx, sheet.character._id);
 }
 
 export async function updateCharacterArchive(

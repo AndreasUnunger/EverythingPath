@@ -1,8 +1,10 @@
 import { ConvexError } from 'convex/values';
-import type { Id } from '../_generated/dataModel';
+import type { Doc, Id } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import { getUserByTokenIdentifier, hasAccessToOrg } from '../user';
 import type { CampaignScope } from '../../src/lib/campaign-scope';
+import { loadPreparedCharacterSheets } from './preparedCharacterSheet';
+import { calculateMilitiaCharacterFacts } from './militiaCharacterFacts';
 
 export async function requireCharacterCampaignAccess(
   ctx: ReadCtx,
@@ -40,9 +42,58 @@ export async function listAccessibleCharacters(
     .take(4097);
   if (characters.length > 4096)
     throw new ConvexError('Too many Characters to load');
-  return args.includeInactive
+  const visible = args.includeInactive
     ? characters
     : characters.filter((character) => character.isActive);
+  const sheets = await loadPreparedCharacterSheets(ctx, visible, campaign);
+  return await Promise.all(
+    visible.map(
+      async (
+        character,
+        index,
+      ): Promise<
+        Doc<'character'> & {
+          ownershipAvailable: boolean;
+          classLevels?: {
+            entryId: Id<'characterSheetEntry'>;
+            position: number;
+            name: string;
+            classEntryId: Id<'catalogEntry'> | null;
+          }[];
+        }
+      > => {
+        const sheet = sheets[index];
+        if (!sheet) {
+          const { sheetMode: _sheetMode, ...legacy } = character;
+          return {
+            ...legacy,
+            ownershipAvailable: Boolean(campaign.e2eFixture),
+          };
+        }
+        const { characterId: _characterId, ...facts } =
+          await calculateMilitiaCharacterFacts(ctx, character, sheet);
+        return {
+          ...character,
+          ...facts,
+          ownershipAvailable: Boolean(campaign.e2eFixture),
+          classLevels: sheet.entries
+            .filter((entry) => entry.kind === 'classLevel')
+            .map((entry) => ({
+              entryId: entry._id,
+              position: entry.state.position,
+              classEntryId: entry.state.classEntryId,
+              name:
+                entry.state.classEntryId === null
+                  ? 'Unspecified Class Level'
+                  : (sheet.catalogEntries.find(
+                      (definition) =>
+                        definition._id === entry.state.classEntryId,
+                    )?.name ?? 'Unspecified Class Level'),
+            })),
+        };
+      },
+    ),
+  );
 }
 
 export type CharacterScope = Partial<CampaignScope> & {

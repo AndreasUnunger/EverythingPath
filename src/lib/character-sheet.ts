@@ -119,7 +119,7 @@ type SheetEntry = { _id: string } & (
       active: true;
       state: {
         kind: 'classLevel';
-        classEntryId: null;
+        classEntryId: string | null;
         position: number;
         hpGained: number | null;
       };
@@ -143,7 +143,9 @@ export function calculateCharacterSheet(
     entries,
     catalogEntries,
     characterKind,
+    sheetMode,
   }: {
+    sheetMode?: 'militiaOnly' | 'full';
     characterKind: 'pc' | 'npc';
     entries: readonly SheetEntry[];
     catalogEntries: readonly {
@@ -284,7 +286,9 @@ export function calculateCharacterSheet(
       creationSettings,
       pointBuy,
       hp,
-    }),
+    }).filter(
+      (warning) => sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
+    ),
     breakdowns,
     derivedStatistics,
   };

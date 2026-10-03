@@ -1,7 +1,9 @@
-import type { Doc } from '@convex/_generated/dataModel';
+import type { api } from '@convex/_generated/api';
+import type { FunctionReturnType } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import { z } from 'zod';
 import { characterKindSchema } from '~/lib/character-kind';
+import { characterLedgerDetails } from '~/lib/character-ledger';
 
 const integerField = (label: string) =>
   z.string().superRefine((raw, ctx) => {
@@ -13,12 +15,26 @@ const integerField = (label: string) =>
       });
       return;
     }
-    if (!/^-?\d+$/.test(value)) {
+    if (!/^-?\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
       ctx.addIssue({
         code: 'custom',
         message: `${label} must be a whole number`,
       });
     }
+  });
+
+const scoreField = (label: string) =>
+  z.string().superRefine((raw, ctx) => {
+    const value = raw.trim();
+    if (!value)
+      ctx.addIssue({ code: 'custom', message: `${label} is required` });
+    else if (!Number.isFinite(Number(value)))
+      ctx.addIssue({ code: 'custom', message: `${label} must be a number` });
+    else if (!Number.isSafeInteger(Number(value)))
+      ctx.addIssue({
+        code: 'custom',
+        message: `${label} must be a whole number`,
+      });
   });
 
 export const characterFormSchema = z.object({
@@ -39,6 +55,32 @@ export const characterFormSchema = z.object({
 });
 
 export type CharacterFormValues = z.infer<typeof characterFormSchema>;
+
+export function characterRecordFormSchema(record?: CharacterRecord) {
+  if (record && characterLedgerDetails(record).statisticsReadOnly)
+    return characterFormSchema.extend({
+      level: z.string(),
+      strength: z.string(),
+      dexterity: z.string(),
+      constitution: z.string(),
+      intelligence: z.string(),
+      wisdom: z.string(),
+      charisma: z.string(),
+    });
+  return record?.sheetMode
+    ? characterFormSchema.extend({
+        level: integerField('Level').refine((value) => Number(value) >= 0, {
+          message: 'Level must be at least 0',
+        }),
+        strength: scoreField('STR'),
+        dexterity: scoreField('DEX'),
+        constitution: scoreField('CON'),
+        intelligence: scoreField('INT'),
+        wisdom: scoreField('WIS'),
+        charisma: scoreField('CHA'),
+      })
+    : characterFormSchema;
+}
 
 export const defaultCharacterFormValues: CharacterFormValues = {
   name: '',
@@ -95,4 +137,10 @@ export function getCharacterErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-export type CharacterRecord = Doc<'character'>;
+export type CharacterRecord = FunctionReturnType<
+  typeof api.character.listByCampaign
+>[number];
+
+export type MilitiaOnlyClassLevel = NonNullable<
+  CharacterRecord['classLevels']
+>[number];

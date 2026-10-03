@@ -35,24 +35,41 @@ const schema = z.object({
     .string()
     .refine((value) => value.trim().length > 0, 'Adjustment name is required'),
   modifiers: z.array(
-    z.object({
-      target: z.enum(modifierTargets),
-      bonusType: z.enum(personalBonusTypes),
-      value: z.string().superRefine((raw, context) => {
-        const value = raw.trim();
-        if (!value)
+    z
+      .object({
+        target: z.enum(modifierTargets),
+        bonusType: z.enum(personalBonusTypes),
+        value: z.string().superRefine((raw, context) => {
+          const value = raw.trim();
+          if (!value)
+            context.addIssue({
+              code: 'custom',
+              message: 'Modifier value is required',
+            });
+          else if (
+            !numberPattern.test(value) ||
+            !Number.isFinite(Number(value))
+          )
+            context.addIssue({
+              code: 'custom',
+              message: 'Modifier value must be a number',
+            });
+        }),
+        condition: conditionSchema.optional(),
+      })
+      .superRefine((modifier, context) => {
+        if (
+          modifier.target.startsWith('ability.') &&
+          Number.isFinite(Number(modifier.value)) &&
+          modifier.value.trim() &&
+          !Number.isSafeInteger(Number(modifier.value))
+        )
           context.addIssue({
             code: 'custom',
-            message: 'Modifier value is required',
-          });
-        else if (!numberPattern.test(value) || !Number.isFinite(Number(value)))
-          context.addIssue({
-            code: 'custom',
-            message: 'Modifier value must be a number',
+            path: ['value'],
+            message: 'Ability score modifiers must be whole numbers',
           });
       }),
-      condition: conditionSchema.optional(),
-    }),
   ),
 });
 type Values = z.infer<typeof schema>;

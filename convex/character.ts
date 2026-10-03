@@ -15,6 +15,7 @@ import {
   requireScopedCampaignCharacterAccess,
 } from './lib/characterAccess';
 import {
+  initializeCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
   loadCharacterSheet,
   loadCharacterSheetFromAccess,
@@ -22,6 +23,9 @@ import {
   updateCharacterArchive,
 } from './lib/characterSheet';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
+import { editMilitiaOnlySheet } from './lib/characterMilitiaOnlySheet';
+import { characterMetadataKeys } from '../src/lib/character-ledger';
+import { requireWholeCharacterStatistics } from './lib/militiaCharacterFacts';
 import {
   characterOwnerValidator,
   projectOwner,
@@ -118,6 +122,20 @@ export const reassignOwner = mutation({
   },
 });
 
+const militiaCharacterValidator = schema.doc('character').extend({
+  ownershipAvailable: v.boolean(),
+  classLevels: v.optional(
+    v.array(
+      v.object({
+        entryId: v.id('characterSheetEntry'),
+        position: v.number(),
+        name: v.string(),
+        classEntryId: v.union(v.id('catalogEntry'), v.null()),
+      }),
+    ),
+  ),
+});
+
 const ownedGroupValidator = v.union(
   v.object({
     kind: v.literal('noCampaign'),
@@ -189,7 +207,7 @@ export const listCampaignCharacters = query({
   args: { campaignId: v.id('campaign'), organizationId: v.string() },
   returns: v.array(
     v.object({
-      character: schema.doc('character'),
+      character: militiaCharacterValidator,
       ownerName: v.union(v.string(), v.null()),
       owner: v.union(characterOwnerValidator, v.null()),
       isOnRoster: v.boolean(),
@@ -235,7 +253,7 @@ export const listByCampaign = query({
     includeInactive: v.optional(v.boolean()),
   },
   returns: v.array(
-    schema.doc('character').extend({
+    militiaCharacterValidator.extend({
       owner: v.union(characterOwnerValidator, v.null()),
     }),
   ),
@@ -279,17 +297,34 @@ export const createCharacter = mutation({
       throw new ConvexError('Character name cannot be empty');
     }
 
-    const { access } = await requireCharacterCampaignAccess(ctx, {
+    const { campaign, access } = await requireCharacterCampaignAccess(ctx, {
       campaignId: args.character.campaignId,
       organizationId: args.organizationId,
     });
 
+    requireWholeCharacterStatistics(args.character);
     const characterId = await ctx.db.insert('character', {
       ...args.character,
       kind: normalizeCharacterKind(args.character.kind),
       ownerId: access.user.tokenIdentifier,
       isActive: true,
     });
+    const militia =
+      campaign.e2eFixture &&
+      (await ctx.db
+        .query('militia')
+        .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
+        .unique());
+    if (militia) {
+      await initializeCharacterSheet(ctx, {
+        characterId,
+        operationId: `ledger:create:${characterId}`,
+        updatedBy: access.user.tokenIdentifier,
+        sheetMode: 'militiaOnly',
+        level: args.character.level,
+        scores: args.character,
+      });
+    }
     await updateCanonicalCharacter(ctx, characterId);
     return characterId;
   },
@@ -300,6 +335,8 @@ export const updateCharacter = mutation({
     operationId: v.optional(v.string()),
     organizationId: campaignValidator.fields.organizationId,
     characterId: v.id('character'),
+    confirmedRemovedLevelIds: v.optional(v.array(v.id('characterSheetEntry'))),
+    expectedSheetRevision: v.optional(v.number()),
     patch: v.object({
       name: v.optional(characterValidator.fields.name),
       description: v.optional(characterValidator.fields.description),
@@ -314,6 +351,7 @@ export const updateCharacter = mutation({
       isActive: v.optional(v.boolean()),
     }),
   },
+  returns: v.null(),
   async handler(ctx, args) {
     if (args.patch.name !== undefined && !args.patch.name.trim()) {
       throw new ConvexError('Character name cannot be empty');
@@ -326,33 +364,41 @@ export const updateCharacter = mutation({
 
     // A submitted kind is stored as PC or NPC; an unrelated edit leaves the
     // stored kind alone. Either way the roster mirror follows in this write.
-    const { kind, ...patch } = args.patch;
-    const changesSheetKind =
-      character.sheetMode &&
-      kind !== undefined &&
-      normalizeCharacterKind(kind) !== character.kind;
-    const sheet = changesSheetKind
-      ? await loadCharacterSheet(ctx, {
-          characterId: character._id,
-          organizationId: args.organizationId,
-        })
-      : null;
+    const prepared = await editMilitiaOnlySheet(ctx, args, character);
+    if (!prepared) requireWholeCharacterStatistics(args.patch);
+    const { kind, ...submittedPatch } = args.patch;
+    const patch = prepared
+      ? Object.fromEntries(
+          Object.entries(submittedPatch).filter(([key]) =>
+            characterMetadataKeys.some((metadataKey) => metadataKey === key),
+          ),
+        )
+      : submittedPatch;
     await ctx.db.patch('character', args.characterId, {
       ...patch,
       ...(kind && { kind: normalizeCharacterKind(kind) }),
     });
-    if (sheet) {
+    const changesSheetKind =
+      character.sheetMode &&
+      kind !== undefined &&
+      normalizeCharacterKind(kind) !== character.kind;
+    const sheet =
+      prepared?.sheet ??
+      (changesSheetKind ? await loadCharacterSheet(ctx, args) : null);
+    if (sheet && (prepared?.changed || changesSheetKind)) {
       sheet.character = {
         ...sheet.character,
         ...patch,
-        kind: normalizeCharacterKind(kind ?? character.kind),
+        ...(kind && { kind: normalizeCharacterKind(kind) }),
       };
       await pruneWarningAcceptancesAndRecordChange(ctx, {
         sheet,
-        operationId: args.operationId ?? crypto.randomUUID(),
+        operationId:
+          args.operationId ??
+          `ledger:edit:${character._id}:${sheet.revision + 1}`,
       });
-    }
-    await updateCanonicalCharacter(ctx, args.characterId);
+    } else await updateCanonicalCharacter(ctx, args.characterId);
+    return null;
   },
 });
 

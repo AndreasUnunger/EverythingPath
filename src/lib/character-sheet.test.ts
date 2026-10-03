@@ -479,3 +479,37 @@ test('a personal Strength adjustment changes the total without changing base poi
   expect(adjusted.abilities.strength.score).toBe(16);
   expect(adjusted.warnings).toEqual(original.warnings);
 });
+
+test('minimal calculations retain only the PC level-zero advisory and Full calculations expose missing choices', () => {
+  const input = warningSheet({ scores: [18, 18, 10, 10, 10, 10] });
+  expect(
+    calculateCharacterSheet({ ...input, sheetMode: 'militiaOnly' }).warnings,
+  ).toEqual([]);
+  const entries = input.entries.filter((entry) => entry.kind === 'base');
+  expect(
+    calculateCharacterSheet({ ...input, entries, sheetMode: 'militiaOnly' })
+      .warnings,
+  ).toEqual([
+    expect.objectContaining({
+      check: 'levelZero',
+      kind: 'rules',
+      target: { kind: 'classLevels' },
+    }),
+  ]);
+  expect(
+    calculateCharacterSheet({
+      ...input,
+      entries,
+      characterKind: 'npc',
+      sheetMode: 'militiaOnly',
+    }).warnings,
+  ).toEqual([]);
+  expect(
+    calculateCharacterSheet({ ...input, sheetMode: 'full' }).warnings,
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ check: 'class' }),
+      expect.objectContaining({ check: 'pointBuy' }),
+    ]),
+  );
+});
