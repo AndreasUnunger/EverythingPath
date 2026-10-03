@@ -113,6 +113,7 @@ async function expectSummaryPinned(page: Page) {
       ).toBeLessThanOrEqual(1);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForFunction(() => window.scrollY === 0);
 }
 
 test.use({ caseKey: 'characterSheet', viewport: tablet });
@@ -452,6 +453,8 @@ test('two players edit one living sheet; failures stay local and rows keep their
 
   await test.step('phone: the summary scrolls with the sheet and the last Save stays above the tabs', async () => {
     await a.setViewportSize(phone);
+    await a.evaluate(() => window.scrollTo(0, 0));
+    await a.waitForFunction(() => window.scrollY === 0);
     await expectNoHorizontalOverflow(a);
     await expectBottomBarPinned(a, true);
     await expect(findSummary(a)).toBeInViewport();
