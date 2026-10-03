@@ -7,6 +7,10 @@ import { campaignMutation } from './lib/campaignRuntime';
 import schema, { creationSettingsValidator, modifierValidator } from './schema';
 import { getUser } from './user';
 import {
+  characterOwnerValidator,
+  readCharacterOwners,
+} from './lib/characterOwnership';
+import {
   requireCharacterCampaignAccess,
   type CharacterScope,
 } from './lib/characterAccess';
@@ -171,12 +175,14 @@ export const read = query({
     v.null(),
     v.object({
       character: schema.doc('character'),
+      owner: v.union(characterOwnerValidator, v.null()),
       campaign: v.union(
         v.null(),
         v.object({
           campaignId: v.id('campaign'),
           campaignName: v.string(),
           organizationId: v.string(),
+          ownershipAvailable: v.boolean(),
         }),
       ),
       entries: v.array(schema.doc('characterSheetEntry')),
@@ -195,8 +201,16 @@ export const read = query({
     const sheet = await loadCharacterSheet(ctx, { ...args, characterId });
     if (!sheet) return null;
     const { actor: _actor, ...result } = sheet;
+    const owners = await readCharacterOwners(
+      ctx,
+      [sheet.character],
+      sheet.actor,
+    );
     return {
       ...result,
+      owner: sheet.character.ownerId
+        ? (owners.get(sheet.character.ownerId) ?? null)
+        : null,
       calculated: calculateCharacterSheet({
         entries: sheet.entries,
         catalogEntries: sheet.catalogEntries,

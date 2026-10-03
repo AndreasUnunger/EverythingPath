@@ -179,7 +179,13 @@ async function fixture(acceptPointBuy = false) {
     }
     return {
       character,
-      campaign: { campaignId, campaignName: 'Demo', organizationId: 'org' },
+      owner: null,
+      campaign: {
+        campaignId,
+        campaignName: 'Demo',
+        organizationId: 'org',
+        ownershipAvailable: true,
+      },
       entries: completeEntries,
       catalogEntries: [catalogEntry, adjustment],
       baseScoresEntry: catalogEntry,

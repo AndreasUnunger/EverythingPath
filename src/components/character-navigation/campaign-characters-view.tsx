@@ -1,3 +1,7 @@
+'use client';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
+import type { CampaignScope } from '~/lib/campaign-scope';
 import { CampaignCharactersTable } from './campaign-characters-table';
 import { pageClass } from './character-list-classes';
 import type { CampaignCharacterListRow } from './character-list-model';
@@ -6,21 +10,25 @@ import { CharactersTitle } from './characters-title';
 // A campaign's Characters page: everyone's, with owner, state and roster.
 export function CampaignCharactersView({
   campaignName,
+  scope,
   characters,
   newHref,
 }: {
   campaignName: string;
+  scope: CampaignScope;
   characters: CampaignCharacterListRow[];
   newHref?: string;
 }) {
+  const maintenance = useInitialMigrationMaintenance();
   return (
     <main className={pageClass}>
       <CharactersTitle eyebrow={campaignName} newHref={newHref} />
       <p className="text-muted-foreground mb-3 text-sm">
         Everyone in {campaignName} can edit these.
       </p>
+      {characters.length ? <MaintenanceReason notice={maintenance} /> : null}
       {characters.length ? (
-        <CampaignCharactersTable characters={characters} />
+        <CampaignCharactersTable characters={characters} scope={scope} />
       ) : (
         <p className="text-muted-foreground py-5 text-sm">
           No characters in this campaign yet.

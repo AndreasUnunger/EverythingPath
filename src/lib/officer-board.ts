@@ -1,3 +1,4 @@
+import type { Id } from '@convex/_generated/dataModel';
 import {
   getEffectiveHitDice,
   rosterWarningDescriptors,
@@ -345,7 +346,7 @@ export function officerBoard({
 
 /** The record fields a row needs. */
 export type BoardRecord = {
-  _id: string;
+  _id: Id<'character'>;
   name: string;
   kind: CharacterKind;
   level: number;
@@ -354,7 +355,7 @@ export type BoardRecord = {
 };
 
 export type CharacterRow = {
-  characterId: string;
+  characterId: Id<'character'>;
   name: string;
   kind: CharacterKind;
   archived: boolean;

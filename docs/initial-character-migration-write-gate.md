@@ -49,6 +49,14 @@ The activation ticket must distinguish a **legacy Character writer** from **any 
 
 ## Inventory and completeness check
 
+### Organization membership directory backfill (#300)
+
+The additive `organizationMembership` table indexes `(organizationId, userId)` and `(userId, organizationId)` for member directories. `user.orgIds` remains the source of authorization; the directory query rechecks each surviving user before returning a profile. Accepted ordered profile/membership webhooks and the real fixture seed/replace paths synchronize directory rows in the same gated transaction. Older/repeated deliveries do not overwrite newer source state. Fixture replacement removes rows for memberships it no longer retains. Removed accounts or access cannot leak a candidate through a stale row.
+
+To prepare the membership directory for existing accounts, an operator must invoke the internal `organizationMembership:backfill` with `{ cursor: null, writeEpoch: <current epoch> }`, then pass each returned `continueCursor` into the next call until `isDone` is true. Each transaction pages at most one existing account and reconciles its current memberships; an empty page can still require continuation. Repeating from null is idempotent. No external scheduler, ungated writer or public account-scan fallback is added. The ordinary Write Gate rejects this backfill during maintenance, after activation and for an obsolete epoch. After reopening, issue a new command with the current epoch; never automatically replay a rejected batch. This backfill prepares only the membership directory: it enables neither production ownership reassignment nor the production member picker. Both remain restricted to prepared fixture campaigns, including legacy flat Characters, until an explicit release cutover. The deployment's schema/codegen verification and this operator backfill remain orchestrator work outside the sandbox.
+
+### Registration audit
+
 Run `pnpm -s check:initial-migration-writers`. The behavioral test `tests/initial-migration-writers.test.ts` also checks the current repository, so normal tests fail on uncovered writers or a stale inventory. The checker walks Convex TypeScript sources (excluding generated files and tests), resolves named/namespace registration imports, recognizes the reviewed builders in the two gate-owner modules, and explicitly lists every mutation/action/HTTP registration. Aliased raw imports, raw builder escapes/custom wrappers and re-exports fail closed outside the two reviewed gate owner modules. Every public mutation must accept an optional numeric `writeEpoch`: reviewed public builders provide it, while raw registrations declare it in their argument validator. A retired name is exempt from gating only while its handler is the imported `rejectRetiredWorkflow`; its `v.any()` argument validator preserves arbitrary legacy arguments, including `writeEpoch`, so requests reach the intended rejection.
 
 The Write Epoch exemptions are the reviewed identity webhook builder and `retireClosedDraft`'s inline transactional gate described above. The only exemptions from a Write Gate builder are that explicitly reviewed retirement handler, the two authoritative gate controls, read-only fixture inspection, pure webhook signature verification and the HTTP webhook adapter whose actual writes delegate to gated user mutations. Read-only exemptions reject obvious database writes or scheduling. Helper side effects, changes inside the two gate-owner modules and changes to the retirement handler still require code review plus integration tests; this static check is not a proof of arbitrary interprocedural behavior. Adding a writer requires its gate and a reviewed inventory update even if it uses a recognized wrapper.
@@ -78,6 +86,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/character.ts:archiveCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:createCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:deleteCharacter` | Shared write gate (epoch + maintenance) |
+| `convex/character.ts:reassignOwner` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:updateCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:acceptWarning` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:addClassLevel` | Shared write gate (epoch + maintenance) |
@@ -127,6 +136,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/militia.ts:upsertSettlementState` | Retired: always rejects; never mutates |
 | `convex/militia.ts:upsertTrackedPersonState` | Retired: always rejects; never mutates |
 | `convex/militia.ts:upsertWeekContextState` | Retired: always rejects; never mutates |
+| `convex/organizationMembership.ts:backfill` | Shared write gate (epoch + maintenance) |
 | `convex/spell.ts:addNextHundredSpells` | Shared write gate (epoch + maintenance) |
 | `convex/spell.ts:addSpellMutation` | Shared write gate (epoch + maintenance) |
 | `convex/spell.ts:rebuildSpellAggregate` | Shared write gate (epoch + maintenance) |

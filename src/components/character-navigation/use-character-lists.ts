@@ -1,7 +1,8 @@
 'use client';
 
 import { api } from '@convex/_generated/api';
-import type { Doc, Id } from '@convex/_generated/dataModel';
+import type { CampaignScope } from '~/lib/campaign-scope';
+import type { Doc } from '@convex/_generated/dataModel';
 import { useOrganization } from '@clerk/nextjs';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { useOrganizationMemberships } from '~/components/campaign-shell/use-organization-memberships';
@@ -75,10 +76,7 @@ export function useOwnedCharacters() {
 export function useCampaignCharacters({
   campaignId,
   organizationId,
-}: {
-  campaignId: Id<'campaign'>;
-  organizationId: string;
-}) {
+}: CampaignScope) {
   const data = useQuery(api.character.listCampaignCharacters, {
     campaignId,
     organizationId,
@@ -96,7 +94,7 @@ export function useCampaignCharacters({
       : undefined;
   return {
     characters: data?.map(
-      ({ character, ownerName, isOnRoster }) =>
+      ({ character, ownerName, owner, isOnRoster }) =>
         ({
           ...buildCharacterListRow(character),
           href: character.sheetMode
@@ -107,7 +105,11 @@ export function useCampaignCharacters({
             : hasMilitia
               ? campaignPath(campaignId, 'officers')
               : undefined,
+          id: character._id,
           ownerName,
+          owner,
+          ownershipAvailable: Boolean(campaign?.e2eFixture),
+          ownerLastOperationId: character.ownerLastOperationId,
           isOnRoster,
         }) satisfies CampaignCharacterListRow,
     ),

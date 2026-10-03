@@ -1,3 +1,4 @@
+import type { CampaignScope } from '~/lib/campaign-scope';
 import { cn } from '~/lib/utils';
 import { CampaignCharacterRow } from './campaign-character-row';
 import { headerCellClass } from './character-list-classes';
@@ -5,8 +6,10 @@ import type { CampaignCharacterListRow } from './character-list-model';
 
 export function CampaignCharactersTable({
   characters,
+  scope,
 }: {
   characters: CampaignCharacterListRow[];
+  scope: CampaignScope;
 }) {
   return (
     <table className="w-full border-collapse text-sm">
@@ -37,7 +40,11 @@ export function CampaignCharactersTable({
       </thead>
       <tbody>
         {characters.map((character) => (
-          <CampaignCharacterRow key={character.id} character={character} />
+          <CampaignCharacterRow
+            key={character.id}
+            character={character}
+            scope={scope}
+          />
         ))}
       </tbody>
     </table>

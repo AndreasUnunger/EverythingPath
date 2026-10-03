@@ -37,6 +37,10 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
 }));
 vi.mock('@convex/_generated/api', () => ({
   api: {
+    character: {
+      reassignOwner: 'reassignOwner',
+      listOwnerCandidates: 'listOwnerCandidates',
+    },
     characterSheet: {
       read: 'read',
       editBaseScores: 'scores',
@@ -53,6 +57,11 @@ vi.mock('@convex/_generated/api', () => ({
 }));
 vi.mock('convex/react', () => ({
   useQuery: () => snapshot,
+  usePaginatedQuery: () => ({
+    results: [],
+    status: 'Exhausted',
+    loadMore: vi.fn(),
+  }),
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });

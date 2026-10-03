@@ -422,7 +422,10 @@ test('prepared writes stay gated on ordinary campaigns and respect the campaign 
     await expect(command()).rejects.toThrow(
       "Character sheets aren't available for this campaign yet.",
     );
-  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual({
+    ...before,
+    campaign: { ...before?.campaign, ownershipAvailable: false },
+  });
   await t.run((ctx) =>
     ctx.db.insert('campaignCutover', {
       key: 'weekly-draft',
@@ -436,7 +439,10 @@ test('prepared writes stay gated on ordinary campaigns and respect the campaign 
   );
   for (const command of commands)
     await expect(command()).rejects.toThrow('paused for maintenance');
-  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual({
+    ...before,
+    campaign: { ...before?.campaign, ownershipAvailable: false },
+  });
 });
 
 test('HP can be cleared, out-of-rules finite scores persist, and malformed numbers or positions are rejected', async () => {
@@ -677,7 +683,10 @@ test('creation settings default on new sheets and members save configurable budg
     operationId: 'unchanged',
     settings: { abilityMethod: { kind: 'rolled' } },
   });
-  expect(await owner.query(api.characterSheet.read, scope)).toEqual(saved);
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual({
+    ...saved,
+    owner: saved?.owner ? { ...saved.owner, isMine: true } : null,
+  });
 });
 
 test('members accept and reopen an intended rules warning without changing calculation or missing decisions', async () => {
@@ -994,7 +1003,10 @@ test('settings and warning commands require membership and honor fixture, mainte
   );
   for (const command of commands(owner))
     await expect(command()).rejects.toThrow('paused for maintenance');
-  expect(await owner.query(api.characterSheet.read, scope)).toEqual(sheet);
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual({
+    ...sheet,
+    campaign: { ...sheet?.campaign, ownershipAvailable: false },
+  });
 });
 
 test('creation settings block non-finite values but preserve unusual whole-number choices, with rolled fallback for older sheets', async () => {
@@ -1534,7 +1546,10 @@ test('every personal adjustment writer obeys maintenance, reopening epochs, and 
     await expect(command()).rejects.toThrow(
       "Character sheets aren't available for this campaign yet.",
     );
-  expect(await owner.query(api.characterSheet.read, scope)).toEqual(reopened);
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual({
+    ...reopened,
+    campaign: { ...reopened?.campaign, ownershipAvailable: false },
+  });
 });
 
 test('personal adjustments reject malformed values, excessive Modifiers and curated exceptions without changing the sheet', async () => {
@@ -2010,6 +2025,84 @@ test('sheet reads preserve conditional adjustments and apply only conditions tha
       condition: { situation: { local: 'At home' } },
     }),
   ]);
+});
+
+test('ownership reassignment preserves personal adjustments on the authorized Character sheet', async () => {
+  const { t, owner, member, outsider, scope, campaignId } = await fixture();
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'reward',
+    },
+  );
+  const recipient = await t.run((ctx) =>
+    ctx.db
+      .query('user')
+      .withIndex('by_tokenIdentifier', (q) =>
+        q.eq('tokenIdentifier', 'test|member'),
+      )
+      .unique(),
+  );
+  if (!recipient) throw new Error('Missing campaign member');
+  await member.mutation(api.character.reassignOwner, {
+    ...scope,
+    campaignId,
+    ownerUserId: recipient._id,
+    operationId: 'reassign',
+  });
+  const sheet = await member.query(api.characterSheet.read, {
+    characterId: scope.characterId,
+  });
+  expect(sheet).toMatchObject({
+    character: { ownerId: 'test|member' },
+    owner: { userId: recipient._id, isMine: true },
+    campaign: { campaignId, organizationId: 'org' },
+    calculated: { abilities: { strength: { score: 12, modifier: 1 } } },
+    lastOperationId: 'reassign',
+  });
+  expect(sheet?.entries.find((entry) => entry._id === entryId)).toMatchObject({
+    kind: 'manual',
+    active: true,
+  });
+  expect(await owner.query(api.characterSheet.read, scope)).toMatchObject({
+    owner: { userId: recipient._id, isMine: false },
+    calculated: { abilities: { strength: { score: 12, modifier: 1 } } },
+  });
+  await expect(
+    outsider.query(api.characterSheet.read, { characterId: scope.characterId }),
+  ).rejects.toThrow('Character not found');
+});
+
+test('missing personal adjustment definitions reject sheet reads and writes', async () => {
+  const { t, owner, scope } = await fixture();
+  const entryId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      name: 'Reward',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 2 }],
+      operationId: 'reward',
+    },
+  );
+  await t.run(async (ctx) => {
+    const entry = await ctx.db.get('characterSheetEntry', entryId);
+    if (entry?.kind !== 'manual') throw new Error('Missing adjustment');
+    await ctx.db.delete('catalogEntry', entry.catalogEntryId);
+  });
+  await expect(owner.query(api.characterSheet.read, scope)).rejects.toThrow(
+    'Personal adjustment does not belong',
+  );
+  await expect(
+    owner.mutation(api.characterSheet.editPersonalAdjustment, {
+      ...scope,
+      entryId,
+      name: 'Edited',
+      operationId: 'edit',
+    }),
+  ).rejects.toThrow('Personal adjustment does not belong');
 });
 
 test('forged personal adjustment Catalog Entry references fail reads and writes without exposing or changing another Character', async () => {

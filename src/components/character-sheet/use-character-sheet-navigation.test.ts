@@ -43,6 +43,7 @@ beforeEach(() => {
   state.campaign = {
     campaignId: 'alpha' as Id<'campaign'>,
     campaignName: 'Ironfang',
+    ownershipAvailable: true,
     organizationId: 'destination',
   };
   state.organizationId = 'origin';
@@ -242,6 +243,7 @@ test('a previous sheet activation cannot finish the current sheet organization c
   state.campaign = {
     campaignId: 'beta' as Id<'campaign'>,
     campaignName: 'Kingmaker',
+    ownershipAvailable: true,
     organizationId: 'other',
   };
   view.rerender({ id: 'second' });

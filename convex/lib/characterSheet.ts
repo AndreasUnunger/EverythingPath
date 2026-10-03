@@ -27,11 +27,11 @@ export function isManualCatalogEntry(
   return entry.detail.kind === 'manual';
 }
 
-export function requireFixtureCampaign(campaign: Doc<'campaign'>) {
-  if (!campaign.e2eFixture)
-    throw new ConvexError(
-      "Character sheets aren't available for this campaign yet.",
-    );
+export function requireFixtureCampaign(
+  campaign: Doc<'campaign'>,
+  message = "Character sheets aren't available for this campaign yet.",
+) {
+  if (!campaign.e2eFixture) throw new ConvexError(message);
 }
 
 export async function initializeCharacterSheet(
@@ -95,7 +95,19 @@ export async function loadCharacterSheet(
   args: CharacterScope,
   { isWritable = false }: { isWritable?: boolean } = {},
 ) {
-  const { character, campaign, user } = await requireCharacterAccess(ctx, args);
+  const access = await requireCharacterAccess(ctx, args);
+  return await loadCharacterSheetFromAccess(ctx, access, { isWritable });
+}
+
+export async function loadCharacterSheetFromAccess(
+  ctx: ReadCtx,
+  {
+    character,
+    campaign,
+    user,
+  }: Awaited<ReturnType<typeof requireCharacterAccess>>,
+  { isWritable = false }: { isWritable?: boolean } = {},
+) {
   if (isWritable) {
     if (campaign) {
       requireFixtureCampaign(campaign);
@@ -109,7 +121,7 @@ export async function loadCharacterSheet(
   // Convex transaction limits bound this prepared sheet; overflow must not silently truncate it.
   const entries = await ctx.db
     .query('characterSheetEntry')
-    .withIndex('by_characterId', (q) => q.eq('characterId', args.characterId))
+    .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
     .take(maxCharacterChildRows + 1);
   if (entries.length > maxCharacterChildRows)
     throw new ConvexError('Character sheet is too large to load');
@@ -118,14 +130,14 @@ export async function loadCharacterSheet(
     ? await ctx.db.get('catalogEntry', base.catalogEntryId)
     : null;
   if (
-    baseScoresEntry?.characterId !== args.characterId ||
+    baseScoresEntry?.characterId !== character._id ||
     !isBaseCatalogEntry(baseScoresEntry)
   )
     throw new ConvexError('Base scores do not belong to this Character');
   const catalogEntries: Doc<'catalogEntry'>[] = [baseScoresEntry];
   const acceptedWarnings = await ctx.db
     .query('acceptedWarning')
-    .withIndex('by_characterId', (q) => q.eq('characterId', args.characterId))
+    .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
     .take(maxAcceptedWarnings + 1);
   if (acceptedWarnings.length > maxAcceptedWarnings)
     throw new ConvexError('Character has too many accepted warnings');
@@ -133,7 +145,7 @@ export async function loadCharacterSheet(
     if (entry.kind !== 'manual') continue;
     const catalogEntry = await ctx.db.get('catalogEntry', entry.catalogEntryId);
     if (
-      catalogEntry?.characterId !== args.characterId ||
+      catalogEntry?.characterId !== character._id ||
       !isManualCatalogEntry(catalogEntry)
     )
       throw new ConvexError(
@@ -151,6 +163,7 @@ export async function loadCharacterSheet(
           campaignId: campaign._id,
           campaignName: campaign.name,
           organizationId: campaign.organizationId,
+          ownershipAvailable: Boolean(campaign.e2eFixture),
         }
       : null,
     entries: [

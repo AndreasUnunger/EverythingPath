@@ -1,5 +1,5 @@
 'use client';
-import type { Id } from '@convex/_generated/dataModel';
+import type { CampaignScope } from '~/lib/campaign-scope';
 import { CharacterRecordDialog } from '~/components/character-manager/character-record-dialog';
 import { CharactersOfficersView } from '~/components/characters-officers/characters-officers-view';
 import { CharactersSkeleton } from '~/components/characters-officers/characters-skeleton';
@@ -16,8 +16,7 @@ function CorrectableCharacters({
   campaignId,
   page,
   militia,
-}: {
-  campaignId: Id<'campaign'>;
+}: CampaignScope & {
   page: CharactersPage;
   militia: NonNullable<CharactersPage['militia']>;
 }) {
@@ -41,10 +40,7 @@ function CorrectableCharacters({
 export function CharactersSection({
   campaignId,
   organizationId,
-}: {
-  campaignId: Id<'campaign'>;
-  organizationId: string;
-}) {
+}: CampaignScope) {
   const page = useCharactersPage({ campaignId, organizationId });
   if (page.status === 'loading') return <CharactersSkeleton />;
   const { dialog } = page;
@@ -56,6 +52,7 @@ export function CharactersSection({
         <CorrectableCharacters
           key={`${organizationId}:${campaignId}:${page.militia.militiaId}`}
           campaignId={campaignId}
+          organizationId={organizationId}
           page={page}
           militia={page.militia}
         />

@@ -39,7 +39,6 @@ type Call = {
 };
 let calls: Call[] = [];
 let queries: Record<string, unknown> = {};
-
 vi.mock('@convex/_generated/api', () => ({
   api: {
     character: {
@@ -457,6 +456,14 @@ describe('character table', () => {
     ).toBeVisible();
     // @ts-expect-error jsdom has no matchMedia by default
     delete window.matchMedia;
+  });
+
+  test('the officers ledger keeps archived rows marked and ownership belongs to campaign Characters', () => {
+    render(page());
+    expect(screen.queryByRole('columnheader', { name: 'Owner' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Assign owner/ })).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show archived' }));
+    expect(within(rowOf('Dalla Rook')).getByText('archived')).toBeVisible();
   });
 
   test('another player’s record change reaches the table', () => {

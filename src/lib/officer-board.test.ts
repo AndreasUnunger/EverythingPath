@@ -1,3 +1,4 @@
+import type { Id } from '@convex/_generated/dataModel';
 import { describe, expect, it } from 'vitest';
 import type { CanonicalRoster } from './canonical-roster';
 import {
@@ -35,7 +36,7 @@ function record(
 ): BoardRecord {
   return {
     ...fact,
-    _id: fact.characterId,
+    _id: fact.characterId as Id<'character'>,
     name,
     kind,
   };

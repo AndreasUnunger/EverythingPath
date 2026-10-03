@@ -2,17 +2,26 @@ import { api } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import { acceptedCampaignSetup } from '../../tests/rules/accepted-campaign';
+import { syncOrganizationMemberships } from '../organizationMembership';
 
 export async function seedAcceptedCampaign(
   ctx: MutationCtx & { writeEpoch?: number },
   existingCampaignId?: Id<'campaign'>,
 ) {
   if (!existingCampaignId) {
-    for (const role of ['gm', 'player'])
-      await ctx.db.insert('user', {
+    for (const role of ['gm', 'player']) {
+      const orgIds = [
+        {
+          orgId: 'org',
+          role: role === 'gm' ? ('admin' as const) : ('member' as const),
+        },
+      ];
+      const userId = await ctx.db.insert('user', {
         tokenIdentifier: `test|${role}`,
-        orgIds: [{ orgId: 'org', role: role === 'gm' ? 'admin' : 'member' }],
+        orgIds,
       });
+      await syncOrganizationMemberships(ctx, userId, orgIds);
+    }
   }
   const campaignId =
     existingCampaignId ??

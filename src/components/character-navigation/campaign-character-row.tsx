@@ -1,3 +1,8 @@
+'use client';
+import type { CampaignScope } from '~/lib/campaign-scope';
+import { CharacterOwnerControl } from '~/components/character-sheet/character-owner-control';
+import { useCharacterOwnership } from '~/components/character-sheet/use-character-ownership';
+import { useBreakpoint } from '~/components/use-breakpoint';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { cn } from '~/lib/utils';
 import { cellClass } from './character-list-classes';
@@ -9,10 +14,25 @@ import { RosterState } from './roster-state';
 // move under the name so the three remaining columns fit.
 export function CampaignCharacterRow({
   character,
+  scope,
 }: {
   character: CampaignCharacterListRow;
+  scope: CampaignScope;
 }) {
-  const owner = character.ownerName ?? 'Unassigned owner';
+  const isWide = useBreakpoint('wide');
+  const ownership = useCharacterOwnership(
+    { ...scope, characterId: character.id },
+    character.owner,
+    character.ownerLastOperationId,
+    character.ownershipAvailable,
+  );
+  const ownerControl = (
+    <CharacterOwnerControl
+      characterName={character.name}
+      ownership={ownership}
+      isLabelled={false}
+    />
+  );
   return (
     <tr className="border-foreground/15 border-b">
       <td className={cellClass}>
@@ -30,11 +50,14 @@ export function CampaignCharacterRow({
           {character.kind}
           <span className="md:hidden">
             {' '}
-            · {owner} · {character.active ? 'Active' : 'Archived'}
+            · {character.active ? 'Active' : 'Archived'}
           </span>
         </span>
+        {!isWide ? ownerControl : null}
       </td>
-      <td className={cn(cellClass, 'hidden md:table-cell')}>{owner}</td>
+      <td className={cn(cellClass, 'hidden md:table-cell')}>
+        {isWide ? ownerControl : null}
+      </td>
       <td className={cn(cellClass, 'whitespace-nowrap')}>{character.level}</td>
       <td className={cn(cellClass, 'hidden md:table-cell')}>
         <CharacterStateBadge active={character.active} />

@@ -1,3 +1,6 @@
+import type { Id } from '@convex/_generated/dataModel';
+import type { CharacterOwner } from '~/lib/character-ownership';
+
 export type OwnedCharacterListRow = {
   id: string;
   name: string;
@@ -7,7 +10,14 @@ export type OwnedCharacterListRow = {
   href: string;
 };
 
-export type CampaignCharacterListRow = Omit<OwnedCharacterListRow, 'href'> & {
+export type CampaignCharacterListRow = Omit<
+  OwnedCharacterListRow,
+  'href' | 'id'
+> & {
+  id: Id<'character'>;
+  owner: CharacterOwner | null;
+  ownershipAvailable: boolean;
+  ownerLastOperationId?: string;
   href?: string;
   ownerName: string | null;
   isOnRoster: boolean;

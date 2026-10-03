@@ -117,6 +117,7 @@ export const characterKindValidator = v.union(
 export const characterValidator = v.object({
   name: v.string(),
   ownerId: v.optional(v.string()),
+  ownerLastOperationId: v.optional(v.string()),
   campaignId: v.optional(v.id('campaign')),
   sheetDemo: v.optional(v.literal(true)),
   description: v.string(),
@@ -394,4 +395,10 @@ export default defineSchema({
       }),
     ),
   }).index('by_tokenIdentifier', ['tokenIdentifier']),
+  organizationMembership: defineTable({
+    userId: v.id('user'),
+    organizationId: v.string(),
+  })
+    .index('by_organizationId_and_userId', ['organizationId', 'userId'])
+    .index('by_userId_and_organizationId', ['userId', 'organizationId']),
 });

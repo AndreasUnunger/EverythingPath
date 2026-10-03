@@ -107,6 +107,7 @@ test('owner and campaign member edit the same Character, normalize kinds and ret
   ).find((character) => character._id === characterId);
   expect(archived).toEqual({
     ...before,
+    owner: before?.owner ? { ...before.owner, isMine: true } : null,
     name: 'Vessa Vale',
     level: 5,
     charisma: 18,
@@ -129,7 +130,11 @@ test('owner and campaign member edit the same Character, normalize kinds and ret
     (await member.query(api.character.listByCampaign, listArgs)).find(
       (character) => character._id === characterId,
     ),
-  ).toEqual({ ...archived, isActive: true });
+  ).toEqual({
+    ...archived,
+    isActive: true,
+    owner: archived?.owner ? { ...archived.owner, isMine: false } : null,
+  });
 });
 
 test('Character reads and writes retain campaign scope and reject outsiders and signed-out callers', async () => {
@@ -180,7 +185,12 @@ test('Character reads and writes retain campaign scope and reject outsiders and 
   ).rejects.toThrow('No campaign exists for this organization');
   expect(await member.query(api.character.listByCampaign, {})).toEqual([]);
   expect(await owner.query(api.character.listByCampaign, listArgs)).toEqual(
-    original,
+    original.map((character) => ({
+      ...character,
+      owner: character.owner
+        ? { ...character.owner, isMine: character.ownerId === 'test|gm' }
+        : null,
+    })),
   );
   await owner.mutation(api.character.archiveCharacter, {
     organizationId: 'org',

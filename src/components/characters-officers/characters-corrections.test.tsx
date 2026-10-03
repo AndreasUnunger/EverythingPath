@@ -272,7 +272,9 @@ describe('one correction at a time', () => {
       screen.queryByRole('button', { name: 'Correct officers' }),
     ).toBeNull();
     // Roster mode edits only membership and overrides: no Assign.
-    expect(screen.queryByRole('button', { name: /^Assign / })).toBeNull();
+    expect(
+      within(officersRegion()).queryByRole('button', { name: /^Assign / }),
+    ).toBeNull();
   });
 
   test('before Setup there is nothing to correct', () => {

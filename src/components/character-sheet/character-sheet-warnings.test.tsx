@@ -57,10 +57,19 @@ vi.mock('@convex/_generated/api', () => ({
       acceptWarning: 'accept',
       reopenWarning: 'reopen',
     },
+    character: {
+      listOwnerCandidates: 'listOwnerCandidates',
+      reassignOwner: 'reassignOwner',
+    },
   },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: () => snapshot,
+  useQuery: (name: string) => (name === 'read' ? snapshot : undefined),
+  usePaginatedQuery: () => ({
+    results: [],
+    status: 'Exhausted',
+    loadMore: () => undefined,
+  }),
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });
@@ -153,8 +162,10 @@ function sheet({
     campaign: {
       campaignId: 'campaign-1' as Id<'campaign'>,
       campaignName: 'Campaign',
+      ownershipAvailable: true,
       organizationId: 'org',
     },
+    owner: null,
     character: {
       _id: characterId,
       _creationTime: 1,

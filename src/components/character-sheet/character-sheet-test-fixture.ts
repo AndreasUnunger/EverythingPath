@@ -109,7 +109,13 @@ export function buildSheet({
   ];
   const catalogEntries = [baseCatalog, ...adjustmentCatalogs];
   return {
-    campaign: { campaignId, campaignName: 'Ironfang', organizationId: 'org' },
+    owner: null,
+    campaign: {
+      campaignId,
+      campaignName: 'Ironfang',
+      organizationId: 'org',
+      ownershipAvailable: true,
+    },
     character: {
       _id: characterId,
       _creationTime: 1,

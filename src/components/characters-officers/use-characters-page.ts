@@ -1,4 +1,5 @@
 'use client';
+import type { CampaignScope } from '~/lib/campaign-scope';
 import { useQuery } from '@tanstack/react-query';
 import { convexQuery } from '@convex-dev/react-query';
 import { api } from '@convex/_generated/api';
@@ -69,10 +70,7 @@ export type CharactersPage = Extract<CharactersPageView, { status: 'ready' }>;
 export function useCharactersPage({
   campaignId,
   organizationId,
-}: {
-  campaignId: Id<'campaign'>;
-  organizationId: string;
-}): CharactersPageView {
+}: CampaignScope): CharactersPageView {
   const { data: records } = useQuery({
     ...convexQuery(api.character.listByCampaign, {
       campaignId,
@@ -97,11 +95,12 @@ export function useCharactersPage({
   const [showArchived, setShowArchived] = useState(false);
   // The campaign and organization the page has loaded for, with its open
   // record dialog: a scope change closes the dialog and loads again.
-  const [scoped, setScoped] = useState<{
-    campaignId: Id<'campaign'>;
-    organizationId: string;
-    target: RecordDialogTarget | null;
-  } | null>(null);
+  const [scoped, setScoped] = useState<
+    | (CampaignScope & {
+        target: RecordDialogTarget | null;
+      })
+    | null
+  >(null);
   const sameScope =
     scoped?.campaignId === campaignId &&
     scoped.organizationId === organizationId;

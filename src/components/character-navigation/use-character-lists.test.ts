@@ -157,7 +157,12 @@ test('a prepared fixture campaign offers creation with its campaign and organiza
 
 test('legacy campaign Characters open the militia ledger before a week is initialized', () => {
   state.campaignRows = [
-    { character: character(), ownerName: 'Alice', isOnRoster: false },
+    {
+      character: character(),
+      ownerName: 'Alice',
+      owner: { userId: 'alice' as Id<'user'>, name: 'Alice', isMine: false },
+      isOnRoster: false,
+    },
   ];
   const view = renderHook(() =>
     useCampaignCharacters({
@@ -170,13 +175,52 @@ test('legacy campaign Characters open the militia ledger before a week is initia
   );
 });
 
+test('campaign rows offer ownership only after their own campaign is prepared', () => {
+  state.campaignRows = [
+    {
+      character: character(),
+      ownerName: 'Alice',
+      owner: { userId: 'alice' as Id<'user'>, name: 'Alice', isMine: false },
+      isOnRoster: false,
+    },
+  ];
+  state.campaigns = {
+    state: 'ready',
+    campaigns: [
+      { _id: 'alpha' },
+      { _id: 'other', e2eFixture: 'characterSheet' },
+    ],
+  };
+  const view = renderHook(() =>
+    useCampaignCharacters({
+      campaignId: 'alpha' as Id<'campaign'>,
+      organizationId: 'other',
+    }),
+  );
+  expect(view.result.current.characters?.[0]?.ownershipAvailable).toBe(false);
+  state.campaigns = undefined;
+  view.rerender();
+  expect(view.result.current.characters?.[0]?.ownershipAvailable).toBe(false);
+  state.campaigns = {
+    state: 'ready',
+    campaigns: [{ _id: 'alpha', e2eFixture: 'characterSheet' }],
+  };
+  view.rerender();
+  expect(view.result.current.characters?.[0]?.ownershipAvailable).toBe(true);
+});
+
 test('legacy campaign Characters have no sheet or ledger destination without a militia', () => {
   state.contexts = [
     { campaignId: 'alpha', hasMilitia: false },
     { campaignId: 'another', hasMilitia: true },
   ];
   state.campaignRows = [
-    { character: character(), ownerName: 'Alice', isOnRoster: false },
+    {
+      character: character(),
+      ownerName: 'Alice',
+      owner: { userId: 'alice' as Id<'user'>, name: 'Alice', isMine: false },
+      isOnRoster: false,
+    },
   ];
   const view = renderHook(() =>
     useCampaignCharacters({
@@ -193,6 +237,7 @@ test('prepared campaign Characters keep their independent sheet without a militi
     {
       character: character({ sheetMode: 'full' }),
       ownerName: 'Alice',
+      owner: { userId: 'alice' as Id<'user'>, name: 'Alice', isMine: false },
       isOnRoster: false,
     },
   ];
@@ -237,8 +282,13 @@ test('owned groups retain No campaign first, organization names and a personal o
 test('campaign list keeps archived Characters, owner and roster information and campaign origin', () => {
   state.campaignRows = [
     {
-      character: character({ isActive: false, sheetMode: 'full' }),
+      character: character({
+        isActive: false,
+        sheetMode: 'full',
+        ownerLastOperationId: 'owner-save',
+      }),
       ownerName: 'Alice',
+      owner: { userId: 'alice' as Id<'user'>, name: 'Alice', isMine: false },
       isOnRoster: true,
     },
   ];
@@ -250,7 +300,9 @@ test('campaign list keeps archived Characters, owner and roster information and 
   );
   expect(view.result.current.characters?.[0]).toMatchObject({
     active: false,
+    ownerLastOperationId: 'owner-save',
     ownerName: 'Alice',
+    owner: { userId: 'alice' as Id<'user'>, name: 'Alice', isMine: false },
     isOnRoster: true,
     href: '/characters/hero?from=%2Fcampaigns%2Falpha%2Fcharacters&organizationId=other',
   });

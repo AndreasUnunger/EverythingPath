@@ -2,20 +2,23 @@ import { ConvexError } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import { getUserByTokenIdentifier, hasAccessToOrg } from '../user';
-
-type CampaignScope = {
-  campaignId: Id<'campaign'>;
-  organizationId: string;
-};
+import type { CampaignScope } from '../../src/lib/campaign-scope';
 
 export async function requireCharacterCampaignAccess(
   ctx: ReadCtx,
-  { campaignId, organizationId }: CampaignScope,
+  {
+    campaignId,
+    organizationId,
+  }: Pick<CampaignScope, 'campaignId'> &
+    Partial<Pick<CampaignScope, 'organizationId'>>,
 ) {
-  const access = await hasAccessToOrg(ctx, organizationId);
-  if (!access) throw new ConvexError('You do not have access to this org');
   const campaign = await ctx.db.get('campaign', campaignId);
-  if (campaign?.organizationId !== organizationId)
+  const resolvedOrganizationId = organizationId ?? campaign?.organizationId;
+  if (!resolvedOrganizationId)
+    throw new ConvexError('No campaign exists for this organization');
+  const access = await hasAccessToOrg(ctx, resolvedOrganizationId);
+  if (!access) throw new ConvexError('You do not have access to this org');
+  if (campaign?.organizationId !== resolvedOrganizationId)
     throw new ConvexError('No campaign exists for this organization');
   return { campaign, access };
 }
@@ -42,11 +45,20 @@ export async function listAccessibleCharacters(
     : characters.filter((character) => character.isActive);
 }
 
-export type CharacterScope = {
+export type CharacterScope = Partial<CampaignScope> & {
   characterId: Id<'character'>;
-  organizationId?: string;
-  campaignId?: Id<'campaign'>;
 };
+
+export async function requireScopedCampaignCharacterAccess(
+  ctx: ReadCtx,
+  args: CharacterScope & Pick<CampaignScope, 'campaignId'>,
+) {
+  const character = await ctx.db.get('character', args.characterId);
+  if (character?.campaignId !== args.campaignId)
+    throw new ConvexError('Character not found');
+  const { campaign, access } = await requireCharacterCampaignAccess(ctx, args);
+  return { character, campaign, user: access.user };
+}
 
 export async function requireCharacterAccess(
   ctx: ReadCtx,
@@ -92,4 +104,19 @@ export async function requireCampaignCharacterAccess(
   const { character } = await requireCharacterAccess(ctx, args);
   if (!character.campaignId) throw new ConvexError('Character not found');
   return character;
+}
+
+// Movement must call this again in its publication transaction, after any
+// preparation. A prior client check never supplies departure authority.
+export async function requireCharacterDepartureAccess(
+  ctx: ReadCtx,
+  args: CharacterScope,
+) {
+  const access = await requireCharacterAccess(ctx, args);
+  if (!access.campaign) throw new ConvexError('Character is not in a campaign');
+  if (access.character.ownerId !== access.user.tokenIdentifier)
+    throw new ConvexError(
+      'Only the current owner can leave or move a Character',
+    );
+  return access;
 }

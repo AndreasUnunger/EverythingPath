@@ -308,6 +308,7 @@ function buildSheetView(snapshot: CharacterSheetSnapshot) {
   }
   return {
     character: snapshot.character,
+    owner: snapshot.owner,
     campaign: snapshot.campaign,
     calculated,
     warnings: calculated.warnings.map(

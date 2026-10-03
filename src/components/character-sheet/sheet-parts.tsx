@@ -47,18 +47,40 @@ export function Block({
   );
 }
 
-/** Saved text politely; a failure as an alert, verbatim, beside its editor. */
+/**
+ * Saved text politely; a failure as an alert, verbatim, beside its editor.
+ *
+ * The status region stays mounted while idle: screen readers may skip a live
+ * region that is inserted together with its text. `shouldHideWhenIdle` only
+ * takes the empty region out of the layout (sr-only), never out of the tree.
+ */
 export function SaveFeedback({
   status,
   savedText,
+  savingText,
+  shouldHideWhenIdle = false,
 }: {
   status: SaveStatus;
   savedText: string;
+  savingText?: string;
+  shouldHideWhenIdle?: boolean;
 }) {
+  const statusText =
+    status.kind === 'saved'
+      ? savedText
+      : status.kind === 'saving'
+        ? savingText
+        : null;
   return (
     <>
-      <p role="status" className="text-muted-foreground text-xs">
-        {status.kind === 'saved' ? savedText : null}
+      <p
+        role="status"
+        className={cn(
+          'text-muted-foreground text-xs',
+          shouldHideWhenIdle && !statusText && 'sr-only',
+        )}
+      >
+        {statusText}
       </p>
       {status.kind === 'error' ? (
         <p

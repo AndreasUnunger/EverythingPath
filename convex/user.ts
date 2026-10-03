@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 import { type MutationCtx, type QueryCtx, query } from './_generated/server';
 import { gatedWebhookMutation } from './lib/writeGate';
 import { roles } from './schema';
+import { syncOrganizationMemberships } from './organizationMembership';
 
 export async function getUserByTokenIdentifier(
   ctx: QueryCtx | MutationCtx,
@@ -61,8 +62,10 @@ async function upsertProfile(
   const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier);
   if (!isNewerWebhook(args.webhookUpdatedAt, user?.webhookUpdatedAt))
     return null;
-  if (user) await ctx.db.patch('user', user._id, args);
-  else await ctx.db.insert('user', { ...args, orgIds: [] });
+  if (user) {
+    await ctx.db.patch('user', user._id, args);
+    await syncOrganizationMemberships(ctx, user._id, user.orgIds);
+  } else await ctx.db.insert('user', { ...args, orgIds: [] });
   return null;
 }
 
@@ -105,11 +108,11 @@ async function upsertMembership(
       ? {}
       : { webhookUpdatedAt: args.webhookUpdatedAt }),
   };
-  await ctx.db.patch('user', user._id, {
-    orgIds: existing
-      ? user.orgIds.map((org) => (org.orgId === args.orgId ? membership : org))
-      : [...user.orgIds, membership],
-  });
+  const orgIds = existing
+    ? user.orgIds.map((org) => (org.orgId === args.orgId ? membership : org))
+    : [...user.orgIds, membership];
+  await ctx.db.patch('user', user._id, { orgIds });
+  await syncOrganizationMemberships(ctx, user._id, orgIds);
   return null;
 }
 

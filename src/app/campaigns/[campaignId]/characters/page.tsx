@@ -14,6 +14,7 @@ export default function CharactersPage() {
   ) : (
     <CampaignCharactersView
       campaignName={campaign.name}
+      scope={{ campaignId: campaign._id, organizationId }}
       characters={characters}
       newHref={newHref}
     />

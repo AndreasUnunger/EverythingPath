@@ -33,8 +33,13 @@ type Call = {
 };
 let calls: Call[] = [];
 let snapshot: CharacterSheetSnapshot | null | undefined;
-let readScope: Record<string, unknown>;
+let readScope: Record<string, unknown> | 'skip';
 let readError: Error | null = null;
+type Member = { userId: Id<'user'>; name: string; isMine: boolean };
+let owner: Member | null | undefined;
+let members: Member[];
+const unexpectedQuery = vi.fn();
+let candidatesScope: Record<string, unknown> | 'skip' | undefined;
 let scrollIntoView = vi.fn();
 const navigate = vi.fn();
 const maintenance = vi.fn<() => MigrationMaintenance>();
@@ -59,13 +64,32 @@ vi.mock('@convex/_generated/api', () => ({
       acceptWarning: 'accept',
       reopenWarning: 'reopen',
     },
+    character: {
+      listOwnerCandidates: 'listOwnerCandidates',
+      reassignOwner: 'reassignOwner',
+    },
   },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: (_name: string, scope: Record<string, unknown>) => {
+  useQuery: (name: string, scope: Record<string, unknown> | 'skip') => {
+    if (name !== 'read') {
+      unexpectedQuery(name, scope);
+      throw new Error('Unexpected subscription outside the sheet read.');
+    }
     readScope = scope;
     if (readError) throw readError;
     return snapshot;
+  },
+  usePaginatedQuery: (
+    _name: string,
+    scope: Record<string, unknown> | 'skip',
+  ) => {
+    candidatesScope = scope;
+    return {
+      results: scope === 'skip' ? [] : members,
+      status: 'Exhausted',
+      loadMore: () => undefined,
+    };
   },
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
@@ -110,6 +134,7 @@ function sheet({
   name = 'Kesh',
   isActive = true,
   campaignId = 'campaign-1' as Id<'campaign'>,
+  ownershipAvailable = true,
 }: {
   scores?: AbilityScores;
   levels?: Level[];
@@ -118,6 +143,7 @@ function sheet({
   isActive?: boolean;
   /** `null` for a private Character, which has none. */
   campaignId?: Id<'campaign'> | null;
+  ownershipAvailable?: boolean;
 } = {}): CharacterSheetSnapshot {
   const catalogEntry: CharacterSheetSnapshot['baseScoresEntry'] = {
     _id: 'base-catalogEntry' as Id<'catalogEntry'>,
@@ -165,8 +191,14 @@ function sheet({
     ),
   ];
   return {
+    owner: owner ?? null,
     campaign: campaignId
-      ? { campaignId, campaignName: 'Campaign', organizationId: 'org' }
+      ? {
+          campaignId,
+          campaignName: 'Campaign',
+          organizationId: 'org',
+          ownershipAvailable,
+        }
       : null,
     character: {
       _id: characterId,
@@ -267,6 +299,13 @@ beforeEach(() => {
   maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
   snapshot = undefined;
   readError = null;
+  owner = { userId: 'ada' as Id<'user'>, name: 'Ada', isMine: false };
+  members = [
+    { userId: 'ada' as Id<'user'>, name: 'Ada', isMine: false },
+    { userId: 'bryn' as Id<'user'>, name: 'Bryn', isMine: true },
+  ];
+  unexpectedQuery.mockClear();
+  candidatesScope = undefined;
   scrollIntoView = vi.fn();
   Element.prototype.scrollIntoView = scrollIntoView;
 });
@@ -1177,4 +1216,122 @@ test('maintenance disables private deletion with the reason beside it, also when
   expect(screen.queryByRole('group')).not.toBeInTheDocument();
   expect(calls).toEqual([]);
   expect(navigate).not.toHaveBeenCalled();
+});
+
+// Campaign Character ownership (#300): the owner in the campaign row, with
+// Assign owner for any current member, on campaign and independent sheets.
+
+const ownerPicker = () =>
+  within(screen.getByRole('dialog', { name: 'Choose owner' }));
+async function assignOwner(name: string, member: RegExp) {
+  fireEvent.click(
+    screen.getByRole('button', { name: `Assign owner for ${name}` }),
+  );
+  fireEvent.click(ownerPicker().getByRole('radio', { name: member }));
+  await act(async () => {
+    fireEvent.click(
+      ownerPicker().getByRole('button', { name: 'Assign owner' }),
+    );
+  });
+  await waitFor(() => expect(calls).toHaveLength(1));
+}
+
+test('a campaign sheet names its owner beside its archive state and assigns another member at once', async () => {
+  const view = renderSheet(sheet({ isActive: false }));
+  expect(unexpectedQuery).not.toHaveBeenCalled();
+  const row = campaignRow();
+  expect(row.getByText('Archived')).toBeVisible();
+  expect(row.getByText('Owner')).toBeVisible();
+  expect(row.getByText('Ada')).toBeVisible();
+  await assignOwner('Kesh', /^Bryn/);
+  expect(lastCall().name).toBe('reassignOwner');
+  expect(lastCall().args).toMatchObject({
+    characterId,
+    campaignId: 'campaign-1',
+    organizationId: 'org',
+    ownerUserId: 'bryn',
+  });
+  expect(ownerPicker().queryByText(/approv/i)).not.toBeInTheDocument();
+  owner = { userId: 'bryn' as Id<'user'>, name: 'Bryn', isMine: true };
+  const changed = sheet({ isActive: false });
+  changed.character.ownerLastOperationId = String(lastCall().args.operationId);
+  view.show(changed);
+  await act(async () => lastCall().resolve(null));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(campaignRow().getByText('Bryn')).toBeVisible();
+  expect(campaignRow().getByText('Owner assigned.')).toBeVisible();
+  expect(campaignRow().queryByRole('status', { name: /changed/ })).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Restore character' }),
+  ).toBeEnabled();
+});
+
+test('a refused owner change keeps the picker open with its reason and the owner as it was', async () => {
+  renderSheet(sheet());
+  await assignOwner('Kesh', /^Bryn/);
+  await act(async () =>
+    lastCall().reject(new ConvexError('Choose a current campaign member')),
+  );
+  expect(await ownerPicker().findByRole('alert')).toHaveTextContent(
+    "Owner wasn't changed: Choose a current campaign member. Try again.",
+  );
+  expect(
+    ownerPicker().getByRole('button', { name: 'Assign owner' }),
+  ).toBeEnabled();
+  fireEvent.keyDown(ownerPicker().getByRole('radio', { name: /^Bryn/ }), {
+    key: 'Escape',
+  });
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+  expect(campaignRow().getByText('Ada')).toBeVisible();
+});
+
+test('an independent campaign sheet offers the owner control with its persisted campaign and no organization', async () => {
+  snapshot = sheet();
+  render(<IndependentCharacterSheetRoute />);
+  expect(readScope).toEqual({ characterId });
+  expect(unexpectedQuery).not.toHaveBeenCalled();
+  expect(campaignRow().getByText('Ada')).toBeVisible();
+  await assignOwner('Kesh', /^Bryn/);
+  expect(candidatesScope).toEqual({
+    campaignId: 'campaign-1',
+    organizationId: undefined,
+  });
+  expect(lastCall().name).toBe('reassignOwner');
+  expect(lastCall().args).toMatchObject({
+    characterId,
+    campaignId: 'campaign-1',
+    ownerUserId: 'bryn',
+  });
+  expect(lastCall().args.organizationId).toBeUndefined();
+});
+
+test('a production campaign sheet offers no owner assignment on the independent route', () => {
+  snapshot = sheet({ ownershipAvailable: false });
+  render(<IndependentCharacterSheetRoute />);
+  expect(readScope).toEqual({ characterId });
+  expect(unexpectedQuery).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole('button', { name: /Assign owner/ }),
+  ).not.toBeInTheDocument();
+  expect(candidatesScope).toBe('skip');
+  expect(calls).toEqual([]);
+});
+
+test('a private sheet keeps its private row and never offers an owner', () => {
+  snapshot = privateSheet();
+  render(<IndependentCharacterSheetRoute />);
+  // No owner control is mounted at all, so its reads never start.
+  expect(unexpectedQuery).not.toHaveBeenCalled();
+  expect(
+    campaignRow().getByText('Only you can see this character.'),
+  ).toBeVisible();
+  expect(campaignRow().queryByText('Owner')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: /Assign owner/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Delete character' }),
+  ).toBeVisible();
 });

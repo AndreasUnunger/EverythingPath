@@ -1,4 +1,8 @@
 import { ConvexError, v, type Infer } from 'convex/values';
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from 'convex/server';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
@@ -8,13 +12,111 @@ import {
   listAccessibleCharacters,
   requireCampaignCharacterAccess,
   requireCharacterCampaignAccess,
+  requireScopedCampaignCharacterAccess,
 } from './lib/characterAccess';
 import {
   pruneWarningAcceptancesAndRecordChange,
   loadCharacterSheet,
+  loadCharacterSheetFromAccess,
+  requireFixtureCampaign,
   updateCharacterArchive,
 } from './lib/characterSheet';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
+import {
+  characterOwnerValidator,
+  projectOwner,
+  readCharacterOwners,
+} from './lib/characterOwnership';
+
+export const listOwnerCandidates = query({
+  args: {
+    campaignId: v.id('campaign'),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(characterOwnerValidator),
+  async handler(ctx, args) {
+    const { campaign, access } = await requireCharacterCampaignAccess(ctx, {
+      campaignId: args.campaignId,
+      organizationId: args.organizationId,
+    });
+    requireFixtureCampaign(
+      campaign,
+      "Owner assignment isn't available for this campaign yet.",
+    );
+    if (
+      !Number.isSafeInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > 100
+    )
+      throw new ConvexError('Choose a member page size from 1 to 100');
+    const page = await ctx.db
+      .query('organizationMembership')
+      .withIndex('by_organizationId_and_userId', (q) =>
+        q.eq('organizationId', campaign.organizationId),
+      )
+      .paginate({
+        ...args.paginationOpts,
+        maximumRowsRead: Math.min(
+          args.paginationOpts.maximumRowsRead ?? 100,
+          100,
+        ),
+      });
+    const candidates = await Promise.all(
+      page.page.map(async (membership) => {
+        const user = await ctx.db.get('user', membership.userId);
+        return user?.orgIds.some((org) => org.orgId === campaign.organizationId)
+          ? projectOwner(user, access.user.tokenIdentifier)
+          : null;
+      }),
+    );
+    return {
+      ...page,
+      page: candidates.filter((candidate) => candidate !== null),
+    };
+  },
+});
+
+export const reassignOwner = mutation({
+  args: {
+    characterId: v.id('character'),
+    campaignId: v.id('campaign'),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+    ownerUserId: v.id('user'),
+    operationId: v.string(),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const access = await requireScopedCampaignCharacterAccess(ctx, args);
+    const { character, campaign } = access;
+    requireFixtureCampaign(
+      campaign,
+      "Owner assignment isn't available for this campaign yet.",
+    );
+    const recipient = await ctx.db.get('user', args.ownerUserId);
+    if (!recipient?.orgIds.some((org) => org.orgId === campaign.organizationId))
+      throw new ConvexError('Choose a current campaign member');
+    const sheet = character.sheetMode
+      ? await loadCharacterSheetFromAccess(ctx, access, { isWritable: true })
+      : null;
+    await ctx.db.patch('character', character._id, {
+      ownerId: recipient.tokenIdentifier,
+      ownerLastOperationId: args.operationId,
+    });
+    if (sheet) {
+      sheet.character = {
+        ...sheet.character,
+        ownerId: recipient.tokenIdentifier,
+        ownerLastOperationId: args.operationId,
+      };
+      await pruneWarningAcceptancesAndRecordChange(ctx, {
+        sheet,
+        operationId: args.operationId,
+      });
+    }
+    return null;
+  },
+});
 
 const ownedGroupValidator = v.union(
   v.object({
@@ -89,6 +191,7 @@ export const listCampaignCharacters = query({
     v.object({
       character: schema.doc('character'),
       ownerName: v.union(v.string(), v.null()),
+      owner: v.union(characterOwnerValidator, v.null()),
       isOnRoster: v.boolean(),
     }),
   ),
@@ -98,22 +201,7 @@ export const listCampaignCharacters = query({
       includeInactive: true,
     });
     if (characters.length === 0) return [];
-    const ownerIds = new Set(
-      characters.flatMap((character) =>
-        character.ownerId ? [character.ownerId] : [],
-      ),
-    );
-    const ownerNames = new Map(
-      await Promise.all(
-        [...ownerIds].map(
-          async (ownerId) =>
-            [
-              ownerId,
-              (await getUserByTokenIdentifier(ctx, ownerId))?.name ?? null,
-            ] as const,
-        ),
-      ),
-    );
+    const owners = await readCharacterOwners(ctx, characters);
     const militia = await ctx.db
       .query('militia')
       .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
@@ -131,8 +219,9 @@ export const listCampaignCharacters = query({
     );
     return characters.map((character) => ({
       character,
+      owner: character.ownerId ? (owners.get(character.ownerId) ?? null) : null,
       ownerName: character.ownerId
-        ? (ownerNames.get(character.ownerId) ?? null)
+        ? (owners.get(character.ownerId)?.name ?? null)
         : null,
       isOnRoster: roster.has(character._id),
     }));
@@ -145,8 +234,18 @@ export const listByCampaign = query({
     organizationId: v.optional(campaignValidator.fields.organizationId),
     includeInactive: v.optional(v.boolean()),
   },
+  returns: v.array(
+    schema.doc('character').extend({
+      owner: v.union(characterOwnerValidator, v.null()),
+    }),
+  ),
   async handler(ctx, args) {
-    return await listAccessibleCharacters(ctx, args);
+    const characters = await listAccessibleCharacters(ctx, args);
+    const owners = await readCharacterOwners(ctx, characters);
+    return characters.map((character) => ({
+      ...character,
+      owner: character.ownerId ? (owners.get(character.ownerId) ?? null) : null,
+    }));
   },
 });
 

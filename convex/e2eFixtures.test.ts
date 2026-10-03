@@ -129,6 +129,32 @@ describe('internal fixture boundary', () => {
       ...scope,
       now: 1_700_000_000_000,
     });
+    const member = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_player`,
+    });
+    const directoryArgs = {
+      campaignId: first.campaignId,
+      organizationId: 'org_members',
+      paginationOpts: { cursor: null, numItems: 10 },
+    };
+    expect(
+      (await member.query(api.character.listOwnerCandidates, directoryArgs))
+        .page,
+    ).toHaveLength(2);
+    await t.mutation(internal.user.addOrgIdToUser, {
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_outsider`,
+      orgId: 'org_members',
+      role: 'member',
+    });
+    expect(
+      (await member.query(api.character.listOwnerCandidates, directoryArgs))
+        .page,
+    ).toHaveLength(3);
+    await t.mutation(internal.e2eFixtures.seedIdentityProjection, scope);
+    expect(
+      (await member.query(api.character.listOwnerCandidates, directoryArgs))
+        .page,
+    ).toHaveLength(2);
     await t.run(async (ctx) => {
       const militia = await ctx.db
         .query('militia')
@@ -211,7 +237,10 @@ describe('internal fixture boundary', () => {
       },
     ]);
     expect(await member.query(api.character.listByCampaign, args)).toEqual(
-      characters,
+      characters.map((character) => ({
+        ...character,
+        owner: character.owner ? { ...character.owner, isMine: false } : null,
+      })),
     );
     expect(await outsider.query(api.character.listByCampaign, args)).toEqual(
       [],
@@ -259,9 +288,10 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.catalogEntries).toHaveLength(1);
     expect(sheet?.baseScoresEntry.modifiers).toHaveLength(6);
-    expect(await member.query(api.characterSheet.read, sheetArgs)).toEqual(
-      sheet,
-    );
+    expect(await member.query(api.characterSheet.read, sheetArgs)).toEqual({
+      ...sheet,
+      owner: sheet?.owner ? { ...sheet.owner, isMine: false } : null,
+    });
     await expect(
       outsider.query(api.characterSheet.read, sheetArgs),
     ).rejects.toThrow();

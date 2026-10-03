@@ -78,6 +78,10 @@ function SheetHost({
       lifecycle={
         <CharacterLifecycle
           character={controller.sheet.character}
+          owner={controller.sheet.owner}
+          ownershipAvailable={
+            controller.sheet.campaign?.ownershipAvailable ?? false
+          }
           organizationId={organizationId}
           campaignId={campaignId}
           onDeletion={onDeletion}

@@ -1,4 +1,5 @@
 import { gatedInternalMutation } from './lib/writeGate';
+import { syncOrganizationMemberships } from './organizationMembership';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
@@ -278,9 +279,12 @@ export const seedIdentityProjection = gatedInternalMutation({
           },
         ],
       };
-      if (existing) await ctx.db.replace('user', existing._id, user);
-      else {
+      if (existing) {
+        await ctx.db.replace('user', existing._id, user);
+        await syncOrganizationMemberships(ctx, existing._id, user.orgIds);
+      } else {
         const userId = await ctx.db.insert('user', user);
+        await syncOrganizationMemberships(ctx, userId, user.orgIds);
         await ctx.db.insert('e2eFixtureIdentity', {
           namespace: scope.namespace,
           workerKey: scope.workerKey,
