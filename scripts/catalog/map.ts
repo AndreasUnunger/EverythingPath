@@ -13,7 +13,13 @@ import { readObject, readArray, readText, skillNames } from './values.ts';
 import { sanitizeDescription } from './sanitize.ts';
 import { mapFormula } from './formula.ts';
 import { targetStage } from '../../src/lib/character-sheet.ts';
-import { naturalAttackIds, packPolicy, type ImportKind } from './inventory.ts';
+import {
+  conditionalHelperIds,
+  naturalAttackIds,
+  packPolicy,
+  type ImportKind,
+} from './inventory.ts';
+import type { CurationOutput } from './curation.ts';
 
 export type PreviewEntry = {
   externalKey: string;
@@ -23,7 +29,12 @@ export type PreviewEntry = {
   detail: PreviewDetail;
   description: string;
   sources: { book: string; pages?: string }[];
-  modifiers: { target: string; bonusType: string; value: number | string }[];
+  modifiers: (Omit<
+    Extract<CurationOutput, { kind: 'modifier' }>,
+    'kind' | 'target' | 'bonusType'
+  > & { target: string; bonusType: string })[];
+  situationalNotes?: Omit<Extract<CurationOutput, { kind: 'note' }>, 'kind'>[];
+  sourceKey?: string;
   unsupported: Unsupported[];
 };
 const resourceKinds = new Set<ImportKind>([
@@ -65,10 +76,7 @@ export function classify({
       kind: policy.kind === 'exclude' ? 'excluded' : 'unassigned',
       reason: policy.reason,
     };
-  if (
-    repo === 'pf1-content' &&
-    ['jTaeREVBdEeawArA', 'upTvrmZoeKq2LI0F'].includes(record._id)
-  )
+  if (repo === 'pf1-content' && conditionalHelperIds.has(record._id))
     return {
       kind: 'excluded',
       reason: 'Named Foundry conditional-modifier helper/template (#228).',
@@ -166,7 +174,6 @@ export function mapEntry({
   const context = { record, kind, unsupported, sanitize };
   recordUncuratedContent(context);
   const modifiers = mapModifiers(context);
-  recordSituationalNotes(context);
   return {
     externalKey,
     upstreamKey,
@@ -503,7 +510,11 @@ function mapModifiers({
       !sameStage &&
       kind !== 'spell'
     )
-      modifiers.push({ target, bonusType, value });
+      modifiers.push({
+        target,
+        bonusType,
+        value: typeof value === 'number' ? value : { formula: value },
+      });
     else
       unsupported.push({
         field: 'changes',
@@ -517,43 +528,4 @@ function mapModifiers({
       });
   }
   return modifiers;
-}
-
-function recordSituationalNotes({
-  record: { system },
-  unsupported,
-  sanitize,
-}: Omit<MappingContext, 'kind'>) {
-  for (const note of readArray(system.contextNotes))
-    unsupported.push({
-      field: 'contextNotes',
-      reason: 'Situational note requires the reviewed note overlay.',
-      value: {
-        target: readText({ value: readObject(note).target }),
-        text: sanitize(readText({ value: readObject(note).text })),
-      },
-    });
-  for (const action of readArray(system.actions)) {
-    const conditionals = readArray(readObject(action).conditionals);
-    if (conditionals.length)
-      unsupported.push({
-        field: 'actions.conditionals',
-        reason: 'Action conditionals require the reviewed note overlay.',
-        value: conditionals.map((value) => {
-          const conditional = readObject(value);
-          return {
-            name: sanitize(readText({ value: conditional.name })),
-            modifiers: readArray(conditional.modifiers).map((value) => {
-              const modifier = readObject(value);
-              return {
-                formula: readText({ value: modifier.formula }),
-                target: readText({ value: modifier.target }),
-                subTarget: readText({ value: modifier.subTarget }),
-                type: readText({ value: modifier.type }),
-              };
-            }),
-          };
-        }),
-      });
-  }
 }

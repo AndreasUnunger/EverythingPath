@@ -15,6 +15,11 @@ export const pins = {
   },
 };
 export type Repository = keyof typeof pins;
+export const itemAbilityHelperId = 'upTvrmZoeKq2LI0F';
+export const conditionalHelperIds = new Set([
+  'jTaeREVBdEeawArA',
+  itemAbilityHelperId,
+]);
 export type ImportKind =
   | 'race'
   | 'class'

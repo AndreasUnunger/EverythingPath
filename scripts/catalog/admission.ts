@@ -341,6 +341,16 @@ function collectInventoryFailures({
   duplicateAssessments: AttributionAssessment[];
 }) {
   const failures: AdmissionFailure[] = [];
+  for (const input of artifact.curation.missing)
+    failures.push({
+      externalKey: input.externalKey,
+      reason: `Missing curation record: ${input.kind} ${input.target} (${input.textSha256}).`,
+    });
+  for (const record of artifact.curation.unresolvedMechanics)
+    failures.push({
+      externalKey: record.externalKey,
+      reason: `Unresolved curation mechanics: ${record.diagnostics.map((diagnostic) => diagnostic.text).join(' ')}`,
+    });
   const upstreamKeys = new Set(entries.map((entry) => entry.upstreamKey));
   for (const record of artifact.comparison.records) {
     if (

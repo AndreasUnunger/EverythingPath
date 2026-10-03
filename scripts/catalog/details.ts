@@ -1,3 +1,4 @@
+import type { CuratedItemAbility } from './curation.ts';
 import type { ImportKind } from './inventory.ts';
 import {
   sourceDescription,
@@ -442,4 +443,8 @@ export const detailMappers = {
   (context: DetailContext) => { kind: ImportKind }
 >;
 
-export type PreviewDetail = ReturnType<(typeof detailMappers)[ImportKind]>;
+type ImportedDetail = ReturnType<(typeof detailMappers)[ImportKind]>;
+export type PreviewDetail =
+  | Exclude<ImportedDetail, { kind: 'itemAbility' }>
+  | (Extract<ImportedDetail, { kind: 'itemAbility' }> &
+      Omit<CuratedItemAbility, 'sourceKey'>);

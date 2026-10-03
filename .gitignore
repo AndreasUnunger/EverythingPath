@@ -61,3 +61,4 @@ yarn-error.log*
 
 # Local catalog extraction artifacts
 /.catalog-preview/
+/.catalog-curation/

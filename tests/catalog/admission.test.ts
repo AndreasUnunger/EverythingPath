@@ -11,6 +11,7 @@ import type {
   AttributionEvidence,
 } from '../../src/lib/catalog/admission-schema';
 import type { PreviewEntry } from '../../scripts/catalog/map';
+import type { CurationRecord } from '../../scripts/catalog/curation';
 
 function entry(externalKey = 'pf1/feat'): PreviewEntry {
   return {
@@ -35,6 +36,22 @@ function fixture(entries = [entry()]) {
     byKind: {},
   };
   const artifact = {
+    curation: {
+      passed: true,
+      missing: [],
+      applied: [],
+      stale: [],
+      unused: [],
+      unresolvedMechanics: [],
+      unresolvedDescriptions: [],
+      summary: {
+        required: 0,
+        drafted: 0,
+        checked: 0,
+        missing: 0,
+        descriptions: { candidates: 0, drafted: 0, checked: 0 },
+      },
+    },
     catalog: {
       purpose: 'preview',
       releaseAdmission: 'not-evaluated',
@@ -98,6 +115,40 @@ function fixture(entries = [entry()]) {
   }));
   return { artifact, registry, evidence, assessments };
 }
+
+it('reports curation diagnostic text in the admission failure', () => {
+  const input = fixture();
+  const record: CurationRecord = {
+    externalKey: 'pf1/feat',
+    kind: 'note',
+    target: '',
+    text: 'Needs review',
+    textSha256: '0'.repeat(64),
+    status: 'drafted',
+    outputs: [],
+    rationale: 'Fixture awaiting review.',
+    diagnostics: [
+      { kind: 'review', text: 'Review the remaining circumstance.' },
+      { kind: 'unresolved', text: 'Unsupported target.' },
+    ],
+    seedBindings: [],
+  };
+  const artifact = {
+    ...input.artifact,
+    curation: {
+      ...input.artifact.curation,
+      passed: false,
+      unresolvedMechanics: [record],
+    },
+  };
+  expect(
+    assessCatalogAdmission({ ...input, artifact }).failures,
+  ).toContainEqual({
+    externalKey: 'pf1/feat',
+    reason:
+      'Unresolved curation mechanics: Review the remaining circumstance. Unsupported target.',
+  });
+});
 
 function reviewedPair() {
   const unrelated = entry('pf1/unrelated');

@@ -1,11 +1,5 @@
-import {
-  mkdir,
-  writeFile,
-  realpath,
-  readdir,
-  readFile,
-} from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import { mkdir, writeFile, realpath, readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { importCatalog } from './catalog/import.ts';
 import {
@@ -17,129 +11,12 @@ import {
   legalResources,
 } from '../src/lib/catalog/reviewed-data.ts';
 import { reviewedAdmissionSchema } from '../src/lib/catalog/admission-schema.ts';
-import { pins, type Repository } from './catalog/inventory.ts';
-import { runCapturedProcess } from './catalog/process.ts';
+import {
+  resolveOutputPath,
+  validateOutput,
+  verifyInputs,
+} from './catalog/operator.ts';
 import { buildLegalPageData } from '../src/lib/catalog/legal-page-data.ts';
-
-async function verifyCheckout({
-  repository,
-  root,
-}: {
-  repository: Repository;
-  root: string;
-}) {
-  function runGit(...args: string[]) {
-    const result = runCapturedProcess({
-      command: 'git',
-      args: ['-C', root, ...args],
-    });
-    if (result.status !== 0)
-      throw new Error(
-        `Cannot verify ${repository} checkout: ${result.stderr.trim()}`,
-      );
-    return result.stdout.trim();
-  }
-  if ((await realpath(runGit('rev-parse', '--show-toplevel'))) !== root) {
-    throw new Error(
-      `${repository} path must be the root of its upstream Git checkout.`,
-    );
-  }
-  const commit = runGit('rev-parse', 'HEAD');
-  if (commit !== pins[repository].commit) {
-    throw new Error(
-      `${repository} checkout must be at pinned ${pins[repository].tag} (${pins[repository].commit}).`,
-    );
-  }
-  if (
-    runGit(
-      'status',
-      '--porcelain',
-      '--untracked-files=all',
-      '--',
-      pins[repository].manifest,
-      pins[repository].directory,
-    )
-  ) {
-    throw new Error(
-      `${repository} checkout has modified or untracked catalog input files.`,
-    );
-  }
-  const ignored = runGit(
-    'ls-files',
-    '--others',
-    '--ignored',
-    '--exclude-standard',
-    '-z',
-    '--',
-    pins[repository].manifest,
-    pins[repository].directory,
-  ).split('\0');
-  if (
-    ignored.some(
-      (path) => path === pins[repository].manifest || /\.ya?ml$/.test(path),
-    )
-  ) {
-    throw new Error(`${repository} checkout has ignored catalog input files.`);
-  }
-  return { repository, commit };
-}
-
-function isMissing(error: unknown) {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
-}
-
-async function resolveOutputPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch (error) {
-    if (!isMissing(error)) throw error;
-    return join(await resolveOutputPath(dirname(path)), basename(path));
-  }
-}
-
-function containsPath({ parent, child }: { parent: string; child: string }) {
-  const difference = relative(parent, child);
-  return (
-    difference === '' ||
-    (difference !== '..' && !difference.startsWith(`..${sep}`))
-  );
-}
-
-async function validateOutput({
-  output,
-  sources,
-}: {
-  output: string;
-  sources: string[];
-}) {
-  if (
-    sources.some(
-      (source) =>
-        containsPath({ parent: source, child: output }) ||
-        containsPath({ parent: output, child: source }),
-    )
-  ) {
-    throw new Error(
-      'Output directory must not overlap either source checkout.',
-    );
-  }
-  try {
-    const existing = await readdir(output, { withFileTypes: true });
-    const reports = new Set([
-      'admission.json',
-      'catalog.json',
-      'unsupported.json',
-      'comparison.json',
-    ]);
-    if (existing.some((file) => !reports.has(file.name) || !file.isFile())) {
-      throw new Error(
-        'Output directory must be empty or contain only regular catalog preview report files.',
-      );
-    }
-  } catch (error) {
-    if (!isMissing(error)) throw error;
-  }
-}
 
 function parsePreviewArguments() {
   const { values } = parseArgs({
@@ -148,6 +25,7 @@ function parsePreviewArguments() {
       content: { type: 'string' },
       out: { type: 'string', default: '.catalog-preview' },
       attribution: { type: 'string' },
+      curation: { type: 'string' },
       help: { type: 'boolean' },
       'allow-unverified-checkouts': { type: 'boolean' },
     },
@@ -156,7 +34,7 @@ function parsePreviewArguments() {
   });
   if (values.help) {
     process.stdout.write(
-      'Usage: pnpm catalog:preview --system PATH --content PATH [--out PATH] [--attribution PATH] [--allow-unverified-checkouts]\nInputs must be clean Git checkouts at the pinned commits. The override marks fixture/development output as unverified. --attribution supplies reviewed admission JSON instead of the committed evidence. Admission failures write reports and exit nonzero.\n',
+      'Usage: pnpm catalog:preview --system PATH --content PATH [--out PATH] [--attribution PATH] [--curation PATH] [--allow-unverified-checkouts]\nInputs must be clean Git checkouts at the pinned commits. The override marks fixture/development output as unverified. --attribution supplies reviewed admission JSON instead of the committed evidence. --curation supplies note records instead of the committed overlay. Admission and curation failures write reports and exit nonzero.\n',
     );
     return;
   }
@@ -166,6 +44,8 @@ function parsePreviewArguments() {
   if (!values.out.trim()) throw new Error('--out PATH must not be empty.');
   if (values.attribution !== undefined && !values.attribution.trim())
     throw new Error('--attribution PATH must not be empty.');
+  if (values.curation !== undefined && !values.curation.trim())
+    throw new Error('--curation PATH must not be empty.');
   return { ...values, system: values.system, content: values.content };
 }
 
@@ -178,31 +58,21 @@ async function resolvePreviewPaths(
   const attributionPath = values.attribution
     ? await realpath(resolve(values.attribution))
     : undefined;
+  const curationPath = await realpath(
+    values.curation
+      ? resolve(values.curation)
+      : new URL('./catalog/reviewed-curation.json', import.meta.url),
+  );
   await validateOutput({
     output,
-    sources: [system, content, ...(attributionPath ? [attributionPath] : [])],
+    sources: [
+      system,
+      content,
+      curationPath,
+      ...(attributionPath ? [attributionPath] : []),
+    ],
   });
-  return { output, system, content, attributionPath };
-}
-
-async function verifyInputs({
-  system,
-  content,
-  allowUnverified,
-}: {
-  system: string;
-  content: string;
-  allowUnverified: boolean;
-}) {
-  return allowUnverified
-    ? { status: 'unverified' as const }
-    : {
-        status: 'verified' as const,
-        repositories: [
-          await verifyCheckout({ repository: 'pf1', root: system }),
-          await verifyCheckout({ repository: 'pf1-content', root: content }),
-        ],
-      };
+  return { output, system, content, attributionPath, curationPath };
 }
 
 async function loadReviewedInputs(attributionPath: string | undefined) {
@@ -216,9 +86,11 @@ async function loadReviewedInputs(attributionPath: string | undefined) {
 async function extractCatalog({
   system,
   content,
+  curationPath,
 }: {
   system: string;
   content: string;
+  curationPath: string;
 }) {
   const remaps: unknown = JSON.parse(
     await readFile(
@@ -230,6 +102,7 @@ async function extractCatalog({
     systemPath: system,
     contentPath: content,
     remaps,
+    curation: JSON.parse(await readFile(curationPath, 'utf8')),
   });
 }
 
@@ -252,6 +125,7 @@ function buildPreviewReports({
   });
   const admission = {
     ...gate,
+    curation: result.curation,
     purpose: 'preview',
     inputVerification,
     inputs: result.catalog.inputs,
@@ -262,6 +136,15 @@ function buildPreviewReports({
     outstandingResources: legalPage.outstandingResources,
   };
   const files = [
+    [
+      'curation.json',
+      {
+        ...result.curation,
+        purpose: 'preview',
+        inputVerification,
+        inputs: result.catalog.inputs,
+      },
+    ],
     ['catalog.json', { ...result.catalog, inputVerification }],
     ['unsupported.json', result.unsupported],
     ['comparison.json', result.comparison],

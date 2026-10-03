@@ -92,3 +92,5 @@ Remove the `nested/` segment from the Haste fixture path to obtain its original 
 | pf1-content | pf-eidolon-evolutions/Bite__Attack__YB38Da80HxcuK3wE.yaml | YB38Da80HxcuK3wE | Bite (Attack) | Unchanged |
 | pf1 | spells/breeze.hw79kc0v9smvb6mj.yaml | hw79kc0v9smvb6mj | Breeze | Unchanged |
 | pf1 | buffs/fighting-defensively.V8cRFtOQA6ltklEl.yaml | V8cRFtOQA6ltklEl | Fighting Defensively | Unchanged; generic buff without a spell/class/item subtype |
+
+The expected import artifacts now include `curation.json`; these representative real upstream records remain missing required curation records until their content batches supply them. The separate [bounded curation fixtures](../curation/README.md) demonstrate the complete workflow and fixture-only review without implying corpus coverage.

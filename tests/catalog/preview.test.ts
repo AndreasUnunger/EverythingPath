@@ -148,6 +148,7 @@ it('reports held candidates separately from inventory failures and extracted def
     'admission.json',
     'catalog.json',
     'comparison.json',
+    'curation.json',
     'unsupported.json',
   ]);
   const catalog = JSON.parse(

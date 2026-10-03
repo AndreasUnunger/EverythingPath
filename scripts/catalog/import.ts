@@ -3,7 +3,21 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { pins, type ImportKind, type Repository } from './inventory.ts';
+import {
+  applyCuration,
+  collectCurationInputs,
+  collectDescriptionInputs,
+  bindingKey,
+  parseCuration,
+  draftCurationRecord,
+  type CurationData,
+} from './curation.ts';
+import {
+  pins,
+  itemAbilityHelperId,
+  type ImportKind,
+  type Repository,
+} from './inventory.ts';
 import {
   classify,
   isResource,
@@ -51,24 +65,160 @@ const remapSchema = z.array(
 type Candidate = { source: LoadedRecord; kind: ImportKind };
 type ReviewedRemap = z.infer<typeof remapSchema>[number];
 
-export async function importCatalog({
-  systemPath,
-  contentPath,
-  remaps: reviewedRemaps,
-}: {
+type CatalogImportOptions = {
   systemPath: string;
   contentPath: string;
   remaps: unknown;
-}) {
+  curation?: unknown;
+};
+type DraftOptions = CatalogImportOptions & { descriptions?: boolean };
+
+export async function importCatalog({
+  curation = { records: [] },
+  ...options
+}: CatalogImportOptions) {
+  const prepared = await prepareCatalog(options);
+  return importPreparedCatalog({ prepared, data: parseCuration(curation) });
+}
+
+async function prepareCatalog({
+  systemPath,
+  contentPath,
+  remaps: reviewedRemaps,
+}: Omit<CatalogImportOptions, 'curation'>) {
   const remaps = remapSchema.parse(reviewedRemaps);
   const loaded = await loadCatalogInputs({ systemPath, contentPath });
   const classified = classifyRecords(loaded);
   const resolved = resolveRemaps({ candidates: classified.candidates, remaps });
-  const mapped = mapCandidates({
-    candidates: classified.candidates,
-    ...resolved,
+  const seeds = collectHelperSeeds(loaded.loaded);
+  return { ...loaded, ...classified, ...resolved, remaps, seeds };
+}
+
+type PreparedCatalog = Awaited<ReturnType<typeof prepareCatalog>>;
+function importPreparedCatalog({
+  prepared,
+  data,
+}: {
+  prepared: PreparedCatalog;
+  data: CurationData;
+}) {
+  const mapped = mapCandidates(prepared);
+  const inputs = prepared.candidates.flatMap(({ source, kind }) => {
+    const externalKey =
+      prepared.resolveKey(toExternalKey(source)) ?? toExternalKey(source);
+    return [
+      ...collectCurationInputs({ source, kind, externalKey }),
+      ...collectDescriptionInputs({ source, kind, externalKey }),
+    ];
   });
-  return summariseImport({ ...loaded, ...classified, mapped, remaps });
+  const report = applyCuration({
+    inputs,
+    seeds: prepared.seeds,
+    data,
+    entries: mapped,
+  });
+  return {
+    ...summariseImport({ ...prepared, mapped }),
+    curation: report,
+  };
+}
+
+export async function draftCatalogCuration({
+  curation = { records: [] },
+  descriptions = false,
+  ...options
+}: DraftOptions) {
+  const data = parseCuration(curation);
+  const prepared = await prepareCatalog(options);
+  return draftPreparedCuration({
+    prepared,
+    data,
+    shouldCollectDescriptions: descriptions,
+  });
+}
+
+export async function draftCatalogCurationWithReport({
+  curation = { records: [] },
+  descriptions = false,
+  ...options
+}: DraftOptions) {
+  const data = parseCuration(curation);
+  const prepared = await prepareCatalog(options);
+  const draft = draftPreparedCuration({
+    prepared,
+    data,
+    shouldCollectDescriptions: descriptions,
+  });
+  const artifact = importPreparedCatalog({
+    prepared,
+    data: parseCuration(draft),
+  });
+  return { draft, report: artifact.curation, inputs: artifact.catalog.inputs };
+}
+
+function draftPreparedCuration({
+  prepared,
+  data,
+  shouldCollectDescriptions,
+}: {
+  prepared: PreparedCatalog;
+  data: CurationData;
+  shouldCollectDescriptions: boolean;
+}) {
+  const seedKeys = new Set(prepared.seeds.map(bindingKey));
+  const validRecords = data.records.filter((record) =>
+    record.seedBindings.every((seed) => seedKeys.has(bindingKey(seed))),
+  );
+  const validKeys = new Set(validRecords.map(bindingKey));
+  const seen = new Set(validKeys);
+  const collectInputs = shouldCollectDescriptions
+    ? collectDescriptionInputs
+    : collectCurationInputs;
+  const added = prepared.candidates.flatMap(({ source, kind }) => {
+    const externalKey =
+      prepared.resolveKey(toExternalKey(source)) ?? toExternalKey(source);
+    return collectInputs({ source, kind, externalKey })
+      .filter((input) => {
+        const key = bindingKey(input);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((input) =>
+        draftCurationRecord({ input, source, data, seeds: prepared.seeds }),
+      );
+  });
+  const addedKeys = new Set(added.map(bindingKey));
+  const replaced = data.records.filter((record) => {
+    const key = bindingKey(record);
+    return !validKeys.has(key) && addedKeys.has(key);
+  });
+  const replacedKeys = new Set(replaced.map(bindingKey));
+  return {
+    ...data,
+    records: [
+      ...data.records.filter((record) => !replacedKeys.has(bindingKey(record))),
+      ...added,
+    ],
+    added,
+    replaced,
+  };
+}
+
+function collectHelperSeeds(loaded: LoadedRecord[]) {
+  return loaded
+    .filter(
+      (source) =>
+        source.repo === 'pf1-content' &&
+        source.record._id === itemAbilityHelperId,
+    )
+    .flatMap((source) =>
+      collectCurationInputs({
+        source,
+        externalKey: toExternalKey(source),
+        kind: 'helper',
+      }),
+    );
 }
 
 async function loadCatalogInputs({

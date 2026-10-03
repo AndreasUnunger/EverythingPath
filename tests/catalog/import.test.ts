@@ -3,11 +3,28 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolve, join } from 'node:path';
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { importCatalog } from '../../scripts/catalog/import.ts';
+import {
+  importCatalog,
+  draftCatalogCuration,
+  draftCatalogCurationWithReport,
+} from '../../scripts/catalog/import.ts';
 
 const fixtures = resolve('tests/fixtures/catalog');
 const system = resolve(fixtures, 'pf1');
 const content = resolve(fixtures, 'pf1-content');
+
+it('reports the same draft coverage as importing the generated records', async () => {
+  const input = {
+    systemPath: resolve('tests/fixtures/curation/pf1'),
+    contentPath: resolve('tests/fixtures/curation/pf1-content'),
+    remaps: [],
+  };
+  const result = await draftCatalogCurationWithReport(input);
+  expect(result.draft).toEqual(await draftCatalogCuration(input));
+  const artifact = await importCatalog({ ...input, curation: result.draft });
+  expect(result.report).toEqual(artifact.curation);
+  expect(result.inputs).toEqual(artifact.catalog.inputs);
+});
 
 const temporary: string[] = [];
 afterEach(async () => {
@@ -325,7 +342,7 @@ describe('pinned catalog extraction', () => {
       {
         target: 'skill.perception',
         bonusType: 'competence',
-        value: 'floor(@hitDice / 2)',
+        value: { formula: 'floor(@hitDice / 2)' },
       },
     ]);
     expect(human?.unsupported).toEqual(
@@ -399,7 +416,7 @@ describe('pinned catalog extraction', () => {
     expect(human?.unsupported).toContainEqual(
       expect.objectContaining({
         field: 'contextNotes',
-        value: { target: 'skill.per', text: '<b>Notice</b>' },
+        value: { target: 'skill.per', text: 'Notice' },
       }),
     );
   });
@@ -837,7 +854,7 @@ it('admits resolved named caster-level scaling and recorded Spell Effect caster 
     {
       target: 'damage',
       bonusType: 'untyped',
-      value: '@casterLevel.arcane + @casterLevel.campaign.wizard',
+      value: { formula: '@casterLevel.arcane + @casterLevel.campaign.wizard' },
     },
   ]);
   expect(
@@ -847,7 +864,7 @@ it('admits resolved named caster-level scaling and recorded Spell Effect caster 
     {
       target: 'ability.str',
       bonusType: 'enhancement',
-      value: 'floor(@casterLevel / 6)',
+      value: { formula: 'floor(@casterLevel / 6)' },
     },
   ]);
 });
@@ -903,7 +920,11 @@ it('uses the sheet grammar bounds when admitting catalog formulas', async () => 
     (catalog) => catalog.name === 'Human',
   );
   expect(entry?.modifiers).toEqual([
-    { target: 'damage', bonusType: 'untyped', value: longArithmetic },
+    {
+      target: 'damage',
+      bonusType: 'untyped',
+      value: { formula: longArithmetic },
+    },
   ]);
   expect(
     entry?.unsupported.filter((issue) => issue.field === 'changes'),

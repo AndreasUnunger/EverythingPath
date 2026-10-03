@@ -11,7 +11,7 @@
       "issues": [
         {
           "field": "contextNotes",
-          "reason": "Situational note requires the reviewed note overlay.",
+          "reason": "Missing curation record; contributes no structured output.",
           "value": {
             "target": "attack",
             "text": "On critical hits vs demons, add damage equal to your weapon's critical hit modifier. This damage is not multiplied by the critical hit multiple."
@@ -210,6 +210,14 @@
         {
           "field": "itemAbility",
           "reason": "Bonus equivalent, dice and conditional mechanics require reviewed curation."
+        },
+        {
+          "field": "itemAbility",
+          "reason": "Missing curation record; contributes no structured output.",
+          "value": {
+            "target": "description",
+            "text": "Aura moderate evocation CL 10th\nSlot weapon quality; Price +1 bonus;\nUpon command, a flaming weapon is sheathed in fire that deals an extra 1d6 points of fire damage on a successful hit. The fire does not harm the wielder. The effect remains until another command is given.\nConstruction\nRequirements Craft Magic Arms and Armor and fireball, flame blade, or flame strike; Price -"
+          }
         }
       ]
     },
@@ -292,13 +300,8 @@
           "value": "Compendium.pf1.technology.Item.Nnrom1FPNcjBJRK8"
         },
         {
-          "field": "description.link",
-          "reason": "Unresolved catalog link stripped.",
-          "value": "Compendium.pf1.class-abilities.Item.ytotO22rp5ji6rT1"
-        },
-        {
           "field": "contextNotes",
-          "reason": "Situational note requires the reviewed note overlay.",
+          "reason": "Missing curation record; contributes no structured output.",
           "value": {
             "target": "skill.ste",
             "text": "Hide in Plain Sight as ranger in his favored terrain."
@@ -908,7 +911,7 @@
         },
         {
           "field": "contextNotes",
-          "reason": "Situational note requires the reviewed note overlay.",
+          "reason": "Missing curation record; contributes no structured output.",
           "value": {
             "target": "fort",
             "text": "+4 competence bonus on saving throws against disease and poison. When the user attempts such a saving throw, she rolls twice and takes the higher result."
@@ -1674,7 +1677,7 @@
         },
         {
           "field": "contextNotes",
-          "reason": "Situational note requires the reviewed note overlay.",
+          "reason": "Missing curation record; contributes no structured output.",
           "value": {
             "target": "will",
             "text": "+[[floor((@class.level + 2) / 4)]] vs fear effects"
