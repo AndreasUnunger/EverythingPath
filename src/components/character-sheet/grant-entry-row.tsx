@@ -5,11 +5,13 @@ import { useMaintenanceReasonId } from '~/components/campaign-shell/maintenance-
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
+import { RowCatalogDefinition } from './row-catalog-definition';
 import type { GrantEntryView } from './character-sheet-grants-view-model';
 import { listEquipmentWarnings } from './equipment-statistics';
 import { GrantEntryStateEditor } from './grant-entry-state-editor';
 import { InlineDeleteQuestion } from './inline-delete-question';
 import { InlineWarnings } from './inline-warning';
+import { entryFocusAttribute } from './sheet-catalog-context';
 import { action, chip, SaveFeedback } from './sheet-parts';
 import type {
   SheetWarningView,
@@ -141,6 +143,7 @@ export function GrantEntryRow({
           <button
             type="button"
             role="switch"
+            {...{ [entryFocusAttribute]: row.rowId }}
             aria-checked={row.active}
             aria-label={`${row.name}: ${row.active ? 'on' : 'off'}`}
             aria-describedby={reasonId}
@@ -184,6 +187,10 @@ export function GrantEntryRow({
             })}
             controller={warningController}
             className="mt-1"
+          />
+          <RowCatalogDefinition
+            rowId={row.rowId}
+            target={actions.getCatalogDetachTarget(row.target)}
           />
         </div>
         <div className="flex flex-wrap items-center gap-1">

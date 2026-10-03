@@ -14,6 +14,7 @@ import type * as canonicalHistory from "../canonicalHistory.js";
 import type * as canonicalLedger from "../canonicalLedger.js";
 import type * as canonicalPersistenceFixtures from "../canonicalPersistenceFixtures.js";
 import type * as canonicalSetup from "../canonicalSetup.js";
+import type * as catalogCopies from "../catalogCopies.js";
 import type * as catalogRelease from "../catalogRelease.js";
 import type * as character from "../character.js";
 import type * as characterSheet from "../characterSheet.js";
@@ -33,6 +34,7 @@ import type * as lib_canonicalDraftPersistenceAuthority from "../lib/canonicalDr
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
+import type * as lib_catalogCopies from "../lib/catalogCopies.js";
 import type * as lib_catalogReleaseCompatibility from "../lib/catalogReleaseCompatibility.js";
 import type * as lib_characterAccess from "../lib/characterAccess.js";
 import type * as lib_characterMilitiaOnlySheet from "../lib/characterMilitiaOnlySheet.js";
@@ -66,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   canonicalLedger: typeof canonicalLedger;
   canonicalPersistenceFixtures: typeof canonicalPersistenceFixtures;
   canonicalSetup: typeof canonicalSetup;
+  catalogCopies: typeof catalogCopies;
   catalogRelease: typeof catalogRelease;
   character: typeof character;
   characterSheet: typeof characterSheet;
@@ -85,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
+  "lib/catalogCopies": typeof lib_catalogCopies;
   "lib/catalogReleaseCompatibility": typeof lib_catalogReleaseCompatibility;
   "lib/characterAccess": typeof lib_characterAccess;
   "lib/characterMilitiaOnlySheet": typeof lib_characterMilitiaOnlySheet;

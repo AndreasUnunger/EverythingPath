@@ -6,6 +6,7 @@ import { useInitialMigrationMaintenance } from '~/components/use-initial-migrati
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group';
 import { cn } from '~/lib/utils';
 import type { RaceOptionView } from './character-sheet-races-view-model';
+import { RowCatalogDefinition } from './row-catalog-definition';
 import { fieldLabel, SaveFeedback } from './sheet-parts';
 import type { useCharacterSheet } from './use-character-sheet';
 
@@ -114,6 +115,9 @@ export function RacePicker({
         </RadioGroup>
       )}
       <RaceFacts racial={racial} />
+      {racial.raceEntryId ? (
+        <RowCatalogDefinition rowId={racial.raceEntryId} />
+      ) : null}
       <SaveFeedback
         status={status}
         savedText="Race saved."

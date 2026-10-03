@@ -18,6 +18,7 @@ import {
 export async function updateCanonicalCharacter(
   ctx: MutationCtx,
   characterId: Id<'character'>,
+  preparedSheet?: Parameters<typeof calculateMilitiaCharacterFacts>[2],
 ) {
   const character = await ctx.db.get('character', characterId);
   if (!character) throw new ConvexError('Character not found');
@@ -33,7 +34,11 @@ export async function updateCanonicalCharacter(
     .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
     .unique();
   if (!source) return;
-  const facts = await calculateMilitiaCharacterFacts(ctx, character);
+  const facts = await calculateMilitiaCharacterFacts(
+    ctx,
+    character,
+    preparedSheet,
+  );
   const characters = source.snapshot.characters.some(
     (c) => c.characterId === characterId,
   )

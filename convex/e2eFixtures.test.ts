@@ -51,6 +51,94 @@ describe('internal fixture boundary', () => {
     vi.stubEnv('CONVEX_CLOUD_URL', deploymentFixture.convexUrl);
   });
   afterEach(() => vi.unstubAllEnvs());
+  it('reset and cleanup remove campaign homebrew created by Save and Customize while retaining unrelated catalogs', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(
+      internal.e2eFixtures.seedIdentityProjection,
+      characterSheet,
+    );
+    const owner = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    const originalId = await t.run((ctx) =>
+      ctx.db.insert('catalogEntry', {
+        scope: 'global',
+        name: 'Global blessing',
+        ruleIdentity: 'fixture:global-blessing',
+        modifiers: [],
+        stacksWithItself: false,
+        sources: [],
+        detail: { kind: 'feat' },
+      }),
+    );
+    async function createCampaignCopies() {
+      const { campaignId } = await t.mutation(internal.e2eFixtures.resetCase, {
+        ...characterSheet,
+        now: 0,
+      });
+      const inspection = await t.query(
+        internal.e2eFixtures.inspectCase,
+        characterSheet,
+      );
+      const characterId = inspection.characterIds?.[0];
+      if (!characterId) throw new Error('Missing fixture Character');
+      const command = {
+        characterId,
+        campaignId,
+        organizationId: 'org_members',
+      };
+      const entryId = await owner.mutation(api.catalogCopies.createOneOff, {
+        ...command,
+        operationId: 'create-homebrew',
+        definition: {
+          name: 'Saved blessing',
+          modifiers: [],
+          stacksWithItself: false,
+          sources: [],
+          detail: { kind: 'feat' },
+        },
+      });
+      const sheet = await owner.query(api.characterSheet.read, command);
+      const entry = sheet?.entries.find((row) => row._id === entryId);
+      if (!entry || !('catalogEntryId' in entry))
+        throw new Error('Missing one-off');
+      await owner.mutation(api.catalogCopies.saveToCatalog, {
+        ...command,
+        catalogEntryId: entry.catalogEntryId,
+        operationId: 'save-homebrew',
+      });
+      await owner.mutation(api.catalogCopies.customizeForCampaign, {
+        ...command,
+        catalogEntryId: originalId,
+        operationId: 'customize',
+      });
+      expect(
+        (await owner.query(api.catalogCopies.list, command)).filter(
+          (row) => row.scope === 'campaign',
+        ),
+      ).toHaveLength(2);
+      return campaignId;
+    }
+    const firstCampaignId = await createCampaignCopies();
+    await createCampaignCopies();
+    // Storage invariant: unreachable catalog rows must not survive the public reset.
+    expect(
+      await t.run((ctx) =>
+        ctx.db
+          .query('catalogEntry')
+          .withIndex('by_campaignId_and_scope', (q) =>
+            q.eq('campaignId', firstCampaignId).eq('scope', 'campaign'),
+          )
+          .collect(),
+      ),
+    ).toEqual([]);
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
+    expect(
+      await t.run((ctx) => ctx.db.query('catalogEntry').collect()),
+    ).toMatchObject([
+      { _id: originalId, scope: 'global', name: 'Global blessing' },
+    ]);
+  });
   it('prepares navigation with a Full Character and no militia, and cleans campaign and private sheets on retry', async () => {
     const t = convexTest({ schema, modules });
     await t.mutation(
@@ -293,7 +381,10 @@ describe('internal fixture boundary', () => {
     expect(
       sheet?.catalogEntries
         .filter((entry) => entry.detail.kind === 'class')
-        .map((entry) => ({ name: entry.name, ruleIdentity: entry.ruleIdentity }))
+        .map((entry) => ({
+          name: entry.name,
+          ruleIdentity: entry.ruleIdentity,
+        }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     ).toEqual([
       { name: 'Cleric', ruleIdentity: 'cleric' },

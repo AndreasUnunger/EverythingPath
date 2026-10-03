@@ -6,10 +6,12 @@ import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reaso
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
+import { RowCatalogDefinition } from './row-catalog-definition';
 import { InlineWarnings } from './inline-warning';
 import { describeModifier } from './modifier-labels';
 import { listEntryModifierWarnings } from './modifier-warnings';
 import { PersonalAdjustmentEditor } from './personal-adjustment-editor';
+import { entryFocusAttribute, useRowDefinition } from './sheet-catalog-context';
 import { action, Block, chip, RemoteNotice, SaveFeedback } from './sheet-parts';
 import type {
   SheetWarningView,
@@ -48,11 +50,16 @@ function AdjustmentRow({
   const maintenance = useInitialMigrationMaintenance();
   const nameId = useId();
   const isDisabled = isBusy || maintenance.readOnly;
+  // A shared definition is edited from its Definition controls instead.
+  const isShared =
+    (useRowDefinition(row.entryId)?.definition.scope ?? 'character') !==
+    'character';
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
       <button
         type="button"
         role="switch"
+        {...{ [entryFocusAttribute]: row.entryId }}
         aria-checked={row.active}
         aria-label={`${row.name}: ${row.active ? 'active' : 'inactive'}`}
         disabled={isDisabled}
@@ -92,19 +99,26 @@ function AdjustmentRow({
             className="mt-1"
           />
         )}
+        <RowCatalogDefinition
+          rowId={row.entryId}
+          target={{ kind: 'entry', entryId: row.entryId }}
+          hasRowEditor
+        />
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button
-          type="button"
-          variant={isOpen ? 'secondary' : 'ghost'}
-          size="icon"
-          className="size-11 md:size-8"
-          aria-pressed={isOpen}
-          onClick={onEdit}
-        >
-          <SquarePen aria-hidden className="size-4" />
-          <span className="sr-only">Edit {row.name}</span>
-        </Button>
+        {isShared ? null : (
+          <Button
+            type="button"
+            variant={isOpen ? 'secondary' : 'ghost'}
+            size="icon"
+            className="size-11 md:size-8"
+            aria-pressed={isOpen}
+            onClick={onEdit}
+          >
+            <SquarePen aria-hidden className="size-4" />
+            <span className="sr-only">Edit {row.name}</span>
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"

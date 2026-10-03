@@ -2,17 +2,18 @@
 
 import type { Id } from '@convex/_generated/dataModel';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRef, useState } from 'react';
-import { useFieldArray, type UseFormReturn } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import {
   personalBonusTypes,
   modifierTargets,
   modifierConditionSchema,
 } from '~/lib/character-sheet';
-import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
-import type { SaveStatus } from './save-status';
 import { useSheetFormState } from './use-sheet-form-state';
+import {
+  useSheetFormSave,
+  type SheetFormSaveOutcome,
+} from './use-sheet-form-save';
 import type { PersonalAdjustmentInput } from './use-character-sheet';
 
 import { numberPattern } from './numeric-form-fields';
@@ -84,10 +85,7 @@ const schema = z.object({
   ),
 });
 type Values = z.infer<typeof schema>;
-export type PersonalAdjustmentSaveOutcome =
-  | 'saved'
-  | 'failed'
-  | 'remote-conflict';
+export type PersonalAdjustmentSaveOutcome = SheetFormSaveOutcome;
 const emptyModifier: Values['modifiers'][number] = {
   target: 'ability.str',
   bonusType: 'untyped',
@@ -111,6 +109,8 @@ function formValues(adjustment?: PersonalAdjustmentInput): Values {
                   condition: {
                     situation: condition.situation,
                     whileActive: condition.whileActive,
+                    castingClass: condition.castingClass,
+                    school: condition.school,
                   },
                 }
               : {}),
@@ -130,18 +130,6 @@ function toInput(values: Values): PersonalAdjustmentInput {
   };
 }
 
-function resetToAcceptedAdjustment(form: UseFormReturn<Values>, next: Values) {
-  const current = form.getValues();
-  const parsed = schema.safeParse(current);
-  const retained =
-    parsed.success &&
-    JSON.stringify(formValues(toInput(parsed.data))) === JSON.stringify(next)
-      ? next
-      : current;
-  form.reset(next);
-  form.reset(retained, { keepDefaultValues: true });
-}
-
 export function usePersonalAdjustmentForm({
   adjustment,
   save: write,
@@ -156,82 +144,29 @@ export function usePersonalAdjustmentForm({
     // modifier after a row is removed. Keep the modifier list as one draft.
     draftPolicy: 'whole',
   });
-  const { form, source, baseline, setBaseline, expected, latest } = state;
+  const { form } = state;
   const fields = useFieldArray({ control: form.control, name: 'modifiers' });
-  const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' });
-  const busy = useRef(false);
-  void form.formState.errors;
-  async function submit(
-    values: Values,
-  ): Promise<PersonalAdjustmentSaveOutcome> {
-    const submitted = formValues(toInput(values));
-    expected.current = JSON.stringify(submitted);
-    setStatus({ kind: 'saving' });
-    function acceptSavedDraft(): PersonalAdjustmentSaveOutcome {
-      const next =
-        latest.current.source === source ? submitted : latest.current.baseline;
-      resetToAcceptedAdjustment(form, next);
-      setBaseline(next);
-      setStatus({ kind: 'saved' });
-      return JSON.stringify(next) === JSON.stringify(submitted)
-        ? 'saved'
-        : 'remote-conflict';
-    }
-    try {
-      await write(toInput(values));
-      return acceptSavedDraft();
-    } catch (error) {
-      const failure = classifyWriteFailure(error);
-      if (failure.kind === 'unknown' && expected.current === null) {
-        return acceptSavedDraft();
-      }
-      expected.current = null;
-      setStatus({
-        kind: 'error',
-        message:
-          failure.kind === 'rejected'
-            ? `Changes weren't saved${refusalReason(failure.message)} Your edits are kept. Save to try again.`
-            : 'Changes may not have been saved. Your edits are kept. Check them, then Save to try again.',
-      });
-      return 'failed';
-    }
-  }
-  async function saveAdditionalChanges(): Promise<PersonalAdjustmentSaveOutcome> {
-    if (busy.current) return 'failed';
-    busy.current = true;
-    try {
-      let outcome: PersonalAdjustmentSaveOutcome = 'failed';
-      await form.handleSubmit(async (values) => {
-        outcome = await submit(values);
-      })();
-      return outcome;
-    } finally {
-      busy.current = false;
-    }
-  }
-  async function save(): Promise<PersonalAdjustmentSaveOutcome> {
-    if (busy.current) return 'failed';
-    const parsed = schema.safeParse(form.getValues());
-    if (
-      parsed.success &&
-      JSON.stringify(formValues(toInput(parsed.data))) ===
-        JSON.stringify(baseline)
-    ) {
-      form.reset(baseline);
-      setStatus({ kind: 'idle' });
-      return 'saved';
-    }
-    return saveAdditionalChanges();
-  }
+  const saving = useSheetFormSave({
+    state,
+    normalize: (values) => {
+      const input = toInput(values);
+      return { values: formValues(input), input };
+    },
+    normalizeDraft: (values) => {
+      const parsed = schema.safeParse(values);
+      return parsed.success ? formValues(toInput(parsed.data)) : undefined;
+    },
+    write,
+  });
   return {
     form,
     fields: fields.fields,
     addModifier: () => fields.append({ ...emptyModifier }),
     removeModifier: fields.remove,
-    status,
+    status: saving.status,
     hasRemoteChange: state.hasRemoteChange,
     dismissRemoteChange: state.dismissRemoteChange,
-    save,
-    saveAdditionalChanges,
+    save: saving.save,
+    saveAdditionalChanges: saving.saveAdditionalChanges,
   };
 }

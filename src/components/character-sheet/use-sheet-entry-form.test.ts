@@ -1,8 +1,250 @@
 import { act, renderHook } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 import { ConvexError } from 'convex/values';
-import { useSheetEntryForm } from './use-sheet-entry-form';
+import { getFunctionName } from 'convex/server';
+import {
+  useSheetEntryForm,
+  useSpellEffectStateForm,
+} from './use-sheet-entry-form';
 import type { SheetEntryInput } from './use-character-sheet-entries';
+import { useCharacterSheetEntries } from './use-character-sheet-entries';
+import { buildSheet } from './character-sheet-test-fixture';
+
+const remote = vi.hoisted(() => ({ edit: vi.fn() }));
+vi.mock('convex/react', () => ({
+  useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(reference) === 'characterSheet:editSheetEntry'
+      ? remote.edit
+      : vi.fn(),
+}));
+
+test('a shared Spell Effect saves its caster-level state without sending definition fields', async () => {
+  remote.edit.mockReset().mockResolvedValue(null);
+  const initial = buildSheet({
+    sheetEntries: [
+      {
+        id: 'effect',
+        name: 'Shared shield',
+        detail: {
+          kind: 'spellEffect',
+          defaultCasterLevel: 6,
+          lastsOverOneDay: false,
+        },
+        casterLevel: 12,
+        modifiers: [],
+      },
+    ],
+  });
+  const row = initial.entries.find((entry) => entry.kind === 'spellEffect');
+  if (!row) throw new Error('Missing Spell Effect');
+  const snapshot = {
+    ...initial,
+    catalogEntries: initial.catalogEntries.map((entry) =>
+      entry._id === row.catalogEntryId
+        ? { ...entry, scope: 'global' as const }
+        : entry,
+    ),
+  };
+  const view = renderHook(() => {
+    const entries = useCharacterSheetEntries(
+      { characterId: snapshot.character._id },
+      snapshot,
+    );
+    return useSpellEffectStateForm({
+      value: { casterLevel: row.state.casterLevel, defaultCasterLevel: 6 },
+      save: (input) => entries.sheetEntries.editState(row._id, input),
+    });
+  });
+  act(() =>
+    view.result.current.form.setValue('casterLevel', '', { shouldDirty: true }),
+  );
+  await act(async () => expect(await view.result.current.save()).toBe('saved'));
+  expect(remote.edit).toHaveBeenCalledWith({
+    characterId: snapshot.character._id,
+    operationId: expect.any(String),
+    entryId: row._id,
+    casterLevel: 6,
+  });
+  expect(view.result.current.status.kind).toBe('saved');
+});
+
+test('state-only caster-level saves accept their own echo after a lost reply and preserve newer input', async () => {
+  let fail: ((error: Error) => void) | undefined;
+  const save = vi
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          fail = reject;
+        }),
+    )
+    .mockResolvedValue(null);
+  const view = renderHook(
+    ({ value }) => useSpellEffectStateForm({ value, save }),
+    { initialProps: { value: { casterLevel: 12, defaultCasterLevel: 6 } } },
+  );
+  act(() =>
+    view.result.current.form.setValue('casterLevel', '', { shouldDirty: true }),
+  );
+  let pending: Promise<unknown> | undefined;
+  await act(async () => {
+    pending = view.result.current.save();
+  });
+  act(() =>
+    view.result.current.form.setValue('casterLevel', '8', {
+      shouldDirty: true,
+    }),
+  );
+  view.rerender({ value: { casterLevel: 6, defaultCasterLevel: 6 } });
+  expect(view.result.current.hasRemoteChange).toBe(false);
+  await act(async () => {
+    fail?.(new Error('Connection lost'));
+    expect(await pending).toBe('saved');
+  });
+  expect(view.result.current.form.getValues('casterLevel')).toBe('8');
+  expect(view.result.current.form.formState.isDirty).toBe(true);
+  await act(async () => expect(await view.result.current.save()).toBe('saved'));
+  expect(save).toHaveBeenLastCalledWith({ casterLevel: 8 });
+  view.rerender({ value: { casterLevel: 8, defaultCasterLevel: 6 } });
+  expect(view.result.current.hasRemoteChange).toBe(false);
+  view.rerender({ value: { casterLevel: 10, defaultCasterLevel: 6 } });
+  expect(view.result.current.hasRemoteChange).toBe(true);
+});
+
+test('an unchanged blank caster-level override accepts the default without leaving an unsaved draft', async () => {
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() =>
+    useSpellEffectStateForm({
+      value: { casterLevel: 6, defaultCasterLevel: 6 },
+      save,
+    }),
+  );
+  act(() =>
+    view.result.current.form.setValue('casterLevel', '', { shouldDirty: true }),
+  );
+  await act(async () => expect(await view.result.current.save()).toBe('saved'));
+  expect(save).not.toHaveBeenCalled();
+  expect(view.result.current.form.getValues('casterLevel')).toBe('6');
+  expect(view.result.current.form.formState.isDirty).toBe(false);
+});
+
+test('state-only caster-level validation blocks malformed numbers and keeps refused input for retry', async () => {
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new ConvexError('Character is read only'))
+    .mockResolvedValue(null);
+  const view = renderHook(() =>
+    useSpellEffectStateForm({
+      value: { casterLevel: 6, defaultCasterLevel: 6 },
+      save,
+    }),
+  );
+  for (const invalid of ['many', '-1', '1.5', '9007199254740992']) {
+    act(() =>
+      view.result.current.form.setValue('casterLevel', invalid, {
+        shouldDirty: true,
+      }),
+    );
+    await act(async () =>
+      expect(await view.result.current.save()).toBe('failed'),
+    );
+    expect(view.result.current.form.formState.errors.casterLevel?.message).toBe(
+      'Caster level must be a whole number of 0 or more',
+    );
+  }
+  expect(save).not.toHaveBeenCalled();
+  act(() =>
+    view.result.current.form.setValue('casterLevel', '8', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () =>
+    expect(await view.result.current.save()).toBe('failed'),
+  );
+  expect(view.result.current.form.getValues('casterLevel')).toBe('8');
+  expect(view.result.current.status).toMatchObject({
+    kind: 'error',
+    message: expect.stringContaining('read only'),
+  });
+  await act(async () => expect(await view.result.current.save()).toBe('saved'));
+  expect(save).toHaveBeenLastCalledWith({ casterLevel: 8 });
+});
+
+test('a remote caster-level change during saving returns a conflict and keeps the draft', async () => {
+  let finish: (() => void) | undefined;
+  const save = vi.fn().mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = renderHook(
+    ({ value }) => useSpellEffectStateForm({ value, save }),
+    { initialProps: { value: { casterLevel: 6, defaultCasterLevel: 6 } } },
+  );
+  act(() =>
+    view.result.current.form.setValue('casterLevel', '8', {
+      shouldDirty: true,
+    }),
+  );
+  let pending: Promise<unknown> | undefined;
+  await act(async () => {
+    pending = view.result.current.save();
+  });
+  expect(view.result.current.status.kind).toBe('saving');
+  await act(async () =>
+    expect(await view.result.current.save()).toBe('failed'),
+  );
+  expect(save).toHaveBeenCalledTimes(1);
+  view.rerender({ value: { casterLevel: 10, defaultCasterLevel: 6 } });
+  await act(async () => {
+    finish?.();
+    expect(await pending).toBe('remote-conflict');
+  });
+  expect(view.result.current.form.getValues('casterLevel')).toBe('8');
+  expect(view.result.current.form.formState.isDirty).toBe(true);
+  expect(view.result.current.hasRemoteChange).toBe(true);
+});
+
+test('the state writer drops definition fields from an untyped input', async () => {
+  remote.edit.mockReset().mockResolvedValue(null);
+  const snapshot = buildSheet({
+    sheetEntries: [
+      {
+        id: 'effect',
+        name: 'Shield',
+        detail: {
+          kind: 'spellEffect',
+          defaultCasterLevel: 6,
+          lastsOverOneDay: false,
+        },
+        modifiers: [],
+      },
+    ],
+  });
+  const row = snapshot.entries.find((entry) => entry.kind === 'spellEffect');
+  if (!row) throw new Error('Missing Spell Effect');
+  const view = renderHook(() =>
+    useCharacterSheetEntries({ characterId: snapshot.character._id }, snapshot),
+  );
+  const input = {
+    casterLevel: 8,
+    active: false,
+    name: 'Attempted definition edit',
+    modifiers: [],
+    detail: { kind: 'spell' },
+  };
+  await act(async () => {
+    await view.result.current.sheetEntries.editState(row._id, input);
+  });
+  expect(remote.edit).toHaveBeenCalledWith({
+    characterId: snapshot.character._id,
+    operationId: expect.any(String),
+    entryId: row._id,
+    casterLevel: 8,
+    active: false,
+  });
+});
 
 test('ordinary edits of a curated condition preserve its key so canonical mechanics remain guarded', async () => {
   const value: SheetEntryInput = {

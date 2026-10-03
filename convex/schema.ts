@@ -166,9 +166,13 @@ export const modifierValidator = v.object({
   condition: v.optional(modifierConditionValidator),
   stacksWithinEntry: v.optional(v.literal(true)),
 });
-const catalogModifierValidator = modifierValidator.omit('target').extend({
-  target: v.union(...catalogModifierTargets.map((target) => v.literal(target))),
-});
+export const catalogModifierValidator = modifierValidator
+  .omit('target')
+  .extend({
+    target: v.union(
+      ...catalogModifierTargets.map((target) => v.literal(target)),
+    ),
+  });
 const baseModifierValidator = modifierValidator
   .pick('target', 'bonusType', 'value')
   .extend({
@@ -263,8 +267,16 @@ export const proficiencyPrerequisiteValidator = v.object({
   proficiency: proficiencyGrantValidator,
 });
 const catalogEntryFields = v.object({
-  scope: v.literal('character'),
-  characterId: v.id('character'),
+  scope: v.union(
+    v.literal('global'),
+    v.literal('campaign'),
+    v.literal('character'),
+  ),
+  characterId: v.optional(v.id('character')),
+  campaignId: v.optional(v.id('campaign')),
+  copiedFrom: v.optional(v.id('catalogEntry')),
+  copiedFromFingerprint: v.optional(v.string()),
+  campaignPreference: v.optional(v.literal(true)),
   countsAsRaces: v.optional(
     v.union(v.array(v.string()), v.object({ oneOf: v.array(v.string()) })),
   ),
@@ -818,9 +830,16 @@ export default defineSchema({
   })
     .index('by_namespace_and_workerKey', ['namespace', 'workerKey'])
     .index('by_userId', ['userId']),
-  catalogEntry: defineTable(catalogEntryValidator).index('by_characterId', [
-    'characterId',
-  ]),
+  catalogEntry: defineTable(catalogEntryValidator)
+    .index('by_characterId', ['characterId'])
+    .index('by_scope', ['scope'])
+    .index('by_campaignId_and_scope', ['campaignId', 'scope'])
+    .index('by_campaignId_and_scope_and_copiedFrom_and_campaignPreference', [
+      'campaignId',
+      'scope',
+      'copiedFrom',
+      'campaignPreference',
+    ]),
   acceptedWarning: defineTable({
     characterId: v.id('character'),
     check: v.string(),

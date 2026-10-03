@@ -20,6 +20,7 @@ const defaultApi = {
   },
   characterSheet: {
     read: 'read',
+    selectEntry: 'selectEntry',
     editEquipment: 'editEquipment',
     setManualProficiency: 'setManualProficiency',
     setProficiencyChoice: 'setProficiencyChoice',
@@ -54,6 +55,15 @@ const defaultApi = {
     setRacialTraitReplacements: 'setRacialTraitReplacements',
     editRaceStatistics: 'editRaceStatistics',
   },
+  catalogCopies: {
+    list: 'catalogList',
+    advisories: 'catalogAdvisories',
+    createOneOff: 'createOneOff',
+    editDefinition: 'editDefinition',
+    saveToCatalog: 'saveToCatalog',
+    customizeForCampaign: 'customizeForCampaign',
+    detach: 'detach',
+  },
 };
 
 type ApiOverrides = {
@@ -73,6 +83,10 @@ export function createCharacterSheetApiMock(overrides: ApiOverrides = {}) {
       characterSheet: {
         ...defaultApi.characterSheet,
         ...overrides.characterSheet,
+      },
+      catalogCopies: {
+        ...defaultApi.catalogCopies,
+        ...overrides.catalogCopies,
       },
     },
   };

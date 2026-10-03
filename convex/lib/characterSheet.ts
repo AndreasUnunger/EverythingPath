@@ -1,3 +1,8 @@
+import {
+  projectCampaignCopies,
+  type CatalogLoadReference,
+} from './catalogCopies';
+import { listCatalogReferences } from '../../src/lib/catalog-copy-references';
 import { resolveCharacterSheetGrants } from '../../src/lib/character-sheet-grants';
 import { ConvexError } from 'convex/values';
 import {
@@ -174,7 +179,18 @@ export async function loadCharacterSheet(
   { isWritable = false }: { isWritable?: boolean } = {},
 ) {
   const access = await requireCharacterAccess(ctx, args);
-  return await loadCharacterSheetFromAccess(ctx, access, { isWritable });
+  return await loadCharacterSheetFromAccess(ctx, access, {
+    isWritable,
+    additionalReferences: listCatalogReferences(args).map((reference) => ({
+      ...reference,
+      refusalMessage:
+        reference.kind === 'condition'
+          ? 'Modifier reference does not belong to this Character'
+          : reference.kind === 'class'
+            ? 'Class does not belong to this Character'
+            : 'Catalog Entry does not belong to this Character',
+    })),
+  });
 }
 
 export async function loadCharacterSheetFromAccess(
@@ -184,7 +200,13 @@ export async function loadCharacterSheetFromAccess(
     campaign,
     user,
   }: Awaited<ReturnType<typeof requireCharacterAccess>>,
-  { isWritable = false }: { isWritable?: boolean } = {},
+  {
+    isWritable = false,
+    additionalReferences = [],
+  }: {
+    isWritable?: boolean;
+    additionalReferences?: CatalogLoadReference[];
+  } = {},
 ) {
   if (isWritable) {
     if (campaign) {
@@ -196,7 +218,11 @@ export async function loadCharacterSheetFromAccess(
     }
   }
   if (!character.sheetMode) return null;
-  const data = await readCharacterSheetData(ctx, character);
+  const data = await readCharacterSheetData(
+    ctx,
+    character,
+    additionalReferences,
+  );
   return {
     ...data,
     initialSupportingEntryKeys: getCompanionSupportingEntryKeys(data),
@@ -228,9 +254,10 @@ export async function pruneWarningAcceptancesAndRecordChange(
   },
 ) {
   await requireCompatibleActiveRelease(ctx);
+  const catalogEntries = projectCampaignCopies(sheet.catalogEntries);
   const { current: calculated, permanent } = calculateActiveCharacterSheet({
     entries: sheet.entries,
-    catalogEntries: sheet.catalogEntries,
+    catalogEntries,
     characterKind: sheet.character.kind,
     sheetMode: sheet.character.sheetMode,
   });
@@ -238,7 +265,7 @@ export async function pruneWarningAcceptancesAndRecordChange(
   requireWholeCalculatedAbilities(permanent);
   const availableGrantIds = resolveCharacterSheetGrants({
     entries: sheet.entries,
-    catalogEntries: sheet.catalogEntries,
+    catalogEntries,
     characterKind: sheet.character.kind,
   })
     .allEntries.filter((row) => row.origin === 'grant')
@@ -267,8 +294,16 @@ export async function pruneWarningAcceptancesAndRecordChange(
     sheetLastOperationId: operationId,
     sheetUpdatedBy: sheet.actor,
   });
-  await updateCanonicalCharacter(ctx, sheet.character._id);
+  const { resolvedEntries: _resolvedEntries, ...permanentCalculated } =
+    permanent;
+  await updateCanonicalCharacter(ctx, sheet.character._id, {
+    ...sheet,
+    catalogEntries,
+    calculated,
+    permanentCalculated,
+  });
   sheet.calculated = calculated;
+  sheet.permanentCalculated = permanentCalculated;
   await reconcileCompanionRelationships(
     ctx,
     sheet.character._id,

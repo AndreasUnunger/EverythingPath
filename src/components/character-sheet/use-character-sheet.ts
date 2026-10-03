@@ -223,6 +223,7 @@ export function useCharacterSheet(
     companions,
     races,
     sheet,
+    catalogSnapshot: snapshot,
     buildOut: {
       ...buildOut,
       available: sheet?.canBuildOut ?? false,

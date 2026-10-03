@@ -56,6 +56,10 @@ The #304 race writers (`selectRace`, `chooseRacialAbilityScore`, `setRacialTrait
 
 The #261 `characterSheet:buildOut` writer uses the composed campaign gate. Ledger level and permanent-score edits enter through the inventoried `character:updateCharacter` writer; roster Hit Dice override edits, including zero, enter through `canonicalLedger:save`. All use the same maintenance and Write Epoch checks as their other edits. Prepared ledger edits and sheet persistence also refresh current Militia Character Facts within their already-gated transaction. Every prepared sheet writer, including ledger level/score edits and Build out, prunes Accepted Warnings against the in-memory sheet after the edit via `pruneWarningAcceptancesAndRecordChange`; the Hit Dice override remains a militia snapshot correction rather than a sheet edit. This isolated fixture behavior does not activate production sheets. `convex/characterMilitiaSheet.integration.test.ts` proves Build out and ledger edits reject while the gate is closed, preserve saved reads, reject stale commands after abort, and accept a fresh command carrying the reopened epoch.
 
+The #308 `catalogCopies` module adds five public legacy Character writers: `createOneOff`, `editDefinition`, `saveToCatalog`, `customizeForCampaign` and `detach`. Each uses `legacyCharacterMutation`, preserving maintenance closure, Write Epoch fencing and legacy-authority checks before its handler. Character ownership or current campaign membership determines access; campaign-scoped definitions require the same campaign, and copy provenance grants no access to the origin. The `list` and `advisories` queries are read-only and remain outside the writer inventory. These prepared commands do not activate production sheets or publish a Catalog Release.
+
+The #308 review adds a preferred-copy index on `catalogEntry` without changing document shapes or renaming persisted `campaignPreference`. Scope references remain optional in the schema until retained prepared and migration rows have been audited; the single `writeCatalogDefinition` helper validates the complete definition and scope before inserting or patching Catalog Copy definitions. No data backfill or authority change is part of this review. Fixture reset and cleanup also remove campaign-scoped homebrew created by Save or Customize, within the existing bounded cleanup contract.
+
 ## Inventory and completeness check
 
 ### Organization membership directory backfill (#300)
@@ -72,7 +76,7 @@ General writers reject statically identifiable `insert`, `patch`, `delete` or `r
 
 The Write Epoch exemptions are the reviewed identity webhook builder and `retireClosedDraft`'s inline transactional gate described above. The only exemptions from a Write Gate builder are that explicitly reviewed retirement handler, the two authoritative gate controls, read-only fixture inspection, pure webhook signature verification and the HTTP webhook adapter whose actual writes delegate to gated user mutations. Read-only exemptions reject obvious database writes or scheduling. Imported helper side effects, dynamic dispatch or table names, other inferred ID types, changes inside the two gate-owner modules and changes to the retirement handler still require code review plus integration tests; this static check is not a proof of arbitrary interprocedural behavior. Adding a writer requires its gate and a reviewed inventory update even if it uses a recognized wrapper.
 
-Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membership webhooks, fixture reset/seed/cleanup, accepted-campaign setup, corrections, confirmations and scheduled draft retirement appear individually below. Ownership and campaign references are frozen through Character, membership, Setup and correction writers; there are no separate ungated ownership endpoints. Historical rewrite is not yet a registered writer in this release and must enter this inventory when implemented.
+The inventory contains 120 registrations, including the race, equipment, proficiency and Companion Relationship writers and all five Catalog Copy writers. Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membership webhooks, fixture reset/seed/cleanup, accepted-campaign setup, corrections, confirmations and scheduled draft retirement appear individually below. Ownership and campaign references are frozen through Character, membership, Setup and correction writers; there are no separate ungated ownership endpoints. Historical rewrite is not yet a registered writer in this release and must enter this inventory when implemented.
 
 <!-- prettier-ignore -->
 | Registered writer | Class | Gate or reviewed exception |
@@ -95,6 +99,11 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/canonicalPersistenceFixtures.ts:installAcceptanceSource` | general | Shared write gate (epoch + maintenance) |
 | `convex/canonicalPersistenceFixtures.ts:resetAndInitialize` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/canonicalSetup.ts:initialize` | general | Shared write gate (epoch + maintenance) |
+| `convex/catalogCopies.ts:createOneOff` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/catalogCopies.ts:customizeForCampaign` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/catalogCopies.ts:detach` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/catalogCopies.ts:editDefinition` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/catalogCopies.ts:saveToCatalog` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/catalogRelease.ts:begin` | general | Shared write gate (epoch + maintenance) |
 | `convex/catalogRelease.ts:finalize` | general | Shared write gate (epoch + maintenance) |
 | `convex/catalogRelease.ts:writeBatch` | general | Shared write gate (epoch + maintenance) |

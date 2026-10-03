@@ -13,7 +13,11 @@ import {
   type ConditionKey,
 } from '~/lib/character-sheet-conditions';
 import { useSheetFormState } from './use-sheet-form-state';
-import type { SheetEntryInput } from './use-character-sheet-entries';
+import { useSheetFormSave } from './use-sheet-form-save';
+import type {
+  SheetEntryInput,
+  SheetEntryStateInput,
+} from './use-character-sheet-entries';
 import {
   usePersonalAdjustmentForm,
   type PersonalAdjustmentSaveOutcome,
@@ -21,6 +25,54 @@ import {
 
 function wholeNumber(raw: string) {
   return /^\d+$/.test(raw.trim()) && Number.isSafeInteger(Number(raw));
+}
+const spellEffectStateSchema = z.object({
+  casterLevel: z
+    .string()
+    .refine(
+      (raw) => !raw.trim() || wholeNumber(raw),
+      'Caster level must be a whole number of 0 or more',
+    ),
+});
+
+/** A shared Spell Effect's recorded caster level, independent of its definition. */
+export function useSpellEffectStateForm({
+  value,
+  save: write,
+}: {
+  value: { casterLevel: number; defaultCasterLevel: number };
+  save: (input: Pick<SheetEntryStateInput, 'casterLevel'>) => Promise<unknown>;
+}) {
+  const state = useSheetFormState({
+    incoming: { casterLevel: String(value.casterLevel) },
+    resolver: zodResolver(spellEffectStateSchema),
+    draftPolicy: 'fields',
+  });
+  function normalize(values: z.infer<typeof spellEffectStateSchema>) {
+    const casterLevel = values.casterLevel.trim()
+      ? Number(values.casterLevel)
+      : value.defaultCasterLevel;
+    return {
+      values: { casterLevel: String(casterLevel) },
+      input: { casterLevel },
+    };
+  }
+  const saving = useSheetFormSave({
+    state,
+    normalize,
+    normalizeDraft: (values) => {
+      const parsed = spellEffectStateSchema.safeParse(values);
+      return parsed.success ? normalize(parsed.data).values : undefined;
+    },
+    write,
+  });
+  return {
+    form: state.form,
+    status: saving.status,
+    hasRemoteChange: state.hasRemoteChange,
+    dismissRemoteChange: state.dismissRemoteChange,
+    save: saving.save,
+  };
 }
 const conditionSelectionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('custom') }),

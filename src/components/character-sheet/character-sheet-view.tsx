@@ -6,6 +6,8 @@ import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { BuildOutControl } from './build-out-control';
 import { CharacterCompanions } from './character-companions';
+import type { CharacterScope } from './character-scope';
+import { CharacterSheetCatalog } from './character-sheet-catalog';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
@@ -18,6 +20,7 @@ import { OffenseBlock } from './offense-block';
 import { PersonalAdjustments } from './personal-adjustments';
 import { Proficiencies } from './proficiencies';
 import { CreationSettingsEditor } from './creation-settings-editor';
+import { SheetCatalogProvider } from './sheet-catalog-context';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
 import { Skills } from './skills';
@@ -139,19 +142,22 @@ function CampaignRow({
  * and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns with Defenses, Equipment, Offense and
  * Proficiencies, and the skills, personal adjustments, sheet entries,
- * granted and dormant entries, Companions and the creation settings beside them,
+ * granted and dormant entries, Companions, the catalog and the creation settings beside them,
  * then the Spellcasting section across the full width. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
  * formula under its Modifier); only another player's acceptances are
  * announced for the sheet.
  */
 export function CharacterSheetView({
+  scope,
   sheet,
   controller,
   back,
   campaignName,
   lifecycle,
 }: {
+  /** The route's scope, carried by the catalog's reads and writes. */
+  scope: CharacterScope;
   sheet: ReadySheet;
   controller: Controller;
   back: BackLink;
@@ -161,135 +167,138 @@ export function CharacterSheetView({
 }) {
   return (
     <CharacterSheetFrame back={back}>
-      <BreakdownResolverProvider
-        previewSituation={controller.previewSituation}
-        adjustments={sheet.adjustments}
-        spellcastings={sheet.calculated.spellcastings}
-      >
-        <SheetSummary
-          name={sheet.character.name}
-          calculated={sheet.calculated}
-          incompleteHpReason={describeIncompleteHp(sheet.levels)}
-        />
-        <CampaignRow
-          character={sheet.character}
-          campaignName={campaignName}
-          action={lifecycle}
-        />
-        <RemoteNotice
-          isShown={controller.warnings.hasRemoteChange}
-          message="Warnings updated by another player."
-          subject="warnings"
-          onDismiss={controller.warnings.dismissRemoteChange}
-        />
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <div className="min-w-0 lg:col-span-12">
-            <CharacterBlock
-              kind={sheet.character.kind}
-              notes={sheet.character.description}
-              buildOut={controller.buildOut}
-              favoredClasses={
-                <FavoredClassesEditor
-                  classChoices={sheet.classChoices}
-                  favoredClassIds={sheet.favoredClassIds}
-                  warnings={sheet.warnings}
-                  warningController={controller.warnings}
-                  save={controller.saveFavoredClasses}
-                />
-              }
-            />
+      <SheetCatalogProvider scope={scope} snapshot={controller.catalogSnapshot}>
+        <BreakdownResolverProvider
+          previewSituation={controller.previewSituation}
+          adjustments={sheet.adjustments}
+          spellcastings={sheet.calculated.spellcastings}
+        >
+          <SheetSummary
+            name={sheet.character.name}
+            calculated={sheet.calculated}
+            incompleteHpReason={describeIncompleteHp(sheet.levels)}
+          />
+          <CampaignRow
+            character={sheet.character}
+            campaignName={campaignName}
+            action={lifecycle}
+          />
+          <RemoteNotice
+            isShown={controller.warnings.hasRemoteChange}
+            message="Warnings updated by another player."
+            subject="warnings"
+            onDismiss={controller.warnings.dismissRemoteChange}
+          />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+            <div className="min-w-0 lg:col-span-12">
+              <CharacterBlock
+                kind={sheet.character.kind}
+                notes={sheet.character.description}
+                buildOut={controller.buildOut}
+                favoredClasses={
+                  <FavoredClassesEditor
+                    classChoices={sheet.classChoices}
+                    favoredClassIds={sheet.favoredClassIds}
+                    warnings={sheet.warnings}
+                    warningController={controller.warnings}
+                    save={controller.saveFavoredClasses}
+                  />
+                }
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-12">
+              <CharacterSheetRaces
+                races={sheet.races}
+                statistics={sheet.raceStatistics}
+                raceNames={sheet.raceNames}
+                calculated={sheet.calculated}
+                actions={controller.races}
+                grants={controller.grants}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-12">
+              <ClassLevels
+                rows={sheet.levels}
+                metadata={sheet.calculated.classLevels}
+                classChoices={sheet.classChoices}
+                unplacedSelections={listUnplacedSelections(sheet)}
+                warnings={sheet.warnings}
+                advisory={sheet.warning}
+                showMissingChoices={sheet.showMissingChoices}
+                warningController={controller.warnings}
+                levels={controller.levels}
+                saveHitPoints={controller.saveHitPoints}
+                saveClassLevel={controller.saveClassLevel}
+              />
+            </div>
+            <div className="min-w-0 space-y-3 lg:col-span-5">
+              <BaseScoresEditor
+                scores={sheet.baseScores}
+                abilities={sheet.calculated.abilities}
+                creationSettings={sheet.calculated.creationSettings}
+                pointBuy={sheet.calculated.pointBuy}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+                breakdowns={sheet.calculated.breakdowns}
+                modifierBreakdowns={sheet.calculated.abilityModifierBreakdowns}
+                permanent={sheet.permanentCalculated.abilities}
+                save={controller.saveBaseScores}
+              />
+              <DefensesBlock statistics={sheet.calculated.derivedStatistics} />
+              <Equipment
+                equipment={controller.equipment}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+              <OffenseBlock statistics={sheet.calculated.derivedStatistics} />
+              <Proficiencies proficiencies={controller.proficiencies} />
+              <AbilityChanges
+                rows={sheet.abilityChanges}
+                actions={controller.abilityChanges}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-3 lg:col-span-7">
+              <Skills controller={controller} />
+              <PersonalAdjustments
+                rows={sheet.adjustments}
+                actions={controller.adjustments}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+              <CharacterSheetEntries
+                rows={sheet.sheetEntries}
+                conditionEffects={sheet.calculated.conditionEffects}
+                actions={controller.sheetEntries}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+              <CharacterSheetGrants
+                sections={listNonRacialSections(sheet.grants)}
+                actions={controller.grants}
+                equipmentRowIds={
+                  new Set(controller.equipment.rows.map((row) => row.entryId))
+                }
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+              <CharacterCompanions controller={controller.companions} />
+              <CharacterSheetCatalog />
+              <CreationSettingsEditor
+                settings={sheet.calculated.creationSettings}
+                save={controller.saveCreationSettings}
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-12">
+              <SpellcastingBlock
+                spellcastings={sheet.calculated.spellcastings}
+                unresolved={sheet.calculated.spellcastingUnresolved}
+              />
+            </div>
           </div>
-          <div className="min-w-0 lg:col-span-12">
-            <CharacterSheetRaces
-              races={sheet.races}
-              statistics={sheet.raceStatistics}
-              raceNames={sheet.raceNames}
-              calculated={sheet.calculated}
-              actions={controller.races}
-              grants={controller.grants}
-              warnings={sheet.warnings}
-              warningController={controller.warnings}
-            />
-          </div>
-          <div className="min-w-0 lg:col-span-12">
-            <ClassLevels
-              rows={sheet.levels}
-              metadata={sheet.calculated.classLevels}
-              classChoices={sheet.classChoices}
-              unplacedSelections={listUnplacedSelections(sheet)}
-              warnings={sheet.warnings}
-              advisory={sheet.warning}
-              showMissingChoices={sheet.showMissingChoices}
-              warningController={controller.warnings}
-              levels={controller.levels}
-              saveHitPoints={controller.saveHitPoints}
-              saveClassLevel={controller.saveClassLevel}
-            />
-          </div>
-          <div className="min-w-0 space-y-3 lg:col-span-5">
-            <BaseScoresEditor
-              scores={sheet.baseScores}
-              abilities={sheet.calculated.abilities}
-              creationSettings={sheet.calculated.creationSettings}
-              pointBuy={sheet.calculated.pointBuy}
-              warnings={sheet.warnings}
-              warningController={controller.warnings}
-              breakdowns={sheet.calculated.breakdowns}
-              modifierBreakdowns={sheet.calculated.abilityModifierBreakdowns}
-              permanent={sheet.permanentCalculated.abilities}
-              save={controller.saveBaseScores}
-            />
-            <DefensesBlock statistics={sheet.calculated.derivedStatistics} />
-            <Equipment
-              equipment={controller.equipment}
-              warnings={sheet.warnings}
-              warningController={controller.warnings}
-            />
-            <OffenseBlock statistics={sheet.calculated.derivedStatistics} />
-            <Proficiencies proficiencies={controller.proficiencies} />
-            <AbilityChanges
-              rows={sheet.abilityChanges}
-              actions={controller.abilityChanges}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-3 lg:col-span-7">
-            <Skills controller={controller} />
-            <PersonalAdjustments
-              rows={sheet.adjustments}
-              actions={controller.adjustments}
-              warnings={sheet.warnings}
-              warningController={controller.warnings}
-            />
-            <CharacterSheetEntries
-              rows={sheet.sheetEntries}
-              conditionEffects={sheet.calculated.conditionEffects}
-              actions={controller.sheetEntries}
-              warnings={sheet.warnings}
-              warningController={controller.warnings}
-            />
-            <CharacterSheetGrants
-              sections={listNonRacialSections(sheet.grants)}
-              actions={controller.grants}
-              equipmentRowIds={
-                new Set(controller.equipment.rows.map((row) => row.entryId))
-              }
-              warnings={sheet.warnings}
-              warningController={controller.warnings}
-            />
-            <CharacterCompanions controller={controller.companions} />
-            <CreationSettingsEditor
-              settings={sheet.calculated.creationSettings}
-              save={controller.saveCreationSettings}
-            />
-          </div>
-          <div className="min-w-0 lg:col-span-12">
-            <SpellcastingBlock
-              spellcastings={sheet.calculated.spellcastings}
-              unresolved={sheet.calculated.spellcastingUnresolved}
-            />
-          </div>
-        </div>
-      </BreakdownResolverProvider>
+        </BreakdownResolverProvider>
+      </SheetCatalogProvider>
     </CharacterSheetFrame>
   );
 }

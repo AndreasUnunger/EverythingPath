@@ -117,6 +117,9 @@ A manually numbered set of global Catalog Entry definitions and supporting resou
 A campaign or Character Catalog Entry cloned from another entry, with independent fields but the original's rule identity for prerequisites and same-Source stacking, even after editing. Its global references follow the current Catalog Release, and original-change advisories require the viewer's access to the original.
 _Avoid_: override, fork
 
+**Campaign Catalog Preference**:
+The campaign Catalog Copy chosen by Customize for campaign to replace its global original in future selections and Grants. Saving homebrew to the campaign catalog does not establish this preference, and arriving Characters keep their existing definitions until explicitly replaced.
+
 **Curation Overlay**:
 The project's reviewed corrections to the imported content, each citing the official text it relies on. It supplies what the dataset lacks, such as the Modifiers of prose-only feats, shared Sources and the conditions, can exclude an imported entry, and is reapplied whenever the content is imported again.
 _Avoid_: patches, homebrew (homebrew belongs to one campaign)

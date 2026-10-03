@@ -31,9 +31,15 @@ export type AdjustmentFormParts = Pick<
 export function AdjustmentNameField({
   control,
   isDisabled,
+  formatError,
+  shouldAutoFocus,
 }: {
   control: AdjustmentFormParts['form']['control'];
   isDisabled: boolean;
+  /** Rewords the shared schema's messages for another kind of entry. */
+  formatError?: (message: string) => string;
+  /** Takes focus when it mounts, e.g. once a copy opens for editing. */
+  shouldAutoFocus?: boolean;
 }) {
   return (
     <FormField
@@ -47,10 +53,14 @@ export function AdjustmentNameField({
               {...field}
               disabled={isDisabled}
               autoComplete="off"
+              autoFocus={shouldAutoFocus}
               className="h-11 md:h-8"
             />
           </FormControl>
-          <FormMessage role={fieldState.error ? 'alert' : undefined} />
+          <FormMessage
+            role={fieldState.error ? 'alert' : undefined}
+            formatError={formatError}
+          />
         </FormItem>
       )}
     />
@@ -65,11 +75,14 @@ export function AdjustmentNameField({
 export function ModifierListFields({
   editor,
   isDisabled,
+  areModifiersOptional = false,
   warnings = [],
   warningController,
 }: {
   editor: AdjustmentFormParts;
   isDisabled: boolean;
+  /** A definition may grant none, so its last Modifier can go too. */
+  areModifiersOptional?: boolean;
   warnings?: SheetWarningView[];
   warningController?: Controller['warnings'];
 }) {
@@ -92,7 +105,7 @@ export function ModifierListFields({
             editor={editor}
             index={index}
             isDisabled={isDisabled}
-            canRemove={editor.fields.length > 1}
+            canRemove={areModifiersOptional || editor.fields.length > 1}
             warnings={warnings}
             warningController={warningController}
           />

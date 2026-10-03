@@ -2,6 +2,7 @@
 import { useId } from 'react';
 import { Form } from '~/components/ui/form';
 import { cn } from '~/lib/utils';
+import { RowCatalogDefinition } from './row-catalog-definition';
 import type { ChoiceOption } from './choice-select';
 import { ClassLevelActions } from './class-level-actions';
 import {
@@ -165,6 +166,11 @@ export function ClassLevelRow({
           className="col-span-2 md:col-span-6"
         />
       </Form>
+      <RowCatalogDefinition
+        rowId={row._id}
+        target={{ kind: 'entry', entryId: row._id }}
+        className="col-span-2 mt-0 min-w-0 md:col-span-6"
+      />
     </li>
   );
 }

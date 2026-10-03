@@ -12,6 +12,7 @@ import {
   listEquipmentFacts,
 } from './equipment-statistics';
 import { InlineWarnings } from './inline-warning';
+import { RowCatalogDefinition } from './row-catalog-definition';
 import { action, chip, SaveFeedback } from './sheet-parts';
 import type {
   SheetWarningView,
@@ -98,6 +99,7 @@ export function EquipmentRow({
             controller={warningController}
             className="mt-1"
           />
+          <RowCatalogDefinition rowId={row.entryId} />
         </div>
         <div className="flex flex-wrap items-center gap-1">
           <Button

@@ -4,6 +4,11 @@ import {
   proficiencyKey,
 } from '../src/lib/character-sheet-proficiencies';
 import {
+  findPreferredCampaignCopy,
+  preserveCuratedModifierFields,
+  requireEditableCharacterDefinition,
+} from './lib/catalogCopies';
+import {
   maxCharacterChildRows,
   maxAcceptedWarnings,
   requireAbilityScore,
@@ -76,6 +81,7 @@ import {
   modifierConditionSchema,
   characterSheetWarningSchema,
   type Modifier,
+  type CatalogModifier,
   type BaseModifier,
   type SheetEntry,
 } from '../src/lib/character-sheet';
@@ -503,12 +509,21 @@ function requireClassDefinition(
   const definition = sheet.catalogEntries.find(
     (entry) => entry._id === classEntryId,
   );
-  if (
-    definition?.detail.kind !== 'class' ||
-    definition.characterId !== sheet.character._id
-  )
+  if (definition?.detail.kind !== 'class')
     throw new ConvexError('Class does not belong to this Character');
   return definition;
+}
+async function resolvePreferredCatalogEntryId(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+  catalogEntryId: Id<'catalogEntry'>,
+) {
+  const preferred = await findPreferredCampaignCopy(ctx, {
+    campaignId: sheet.character.campaignId,
+    originalId: catalogEntryId,
+    candidates: sheet.catalogEntries,
+  });
+  return preferred?._id ?? catalogEntryId;
 }
 async function renumberClassLevels(
   ctx: MutationCtx,
@@ -536,7 +551,7 @@ function requireSafeWholeNumber(value: number, label: string) {
   if (!Number.isSafeInteger(value))
     throw new ConvexError(`${label} must be a safe whole number`);
 }
-function modifierReferences(modifiers: readonly Modifier[]) {
+function modifierReferences(modifiers: readonly CatalogModifier[]) {
   return modifiers.flatMap((modifier) => {
     const situation = modifier.condition?.situation;
     return [
@@ -547,7 +562,7 @@ function modifierReferences(modifiers: readonly Modifier[]) {
     ].filter((reference): reference is string => reference !== undefined);
   });
 }
-function validatePersonalAdjustment({
+export function validatePersonalAdjustment({
   sheet,
   name,
   modifiers,
@@ -555,8 +570,8 @@ function validatePersonalAdjustment({
 }: {
   sheet: NonNullable<Awaited<ReturnType<typeof loadCharacterSheet>>>;
   name: string;
-  modifiers: readonly Modifier[];
-  previousModifiers?: readonly Modifier[];
+  modifiers: readonly CatalogModifier[];
+  previousModifiers?: readonly CatalogModifier[];
 }) {
   if (!name.trim()) throw new ConvexError('Adjustment name cannot be empty');
   if (modifiers.length > 256)
@@ -665,6 +680,11 @@ export const editPersonalAdjustment = campaignMutation({
     );
     if (!catalogEntry || !isManualCatalogEntry(catalogEntry))
       throw new ConvexError('Personal adjustment is unavailable');
+    requireEditableCharacterDefinition(
+      catalogEntry,
+      args.characterId,
+      args.name !== undefined || args.modifiers !== undefined,
+    );
     const name = args.name?.trim() ?? catalogEntry.name;
     const modifiers = args.modifiers ?? catalogEntry.modifiers;
     validatePersonalAdjustment({
@@ -740,7 +760,14 @@ async function removeCatalogSelection(
   entry: Doc<'characterSheetEntry'> & { catalogEntryId: Id<'catalogEntry'> },
 ) {
   await ctx.db.delete('characterSheetEntry', entry._id);
-  if (!isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, entry._id)) {
+  const definition = sheet.catalogEntries.find(
+    (row) => row._id === entry.catalogEntryId,
+  );
+  if (
+    definition?.scope === 'character' &&
+    definition.characterId === sheet.character._id &&
+    !isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, entry._id)
+  ) {
     await ctx.db.delete('catalogEntry', entry.catalogEntryId);
     sheet.catalogEntries = sheet.catalogEntries.filter(
       (row) => row._id !== entry.catalogEntryId,
@@ -824,7 +851,10 @@ export const addClassLevel = campaignMutation({
     )
       throw new ConvexError('Choose a valid Class Level position');
     const selected = args.classEntryId
-      ? requireClassDefinition(sheet, args.classEntryId)
+      ? requireClassDefinition(
+          sheet,
+          await resolvePreferredCatalogEntryId(ctx, sheet, args.classEntryId),
+        )
       : null;
     const chosen = selected
       ? levels.find(
@@ -843,7 +873,7 @@ export const addClassLevel = campaignMutation({
       active: true,
       state: {
         kind: 'classLevel',
-        classEntryId: chosen ?? args.classEntryId ?? null,
+        classEntryId: chosen ?? selected?._id ?? null,
         position,
         hpGained: null,
       },
@@ -908,13 +938,16 @@ export const editClassLevel = campaignMutation({
     for (const ranks of Object.values(skillRanks ?? {}))
       requireSafeWholeNumber(ranks, 'Skill ranks');
     const selected = args.classEntryId
-      ? requireClassDefinition(sheet, args.classEntryId)
+      ? requireClassDefinition(
+          sheet,
+          await resolvePreferredCatalogEntryId(ctx, sheet, args.classEntryId),
+        )
       : null;
     const proficiencyChoice = args.proficiencyChoice?.trim() ?? '';
     const changes = {
       ...(args.hpGained !== undefined ? { hpGained: args.hpGained } : {}),
       ...(args.classEntryId !== undefined
-        ? { classEntryId: args.classEntryId }
+        ? { classEntryId: selected?._id ?? null }
         : {}),
       ...(args.favoredClassBonus !== undefined
         ? { favoredClassBonus: args.favoredClassBonus }
@@ -1260,7 +1293,7 @@ function getSheetEntry(
     throw new ConvexError('Catalog Entry definition is unavailable');
   return { entry, catalog };
 }
-function validateSheetEntryDetail(
+export function validateSheetEntryDetail(
   detail: typeof sheetEntryDetailValidator.type,
   casterLevel?: number,
 ) {
@@ -1326,6 +1359,7 @@ function buildCatalogIdentityPatch({
   canonical: ReturnType<typeof canonicalConditionFields>;
   catalog: ReturnType<typeof getSheetEntry>['catalog'];
 }) {
+  if (catalog.copiedFrom) return {};
   if (canonical)
     return {
       ruleIdentity: canonical.ruleIdentity,
@@ -1431,13 +1465,23 @@ export const editSheetEntry = campaignMutation({
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const { entry, catalog } = getSheetEntry(sheet, args.entryId);
+    requireEditableCharacterDefinition(
+      catalog,
+      args.characterId,
+      args.name !== undefined ||
+        args.modifiers !== undefined ||
+        args.detail !== undefined,
+    );
     const detail = args.detail ?? catalog.detail;
     if (detail.kind !== entry.kind)
       throw new ConvexError('A Character Sheet Entry kind cannot be changed');
     const canonical = canonicalConditionFields({ ...args, detail });
     const name = canonical?.name ?? args.name?.trim() ?? catalog.name;
     const modifiers =
-      canonical?.modifiers ?? args.modifiers ?? catalog.modifiers;
+      canonical?.modifiers ??
+      (args.modifiers
+        ? preserveCuratedModifierFields(args.modifiers, catalog.modifiers)
+        : catalog.modifiers);
     validatePersonalAdjustment({
       sheet,
       name,
@@ -1469,12 +1513,17 @@ export const editSheetEntry = campaignMutation({
       compareValues(patch.state, entry.state) === 0
     )
       return null;
-    await ctx.db.patch('catalogEntry', catalog._id, {
-      name,
-      modifiers,
-      detail,
-      ...buildCatalogIdentityPatch({ canonical, catalog }),
-    });
+    if (
+      args.name !== undefined ||
+      args.modifiers !== undefined ||
+      args.detail !== undefined
+    )
+      await ctx.db.patch('catalogEntry', catalog._id, {
+        name,
+        modifiers,
+        detail,
+        ...buildCatalogIdentityPatch({ canonical, catalog }),
+      });
     await ctx.db.patch('characterSheetEntry', entry._id, patch);
     const updated = await ctx.db.get('characterSheetEntry', entry._id);
     const updatedCatalog = await ctx.db.get('catalogEntry', catalog._id);
@@ -1892,7 +1941,7 @@ export const selectEntry = campaignMutation({
     const sheet = await loadWritableSheet(ctx, args);
     const definition = requireCatalogSheetDefinition(
       sheet,
-      args.catalogEntryId,
+      await resolvePreferredCatalogEntryId(ctx, sheet, args.catalogEntryId),
     );
     requireEntryChoice(definition.detail.kind, args.choice);
     requireAlternateRacialTrait(sheet, definition);
@@ -1948,7 +1997,10 @@ export const selectEntry = campaignMutation({
     return id;
   },
 });
-function requireEntryChoice(kind: string, choice: string | null | undefined) {
+export function requireEntryChoice(
+  kind: string,
+  choice: string | null | undefined,
+) {
   if (
     choice !== undefined &&
     ['condition', 'item', 'spell', 'spellEffect'].includes(kind)
@@ -1963,7 +2015,7 @@ type RecordedCatalogState<Entry = RecordedCatalogEntry> =
   Entry extends Doc<'characterSheetEntry'>
     ? Pick<Entry, 'kind' | 'state'>
     : never;
-function buildRecordedCatalogState(
+export function buildRecordedCatalogState(
   ctx: MutationCtx,
   entry: SheetEntry,
   choice?: string | null,
@@ -2086,7 +2138,14 @@ export const selectRace = campaignMutation({
     const definition =
       args.catalogEntryId === null
         ? null
-        : requireCatalogSheetDefinition(sheet, args.catalogEntryId);
+        : requireCatalogSheetDefinition(
+            sheet,
+            await resolvePreferredCatalogEntryId(
+              ctx,
+              sheet,
+              args.catalogEntryId,
+            ),
+          );
     if (definition && definition.kind !== 'race')
       throw new ConvexError('Choose a race');
     const selected = sheet.entries.find(
@@ -2156,7 +2215,7 @@ export const setRacialTraitSelected = campaignMutation({
     const sheet = await loadWritableSheet(ctx, args);
     const definition = requireCatalogSheetDefinition(
       sheet,
-      args.catalogEntryId,
+      await resolvePreferredCatalogEntryId(ctx, sheet, args.catalogEntryId),
     );
     if (definition.kind !== 'racialTrait')
       throw new ConvexError('Choose a Racial Trait');
@@ -2165,7 +2224,7 @@ export const setRacialTraitSelected = campaignMutation({
       (entry) =>
         entry.kind === 'racialTrait' &&
         !entry.grantKey &&
-        entry.catalogEntryId === args.catalogEntryId,
+        entry.catalogEntryId === definition._id,
     );
     if (previous && previous.kind !== 'racialTrait')
       throw new ConvexError('Choose a Racial Trait');

@@ -69,6 +69,7 @@ function buildRaceActions(): Controller['races'] {
 }
 function buildGrantActions(): Controller['grants'] {
   return {
+    getCatalogDetachTarget: () => undefined,
     statusFor,
     hasRemoteChange: false,
     dismissRemoteChange: vi.fn(),

@@ -59,6 +59,7 @@ vi.mock('convex/react', () => ({
   useQuery: (name: string, scope: Record<string, unknown> | 'skip') => {
     if (scope === 'skip') return undefined;
     if (name === 'companions') return [];
+    if (name === 'catalogList' || name === 'catalogAdvisories') return [];
     if (name !== 'read') {
       unexpectedQuery(name, scope);
       throw new Error(
@@ -1515,6 +1516,25 @@ test('a named class shows in its row and in its delete question', () => {
 
 test('the sheet hosts the Companions section with its actions beside the other blocks', () => {
   renderSheet(sheet());
+  for (const name of [
+    'Character',
+    'Race',
+    'Class Levels',
+    'Ability scores',
+    'Defenses',
+    'Equipment',
+    'Offense',
+    'Proficiencies',
+    'Ability damage and drain',
+    'Skills',
+    'Personal adjustments',
+    'Sheet entries',
+    'Catalog',
+    'Creation settings',
+    'Spellcasting',
+  ]) {
+    expect(screen.getByRole('region', { name })).toBeVisible();
+  }
   const companions = screen.getByRole('region', { name: 'Companions' });
   expect(
     within(companions).getByText('No Companion Relationships.'),

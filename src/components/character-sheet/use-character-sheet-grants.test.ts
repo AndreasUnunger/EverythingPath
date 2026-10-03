@@ -51,6 +51,27 @@ const row: GrantEntryView = {
   replaced: [],
 };
 
+test('catalog targets retain Grant Keys and resolve stored selections without treating derived row IDs as stored IDs', () => {
+  const snapshot = buildSheet({
+    adjustments: [{ id: 'blessing', name: 'Blessing', modifiers: [] }],
+  });
+  const stored = snapshot.entries.find((entry) => entry.kind === 'manual');
+  if (!stored) throw new Error('Missing adjustment');
+  const view = renderHook(() =>
+    useCharacterSheetGrants({ characterId: snapshot.character._id }, snapshot),
+  );
+  expect(view.result.current.getCatalogDetachTarget(row.target)).toEqual({
+    kind: 'grant',
+    grantKey: { source: 'fighter', classLevel: 3, entry: 'armor' },
+  });
+  expect(
+    view.result.current.getCatalogDetachTarget({ entryId: stored._id }),
+  ).toEqual({ kind: 'entry', entryId: stored._id });
+  expect(
+    view.result.current.getCatalogDetachTarget({ entryId: 'derived:missing' }),
+  ).toBeUndefined();
+});
+
 test('Keep acknowledges saving on its own row and uses the Grant Key for an unstored replacement', async () => {
   let resolve: (() => void) | undefined;
   writes.kept.mockReturnValue(

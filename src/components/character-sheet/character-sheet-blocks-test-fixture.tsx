@@ -1,7 +1,10 @@
 import { AbilityChanges } from './ability-changes';
 import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
+import { CharacterSheetCatalog } from './character-sheet-catalog';
 import { CharacterSheetEntries } from './character-sheet-entries';
+import { CharacterSheetRaces } from './character-sheet-races';
+import { CharacterSheetGrants } from './character-sheet-grants';
 import { CharacterSheetSkeleton } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
 import { CreationSettingsEditor } from './creation-settings-editor';
@@ -11,6 +14,7 @@ import { FavoredClassesEditor } from './favored-classes-editor';
 import { OffenseBlock } from './offense-block';
 import { PersonalAdjustments } from './personal-adjustments';
 import { Proficiencies } from './proficiencies';
+import { SheetCatalogProvider } from './sheet-catalog-context';
 import { Block, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
 import { Skills } from './skills';
@@ -22,6 +26,7 @@ import {
 } from './character-sheet-view-helpers';
 
 type SheetBlock =
+  | 'races'
   | 'scores'
   | 'adjustments'
   | 'abilityChanges'
@@ -34,12 +39,18 @@ type SheetBlock =
   | 'entries'
   | 'skills'
   | 'equipment'
-  | 'proficiencies';
+  | 'proficiencies'
+  | 'grants'
+  | 'catalog';
+
+const scope = { organizationId: 'org', characterId };
 
 // Exercise the real controller and selected public blocks against the same
 // read snapshots as page integration tests, without rendering unrelated UI.
+// The catalog controller (and its reads) only joins when 'catalog' is asked
+// for; rows then carry their definition controls.
 export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
-  const controller = useCharacterSheet({ organizationId: 'org', characterId });
+  const controller = useCharacterSheet(scope);
   const sheet = controller.sheet;
   if (!sheet)
     return (
@@ -47,6 +58,24 @@ export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
         back={{ href: '/campaigns/campaign-1/characters', label: 'Characters' }}
       />
     );
+  if (!blocks.includes('catalog'))
+    return <SheetBlocks blocks={blocks} controller={controller} />;
+  return (
+    <SheetCatalogProvider scope={scope} snapshot={controller.catalogSnapshot}>
+      <SheetBlocks blocks={blocks} controller={controller} />
+    </SheetCatalogProvider>
+  );
+}
+
+function SheetBlocks({
+  blocks,
+  controller,
+}: {
+  blocks: SheetBlock[];
+  controller: ReturnType<typeof useCharacterSheet>;
+}) {
+  const sheet = controller.sheet;
+  if (!sheet) return null;
   const incompleteHpReason = describeIncompleteHp(sheet.levels);
   return (
     <BreakdownResolverProvider
@@ -62,6 +91,20 @@ export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
       />
       {blocks.map((block) => {
         switch (block) {
+          case 'races':
+            return (
+              <CharacterSheetRaces
+                key={block}
+                races={sheet.races}
+                statistics={sheet.raceStatistics}
+                raceNames={sheet.raceNames}
+                calculated={sheet.calculated}
+                actions={controller.races}
+                grants={controller.grants}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+            );
           case 'skills':
             return <Skills key={block} controller={controller} />;
           case 'equipment':
@@ -172,6 +215,18 @@ export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
                 name={sheet.character.name}
                 calculated={sheet.calculated}
                 incompleteHpReason={incompleteHpReason}
+              />
+            );
+          case 'catalog':
+            return <CharacterSheetCatalog key={block} />;
+          case 'grants':
+            return (
+              <CharacterSheetGrants
+                key={block}
+                sections={sheet.grants}
+                actions={controller.grants}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
               />
             );
           case 'entries':

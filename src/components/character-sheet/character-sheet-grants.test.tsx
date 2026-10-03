@@ -68,7 +68,11 @@ vi.mock('@convex/_generated/api', async () => {
 });
 vi.mock('convex/react', () => ({
   useQuery: (name: string) =>
-    name === 'read' ? snapshot : name === 'companions' ? [] : undefined,
+    name === 'read'
+      ? snapshot
+      : ['companions', 'catalogList', 'catalogAdvisories'].includes(name)
+        ? []
+        : undefined,
   usePaginatedQuery: () => emptyOwnerCandidates(),
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise(() => {
@@ -116,6 +120,7 @@ const record =
     });
 function buildActions(): Actions {
   return {
+    getCatalogDetachTarget: () => undefined,
     statusFor: (rowId) => statuses[rowId] ?? { kind: 'idle' },
     hasRemoteChange,
     dismissRemoteChange,

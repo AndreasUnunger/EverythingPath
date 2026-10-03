@@ -12,6 +12,7 @@ import type {
   GrantEntryView,
 } from './character-sheet-grants-view-model';
 import { useEntryWriteStatus } from './use-character-sheet-entries';
+import type { CatalogDetachTarget } from './use-character-sheet-catalog';
 
 export type GrantStateInput = FunctionArgs<
   typeof api.characterSheet.editGrantState
@@ -75,7 +76,7 @@ export function useCharacterSheetGrants(
     subject: 'Character Sheet Entry',
   });
 
-  function operation() {
+  function createWriteOperation() {
     if (!snapshot) throw new Error('Character sheet is not available.');
     return {
       ...scope,
@@ -98,32 +99,45 @@ export function useCharacterSheetGrants(
   }
 
   return {
+    getCatalogDetachTarget: (
+      reference: GrantEntryTarget,
+    ): CatalogDetachTarget | undefined => {
+      if ('grantKey' in reference)
+        return { kind: 'grant', grantKey: reference.grantKey };
+      const stored = snapshot?.entries.find(
+        (entry) => entry._id === reference.entryId,
+      );
+      return stored ? { kind: 'entry', entryId: stored._id } : undefined;
+    },
     statusFor: writeState.statusFor,
     hasRemoteChange: writeState.hasRemoteChange,
     dismissRemoteChange: writeState.dismissRemoteChange,
     setKept: (row: GrantEntryView, kept: boolean) =>
       write(row, () =>
         setDormantEntryKept({
-          ...operation(),
+          ...createWriteOperation(),
           target: target(row.target),
           kept,
         }),
       ),
     discard: (row: GrantEntryView) =>
       write(row, () =>
-        discardDormantEntry({ ...operation(), target: target(row.target) }),
+        discardDormantEntry({
+          ...createWriteOperation(),
+          target: target(row.target),
+        }),
       ),
     edit: (row: GrantEntryView, state: GrantStateInput) =>
       write(row, () => {
         const reference = target(row.target);
         return 'grantKey' in reference
           ? editGrantState({
-              ...operation(),
+              ...createWriteOperation(),
               grantKey: reference.grantKey,
               state,
             })
           : editSelection({
-              ...operation(),
+              ...createWriteOperation(),
               entryId: reference.entryId,
               ...state,
             });

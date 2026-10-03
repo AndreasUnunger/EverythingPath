@@ -74,6 +74,7 @@ function SheetHost({
   if (controller.sheet === null) return <SheetUnavailable back={back} />;
   return (
     <CharacterSheetView
+      scope={{ organizationId, campaignId, characterId }}
       sheet={controller.sheet}
       controller={controller}
       back={back}

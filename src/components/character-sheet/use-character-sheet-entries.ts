@@ -27,6 +27,10 @@ export type SheetEntryEditInput = Pick<
   FunctionArgs<typeof api.characterSheet.editSheetEntry>,
   'name' | 'modifiers' | 'detail' | 'casterLevel' | 'active'
 >;
+export type SheetEntryStateInput = Pick<
+  SheetEntryEditInput,
+  'casterLevel' | 'active'
+>;
 
 type WriteObservation<T> = {
   key: string;
@@ -239,6 +243,16 @@ export function useCharacterSheetEntries(
         createSheetEntry({ ...operation(), ...input }),
       edit: (entryId: Id<'characterSheetEntry'>, input: SheetEntryEditInput) =>
         editSheetEntry({ ...operation(), entryId, ...input }),
+      editState: (
+        entryId: Id<'characterSheetEntry'>,
+        { casterLevel, active }: SheetEntryStateInput,
+      ) =>
+        editSheetEntry({
+          ...operation(),
+          entryId,
+          ...(casterLevel !== undefined ? { casterLevel } : {}),
+          ...(active !== undefined ? { active } : {}),
+        }),
       setActive: (entryId: Id<'characterSheetEntry'>, active: boolean) =>
         entryState.write(() =>
           editSheetEntry({ ...operation(), entryId, active }),

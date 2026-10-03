@@ -7,12 +7,15 @@ import { useInitialMigrationMaintenance } from '~/components/use-initial-migrati
 import { Button } from '~/components/ui/button';
 import { isTemporaryEffect } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
+import { RowCatalogDefinition } from './row-catalog-definition';
 import { ConditionRules, rulesOnlyText } from './condition-rules';
 import { SheetEntryEditor } from './sheet-entry-editor';
+import { SpellEffectStateControl } from './spell-effect-state-control';
 import { sheetEntryKindLabels } from './sheet-entry-classification-fields';
 import { InlineWarnings } from './inline-warning';
 import { describeModifier } from './modifier-labels';
 import { listEntryModifierWarnings } from './modifier-warnings';
+import { entryFocusAttribute, useRowDefinition } from './sheet-catalog-context';
 import { action, Block, chip, RemoteNotice, SaveFeedback } from './sheet-parts';
 import type {
   SheetWarningView,
@@ -145,6 +148,10 @@ function SheetEntryRow({
   const isDisabled = isBusy || maintenance.readOnly;
   const isTemporary = isTemporaryRow(row);
   const isReplaced = conditionEffect?.effect.replacedBy !== undefined;
+  // A shared definition is edited from its Definition controls instead.
+  const isShared =
+    (useRowDefinition(row.entryId)?.definition.scope ?? 'character') !==
+    'character';
   const isGear = isArmorRow(row);
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
@@ -154,6 +161,7 @@ function SheetEntryRow({
         <button
           type="button"
           role="switch"
+          {...{ [entryFocusAttribute]: row.entryId }}
           aria-checked={row.active}
           aria-label={`${row.name}: ${row.active ? 'active' : 'inactive'}`}
           disabled={isDisabled}
@@ -219,19 +227,39 @@ function SheetEntryRow({
             className="mt-1"
           />
         )}
+        {isShared &&
+        row.detail.kind === 'spellEffect' &&
+        row.state.kind === 'spellEffect' ? (
+          <SpellEffectStateControl
+            key={row.entryId}
+            entryId={row.entryId}
+            name={row.name}
+            casterLevel={row.state.casterLevel}
+            defaultCasterLevel={row.detail.defaultCasterLevel}
+            lastsOverOneDay={row.detail.lastsOverOneDay}
+            editState={actions.editState}
+          />
+        ) : null}
+        <RowCatalogDefinition
+          rowId={row.entryId}
+          target={{ kind: 'entry', entryId: row.entryId }}
+          hasRowEditor
+        />
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button
-          type="button"
-          variant={isOpen ? 'secondary' : 'ghost'}
-          size="icon"
-          className="size-11 md:size-8"
-          aria-pressed={isOpen}
-          onClick={onEdit}
-        >
-          <SquarePen aria-hidden className="size-4" />
-          <span className="sr-only">Edit {row.name}</span>
-        </Button>
+        {isShared ? null : (
+          <Button
+            type="button"
+            variant={isOpen ? 'secondary' : 'ghost'}
+            size="icon"
+            className="size-11 md:size-8"
+            aria-pressed={isOpen}
+            onClick={onEdit}
+          >
+            <SquarePen aria-hidden className="size-4" />
+            <span className="sr-only">Edit {row.name}</span>
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"

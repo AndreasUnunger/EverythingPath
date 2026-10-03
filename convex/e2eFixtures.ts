@@ -238,6 +238,16 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         await ctx.db.delete('characterSpell', spell._id);
       await ctx.db.delete('character', character._id);
     }
+    const campaignCatalogEntries = bounded(
+      await ctx.db
+        .query('catalogEntry')
+        .withIndex('by_campaignId_and_scope', (q) =>
+          q.eq('campaignId', campaign._id).eq('scope', 'campaign'),
+        )
+        .take(101),
+    );
+    for (const entry of campaignCatalogEntries)
+      await ctx.db.delete('catalogEntry', entry._id);
     await ctx.db.delete('campaign', campaign._id);
   }
 }

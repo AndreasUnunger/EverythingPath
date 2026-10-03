@@ -1,5 +1,13 @@
+import {
+  listCatalogReferences,
+  type CatalogReference,
+} from '../../src/lib/catalog-copy-references';
+import {
+  readReferencedCatalogDefinitions,
+  type CatalogLoadReference,
+} from './catalogCopies';
 import { ConvexError } from 'convex/values';
-import type { Doc, Id } from '../_generated/dataModel';
+import type { Doc } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import {
   abilityKeys,
@@ -69,9 +77,10 @@ export async function loadPreparedCharacterSheets(
 export async function readCharacterSheetData(
   ctx: ReadCtx,
   character: Doc<'character'>,
+  additionalReferences: CatalogLoadReference[] = [],
 ) {
   await requireCompatibleActiveRelease(ctx);
-  const [entries, definitions, acceptedWarnings] = await Promise.all([
+  const [entries, localDefinitions, acceptedWarnings] = await Promise.all([
     ctx.db
       .query('characterSheetEntry')
       .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
@@ -87,9 +96,30 @@ export async function readCharacterSheetData(
   ]);
   if (
     entries.length > maxCharacterChildRows ||
-    definitions.length > maxCharacterChildRows
+    localDefinitions.length > maxCharacterChildRows
   )
     throw new ConvexError('Character sheet is too large to load');
+  const definitions = await readReferencedCatalogDefinitions(
+    ctx,
+    character,
+    localDefinitions,
+    [
+      ...entries.flatMap((entry) =>
+        listCatalogReferences(entry).map((reference) => ({
+          ...reference,
+          refusalMessage:
+            reference.kind === 'class'
+              ? 'Class does not belong to this Character'
+              : entry.kind === 'base'
+                ? 'Base scores do not belong to this Character'
+                : entry.kind === 'manual'
+                  ? 'Personal adjustment does not belong to this Character'
+                  : 'Catalog Entry does not belong to this Character',
+        })),
+      ),
+      ...additionalReferences,
+    ],
+  );
   if (acceptedWarnings.length > maxAcceptedWarnings)
     throw new ConvexError('Character has too many accepted warnings');
   const base = entries.find((entry) => entry.kind === 'base');
@@ -108,34 +138,6 @@ export async function readCharacterSheetData(
     definitions.map((row) => [row._id, row]),
   );
   const dependencies = definitions.flatMap(listCatalogDependencies);
-  const classIds = [
-    ...(base?.state.favoredClassIds ?? []),
-    ...entries.flatMap((entry) =>
-      entry.kind === 'classLevel' && entry.state.classEntryId
-        ? [entry.state.classEntryId]
-        : [],
-    ),
-  ];
-  const missingIds = [
-    ...new Set([
-      ...dependencies
-        .filter(({ kind }) => kind !== 'definition')
-        .map(({ id }) => id),
-      ...classIds,
-    ]),
-  ].filter((id) => !definitionsById.has(id));
-  const missingDefinitions = new Map(
-    await Promise.all(
-      missingIds.map(async (id) => {
-        const catalogEntryId = ctx.db.normalizeId('catalogEntry', id);
-        if (!catalogEntryId)
-          throw new ConvexError(
-            'Catalog dependency does not belong to this Character',
-          );
-        return [id, await ctx.db.get('catalogEntry', catalogEntryId)] as const;
-      }),
-    ),
-  );
   function requireDefinition(id: string, message: string) {
     const definition = definitionsById.get(id);
     if (!definition) throw new ConvexError(message);
@@ -148,8 +150,7 @@ export async function readCharacterSheetData(
     const local = definitionsById.get(classEntryId);
     if (local?.detail.kind === 'class') return local;
     // Missing definitions remain Unspecified. Existing foreign references fail.
-    if (local || missingDefinitions.get(classEntryId))
-      throw new ConvexError(message);
+    if (local) throw new ConvexError(message);
     return null;
   }
   for (const { id, kind } of dependencies) {
@@ -162,10 +163,6 @@ export async function readCharacterSheetData(
       readClassDefinition(
         id,
         'Class counterpart does not belong to this Character',
-      );
-    else if (!definitionsById.has(id) && missingDefinitions.get(id))
-      throw new ConvexError(
-        'Catalog dependency does not belong to this Character',
       );
   }
   for (const classId of base?.state.favoredClassIds ?? [])
@@ -224,46 +221,11 @@ export async function readCharacterSheetData(
   };
 }
 
-export type CatalogDependency = {
-  id: string;
-  kind: 'definition' | 'class' | 'condition';
-};
+export type CatalogDependency = CatalogReference;
 
 /** Every catalog reference, including future Grants and modifier conditions. */
 export function listCatalogDependencies(
   definition: Doc<'catalogEntry'>,
 ): CatalogDependency[] {
-  const dependencies: CatalogDependency[] = (definition.grants ?? []).map(
-    ({ catalogEntryId }) => ({ id: catalogEntryId, kind: 'definition' }),
-  );
-  for (const slot of definition.grantsSlots ?? [])
-    for (const id of slot.feats ?? [])
-      dependencies.push({ id, kind: 'definition' });
-  for (const modifier of definition.modifiers) {
-    if (!('condition' in modifier) || !modifier.condition) continue;
-    const { whileActive, situation } = modifier.condition;
-    if (whileActive) dependencies.push({ id: whileActive, kind: 'condition' });
-    if (typeof situation === 'object' && 'option' in situation)
-      dependencies.push({ id: situation.option, kind: 'condition' });
-  }
-  const detail = definition.detail;
-  const add = (ids: readonly Id<'catalogEntry'>[]) =>
-    dependencies.push(
-      ...ids.map((id) => ({ id, kind: 'definition' as const })),
-    );
-  if (detail.kind === 'class') {
-    if ('counterpartOf' in detail && detail.counterpartOf)
-      dependencies.push({ id: detail.counterpartOf, kind: 'class' });
-    if ('featuresByLevel' in detail)
-      add(detail.featuresByLevel.map((feature) => feature.catalogEntryId));
-  } else if (detail.kind === 'race') add(detail.racialTraits);
-  else if (detail.kind === 'racialTrait')
-    add([...detail.raceEntryIds, ...detail.replaces]);
-  else if (detail.kind === 'archetype')
-    add([
-      ...detail.classEntryIds,
-      ...detail.adds.map((feature) => feature.catalogEntryId),
-      ...detail.replaces.map((feature) => feature.catalogEntryId),
-    ]);
-  return dependencies;
+  return listCatalogReferences(definition);
 }
