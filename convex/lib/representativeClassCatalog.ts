@@ -1,3 +1,4 @@
+import { findReviewedClassCasting } from '../../src/lib/character-sheet-casting-tables';
 import type { Doc } from '../_generated/dataModel';
 
 // Representative prepared-sheet seed data, not a curated Catalog Release.
@@ -41,6 +42,7 @@ export const representativeClassCatalog = [
     modifiers: [],
     detail: {
       kind: 'class',
+      casting: findReviewedClassCasting('wizard'),
       classKind: 'base',
       hitDie: 6,
       bab: 'half',
@@ -116,6 +118,7 @@ export const representativeClassCatalog = [
     modifiers: [],
     detail: {
       kind: 'class',
+      casting: findReviewedClassCasting('cleric'),
       classKind: 'base',
       hitDie: 8,
       bab: 'threeQuarters',

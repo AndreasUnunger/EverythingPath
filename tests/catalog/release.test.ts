@@ -341,7 +341,35 @@ it('fingerprints the importer dependency graph and actual authored resources whi
   expect(input.ruleResources.representativeClassCatalog.definitions).toEqual(
     expect.arrayContaining([expect.objectContaining({ name: 'Fighter' })]),
   );
-  expect(input.ruleResources.castingTables).toBeNull();
+  expect(input.ruleResources.castingTables).toMatchObject({
+    definitions: {
+      version: 1,
+      tables: {
+        'prepared-full': {
+          rows: expect.arrayContaining([
+            {
+              spellsPerDay: [
+                3,
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+              ],
+            },
+          ]),
+        },
+      },
+      classes: { wizard: { ability: 'intelligence', record: 'book' } },
+    },
+  });
+  expect(input.ruleResources.castingTables?.source).toContain(
+    '"prepared-full"',
+  );
 });
 
 it('reports authored resource changes without retiring still-present resources and retains removed resources', async () => {

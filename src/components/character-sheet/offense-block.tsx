@@ -35,7 +35,7 @@ export function OffenseBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'CMB',
                   title: 'Combat Maneuver Bonus',
-                  target: 'derived:cmb',
+                  target: { kind: 'derived', statistic: 'cmb' },
                   statistic: statistics.cmb,
                   isSigned: true,
                 },
@@ -49,7 +49,7 @@ export function OffenseBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'Initiative',
                   title: 'Initiative',
-                  target: 'derived:initiative',
+                  target: { kind: 'derived', statistic: 'initiative' },
                   statistic: statistics.initiative,
                   isSigned: true,
                 },

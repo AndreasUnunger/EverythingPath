@@ -1,12 +1,15 @@
-import {
-  abilityLabels,
-  type Ability,
-  type CharacterSheetProjections,
-} from './character-sheet';
+import { abilityLabels, type Ability } from './character-sheet';
 
 // #238: replacement selection uses current modifiers, bonus spells use that ability's permanent score.
 export function calculateBonusSpells(
-  projections: CharacterSheetProjections,
+  projections: {
+    current: {
+      abilities: Record<Ability, { score: number; modifier: number }>;
+    };
+    permanent: {
+      abilities: Record<Ability, { score: number; modifier: number }>;
+    };
+  },
   {
     baseAbility,
     replacementAbilities = [],

@@ -18,6 +18,7 @@ import { CreationSettingsEditor } from './creation-settings-editor';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
 import { Skills } from './skills';
+import { SpellcastingBlock } from './spellcasting-block';
 import type { useCharacterSheet } from './use-character-sheet';
 import {
   describeIncompleteHp,
@@ -127,8 +128,8 @@ function CampaignRow({
  * campaign row that scrolls with the body, then Character, Class Levels,
  * and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns, with the skills, personal adjustments, sheet entries,
- * granted and dormant entries, Companions and the creation settings beside them.
- * Each calculation warning sits by its
+ * granted and dormant entries, Companions and the creation settings beside them,
+ * then the Spellcasting section across the full width. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
  * formula under its Modifier); only another player's acceptances are
  * announced for the sheet.
@@ -152,6 +153,7 @@ export function CharacterSheetView({
       <BreakdownResolverProvider
         previewSituation={controller.previewSituation}
         adjustments={sheet.adjustments}
+        spellcastings={sheet.calculated.spellcastings}
       >
         <SheetSummary
           name={sheet.character.name}
@@ -246,6 +248,12 @@ export function CharacterSheetView({
             <CreationSettingsEditor
               settings={sheet.calculated.creationSettings}
               save={controller.saveCreationSettings}
+            />
+          </div>
+          <div className="min-w-0 lg:col-span-12">
+            <SpellcastingBlock
+              spellcastings={sheet.calculated.spellcastings}
+              unresolved={sheet.calculated.spellcastingUnresolved}
             />
           </div>
         </div>

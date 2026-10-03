@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { useCharacterSheet } from './use-character-sheet';
+import type { ResolvedSpellcasting } from '~/lib/character-sheet-spellcasting';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type Adjustments = NonNullable<Controller['sheet']>['adjustments'];
@@ -12,6 +13,7 @@ type Adjustments = NonNullable<Controller['sheet']>['adjustments'];
 export type BreakdownResolver = {
   previewSituation: Controller['previewSituation'];
   findPrerequisiteName: (catalogEntryId: string) => string | null;
+  findCastingClassName: (classTag: string) => string | null;
 };
 
 const BreakdownResolverContext = createContext<BreakdownResolver | null>(null);
@@ -20,14 +22,19 @@ const BreakdownResolverContext = createContext<BreakdownResolver | null>(null);
 export function BreakdownResolverProvider({
   previewSituation,
   adjustments,
+  spellcastings,
   children,
 }: {
   previewSituation: Controller['previewSituation'];
   adjustments: Adjustments;
+  spellcastings: readonly ResolvedSpellcasting[];
   children: ReactNode;
 }) {
   const resolver: BreakdownResolver = {
     previewSituation,
+    findCastingClassName: (classTag) =>
+      spellcastings.find((casting) => casting.classTag === classTag)?.name ??
+      null,
     findPrerequisiteName: (catalogEntryId) =>
       adjustments.find((row) => row.catalogEntryId === catalogEntryId)?.name ??
       null,

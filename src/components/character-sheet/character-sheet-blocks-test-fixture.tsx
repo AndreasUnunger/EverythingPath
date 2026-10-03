@@ -46,6 +46,7 @@ export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
   const incompleteHpReason = describeIncompleteHp(sheet.levels);
   return (
     <BreakdownResolverProvider
+      spellcastings={sheet.calculated.spellcastings}
       previewSituation={controller.previewSituation}
       adjustments={sheet.adjustments}
     >

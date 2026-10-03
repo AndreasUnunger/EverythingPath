@@ -406,6 +406,16 @@ async function buildReleaseArtifact(
     authoredResources: [
       ...suppliedResources,
       {
+        key: 'builtin:casting-tables',
+        payload: {
+          definitions: implementation.ruleResources.castingTables.definitions,
+          sourceFingerprint: await releaseFingerprint(
+            implementation.ruleResources.castingTables.source,
+          ),
+          compatibility,
+        },
+      },
+      {
         key: 'builtin:representative-class-catalog',
         payload: {
           definitions:

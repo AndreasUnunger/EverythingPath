@@ -78,13 +78,44 @@ export function listPrerequisiteContributions(statistic: ResolvedStatistic) {
   );
 }
 
+const wordsOf = (key: string) =>
+  key.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+
+/**
+ * "wizard evocation spells": the casting a contribution is confined to, in
+ * words; a choice not yet made reads as such. Null without a casting scope.
+ */
+export function describeCastingScope(
+  contribution: SourcedModifier,
+  findCastingClassName: (classTag: string) => string | null,
+) {
+  const { castingClass, school } = contribution.condition ?? {};
+  if (castingClass === undefined && school === undefined) return null;
+  const scope = [
+    castingClass === undefined
+      ? undefined
+      : castingClass === '$choice'
+        ? "a chosen class's"
+        : (findCastingClassName(castingClass) ?? "a specific class's"),
+    school === undefined
+      ? undefined
+      : school === '$choice'
+        ? "a chosen school's"
+        : wordsOf(school).replace(/^./, (letter) => letter.toUpperCase()),
+  ].filter((part): part is string => part !== undefined);
+  return `${scope.join(' ')} spells`;
+}
+
 /** "only while Rage is active": the prerequisite by name, never by identifier. */
 export function describePrerequisite(
   contribution: SourcedModifier,
   findPrerequisiteName: (catalogEntryId: string) => string | null,
+  findCastingClassName: (classTag: string) => string | null,
 ) {
   const prerequisite = contribution.condition?.whileActive;
-  if (!prerequisite) return 'only in specific circumstances';
+  const scope = describeCastingScope(contribution, findCastingClassName);
+  if (!prerequisite)
+    return scope ? `only for ${scope}` : 'only in specific circumstances';
   const name = findPrerequisiteName(prerequisite);
   return name
     ? `only while ${name} is active`

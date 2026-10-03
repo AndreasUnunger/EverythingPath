@@ -39,10 +39,7 @@ export function StatRow({
         {variants.length > 0 ? (
           <span className="text-muted-foreground flex flex-wrap items-end gap-x-3 text-xs">
             {variants.map((variant) => (
-              <span
-                key={variant.target}
-                className="inline-flex items-end gap-1"
-              >
+              <span key={variant.title} className="inline-flex items-end gap-1">
                 <span className="pb-1.5 leading-tight">{variant.label}</span>
                 <StatBreakdown
                   label={variant.title}
@@ -80,7 +77,7 @@ export function StatGroups({
       {groups.map((group) => (
         <ul key={group.key} className="py-3 first:pt-0 last:pb-0">
           {group.rows.map((row) => (
-            <StatRow key={row.figure.target} {...row} />
+            <StatRow key={row.figure.title} {...row} />
           ))}
         </ul>
       ))}

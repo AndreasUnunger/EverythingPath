@@ -515,3 +515,83 @@ test('linked formula inputs use the corresponding projection through every calcu
   expect(result.current.breakdowns['damage.melee'].total).toBe(4);
   expect(result.permanent.breakdowns['damage.melee'].total).toBe(2);
 });
+
+test('Situation previews keep permanent casting slots and skill budgets while current ability effects apply', () => {
+  const input = sheet(
+    [
+      {
+        _id: 'condition-row',
+        kind: 'condition',
+        active: true,
+        catalogEntryId: 'condition',
+        state: { kind: 'condition' },
+      },
+      {
+        _id: 'adjustment-row',
+        kind: 'manual',
+        active: true,
+        catalogEntryId: 'adjustment',
+        state: { kind: 'manual' },
+      },
+      {
+        _id: 'drain-row',
+        kind: 'abilityDrain',
+        active: true,
+        state: { kind: 'abilityDrain', ability: 'intelligence', points: 1 },
+      },
+      {
+        _id: 'damage-row',
+        kind: 'abilityDamage',
+        active: true,
+        state: { kind: 'abilityDamage', ability: 'intelligence', points: 2 },
+      },
+    ],
+    [
+      ...representativeClassCatalog,
+      {
+        _id: 'condition',
+        ruleIdentity: 'condition',
+        detail: { kind: 'condition' },
+        modifiers: [{ target: 'ability.int', bonusType: 'untyped', value: 8 }],
+      },
+      {
+        _id: 'adjustment',
+        ruleIdentity: 'adjustment',
+        modifiers: [
+          {
+            target: 'ability.int',
+            bonusType: 'untyped',
+            value: 2,
+            condition: { whileActive: 'condition' },
+          },
+          {
+            target: 'spellDC',
+            bonusType: 'untyped',
+            value: 1,
+            condition: { situation: 'focused' },
+          },
+        ],
+      },
+    ],
+  );
+  input.entries = input.entries.map((entry) =>
+    entry.kind === 'classLevel'
+      ? { ...entry, state: { ...entry.state, classEntryId: 'wizard' } }
+      : entry,
+  );
+  const options = { situations: ['focused'] };
+  const result = calculateCharacterSheet(input, options);
+  // Permanent Int 14 supplies one bonus slot and four ranks; current Int 24
+  // with two points of damage supplies a +6 modifier for DC and concentration.
+  expect(result.abilities.intelligence).toEqual({ score: 24, modifier: 6 });
+  expect(result.spellcastings[0]?.slots[1]).toMatchObject({
+    bonus: 1,
+    total: 2,
+    dc: { total: 18 },
+  });
+  expect(result.spellcastings[0]?.concentration?.total).toBe(7);
+  expect(result.budgets.skillRanks).toBe(4);
+  expect(result).toEqual(
+    calculateCharacterSheetProjections(input, options).current,
+  );
+});

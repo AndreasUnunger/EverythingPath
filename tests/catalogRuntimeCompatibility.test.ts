@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:173da22ced925eb64ac4bad5725e373a936d51f8ec4ff214785939076701a8eb';
+    'sha256:9d344aad2243872a124350f8179235851552a893061dbe13528623d4ce2840a3';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -31,6 +31,11 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-skills.ts',
     'src/lib/character-sheet-conditions.ts',
     'src/lib/catalog/data/reviewed-conditions.json',
+    'src/lib/character-sheet-spellcasting.ts',
+    'src/lib/character-sheet-casting-tables.ts',
+    'src/lib/character-sheet-permanent-statistics.ts',
+    'scripts/catalog/reviewed-casting-tables.json',
+    'src/lib/character-sheet-abilities.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -48,8 +53,10 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-grants',
       './character-sheet-skills',
       './character-sheet-conditions',
+      './character-sheet-spellcasting',
       './character-sheet-advancement',
       './character-sheet-formulas',
+      './character-sheet-abilities',
     ],
     ['./character-sheet', './character-sheet-skills'],
     [],
@@ -63,7 +70,23 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ['./character-sheet'],
     ['zod', './catalog/data/reviewed-conditions.json'],
     [],
+    [
+      './character-sheet-casting-tables',
+      './character-sheet-permanent-statistics',
+      './character-sheet-grants',
+    ],
+    [
+      '../../scripts/catalog/reviewed-casting-tables.json',
+      'zod',
+      './character-sheet-abilities',
+    ],
+    ['./character-sheet'],
+    [],
+    [],
   ];
+  const exportsByFile: Record<string, string[]> = {
+    'src/lib/character-sheet.ts': ['./character-sheet-abilities'],
+  };
   for (const [index, path] of catalogCalculationV1Files.entries()) {
     const ast = ts.createSourceFile(
       path,
@@ -84,5 +107,19 @@ test('v1 calculation identity matches its pinned implementation and militia proj
         'the explicit closure and independent import expectations before recomputing its identity. ' +
         'See docs/catalog-import/releases.md for the preactivation and postactivation procedure.',
     ).toEqual(importsByFile[index]);
+    const exports = ast.statements
+      .filter(ts.isExportDeclaration)
+      .filter((node) => node.moduleSpecifier && !node.isTypeOnly)
+      .map((node) =>
+        node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)
+          ? node.moduleSpecifier.text
+          : 'unsupported',
+      );
+    expect(
+      exports,
+      `Runtime reexports changed in ${path}. Review calculator dependencies and update ` +
+        'the explicit closure and independent reexport expectations before recomputing its identity. ' +
+        'See docs/catalog-import/releases.md for the preactivation and postactivation procedure.',
+    ).toEqual(exportsByFile[path] ?? []);
   }
 });

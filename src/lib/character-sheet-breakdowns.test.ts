@@ -1,10 +1,68 @@
 import { expect, expectTypeOf, test } from 'vitest';
 import {
   resolveSheet,
+  calculateCharacterSheet,
+  abilityKeys,
+  abilityTargets,
+  type CharacterSheetInput,
   type LeafTarget,
+  type Modifier,
   type ResolvedStatistic,
 } from './character-sheet';
-import { parseCharacterSheetBreakdowns } from './character-sheet-breakdowns';
+import {
+  parseCharacterSheetBreakdowns,
+  findCharacterSheetStatistic,
+  spellcastingBreakdownTarget,
+} from './character-sheet-breakdowns';
+import { representativeClassCatalog } from '../../tests/fixtures/catalog/representative-class-progressions';
+
+function castingInput(modifiers: Modifier[]): CharacterSheetInput {
+  return {
+    characterKind: 'pc',
+    entries: [
+      {
+        _id: 'base-row',
+        active: true,
+        kind: 'base',
+        catalogEntryId: 'base',
+        state: { kind: 'base' },
+      },
+      ...['wizard', 'wizard', 'wizard', 'cleric'].map(
+        (classEntryId, index) => ({
+          _id: `level-${index}`,
+          active: true as const,
+          kind: 'classLevel' as const,
+          state: {
+            kind: 'classLevel' as const,
+            position: index + 1,
+            classEntryId,
+            hpGained: 6,
+          },
+        }),
+      ),
+      {
+        _id: 'adjustment-row',
+        active: true,
+        kind: 'manual',
+        catalogEntryId: 'adjustment',
+        state: { kind: 'manual' },
+      },
+    ],
+    catalogEntries: [
+      {
+        _id: 'base',
+        ruleIdentity: 'base',
+        modifiers: abilityKeys.map((ability) => ({
+          target: abilityTargets[ability],
+          bonusType: 'base' as const,
+          value: ability === 'intelligence' ? 18 : 10,
+        })),
+      },
+      ...representativeClassCatalog,
+      { _id: 'adjustment', ruleIdentity: 'adjustment', modifiers },
+    ],
+  };
+}
 
 test('wire breakdowns parse into a complete map of typed leaf targets', () => {
   const breakdowns = resolveSheet(
@@ -81,4 +139,245 @@ test('wire breakdowns refuse malformed statistic values', () => {
       hp: { total: 'unknown', applied: [], suppressed: [], conditional: [] },
     }),
   ).toThrow();
+});
+
+test('a Spellcasting breakdown previews a Situation for its class and school without using aggregate leaf totals', () => {
+  const input: CharacterSheetInput = {
+    characterKind: 'pc',
+    entries: [
+      {
+        _id: 'base-row',
+        active: true,
+        kind: 'base',
+        catalogEntryId: 'base',
+        state: { kind: 'base' },
+      },
+      {
+        _id: 'wizard-level',
+        active: true,
+        kind: 'classLevel',
+        state: {
+          kind: 'classLevel',
+          position: 1,
+          classEntryId: 'wizard',
+          hpGained: 6,
+        },
+      },
+      {
+        _id: 'cleric-level',
+        active: true,
+        kind: 'classLevel',
+        state: {
+          kind: 'classLevel',
+          position: 2,
+          classEntryId: 'cleric',
+          hpGained: 8,
+        },
+      },
+      {
+        _id: 'focus-row',
+        active: true,
+        kind: 'manual',
+        catalogEntryId: 'focus',
+        state: { kind: 'manual' },
+      },
+    ],
+    catalogEntries: [
+      {
+        _id: 'base',
+        ruleIdentity: 'base',
+        modifiers: abilityKeys.map((ability) => ({
+          target: abilityTargets[ability],
+          bonusType: 'base' as const,
+          value: 10,
+        })),
+      },
+      ...representativeClassCatalog,
+      {
+        _id: 'focus',
+        ruleIdentity: 'focus',
+        modifiers: [
+          {
+            target: 'spellDC',
+            bonusType: 'circumstance',
+            value: 2,
+            condition: {
+              castingClass: 'wizard',
+              school: 'evocation',
+              situation: { local: 'beside the altar' },
+            },
+          },
+        ],
+      },
+    ],
+  };
+  const target = {
+    kind: 'spellcasting' as const,
+    classEntryId: 'wizard',
+    statistic: {
+      kind: 'dc' as const,
+      spellLevel: 1,
+      school: 'evocation',
+    },
+  };
+  const ordinary = calculateCharacterSheet(input);
+  const preview = calculateCharacterSheet(input, {
+    situations: [{ local: 'beside the altar', sheetEntryId: 'focus-row' }],
+  });
+  // Intelligence/Wisdom 10: baseline 1st-level DC is 10 + 1.
+  expect(findCharacterSheetStatistic(ordinary, target)?.total).toBe(11);
+  expect(findCharacterSheetStatistic(preview, target)?.total).toBe(13);
+  expect(
+    findCharacterSheetStatistic(
+      preview,
+      spellcastingBreakdownTarget('cleric', { kind: 'dc', spellLevel: 1 }),
+    )?.total,
+  ).toBe(11);
+  expect(findCharacterSheetStatistic(preview, 'spellDC')?.total).toBe(0);
+  expect(
+    findCharacterSheetStatistic(preview, { kind: 'derived', statistic: 'ac' })
+      ?.total,
+  ).toBe(10);
+  expect(
+    findCharacterSheetStatistic(
+      preview,
+      spellcastingBreakdownTarget('missing', { kind: 'concentration' }),
+    ),
+  ).toBeNull();
+});
+
+test('an unresolved school DC has no numeric lookup while ready schools, generic DCs and other classes retain theirs', () => {
+  const input = castingInput([
+    {
+      target: 'spellDC',
+      bonusType: 'untyped',
+      value: { formula: '@missing' },
+      condition: { castingClass: 'wizard', school: 'evocation' },
+    },
+    {
+      target: 'spellDC',
+      bonusType: 'untyped',
+      value: 1,
+      condition: {
+        castingClass: 'wizard',
+        school: 'evocation',
+        situation: { local: 'in bright light' },
+      },
+    },
+    {
+      target: 'spellDC',
+      bonusType: 'untyped',
+      value: 2,
+      condition: { castingClass: 'wizard', school: 'conjuration' },
+    },
+  ]);
+  const ordinary = calculateCharacterSheet(input);
+  const preview = calculateCharacterSheet(input, {
+    situations: [{ local: 'in bright light', sheetEntryId: 'adjustment-row' }],
+  });
+  const evocation = spellcastingBreakdownTarget('wizard', {
+    kind: 'dc',
+    spellLevel: 1,
+    school: 'evocation',
+  });
+  expect(findCharacterSheetStatistic(ordinary, evocation)).toBeNull();
+  expect(findCharacterSheetStatistic(preview, evocation)).toBeNull();
+  for (const [classEntryId, school, total] of [
+    ['wizard', undefined, 15],
+    ['wizard', 'conjuration', 17],
+    ['wizard', 'illusion', 15],
+    ['cleric', undefined, 11],
+  ] as const) {
+    expect(
+      findCharacterSheetStatistic(
+        preview,
+        spellcastingBreakdownTarget(classEntryId, {
+          kind: 'dc',
+          spellLevel: 1,
+          school,
+        }),
+      )?.total,
+    ).toBe(total);
+  }
+});
+
+test('a caster-level failure in a selected Situation hides only its unresolved numbers and dependencies', () => {
+  const situation = { local: 'in bright light' };
+  const input = castingInput([
+    {
+      target: 'casterLevel',
+      bonusType: 'untyped',
+      value: { formula: '@missing' },
+      condition: { castingClass: 'wizard', situation },
+    },
+    {
+      target: 'casterLevel',
+      bonusType: 'untyped',
+      value: 1,
+      condition: { castingClass: 'wizard', situation },
+    },
+    {
+      target: 'spellDC',
+      bonusType: 'untyped',
+      value: { formula: '@casterLevel.wizard' },
+      condition: { castingClass: 'wizard', situation },
+    },
+  ]);
+  const ordinary = calculateCharacterSheet(input);
+  const preview = calculateCharacterSheet(input, {
+    situations: [{ ...situation, sheetEntryId: 'adjustment-row' }],
+  });
+  for (const [statistic, total] of [
+    [{ kind: 'casterLevel' }, 3],
+    [{ kind: 'concentration' }, 7],
+    [{ kind: 'dc', spellLevel: 1 }, 15],
+    [{ kind: 'dc', spellLevel: 1, school: 'illusion' }, 15],
+  ] as const) {
+    const target = spellcastingBreakdownTarget('wizard', statistic);
+    expect(findCharacterSheetStatistic(ordinary, target)?.total).toBe(total);
+    expect(findCharacterSheetStatistic(preview, target)).toBeNull();
+  }
+  expect(
+    findCharacterSheetStatistic(
+      preview,
+      spellcastingBreakdownTarget('cleric', { kind: 'casterLevel' }),
+    )?.total,
+  ).toBe(1);
+  expect(
+    findCharacterSheetStatistic(
+      preview,
+      spellcastingBreakdownTarget('cleric', { kind: 'dc', spellLevel: 1 }),
+    )?.total,
+  ).toBe(11);
+});
+
+test('a failed concentration modifier has no numeric lookup without hiding a ready caster level or DC', () => {
+  const calculated = calculateCharacterSheet(
+    castingInput([
+      {
+        target: 'concentration',
+        bonusType: 'untyped',
+        value: { formula: '@missing' },
+        condition: { castingClass: 'wizard' },
+      },
+    ]),
+  );
+  expect(
+    findCharacterSheetStatistic(
+      calculated,
+      spellcastingBreakdownTarget('wizard', { kind: 'concentration' }),
+    ),
+  ).toBeNull();
+  expect(
+    findCharacterSheetStatistic(
+      calculated,
+      spellcastingBreakdownTarget('wizard', { kind: 'casterLevel' }),
+    )?.total,
+  ).toBe(3);
+  expect(
+    findCharacterSheetStatistic(
+      calculated,
+      spellcastingBreakdownTarget('wizard', { kind: 'dc', spellLevel: 1 }),
+    )?.total,
+  ).toBe(15);
 });

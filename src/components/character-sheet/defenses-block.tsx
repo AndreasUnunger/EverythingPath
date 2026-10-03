@@ -25,20 +25,20 @@ export function DefensesBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'Armor Class',
                   title: 'Armor Class',
-                  target: 'derived:ac',
+                  target: { kind: 'derived', statistic: 'ac' },
                   statistic: statistics.ac,
                 },
                 variants: [
                   {
                     label: 'Touch',
                     title: 'Touch AC',
-                    target: 'derived:touchAc',
+                    target: { kind: 'derived', statistic: 'touchAc' },
                     statistic: statistics.touchAc,
                   },
                   {
                     label: 'Flat-footed',
                     title: 'Flat-footed AC',
-                    target: 'derived:flatFootedAc',
+                    target: { kind: 'derived', statistic: 'flatFootedAc' },
                     statistic: statistics.flatFootedAc,
                   },
                 ],
@@ -52,7 +52,7 @@ export function DefensesBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'Fortitude',
                   title: 'Fortitude save',
-                  target: 'derived:fortitude',
+                  target: { kind: 'derived', statistic: 'fortitude' },
                   statistic: statistics.fortitude,
                   isSigned: true,
                 },
@@ -61,7 +61,7 @@ export function DefensesBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'Reflex',
                   title: 'Reflex save',
-                  target: 'derived:reflex',
+                  target: { kind: 'derived', statistic: 'reflex' },
                   statistic: statistics.reflex,
                   isSigned: true,
                 },
@@ -70,7 +70,7 @@ export function DefensesBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'Will',
                   title: 'Will save',
-                  target: 'derived:will',
+                  target: { kind: 'derived', statistic: 'will' },
                   statistic: statistics.will,
                   isSigned: true,
                 },
@@ -84,14 +84,14 @@ export function DefensesBlock({ statistics }: { statistics: Derived }) {
                 figure: {
                   label: 'CMD',
                   title: 'Combat Maneuver Defense',
-                  target: 'derived:cmd',
+                  target: { kind: 'derived', statistic: 'cmd' },
                   statistic: statistics.cmd,
                 },
                 variants: [
                   {
                     label: 'Flat-footed',
                     title: 'Flat-footed CMD',
-                    target: 'derived:flatFootedCmd',
+                    target: { kind: 'derived', statistic: 'flatFootedCmd' },
                     statistic: statistics.flatFootedCmd,
                   },
                 ],

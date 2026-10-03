@@ -19,6 +19,7 @@ import {
   modifierTargets,
 } from '../src/lib/character-sheet';
 import { conditionKeys } from '../src/lib/character-sheet-conditions';
+import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
 export const spellValidator = v.object({
   name: v.string(),
   spellLevel: v.string(),
@@ -289,6 +290,7 @@ export const sheetEntryDetailValidator = v.union(
 export const abilityValidator = v.union(
   ...abilityKeys.map((ability) => v.literal(ability)),
 );
+export const castingValidator = zodOutputToConvex(classCastingSchema);
 export const abilityChangeKindValidator = v.union(
   v.literal('abilityDamage'),
   v.literal('abilityDrain'),
@@ -358,6 +360,7 @@ export const catalogEntryValidator = v.union(
         will: v.union(v.literal('good'), v.literal('poor')),
       }),
       skillRanksPerLevel: v.number(),
+      casting: v.optional(castingValidator),
       classSkills: v.array(v.string()),
       featuresByLevel: v.array(
         v.object({

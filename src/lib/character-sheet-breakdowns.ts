@@ -6,6 +6,7 @@ import {
   modifierTargets,
   type LeafTarget,
   type ResolvedStatistic,
+  type calculateCharacterSheet,
 } from './character-sheet';
 
 const sourcedModifierSchema = z.object({
@@ -39,4 +40,55 @@ export function parseCharacterSheetBreakdowns(
   breakdowns: unknown,
 ): Record<LeafTarget, ResolvedStatistic> {
   return breakdownsSchema.parse(breakdowns);
+}
+
+type CalculatedStatistics = Pick<
+  ReturnType<typeof calculateCharacterSheet>,
+  'breakdowns' | 'derivedStatistics' | 'spellcastings'
+>;
+type CastingStatistic =
+  | { kind: 'casterLevel' | 'concentration' }
+  | { kind: 'dc'; spellLevel: number; school?: string };
+
+export type CharacterSheetBreakdownTarget =
+  | LeafTarget
+  | {
+      kind: 'derived';
+      statistic: keyof CalculatedStatistics['derivedStatistics'];
+    }
+  | { kind: 'spellcasting'; classEntryId: string; statistic: CastingStatistic };
+
+export function spellcastingBreakdownTarget(
+  classEntryId: string,
+  statistic: CastingStatistic,
+): CharacterSheetBreakdownTarget {
+  return { kind: 'spellcasting', classEntryId, statistic };
+}
+
+/** Resolve the same class-local number for an ordinary sheet or Situation preview. */
+export function findCharacterSheetStatistic(
+  calculated: CalculatedStatistics,
+  target: CharacterSheetBreakdownTarget,
+): ResolvedStatistic | null {
+  if (typeof target === 'string') return calculated.breakdowns[target] ?? null;
+  if (target.kind === 'derived')
+    return calculated.derivedStatistics[target.statistic] ?? null;
+  const casting = calculated.spellcastings.find(
+    (candidate) => candidate.classEntryId === target.classEntryId,
+  );
+  if (!casting) return null;
+  const statistic = target.statistic;
+  if (statistic.kind !== 'dc')
+    return casting.unresolved.includes(statistic.kind)
+      ? null
+      : casting[statistic.kind];
+  const slot = casting.slots.find(
+    (candidate) => candidate.spellLevel === statistic.spellLevel,
+  );
+  if (!slot) return null;
+  const school = slot.schoolDCs.find(
+    (candidate) => candidate.school === statistic.school,
+  );
+  if (school) return school.unresolved ? null : school.breakdown;
+  return slot.dcUnresolved ? null : slot.dc;
 }

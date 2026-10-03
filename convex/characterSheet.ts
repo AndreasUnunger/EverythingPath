@@ -1,3 +1,4 @@
+import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
 import {
   maxCharacterChildRows,
   maxAcceptedWarnings,
@@ -106,6 +107,41 @@ const breakdownValidator = v.object({
   ),
   conditional: v.array(sourcedModifierValidator),
 });
+const spellcastingValidator = v.object({
+  classEntryId: v.string(),
+  ...zodOutputToConvex(
+    classCastingSchema.omit({
+      table: true,
+      casterLevelOffset: true,
+    }),
+  ).fields,
+  name: v.string(),
+  castingLevel: v.number(),
+  tableLevel: v.number(),
+  casterLevel: v.union(breakdownValidator, v.null()),
+  concentration: v.union(breakdownValidator, v.null()),
+  castableSpellLevels: v.array(v.number()),
+  slots: v.array(
+    v.object({
+      spellLevel: v.number(),
+      base: v.union(v.number(), v.null()),
+      bonus: v.number(),
+      total: v.union(v.number(), v.null()),
+      known: v.union(v.number(), v.null()),
+      prepared: v.union(v.number(), v.null()),
+      dc: breakdownValidator,
+      dcUnresolved: v.boolean(),
+      schoolDCs: v.array(
+        v.object({
+          school: v.string(),
+          breakdown: breakdownValidator,
+          unresolved: v.boolean(),
+        }),
+      ),
+    }),
+  ),
+  unresolved: v.array(v.string()),
+});
 // Stored state shapes flow directly into the read DTO; only resolver identity differs.
 const resolvedSheetEntryValidator = v.union(
   ...characterSheetEntryValidator.members.map((member) =>
@@ -141,6 +177,8 @@ const resolvedEntryValidator = v.object({
   ),
 });
 const calculatedValidator = v.object({
+  spellcastings: v.array(spellcastingValidator),
+  spellcastingUnresolved: v.array(v.string()),
   resolvedEntries: v.array(resolvedEntryValidator),
   warningsForAcceptance: v.array(
     zodOutputToConvex(characterSheetWarningSchema),

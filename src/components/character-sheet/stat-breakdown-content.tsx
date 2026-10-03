@@ -5,6 +5,10 @@ import {
   type SourcedModifier,
   type SuppressedModifier,
 } from '~/lib/character-sheet';
+import {
+  findCharacterSheetStatistic,
+  type CharacterSheetBreakdownTarget,
+} from '~/lib/character-sheet-breakdowns';
 import { cn } from '~/lib/utils';
 import {
   useBreakdownResolver,
@@ -13,6 +17,7 @@ import {
 import { bonusTypeClasses, bonusTypeLabels } from './modifier-labels';
 import { fieldLabel, formatModifier } from './sheet-parts';
 import {
+  describeCastingScope,
   describePrerequisite,
   diffSituation,
   findSuppressorName,
@@ -21,26 +26,9 @@ import {
   type SituationGroup,
 } from './stat-breakdown-groups';
 import { SituationMarker } from './situation-marker';
-import type { useCharacterSheet } from './use-character-sheet';
 
-type Controller = ReturnType<typeof useCharacterSheet>;
-type Calculated = NonNullable<Controller['sheet']>['calculated'];
-type DerivedKey = keyof Calculated['derivedStatistics'];
-/** A leaf breakdown, or a derived statistic composed from several. */
-export type BreakdownTarget =
-  | keyof Calculated['breakdowns']
-  | `derived:${DerivedKey}`;
-
-function findPreviewStatistic(
-  calculated: Pick<Calculated, 'breakdowns' | 'derivedStatistics'>,
-  target: BreakdownTarget,
-) {
-  if (target.startsWith('derived:'))
-    return calculated.derivedStatistics[
-      target.slice('derived:'.length) as DerivedKey
-    ];
-  return calculated.breakdowns[target as keyof Calculated['breakdowns']];
-}
+/** A leaf breakdown, a derived statistic, or one class's casting number. */
+export type BreakdownTarget = CharacterSheetBreakdownTarget;
 
 const contributionKey = (contribution: SourcedModifier, index: number) =>
   `${contribution.sheetEntryId}|${contribution.bonusType}|${contribution.value}|${index}`;
@@ -130,7 +118,9 @@ function SituationPreview({
   resolver: BreakdownResolver;
 }) {
   const preview = resolver.previewSituation(group.selection);
-  const inSituation = preview ? findPreviewStatistic(preview, target) : null;
+  const inSituation = preview
+    ? findCharacterSheetStatistic(preview, target)
+    : null;
   const change = inSituation
     ? diffSituation({ group, ordinary: statistic, inSituation })
     : null;
@@ -160,7 +150,7 @@ function SituationPreview({
               key={contributionKey(item, index)}
               contribution={item}
               className="text-muted-foreground/70"
-              detail={`${describePrerequisite(item, resolver.findPrerequisiteName)} — not now`}
+              detail={`${describePrerequisite(item, resolver.findPrerequisiteName, resolver.findCastingClassName)} — not now`}
             />
           ))}
         </ul>
@@ -192,7 +182,11 @@ export function BreakdownExplanation({
       ) : (
         <ul className="space-y-0.5">
           {statistic.applied.map((item, index) => (
-            <Line key={contributionKey(item, index)} contribution={item} />
+            <Line
+              key={contributionKey(item, index)}
+              contribution={item}
+              detail={describeCastingScope(item, resolver.findCastingClassName)}
+            />
           ))}
         </ul>
       )}
@@ -235,6 +229,7 @@ export function BreakdownExplanation({
                 detail={describePrerequisite(
                   item,
                   resolver.findPrerequisiteName,
+                  resolver.findCastingClassName,
                 )}
               />
             ))}

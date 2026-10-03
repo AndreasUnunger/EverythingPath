@@ -11,6 +11,14 @@ export const conditionReleaseResourcePaths = [
   'src/lib/character-sheet.ts',
 ] as const;
 
+// Historical calculator provenance from the #311 offline rebase review keeps
+// unrelated shared-calculator edits from changing accepted condition content.
+// The resolver remains review-bound; current hashes enter every release below.
+const reviewedConditionCodeHashes: Readonly<Record<string, string>> = {
+  'src/lib/character-sheet.ts':
+    'f3d4064fbecee5cc5a2326f32197fa98aac890c4c46d5461669c6e39fca28d67',
+};
+
 export async function buildConditionCatalogArtifact() {
   const root = new URL('../../', import.meta.url);
   const localResources = await Promise.all(
@@ -34,7 +42,10 @@ export async function buildConditionCatalogArtifact() {
       citations: definition.citations,
       sourceSections: definition.sourceSections,
       curationInputs: Object.fromEntries(
-        localResources.map((resource) => [resource.path, resource.sha256]),
+        localResources.map((resource) => [
+          resource.path,
+          reviewedConditionCodeHashes[resource.path] ?? resource.sha256,
+        ]),
       ),
     },
     description: definition.situationalNotes

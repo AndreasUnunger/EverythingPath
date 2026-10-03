@@ -215,7 +215,7 @@ _Avoid_: class variant, archetype
 A spell as a thing a caster can know, prepare or write in a spellbook, with its level for each class that casts it. It grants no Modifiers itself; what it does to a Character while running is a Spell Effect.
 
 **Spellcasting**:
-One casting class's casting on a Character, such as their wizard casting: its caster level, spells per day and the Spells recorded for it. A Character has one for each casting class they have levels in, and each is kept separate.
+One casting class's casting on a Character, such as their wizard casting: its casting level, caster level, spells per day, save DCs, concentration and the Spells recorded for it. A Character has one for each casting class they have levels in, and each is kept separate. Casting level selects its allowances from the class's casting table; caster level measures the power of its spells. Bonus spells use the permanent casting ability score, while save DCs and concentration use the current casting ability modifier.
 _Avoid_: spellbook (a wizard's spellbook is one kind of record), caster
 
 **Granted Spell**:
