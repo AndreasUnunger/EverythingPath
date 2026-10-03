@@ -1296,43 +1296,44 @@ test('level growth respects existing personal adjustments before Setup', async (
     organizationId: 'org',
     character: {
       campaignId,
-      name: 'At capacity',
+      name: 'Growing Character',
       kind: 'pc',
       ...stats,
       level: 1,
     },
   });
   const scope = { organizationId: 'org', characterId };
-  await owner.mutation(api.characterSheet.createPersonalAdjustment, {
+  const adjustmentId = await owner.mutation(
+    api.characterSheet.createPersonalAdjustment,
+    {
+      ...scope,
+      operationId: 'retained-adjustment',
+      name: 'Charisma reward',
+      modifiers: [{ target: 'ability.cha', bonusType: 'untyped', value: 2 }],
+    },
+  );
+  const before = await owner.query(api.characterSheet.read, scope);
+  await owner.mutation(api.character.updateCharacter, {
     ...scope,
-    operationId: 'retained-adjustment',
-    name: 'Notes',
-    modifiers: [],
+    patch: { level: 2 },
   });
-  await t.run(async (ctx) => {
-    for (let position = 2; position <= 4094; position++)
-      await ctx.db.insert('characterSheetEntry', {
-        characterId,
-        kind: 'classLevel',
-        active: true,
-        state: {
-          kind: 'classLevel',
-          classEntryId: null,
-          position,
-          hpGained: null,
-        },
-      });
+  const grown = await owner.query(api.characterSheet.read, scope);
+  expect(grown).toMatchObject({
+    character: { name: 'Growing Character' },
+    calculated: { level: 2, abilities: { charisma: { score: 19 } } },
   });
+  expect(grown?.entries).toHaveLength(4);
+  expect(grown?.entries.find((entry) => entry._id === adjustmentId)).toEqual(
+    before?.entries.find((entry) => entry._id === adjustmentId),
+  );
+  // Base scores and the adjustment make level 4095 exceed the real 4096-entry cap.
   await expect(
     owner.mutation(api.character.updateCharacter, {
       ...scope,
       patch: { level: 4095, name: 'Must not save' },
     }),
   ).rejects.toThrow('Character sheet is too large');
-  expect(await owner.query(api.characterSheet.read, scope)).toMatchObject({
-    character: { name: 'At capacity' },
-    calculated: { level: 4094 },
-  });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(grown);
 });
 
 test('combined ledger level and score edits account for ability increases removed with trailing rows', async () => {

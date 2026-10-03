@@ -11,6 +11,8 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
+import { AddAdjustment } from './summary-adjustments';
+import { adjustmentTargets } from './summary-adjustment-form';
 import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 import type { LocalFormGuard } from './use-summary-forms';
@@ -321,8 +323,22 @@ test('[rules.P85.adjustment-kinds-forms] every kind card opens its form and save
 });
 
 test('[rules.P85.adjustment-new-cancel] a new form is a local decision until Cancel, which sends nothing and returns focus to its card', async () => {
-  const { edit, register } = setup(summary([]));
-  fireEvent.click(screen.getByRole('button', { name: 'Militia value' }));
+  const edit = vi.fn().mockResolvedValue('accepted');
+  const guard = memoryGuard();
+  const register = guard.set;
+  render(
+    <AddAdjustment
+      targets={adjustmentTargets(base)}
+      latest={() => []}
+      edit={edit}
+      guard={guard}
+      disabled={false}
+      localForms={[]}
+      removedDrafts={[]}
+    />,
+  );
+  const card = screen.getByRole('button', { name: 'Militia value' });
+  fireEvent.click(card);
   await waitFor(() =>
     expect(
       Object.entries(registrations(register)).find(([id]) =>
@@ -343,13 +359,14 @@ test('[rules.P85.adjustment-new-cancel] a new form is a local decision until Can
   );
   // Malformed input stays exactly as typed.
   expect(form.getByRole('textbox', { name: 'Amount' })).toHaveValue('1.005');
+  expect(edit).not.toHaveBeenCalled();
   fireEvent.click(form.getByRole('button', { name: 'Cancel' }));
   await waitFor(() =>
     expect(
       screen.queryByRole('form', { name: 'New Militia value adjustment' }),
     ).not.toBeInTheDocument(),
   );
-  expect(screen.getByRole('button', { name: 'Militia value' })).toHaveFocus();
+  expect(card).toHaveFocus();
   expect(
     Object.values(registrations(register)).every((value) => value === null),
   ).toBe(true);
