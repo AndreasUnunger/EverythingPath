@@ -38,7 +38,10 @@ export type GrantSectionView = {
   dormantLabel: string;
 };
 
-type GrantSectionKind = Exclude<SheetEntry['kind'], 'base' | 'classLevel'>;
+type GrantSectionKind = Exclude<
+  SheetEntry['kind'],
+  'base' | 'classLevel' | 'attackRoutine'
+>;
 const sectionKinds: GrantSectionKind[] = [
   'race',
   'racialTrait',
@@ -97,7 +100,12 @@ export function buildCharacterSheetGrantsView(
   const rows = new Map<string, GrantEntryView>();
   for (const resolved of entries) {
     const { entry, reason } = resolved;
-    if (entry.kind === 'base' || entry.kind === 'classLevel') continue;
+    if (
+      entry.kind === 'base' ||
+      entry.kind === 'classLevel' ||
+      entry.kind === 'attackRoutine'
+    )
+      continue;
     const grantKey = 'grantKey' in entry ? entry.grantKey : undefined;
     const kept = 'kept' in entry && entry.kept === true;
     const gainedAtClassLevel =

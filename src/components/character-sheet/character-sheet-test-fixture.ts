@@ -13,6 +13,7 @@ import {
   type SheetWarning,
 } from '~/lib/character-sheet';
 import { representativeRaceCatalog } from '@convex/lib/representativeRaceCatalog';
+import { representativeWeaponCatalog } from '@convex/lib/representativeWeaponCatalog';
 import type {
   ManualProficiency,
   ProficiencyGrant,
@@ -83,6 +84,16 @@ export type CatalogSheetEntry = {
   itemState?: { enhancement?: number; masterwork?: boolean; material?: string };
 };
 export type Accepted = Pick<SheetWarning, 'check' | 'subject' | 'fingerprint'>;
+/** A recorded Attack Routine, naming the Gear entry it attacks with. */
+export type AttackRoutineFixture = {
+  id: string;
+  name: string;
+  weaponEntryId: string;
+  hands?: 'one' | 'two';
+  mode?: 'melee' | 'ranged' | 'thrown';
+  revision?: number;
+  deleted?: boolean;
+};
 export type RaceKey = (typeof representativeRaceCatalog)[number]['_id'];
 export type Race = {
   key: RaceKey;
@@ -114,6 +125,25 @@ function entryState(entry: CatalogSheetEntry) {
   return {
     kind: 'spellEffect',
     casterLevel: entry.casterLevel ?? entry.detail.defaultCasterLevel,
+  };
+}
+
+/** A representative Base Item weapon as a Gear entry (or catalog choice). */
+export function representativeWeapon(
+  ruleIdentity: (typeof representativeWeaponCatalog)[number]['ruleIdentity'],
+  id: string,
+  overrides: Partial<CatalogSheetEntry> = {},
+): CatalogSheetEntry {
+  const definition = representativeWeaponCatalog.find(
+    (entry) => entry.ruleIdentity === ruleIdentity,
+  );
+  if (!definition) throw new Error(`Missing ${ruleIdentity}`);
+  return {
+    id,
+    name: definition.name,
+    detail: structuredClone(definition.detail) as unknown as SheetEntryDetail,
+    modifiers: [],
+    ...overrides,
   };
 }
 
@@ -149,6 +179,8 @@ export function buildSheet({
   hasRaces = race !== undefined || racialTraits.length > 0,
   classProficiencies = {},
   manualProficiencies,
+  attackRoutines = [],
+  catalogOnly = [],
 }: {
   scores?: AbilityScores;
   levels?: Level[];
@@ -172,6 +204,9 @@ export function buildSheet({
     added: ManualProficiency[];
     removed: ManualProficiency[];
   };
+  attackRoutines?: AttackRoutineFixture[];
+  /** Definitions the Character can add but does not have yet. */
+  catalogOnly?: CatalogSheetEntry[];
 } = {}): CharacterSheetSnapshot {
   const campaignId = 'campaign-1' as Id<'campaign'>;
   const baseCatalog: CharacterSheetSnapshot['baseScoresEntry'] = {
@@ -247,7 +282,7 @@ export function buildSheet({
         modifiers: adjustment.modifiers,
       }) as unknown as CatalogEntry,
   );
-  const entryCatalogs = sheetEntries.map(
+  const entryCatalogs = [...sheetEntries, ...catalogOnly].map(
     (entry) =>
       ({
         _id: `${entry.id}-catalog` as Id<'catalogEntry'>,
@@ -384,6 +419,24 @@ export function buildSheet({
           active: entry.active ?? true,
           catalogEntryId: `${entry.id}-catalog` as Id<'catalogEntry'>,
           state: entryState(entry),
+        }) as Entry,
+    ),
+    ...attackRoutines.map(
+      (routine, index) =>
+        ({
+          _id: routine.id as Id<'characterSheetEntry'>,
+          _creationTime: 70 + index,
+          characterId,
+          kind: 'attackRoutine',
+          active: !routine.deleted,
+          state: {
+            kind: 'attackRoutine',
+            name: routine.name,
+            weaponEntryId: routine.weaponEntryId,
+            hands: routine.hands ?? 'one',
+            mode: routine.mode ?? 'melee',
+            revision: routine.revision ?? 0,
+          },
         }) as Entry,
     ),
   ];

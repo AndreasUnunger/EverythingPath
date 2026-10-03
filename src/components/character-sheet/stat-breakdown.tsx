@@ -1,5 +1,5 @@
 'use client';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import type { ResolvedStatistic } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
 import { SituationMarker } from './situation-marker';
@@ -23,6 +23,7 @@ export function StatBreakdown({
   incompleteReason = null,
   format = String,
   formatContribution,
+  lead,
   className,
 }: {
   label: string;
@@ -35,6 +36,8 @@ export function StatBreakdown({
   format?: (total: number) => string;
   /** How each line reads: "+2" by default, "35%" for spell failure. */
   formatContribution?: (value: number) => string;
+  /** What the total stands on before its contributions, such as damage dice. */
+  lead?: ReactNode;
   className?: string;
 }) {
   const popup = useStatBreakdownPopup();
@@ -85,6 +88,7 @@ export function StatBreakdown({
           statistic={statistic}
           target={target}
           formatContribution={formatContribution}
+          lead={lead}
           incompleteReason={incompleteReason}
           trigger={popup.trigger}
           onClose={popup.closeAndRefocus}

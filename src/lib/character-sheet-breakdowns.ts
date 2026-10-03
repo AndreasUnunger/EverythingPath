@@ -1,3 +1,4 @@
+import type { AttackStatistic } from './character-sheet-attacks';
 import { z } from 'zod';
 import {
   bonusTypes,
@@ -44,7 +45,7 @@ export function parseCharacterSheetBreakdowns(
 
 type CalculatedStatistics = Pick<
   ReturnType<typeof calculateCharacterSheet>,
-  'breakdowns' | 'derivedStatistics' | 'spellcastings'
+  'breakdowns' | 'derivedStatistics' | 'spellcastings' | 'attackRoutines'
 >;
 type CastingStatistic =
   | { kind: 'casterLevel' | 'concentration' }
@@ -52,6 +53,13 @@ type CastingStatistic =
 
 export type CharacterSheetBreakdownTarget =
   | LeafTarget
+  | {
+      kind: 'attackRoutine';
+      entryId: string;
+      sequence: 'single' | 'full';
+      attackIndex: number;
+      statistic: AttackStatistic;
+    }
   | {
       kind: 'derived';
       statistic: keyof CalculatedStatistics['derivedStatistics'];
@@ -73,6 +81,14 @@ export function findCharacterSheetStatistic(
   if (typeof target === 'string') return calculated.breakdowns[target] ?? null;
   if (target.kind === 'derived')
     return calculated.derivedStatistics[target.statistic] ?? null;
+  if (target.kind === 'attackRoutine') {
+    const routine = calculated.attackRoutines.find(
+      (entry) => entry.entryId === target.entryId,
+    );
+    return (
+      routine?.[target.sequence][target.attackIndex]?.[target.statistic] ?? null
+    );
+  }
   const casting = calculated.spellcastings.find(
     (candidate) => candidate.classEntryId === target.classEntryId,
   );

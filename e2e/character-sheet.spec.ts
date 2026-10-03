@@ -2,9 +2,11 @@ import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { z } from 'zod';
 import { campaignPath, characterSheetPath } from '../src/lib/campaign-routes';
+import { exerciseCharacterAttacks } from './support/character-attacks';
 import { controlSheetWrites } from './support/character-sheet-transport';
 import { test } from './support/fixtures';
 import { loadRun, savePrivate } from './support/process';
+import { refreshSessionToken } from './support/session-token';
 import {
   expectBottomBarPinned,
   expectControlsReachable,
@@ -118,6 +120,7 @@ async function expectSummaryPinned(page: Page) {
 
 test.use({ caseKey: 'characterSheet', viewport: tablet });
 test('two players edit one living sheet; failures stay local and rows keep their identity', async ({
+  browser,
   players,
   ownedCase,
 }, info) => {
@@ -483,5 +486,50 @@ test('two players edit one living sheet; failures stay local and rows keep their
     ).toHaveCount(1);
     await shot(a, 'phone-final');
     await a.setViewportSize(tablet);
+  });
+
+  await test.step('Attack Routines support keyboard and touch in both member sessions', async () => {
+    const worker = run.resources.workers.find(
+      ({ key }) => key === ownedCase.scope.workerKey,
+    );
+    if (!worker) throw new Error('Authenticated worker cohort is unavailable');
+    const touchA = await browser.newContext({
+      baseURL: run.baseURL,
+      viewport: tablet,
+      hasTouch: true,
+      storageState: await a.context().storageState(),
+    });
+    try {
+      const touchB = await browser.newContext({
+        baseURL: run.baseURL,
+        viewport: tablet,
+        hasTouch: true,
+        storageState: await b.context().storageState(),
+      });
+      try {
+        await Promise.all([
+          refreshSessionToken(touchA, {
+            resources: run.resources,
+            baseURL: run.baseURL,
+            userId: worker.gm.userId,
+          }),
+          refreshSessionToken(touchB, {
+            resources: run.resources,
+            baseURL: run.baseURL,
+            userId: worker.player.userId,
+          }),
+        ]);
+        const [pageA, pageB] = await Promise.all([
+          touchA.newPage(),
+          touchB.newPage(),
+        ]);
+        await Promise.all([pageA.goto(a.url()), pageB.goto(b.url())]);
+        await exerciseCharacterAttacks({ a: pageA, b: pageB, shot });
+      } finally {
+        await touchB.close();
+      }
+    } finally {
+      await touchA.close();
+    }
   });
 });

@@ -374,13 +374,29 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(117);
+    expect(sheet?.catalogEntries).toHaveLength(126);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'base'),
     ).toEqual([sheet?.baseScoresEntry]);
+    expect(
+      sheet?.catalogEntries
+        .filter((entry) => entry.detail.kind === 'item' && entry.detail.weapon)
+        .map((entry) => entry.name)
+        .sort(),
+    ).toEqual([
+      'Bastard sword',
+      'Composite longbow (+2 Strength)',
+      'Dagger',
+      'Greatsword',
+      'Light crossbow',
+      'Longbow',
+      'Longsword',
+      'Sling',
+      'Spear',
+    ]);
     expect(
       sheet?.catalogEntries
         .filter((entry) => entry.detail.kind === 'class')
@@ -525,7 +541,7 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
-    expect(sheet?.catalogEntries).toHaveLength(117);
+    expect(sheet?.catalogEntries).toHaveLength(126);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -544,7 +560,7 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 119, acceptedWarnings: 0 });
+    ).toEqual({ entries: 2, catalogEntries: 128, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

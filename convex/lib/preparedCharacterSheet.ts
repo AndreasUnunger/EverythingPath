@@ -177,6 +177,14 @@ export async function readCharacterSheetData(
   for (const classId of base?.state.favoredClassIds ?? [])
     readClassDefinition(classId);
   for (const entry of entries) {
+    if (entry.kind === 'attackRoutine') {
+      const weapon =
+        entries.find((row) => row._id === entry.state.weaponEntryId) ??
+        (await ctx.db.get('characterSheetEntry', entry.state.weaponEntryId));
+      if (weapon && weapon.characterId !== character._id)
+        throw new ConvexError('Weapon does not belong to this Character');
+      continue;
+    }
     if (
       entry.kind === 'base' ||
       entry.kind === 'abilityDamage' ||

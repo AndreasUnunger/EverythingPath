@@ -16,6 +16,7 @@ import {
   type ResolvedProficiencies,
   type ManualProficiency,
 } from './character-sheet-proficiencies';
+import type { AttackRoutineState } from './character-sheet-attacks';
 
 type ItemDetail = Extract<SheetCatalogEntryDetail, { kind: 'item' }>;
 type ItemState = Extract<SheetEntry, { kind: 'item' }>['state'];
@@ -198,11 +199,13 @@ export function resolveWeaponProficiencies(
   equipment: ReturnType<typeof resolveEquipment>,
   uses: readonly {
     entryId: string;
-    hands: 'one' | 'two';
+    routineEntryId?: string;
+    hands: AttackRoutineState['hands'];
     attack?: 'melee' | 'ranged';
   }[] = [],
 ) {
   const warnings: SheetWarning[] = [];
+  const routineWarningFingerprints = new Map<string, string>();
   const weapons = uses.flatMap((use) => {
     const entry = input.entries.find((row) => row._id === use.entryId);
     if (entry?.kind !== 'item' || !entry.active) return [];
@@ -250,8 +253,8 @@ export function resolveWeaponProficiencies(
       !proficient &&
       use.hands === 'one' &&
       isHandDependentWeapon(weapon.baseType)
-    )
-      warnings.push({
+    ) {
+      const warning: SheetWarning = {
         kind: 'rules',
         check: 'oneHandedExotic',
         subject: entry._id,
@@ -263,7 +266,11 @@ export function resolveWeaponProficiencies(
           relevantNames(proficiencies.removed, { removals: true }),
         ]),
         message: `${name} needs its named proficiency to be used in one hand. Not proficient: −4 on attacks.`,
-      });
+      };
+      if (use.routineEntryId)
+        routineWarningFingerprints.set(use.routineEntryId, warning.fingerprint);
+      else warnings.push(warning);
+    }
     return [
       {
         entryId: entry._id,
@@ -305,5 +312,5 @@ export function resolveWeaponProficiencies(
       },
     ];
   });
-  return { weapons, warnings };
+  return { weapons, warnings, routineWarningFingerprints };
 }

@@ -350,6 +350,34 @@ export const sheetEntryDetailValidator = v.union(
           v.literal('always'),
         ),
         groups: v.optional(v.array(v.string())),
+        handedness: v.optional(
+          v.union(
+            v.literal('light'),
+            v.literal('oneHanded'),
+            v.literal('twoHanded'),
+          ),
+        ),
+        attackType: v.optional(
+          v.union(v.literal('melee'), v.literal('ranged')),
+        ),
+        dice: v.optional(v.string()),
+        damageTypes: v.optional(v.array(v.string())),
+        threat: v.optional(v.number()),
+        mult: v.optional(v.number()),
+        thrown: v.optional(v.boolean()),
+        rangeIncrement: v.optional(v.number()),
+        thrownRangeIncrement: v.optional(v.number()),
+        strengthDamage: v.optional(
+          v.union(
+            v.literal('melee'),
+            v.literal('thrown'),
+            v.literal('bow'),
+            v.literal('compositeBow'),
+            v.literal('crossbow'),
+            v.literal('sling'),
+          ),
+        ),
+        strengthRating: v.optional(v.number()),
       }),
     ),
     armor: v.optional(
@@ -519,7 +547,29 @@ export const favoredClassBonusValidator = v.union(
   v.object({ choice: v.literal('skill') }),
   v.object({ choice: v.literal('alt'), note: v.string() }),
 );
+export const attackRoutineHandsValidator = v.union(
+  v.literal('one'),
+  v.literal('two'),
+);
+export const attackRoutineModeValidator = v.union(
+  v.literal('melee'),
+  v.literal('ranged'),
+  v.literal('thrown'),
+);
 export const characterSheetEntryValidator = v.union(
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('attackRoutine'),
+    active: v.boolean(),
+    state: v.object({
+      kind: v.literal('attackRoutine'),
+      name: v.string(),
+      weaponEntryId: v.id('characterSheetEntry'),
+      hands: attackRoutineHandsValidator,
+      mode: attackRoutineModeValidator,
+      revision: v.optional(v.number()),
+    }),
+  }),
   v.object({
     characterId: v.id('character'),
     kind: v.literal('race'),
@@ -987,10 +1037,9 @@ export default defineSchema({
     acceptedBy: v.string(),
     acceptedAt: v.number(),
   }).index('by_characterId', ['characterId']),
-  characterSheetEntry: defineTable(characterSheetEntryValidator).index(
-    'by_characterId',
-    ['characterId'],
-  ),
+  characterSheetEntry: defineTable(characterSheetEntryValidator)
+    .index('by_characterId', ['characterId'])
+    .index('by_characterId_and_kind_and_active', ['characterId', 'kind', 'active']),
   character: defineTable(characterValidator)
     .index('by_campaignId', ['campaignId'])
     .index('by_ownerId', ['ownerId']),

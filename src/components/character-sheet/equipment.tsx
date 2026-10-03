@@ -1,18 +1,22 @@
 'use client';
-import { useId } from 'react';
+import { Plus } from 'lucide-react';
+import { useId, useState } from 'react';
 import {
   MaintenanceReason,
   MaintenanceReasonScope,
 } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
+import { Button } from '~/components/ui/button';
+import { cn } from '~/lib/utils';
 import { EquipmentRow } from './equipment-row';
 import { listEquipmentWarnings } from './equipment-statistics';
 import { EquipmentSummary } from './equipment-summary';
-import { Block, RemoteNotice } from './sheet-parts';
+import { action, Block, RemoteNotice } from './sheet-parts';
 import type {
   SheetWarningView,
   useCharacterSheet,
 } from './use-character-sheet';
+import { WeaponCatalogChoices } from './weapon-catalog-choices';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 
@@ -21,21 +25,46 @@ type Controller = ReturnType<typeof useCharacterSheet>;
  * the Character, equipped or not, with what the equipped ones add up to.
  * AC and its variants stay in Defenses, which already include them; the
  * skill totals already include the armor check penalty. Items are added and
- * removed as Sheet entries; their gear state is edited here.
+ * removed as Sheet entries; their gear state is edited here. Weapons are
+ * added here too, each with its default attack routine under Attacks.
  */
 export function Equipment({
   equipment,
+  attacks,
   warnings,
   warningController,
 }: {
   equipment: Controller['equipment'];
+  attacks?: Controller['attacks'];
   warnings: SheetWarningView[];
   warningController: Controller['warnings'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useId();
+  const weaponPickerId = useId();
+  const [isAddingWeapon, setIsAddingWeapon] = useState(false);
+  const canAddWeapon = (attacks?.weaponCatalog.length ?? 0) > 0;
   return (
-    <Block title="Equipment">
+    <Block
+      title="Equipment"
+      aside={
+        attacks ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(action, 'h-auto gap-1 rounded-none px-2 text-xs')}
+            aria-expanded={isAddingWeapon}
+            aria-controls={isAddingWeapon ? weaponPickerId : undefined}
+            disabled={!canAddWeapon}
+            onClick={() => setIsAddingWeapon(!isAddingWeapon)}
+          >
+            <Plus aria-hidden className="size-3" />
+            Add weapon
+          </Button>
+        ) : null
+      }
+    >
       <MaintenanceReasonScope id={reasonId}>
         <div className="space-y-2">
           <RemoteNotice
@@ -44,6 +73,9 @@ export function Equipment({
             subject="equipment"
             onDismiss={equipment.dismissRemoteChange}
           />
+          {attacks && isAddingWeapon ? (
+            <WeaponCatalogChoices id={weaponPickerId} attacks={attacks} />
+          ) : null}
           {equipment.totals ? (
             <EquipmentSummary totals={equipment.totals} />
           ) : null}

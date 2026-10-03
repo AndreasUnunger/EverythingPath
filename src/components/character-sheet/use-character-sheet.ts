@@ -1,6 +1,7 @@
 'use client';
 
 import { useCharacterSheetEquipment } from './use-character-sheet-equipment';
+import { useCharacterSheetAttacks } from './use-character-sheet-attacks';
 
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
@@ -67,6 +68,7 @@ export function useCharacterSheet(
   );
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
   const equipmentWrites = useCharacterSheetEquipment(scope, snapshot);
+  const attacks = useCharacterSheetAttacks(scope, snapshot);
   const grants = useCharacterSheetGrants(scope, snapshot);
   const spells = useCharacterSheetSpells(scope, snapshot);
   const companions = useCharacterCompanions(scope, snapshot, origin);
@@ -233,6 +235,7 @@ export function useCharacterSheet(
   return {
     ...entryWrites,
     ...equipmentWrites,
+    attacks,
     grants,
     spells,
     companions,

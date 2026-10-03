@@ -1,4 +1,5 @@
 import { AbilityChanges } from './ability-changes';
+import { AttackRoutines } from './attack-routines';
 import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { CharacterSheetCatalog } from './character-sheet-catalog';
@@ -45,7 +46,8 @@ type SheetBlock =
   | 'proficiencies'
   | 'archetypes'
   | 'grants'
-  | 'catalog';
+  | 'catalog'
+  | 'attacks';
 
 const scope = { organizationId: 'org', characterId };
 
@@ -116,6 +118,16 @@ function SheetBlocks({
               <Equipment
                 key={block}
                 equipment={controller.equipment}
+                attacks={controller.attacks}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
+            );
+          case 'attacks':
+            return (
+              <AttackRoutines
+                key={block}
+                attacks={controller.attacks}
                 warnings={sheet.warnings}
                 warningController={controller.warnings}
               />

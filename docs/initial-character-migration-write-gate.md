@@ -80,7 +80,7 @@ General writers reject statically identifiable `insert`, `patch`, `delete` or `r
 
 The Write Epoch exemptions are the reviewed identity webhook builder and `retireClosedDraft`'s inline transactional gate described above. The only exemptions from a Write Gate builder are that explicitly reviewed retirement handler, the completed-deletion catalog housekeeping handler, the two authoritative gate controls, read-only fixture inspection, pure webhook signature verification and the HTTP webhook adapter whose actual writes delegate to gated user mutations. Read-only exemptions reject obvious database writes or scheduling. Imported helper side effects, dynamic dispatch or table names, other inferred ID types, changes inside the two gate-owner modules and changes to the retirement handler still require code review plus integration tests; this static check is not a proof of arbitrary interprocedural behavior. Adding a writer requires its gate and a reviewed inventory update even if it uses a recognized wrapper.
 
-The inventory contains 126 registrations, including the race, equipment, proficiency and Companion Relationship writers, both Archetype writers, all five Catalog Copy writers and the four Spell collection registrations. Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membership webhooks, fixture reset/seed/cleanup, accepted-campaign setup, corrections, confirmations and scheduled draft retirement appear individually below. Ownership and campaign references are frozen through Character, membership, Setup and correction writers; there are no separate ungated ownership endpoints. Historical rewrite is not yet a registered writer in this release and must enter this inventory when implemented.
+The inventory contains 130 registrations, including the race, equipment, proficiency and Companion Relationship writers, both Archetype writers, all five Catalog Copy writers, the four Spell collection registrations and the four Attack Routine writers. Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membership webhooks, fixture reset/seed/cleanup, accepted-campaign setup, corrections, confirmations and scheduled draft retirement appear individually below. Ownership and campaign references are frozen through Character, membership, Setup and correction writers; there are no separate ungated ownership endpoints. Historical rewrite is not yet a registered writer in this release and must enter this inventory when implemented.
 
 <!-- prettier-ignore -->
 | Registered writer | Class | Gate or reviewed exception |
@@ -123,12 +123,15 @@ The inventory contains 126 registrations, including the race, equipment, profici
 | `convex/characterSheet.ts:chooseRacialAbilityScore` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:create` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:createAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:createAttackRoutine` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:createPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:createSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:deleteAttackRoutine` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:deleteClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:deletePrivate` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:discardDormantEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editAttackRoutine` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editBaseScores` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editCreationSettings` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
@@ -143,6 +146,7 @@ The inventory contains 126 registrations, including the race, equipment, profici
 | `convex/characterSheet.ts:removePersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:removeSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:reopenWarning` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:restoreAttackRoutine` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:selectEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:selectRace` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:setArchetypePartChoices` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |

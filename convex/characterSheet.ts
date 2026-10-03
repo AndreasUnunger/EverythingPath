@@ -1,4 +1,5 @@
 import { findArchetypeSelection } from '../src/lib/character-sheet-archetype-helpers';
+import { defaultAttackRoutineConfiguration } from '../src/lib/character-sheet-attacks';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
 import {
   manualProficiencySchema,
@@ -67,6 +68,8 @@ import schema, {
   racialProgressionValidator,
   archetypeReplacementValidator,
   archetypeFeatureChangeValidator,
+  attackRoutineHandsValidator,
+  attackRoutineModeValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -78,6 +81,7 @@ import {
   readCharacterOwners,
 } from './lib/characterOwnership';
 import {
+  requireCharacterAccess,
   requireCharacterCampaignAccess,
   type CharacterScope,
 } from './lib/characterAccess';
@@ -252,6 +256,25 @@ const collectionSpellValidator = v.object({
   explicitLevel: v.union(v.number(), v.null()),
   offList: v.boolean(),
 });
+function attackLineValidator() {
+  return v.object({
+    weaponEntryId: v.string(),
+    weaponName: v.string(),
+    mode: attackRoutineModeValidator,
+    damageDice: v.string(),
+    damageType: v.string(),
+    damageDiceSource: v.object({
+      sheetEntryId: v.string(),
+      entryName: v.string(),
+      source: v.string(),
+    }),
+    attackBonus: breakdownValidator,
+    damageBonus: breakdownValidator,
+    criticalThreat: breakdownValidator,
+    criticalMultiplier: breakdownValidator,
+    rangeIncrement: v.union(breakdownValidator, v.null()),
+  });
+}
 const calculatedValidator = v.object({
   spellCollections: v.object({
     collections: v.array(
@@ -283,6 +306,18 @@ const calculatedValidator = v.object({
     ),
     spellsWithoutSpellcasting: v.array(collectionSpellValidator),
   }),
+  attackRoutines: v.array(
+    v.object({
+      entryId: v.string(),
+      name: v.string(),
+      weaponEntryId: v.string(),
+      hands: attackRoutineHandsValidator,
+      mode: attackRoutineModeValidator,
+      single: v.array(attackLineValidator()),
+      full: v.array(attackLineValidator()),
+      warnings: v.array(zodOutputToConvex(characterSheetWarningSchema)),
+    }),
+  ),
   spellcastings: v.array(spellcastingValidator),
   spellcastingUnresolved: v.array(v.string()),
   racial: v.object({
@@ -425,7 +460,7 @@ const calculatedValidator = v.object({
     v.object({
       entryId: v.string(),
       name: v.string(),
-      hands: v.union(v.literal('one'), v.literal('two')),
+      hands: attackRoutineHandsValidator,
       proficient: v.boolean(),
       attackPenalty: v.number(),
       armorNonproficiencyPenalty: v.number(),
@@ -587,6 +622,225 @@ async function loadWritableSheet(ctx: MutationCtx, args: CharacterScope) {
   if (!sheet) throw new ConvexError('Character has no sheet');
   return sheet;
 }
+async function purgeRemovedAttackRoutines(
+  ctx: MutationCtx,
+  characterId: Id<'character'>,
+  keepEntryId?: Id<'characterSheetEntry'>,
+) {
+  const removed = ctx.db
+    .query('characterSheetEntry')
+    .withIndex('by_characterId_and_kind_and_active', (q) =>
+      q
+        .eq('characterId', characterId)
+        .eq('kind', 'attackRoutine')
+        .eq('active', false),
+    )
+    .order('desc');
+  const purgedIds = new Set<string>();
+  let retainedId = keepEntryId;
+  for await (const entry of removed) {
+    retainedId ??= entry._id;
+    if (entry._id === retainedId) continue;
+    await ctx.db.delete('characterSheetEntry', entry._id);
+    purgedIds.add(entry._id);
+  }
+  if (purgedIds.size) {
+    const acceptances = await ctx.db
+      .query('acceptedWarning')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .take(maxAcceptedWarnings + 1);
+    for (const accepted of acceptances)
+      if (purgedIds.has(accepted.subject.split(':')[0] ?? ''))
+        await ctx.db.delete('acceptedWarning', accepted._id);
+  }
+  return purgedIds;
+}
+async function loadWritableRoutineSheet(
+  ctx: MutationCtx,
+  args: CharacterScope,
+) {
+  // Retire earlier Undo rows before the sheet-size guard can strand old removals.
+  const access = await requireCharacterAccess(ctx, args);
+  await purgeRemovedAttackRoutines(ctx, access.character._id);
+  return await loadWritableSheet(ctx, args);
+}
+async function insertAttackRoutine(
+  ctx: MutationCtx,
+  sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
+  state: {
+    name: string;
+    weaponEntryId: Id<'characterSheetEntry'>;
+    hands: Infer<typeof attackRoutineHandsValidator>;
+    mode: Infer<typeof attackRoutineModeValidator>;
+  },
+) {
+  if (sheet.entries.length >= maxCharacterChildRows)
+    throw new ConvexError('Character sheet is too large');
+  const entryId = await ctx.db.insert('characterSheetEntry', {
+    characterId: sheet.character._id,
+    kind: 'attackRoutine',
+    active: true,
+    state: { kind: 'attackRoutine', ...state, revision: 0 },
+  });
+  const entry = await ctx.db.get('characterSheetEntry', entryId);
+  if (!entry) throw new ConvexError('Attack Routine is unavailable');
+  sheet.entries.push(entry);
+  return entryId;
+}
+const attackRoutineFields = {
+  name: v.optional(v.string()),
+  hands: v.optional(attackRoutineHandsValidator),
+  mode: v.optional(attackRoutineModeValidator),
+};
+function requireRoutineName(name: string) {
+  if (!name.trim()) throw new ConvexError('Attack Routine name is required');
+  if (name.trim().length > 256)
+    throw new ConvexError('Attack Routine name is too long');
+  return name.trim();
+}
+function getRoutineWeapon(
+  sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
+  weaponEntryId: Id<'characterSheetEntry'>,
+) {
+  const weapon = sheet.entries.find((row) => row._id === weaponEntryId);
+  const definition =
+    weapon?.kind === 'item'
+      ? sheet.catalogEntries.find((row) => row._id === weapon.catalogEntryId)
+      : undefined;
+  if (definition?.detail.kind !== 'item' || !definition.detail.weapon)
+    throw new ConvexError('Weapon does not belong to this Character');
+  return { name: definition.name, detail: definition.detail.weapon };
+}
+function getAttackRoutine(
+  sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
+  entryId: Id<'characterSheetEntry'>,
+) {
+  const entry = sheet.entries.find((row) => row._id === entryId);
+  if (entry?.kind !== 'attackRoutine')
+    throw new ConvexError('Attack Routine does not belong to this Character');
+  return entry;
+}
+export const createAttackRoutine = campaignMutation({
+  args: {
+    ...writeScope,
+    ...attackRoutineFields,
+    weaponEntryId: v.id('characterSheetEntry'),
+  },
+  returns: v.id('characterSheetEntry'),
+  async handler(ctx, args) {
+    const sheet = await loadWritableRoutineSheet(ctx, args);
+    const weapon = getRoutineWeapon(sheet, args.weaponEntryId);
+    const entryId = await insertAttackRoutine(ctx, sheet, {
+      name: requireRoutineName(args.name ?? weapon.name),
+      weaponEntryId: args.weaponEntryId,
+      ...defaultAttackRoutineConfiguration(weapon.detail),
+      ...(args.hands !== undefined ? { hands: args.hands } : {}),
+      ...(args.mode !== undefined ? { mode: args.mode } : {}),
+    });
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return entryId;
+  },
+});
+export const editAttackRoutine = campaignMutation({
+  args: {
+    ...rowScope,
+    ...attackRoutineFields,
+    weaponEntryId: v.optional(v.id('characterSheetEntry')),
+  },
+  returns: v.number(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableRoutineSheet(ctx, args);
+    const entry = getAttackRoutine(sheet, args.entryId);
+    if (!entry.active) throw new ConvexError('Attack Routine was deleted');
+    const replacement =
+      args.weaponEntryId !== undefined &&
+      args.weaponEntryId !== entry.state.weaponEntryId
+        ? getRoutineWeapon(sheet, args.weaponEntryId)
+        : undefined;
+    const state = {
+      ...entry.state,
+      ...(replacement
+        ? defaultAttackRoutineConfiguration(replacement.detail)
+        : {}),
+      ...(args.name !== undefined
+        ? { name: requireRoutineName(args.name) }
+        : {}),
+      ...(args.hands !== undefined ? { hands: args.hands } : {}),
+      ...(args.mode !== undefined ? { mode: args.mode } : {}),
+      ...(args.weaponEntryId !== undefined
+        ? { weaponEntryId: args.weaponEntryId }
+        : {}),
+    };
+    if (compareValues(state, entry.state) === 0)
+      return entry.state.revision ?? 0;
+    state.revision = (entry.state.revision ?? 0) + 1;
+    await ctx.db.patch('characterSheetEntry', entry._id, { state });
+    sheet.entries = sheet.entries.map((row) =>
+      row._id === entry._id ? { ...entry, state } : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return state.revision;
+  },
+});
+export const deleteAttackRoutine = campaignMutation({
+  args: rowScope,
+  returns: v.number(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableRoutineSheet(ctx, args);
+    const entry = getAttackRoutine(sheet, args.entryId);
+    if (!entry.active) return entry.state.revision ?? 0;
+    const purgedIds = await purgeRemovedAttackRoutines(
+      ctx,
+      sheet.character._id,
+      entry._id,
+    );
+    sheet.entries = sheet.entries.filter((row) => !purgedIds.has(row._id));
+    const state = {
+      ...entry.state,
+      revision: (entry.state.revision ?? 0) + 1,
+    };
+    await ctx.db.patch('characterSheetEntry', entry._id, {
+      active: false,
+      state,
+    });
+    sheet.entries = sheet.entries.map((row) =>
+      row._id === entry._id ? { ...entry, active: false, state } : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return state.revision;
+  },
+});
+export const restoreAttackRoutine = campaignMutation({
+  args: rowScope,
+  returns: v.number(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableRoutineSheet(ctx, args);
+    const entry = getAttackRoutine(sheet, args.entryId);
+    if (entry.active) return entry.state.revision ?? 0;
+    const state = { ...entry.state, revision: (entry.state.revision ?? 0) + 1 };
+    await ctx.db.patch('characterSheetEntry', entry._id, {
+      active: true,
+      state,
+    });
+    sheet.entries = sheet.entries.map((row) =>
+      row._id === entry._id ? { ...entry, active: true, state } : row,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return state.revision;
+  },
+});
 function getClassLevel(
   sheet: NonNullable<Awaited<ReturnType<typeof loadCharacterSheet>>>,
   entryId: Id<'characterSheetEntry'>,
@@ -1407,6 +1661,23 @@ export function validateSheetEntryDetail(
     for (const level of Object.values(detail.levels))
       requireNonnegativeInteger(level, 'Spell level');
   }
+  if (detail.kind === 'item' && detail.weapon) {
+    if (!detail.weapon.baseType.trim())
+      throw new ConvexError('Weapon name is required');
+    for (const value of [
+      detail.weapon.threat,
+      detail.weapon.mult,
+      detail.weapon.rangeIncrement,
+      detail.weapon.thrownRangeIncrement,
+      detail.weapon.strengthRating,
+    ])
+      if (value !== undefined) requireFiniteNumber(value);
+    if (
+      detail.weapon.dice !== undefined &&
+      !/^[1-9]\d*d[1-9]\d*$/.test(detail.weapon.dice.trim())
+    )
+      throw new ConvexError('Enter weapon damage dice such as 1d8');
+  }
   if (detail.kind === 'item' && detail.armor) {
     requireFiniteNumber(detail.armor.armorCheckPenalty);
     if (detail.armor.armorCheckPenalty < 0)
@@ -1496,7 +1767,7 @@ export const createSheetEntry = campaignMutation({
   },
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
-    const sheet = await loadWritableSheet(ctx, args);
+    const sheet = await loadWritableRoutineSheet(ctx, args);
     const canonical = canonicalConditionFields({
       ...args,
       selectDefinition: true,
@@ -1556,6 +1827,12 @@ export const createSheetEntry = campaignMutation({
     sheet.entries.push(entry);
     sheet.catalogEntries.push(catalog);
     await reconcileSpellDefinition({ ctx, sheet, catalogEntryId: catalog._id });
+    if (detail.kind === 'item' && detail.weapon && !detail.armor)
+      await insertAttackRoutine(ctx, sheet, {
+        weaponEntryId: entryId,
+        name,
+        ...defaultAttackRoutineConfiguration(detail.weapon),
+      });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,
@@ -2102,7 +2379,7 @@ export const selectEntry = campaignMutation({
   },
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
-    const sheet = await loadWritableSheet(ctx, args);
+    const sheet = await loadWritableRoutineSheet(ctx, args);
     const definition = requireCatalogSheetDefinition(
       sheet,
       await resolvePreferredCatalogEntryId(ctx, sheet, args.catalogEntryId),
@@ -2154,6 +2431,18 @@ export const selectEntry = campaignMutation({
         ? { gainedAtClassLevel: args.gainedAtClassLevel }
         : {}),
     });
+    if (
+      definition.detail.kind === 'item' &&
+      definition.detail.weapon &&
+      !definition.detail.armor
+    )
+      await insertAttackRoutine(ctx, sheet, {
+        weaponEntryId: id,
+        name: requireRoutineName(
+          definition.name ?? definition.detail.weapon.baseType,
+        ),
+        ...defaultAttackRoutineConfiguration(definition.detail.weapon),
+      });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,

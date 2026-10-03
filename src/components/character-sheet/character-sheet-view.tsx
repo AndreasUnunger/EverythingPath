@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
 import { AbilityChanges } from './ability-changes';
+import { AttackRoutines } from './attack-routines';
 import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { BuildOutControl } from './build-out-control';
@@ -137,7 +138,7 @@ function CampaignRow({
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Race, Class Levels,
  * Archetypes and Ability scores with their damage and drain in the left five of the
- * sheet's twelve columns with Defenses, Equipment, Offense and
+ * sheet's twelve columns with Defenses, Equipment, Offense, Attacks and
  * Proficiencies, and the skills, personal adjustments, sheet entries,
  * granted and dormant entries, Companions, the catalog and the creation settings beside them,
  * then the Spellcasting section across the full width. Each calculation warning sits by its
@@ -259,10 +260,16 @@ export function CharacterSheetView({
               <DefensesBlock statistics={sheet.calculated.derivedStatistics} />
               <Equipment
                 equipment={controller.equipment}
+                attacks={controller.attacks}
                 warnings={sheet.warnings}
                 warningController={controller.warnings}
               />
               <OffenseBlock statistics={sheet.calculated.derivedStatistics} />
+              <AttackRoutines
+                attacks={controller.attacks}
+                warnings={sheet.warnings}
+                warningController={controller.warnings}
+              />
               <Proficiencies proficiencies={controller.proficiencies} />
               <AbilityChanges
                 rows={sheet.abilityChanges}

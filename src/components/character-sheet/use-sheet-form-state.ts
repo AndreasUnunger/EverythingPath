@@ -8,10 +8,12 @@ export function useSheetFormState<Values extends FieldValues>({
   incoming,
   resolver,
   draftPolicy,
+  isOwnChange = false,
 }: {
   incoming: Values;
   resolver: Resolver<Values>;
   draftPolicy: 'fields' | 'whole';
+  isOwnChange?: boolean;
 }) {
   const [source, setSource] = useState(incoming);
   const [baseline, setBaseline] = useState(incoming);
@@ -34,7 +36,7 @@ export function useSheetFormState<Values extends FieldValues>({
     setSource(incoming);
     setBaseline(incoming);
     if (expected.current === JSON.stringify(incoming)) expected.current = null;
-    else setHasRemoteChange(true);
+    else if (!isOwnChange) setHasRemoteChange(true);
     if (!isDirty) setPristineValues(incoming);
   }
   return {

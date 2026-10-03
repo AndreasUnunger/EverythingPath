@@ -159,11 +159,14 @@ test.each([
       operationId: 'entry',
     });
     const sheet = await owner.query(api.characterSheet.read, scope);
-    expect(sheet?.entries.find((entry) => entry._id === entryId)).toMatchObject(
-      { kind: detail.kind, active: true },
-    );
+    const recorded = sheet?.entries.find((entry) => entry._id === entryId);
+    expect(recorded).toMatchObject({ kind: detail.kind, active: true });
+    const catalogEntryId =
+      recorded && 'catalogEntryId' in recorded
+        ? recorded.catalogEntryId
+        : undefined;
     expect(
-      sheet?.catalogEntries.find((entry) => entry.detail.kind === detail.kind)
+      sheet?.catalogEntries.find((entry) => entry._id === catalogEntryId)
         ?.detail,
     ).toEqual(detail);
     expect(sheet?.calculated.abilities.strength.score).toBe(

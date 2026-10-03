@@ -517,8 +517,14 @@ test('schema-derived reads retain proficiency, armor, masterwork and enhancement
     sheet?.calculated.resolvedEntries.find(({ entry }) => entry._id === entryId)
       ?.entry.state,
   ).toEqual({ kind: 'item', masterwork: true, enhancement: 1 });
+  const recordedArmor = sheet?.entries.find((entry) => entry._id === entryId);
+  const armorCatalogEntryId =
+    recordedArmor && 'catalogEntryId' in recordedArmor
+      ? recordedArmor.catalogEntryId
+      : undefined;
   expect(
-    sheet?.catalogEntries.find((entry) => entry.detail.kind === 'item')?.detail,
+    sheet?.catalogEntries.find((entry) => entry._id === armorCatalogEntryId)
+      ?.detail,
   ).toMatchObject({ armor: { slot: 'armor', armorCheckPenalty: 5 } });
   expect(
     sheet?.calculated.skills.find((skill) => skill.key === 'skill.clm'),

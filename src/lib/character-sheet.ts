@@ -1,3 +1,8 @@
+import {
+  attackRoutineWeaponUses,
+  resolveAttackRoutines,
+  type AttackRoutineState,
+} from './character-sheet-attacks';
 import { resolveProficiencyPrerequisites } from './character-sheet-proficiency-prerequisites';
 import {
   resolveCharacterSheetArchetypes,
@@ -131,6 +136,13 @@ export const warningChecks = [
   'archetypeUnchainedMonk',
   'archetypeFeatureUpgrade',
   'archetypeSkillRanksConflict',
+  'missingAttackWeapon',
+  'inactiveAttackWeapon',
+  'unavailableAttackWeapon',
+  'invalidAttackWeapon',
+  'unsuitableAttackHands',
+  'unsuitableAttackMode',
+  'attackWeaponUnresolved',
 ] as const;
 export const characterSheetWarningSchema = z.object({
   kind: z.enum(['incomplete', 'unresolved', 'rules']),
@@ -367,6 +379,23 @@ export type SheetCatalogEntryDetail =
         baseType: string;
         proficiency: 'simple' | 'martial' | 'exotic' | 'always';
         groups?: readonly string[];
+        handedness?: 'light' | 'oneHanded' | 'twoHanded';
+        attackType?: 'melee' | 'ranged';
+        dice?: string;
+        damageTypes?: readonly string[];
+        threat?: number;
+        mult?: number;
+        thrown?: boolean;
+        rangeIncrement?: number;
+        thrownRangeIncrement?: number;
+        strengthDamage?:
+          | 'melee'
+          | 'thrown'
+          | 'bow'
+          | 'compositeBow'
+          | 'crossbow'
+          | 'sling';
+        strengthRating?: number;
       };
     }
   | CharacterSheetClassDetail
@@ -890,7 +919,7 @@ function calculateSheetProjection(
     effectiveInput,
     proficiencies,
     equipment,
-    options.weaponUses,
+    [...attackRoutineWeaponUses(effectiveInput), ...(options.weaponUses ?? [])],
   );
   const sourced = [
     ...sourceCatalogModifiers(effectiveInput, options),
@@ -992,6 +1021,15 @@ function calculateSheetProjection(
       spellcastings,
     });
   const abilities = calculateAbilities(breakdowns, abilityDamage);
+  const attackRoutines = resolveAttackRoutines({
+    input: effectiveInput,
+    recordedEntries: recordedInput.entries,
+    abilities,
+    breakdowns,
+    weaponProficiencies: weaponProficiencies.weapons,
+    routineWarningFingerprints: weaponProficiencies.routineWarningFingerprints,
+    options: dependentOptions,
+  });
   const skillProjection = resolveSkills({
     advancement,
     abilities,
@@ -1044,6 +1082,7 @@ function calculateSheetProjection(
     ...formulaWarnings,
     ...skillProjection.warnings,
     ...weaponProficiencies.warnings,
+    ...attackRoutines.flatMap((routine) => routine.warnings),
     ...proficiencyPrerequisites.warnings,
     ...grants.warnings,
     ...archetypes.warnings,
@@ -1086,6 +1125,7 @@ function calculateSheetProjection(
   }
   return {
     abilities,
+    attackRoutines,
     spellcastings,
     spellCollections,
     spellcastingUnresolved,
@@ -1614,7 +1654,7 @@ function resolveStatistic(modifiers: SourcedModifier[]): ResolvedStatistic {
   };
 }
 
-const specialSizeModifiers = {
+export const specialSizeModifiers = {
   fine: -8,
   diminutive: -4,
   tiny: -2,
@@ -1629,7 +1669,7 @@ export type ResolveOptions = {
   size?: CreatureSize;
   weaponUses?: readonly {
     entryId: string;
-    hands: 'one' | 'two';
+    hands: AttackRoutineState['hands'];
     attack?: 'melee' | 'ranged';
   }[];
   armorMaxDexterityBonus?: number;

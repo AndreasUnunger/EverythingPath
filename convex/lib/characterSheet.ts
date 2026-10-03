@@ -19,6 +19,7 @@ import {
   representativeArchetypeCatalog,
   materializeRepresentativeArchetypeCatalog,
 } from './representativeArchetypeCatalog';
+import { representativeWeaponCatalog } from './representativeWeaponCatalog';
 import {
   getCompanionSupportingEntryKeys,
   reconcileCompanionRelationships,
@@ -192,6 +193,22 @@ export async function initializeCharacterSheet(
         },
       },
     );
+  for (const definition of representativeWeaponCatalog)
+    await ctx.db.insert('catalogEntry', {
+      ...definition,
+      sources: definition.sources.map((source) => ({ ...source })),
+      modifiers: [...definition.modifiers],
+      detail: {
+        ...definition.detail,
+        weapon: {
+          ...definition.detail.weapon,
+          damageTypes: [...definition.detail.weapon.damageTypes],
+        },
+      },
+      characterId,
+      scope: 'character',
+      stacksWithItself: false,
+    });
   const raceCatalogIds = new Map<string, Id<'catalogEntry'>>();
   for (const definition of representativeRaceCatalog) {
     const id = await ctx.db.insert('catalogEntry', {
@@ -348,6 +365,7 @@ export async function pruneWarningAcceptancesAndRecordChange(
   })
     .allEntries.filter((row) => row.origin === 'grant')
     .map((row) => row.entry._id);
+  const removedAcceptanceIds = new Set<Id<'acceptedWarning'>>();
   for (const accepted of sheet.acceptedWarnings) {
     const stillApplies = calculated.warningsForAcceptance.some(
       (warning) =>
@@ -364,9 +382,14 @@ export async function pruneWarningAcceptancesAndRecordChange(
         (id) =>
           accepted.subject === id || accepted.subject.startsWith(`${id}:`),
       );
-    if (!stillApplies && !absentGrant)
+    if (!stillApplies && !absentGrant) {
       await ctx.db.delete('acceptedWarning', accepted._id);
+      removedAcceptanceIds.add(accepted._id);
+    }
   }
+  sheet.acceptedWarnings = sheet.acceptedWarnings.filter(
+    (accepted) => !removedAcceptanceIds.has(accepted._id),
+  );
   await ctx.db.patch('character', sheet.character._id, {
     sheetRevision: (sheet.character.sheetRevision ?? 0) + 1,
     sheetLastOperationId: operationId,
