@@ -15,10 +15,11 @@ import { join, resolve } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { runCapturedProcess } from '../../scripts/catalog/process';
 import { importCatalog } from '../../scripts/catalog/import';
+import { buildAssessmentBinding } from '../../scripts/catalog/admission';
 import {
-  buildAssessmentBinding,
-  computeFingerprint,
-} from '../../scripts/catalog/admission';
+  reviewedAdmissionSchema,
+  type Section15Registry,
+} from '../../src/lib/catalog/admission-schema';
 
 const script = resolve('scripts/catalog-preview.ts');
 const fixtures = resolve('tests/fixtures/catalog');
@@ -89,6 +90,7 @@ async function createAdmissionFixture() {
   await writeFile(attribution, JSON.stringify(reviewed));
   return {
     root,
+    artifact,
     reviewed,
     attribution,
     args: [
@@ -261,55 +263,151 @@ it('reports legal resource provenance and outstanding retained notices without f
   expect(admission.outstandingResources).toEqual([]);
 });
 
-it.each(['stale content', 'missing notice'])(
-  'exits nonzero and preserves inspectable output for an accepted assessment with %s',
-  async (problem) => {
-    const { root, args, attribution, reviewed } =
+const acceptedReviewGaps: { problem: string; reason: string }[] = [
+  {
+    problem: 'stale content',
+    reason:
+      'Accepted assessment no longer matches current content — re-review required.',
+  },
+  {
+    problem: 'stale mapping',
+    reason:
+      'Accepted assessment no longer matches current identity mapping — re-review required.',
+  },
+  {
+    problem: 'changed evidence',
+    reason: 'Attribution evidence requires re-review: comparison (changed).',
+  },
+  {
+    problem: 'absent evidence',
+    reason: 'Attribution evidence requires re-review: comparison (missing).',
+  },
+  {
+    problem: 'revoked evidence',
+    reason: 'Attribution evidence requires re-review: comparison (revoked).',
+  },
+  {
+    problem: 'changed notice',
+    reason: 'Notice bindings require re-review: FIXTURE (changed).',
+  },
+  {
+    problem: 'missing notice binding',
+    reason: 'Notice bindings require re-review: FIXTURE (missing).',
+  },
+  {
+    problem: 'missing notice',
+    reason: 'Missing or unreviewed required notices: FIXTURE.',
+  },
+  {
+    problem: 'unreviewed notice',
+    reason: 'Missing or unreviewed required notices: FIXTURE.',
+  },
+];
+
+it.each(
+  (['confirmed', 'reviewed-coverage'] as const).flatMap((status) =>
+    acceptedReviewGaps.map((gap) => ({ ...gap, status })),
+  ),
+)(
+  'succeeds with an individual hold for $status attribution with $problem',
+  async ({ status, problem, reason }) => {
+    const { root, args, attribution, reviewed, artifact } =
       await createAdmissionFixture();
-    const assessment = reviewed.assessments[0];
-    if (!assessment) throw new Error('Fixture assessment missing');
+    const entry = artifact.catalog.entries[0];
+    if (!entry) throw new Error('Fixture entry missing');
     const evidence = {
       comparison: { content: 'Synthetic comparison for CLI testing only.' },
     };
-    await writeFile(
-      attribution,
-      JSON.stringify({
-        ...reviewed,
-        evidence,
-        assessments: [
-          {
-            ...assessment,
-            status: 'confirmed',
-            contentFingerprint:
-              problem === 'stale content'
-                ? '0'.repeat(64)
-                : assessment.contentFingerprint,
-            evidenceFingerprints: {
-              comparison: computeFingerprint(evidence.comparison),
-            },
+    const registry = {
+      FIXTURE: {
+        title: 'Fixture book',
+        notice: 'Fixture copyright notice.',
+        reviewStatus: 'reviewed',
+        checkedAgainst: 'printed',
+        checkedOn: '2026-10-03',
+        provenance: ['Synthetic notice provenance for CLI testing only.'],
+        aliases: [],
+      },
+    } satisfies Section15Registry;
+    const accepted = reviewedAdmissionSchema.parse({
+      ...reviewed,
+      evidence,
+      registry,
+      assessments: [
+        {
+          ...reviewed.assessments[0],
+          status,
+          requiredNotices: ['FIXTURE'],
+          ...buildAssessmentBinding({
+            entry,
+            artifact,
+            evidence,
+            registry,
             requiredNotices: ['FIXTURE'],
-            noticeFingerprints: { FIXTURE: computeFingerprint(null) },
-          },
-        ],
-      }),
-    );
+            evidenceIds: ['comparison'],
+          }),
+        },
+      ],
+    });
+    await writeFile(attribution, JSON.stringify(accepted));
+    const baseline = join(root, 'accepted');
+    expect(runPreview({ args: [...args, '--out', baseline] }).status).toBe(0);
+    expect(
+      JSON.parse(await readFile(join(baseline, 'admission.json'), 'utf8')),
+    ).toMatchObject({
+      admitted: [{ externalKey: 'pf1/FixtureFeat' }],
+      held: [],
+      failures: [],
+    });
+    const assessment = accepted.assessments[0];
+    const comparison = accepted.evidence.comparison;
+    const notice = accepted.registry.FIXTURE;
+    if (!assessment || !comparison || !notice)
+      throw new Error('Accepted fixture review missing');
+    if (problem === 'stale content')
+      assessment.contentFingerprint = '0'.repeat(64);
+    else if (problem === 'stale mapping')
+      assessment.mappingFingerprint = '0'.repeat(64);
+    else if (problem === 'changed evidence')
+      comparison.content = 'Corrected fixture comparison.';
+    else if (problem === 'absent evidence') delete accepted.evidence.comparison;
+    else if (problem === 'revoked evidence') comparison.revoked = true;
+    else if (problem === 'changed notice')
+      notice.notice = 'Corrected fixture notice.';
+    else if (problem === 'missing notice binding')
+      assessment.noticeFingerprints = {};
+    else if (problem === 'missing notice') accepted.registry = {};
+    else if (problem === 'unreviewed notice') {
+      notice.reviewStatus = 'unreviewed';
+      notice.checkedAgainst = 'unreviewed';
+    }
+    await writeFile(attribution, JSON.stringify(accepted));
     const output = join(root, 'preview');
     const result = runPreview({ args: [...args, '--out', output] });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('Catalog admission failed');
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('0 admitted, 1 held');
     const admission = JSON.parse(
       await readFile(join(output, 'admission.json'), 'utf8'),
     );
-    expect(admission.passed).toBe(false);
+    expect(admission.passed).toBe(true);
     expect(admission.admitted).toEqual([]);
-    expect(admission.failures).toContainEqual(
-      expect.objectContaining({
+    expect(admission.held).toEqual([
+      {
         externalKey: 'pf1/FixtureFeat',
-        reason: expect.stringMatching(
-          problem === 'stale content' ? /stale/i : /notice/i,
-        ),
-      }),
-    );
+        name: 'Fixture feat',
+        reason,
+        requiredNotices: ['FIXTURE'],
+        missingNotices: ['missing notice', 'unreviewed notice'].includes(
+          problem,
+        )
+          ? ['FIXTURE']
+          : [],
+        evidence: ['comparison'],
+      },
+    ]);
+    expect(admission.failures).toEqual([]);
+    expect(admission.requiredNotices).toEqual([]);
     expect(
       JSON.parse(await readFile(join(output, 'catalog.json'), 'utf8')).entries,
     ).toHaveLength(1);

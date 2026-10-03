@@ -103,6 +103,11 @@ test('the committed notices render as one h1, the four sections in order, their 
     }).length,
   ).toBeGreaterThan(0);
   expect(screen.getByText('Keepnet © 2026 Andreas Ununger')).toBeVisible();
+  expect(
+    section('Section 8 — Open Game Content').getByText(
+      'The Open Game Content distributed by Keepnet consists only of the Pathfinder game rules, mechanics, and rules text identified as Open Game Content by their contributors and reproduced here. No other content of Keepnet is Open Game Content.',
+    ),
+  ).toBeVisible();
   // Every section is reachable from the in-page navigation by its id.
   const navigation = within(
     screen.getByRole('navigation', { name: 'Legal sections' }),

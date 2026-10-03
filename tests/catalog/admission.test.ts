@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+import * as noticeResolver from '../../src/lib/catalog/resolve-notice';
 import {
   assessCatalogAdmission,
   buildAssessmentBinding,
@@ -98,6 +99,38 @@ function fixture(entries = [entry()]) {
   return { artifact, registry, evidence, assessments };
 }
 
+function reviewedPair() {
+  const unrelated = entry('pf1/unrelated');
+  const original = fixture([entry(), unrelated]);
+  const unrelatedAssessment = original.assessments[1];
+  if (!unrelatedAssessment) throw new Error('Fixture assessment missing');
+  const evidence: AttributionEvidence = {
+    ...original.evidence,
+    unrelated: { content: 'Independent whole-content comparison.' },
+  };
+  const input = {
+    ...original,
+    registry: {
+      ...original.registry,
+      OTHER: { ...original.registry.BOOK },
+    },
+    evidence,
+  };
+  input.assessments[1] = {
+    ...unrelatedAssessment,
+    requiredNotices: ['OTHER'],
+    ...buildAssessmentBinding({
+      entry: unrelated,
+      artifact: input.artifact,
+      evidence: input.evidence,
+      registry: input.registry,
+      requiredNotices: ['OTHER'],
+      evidenceIds: ['unrelated'],
+    }),
+  };
+  return input;
+}
+
 it('admits a definition with a current content review and its reviewed notices', () => {
   const result = assessCatalogAdmission(fixture());
   expect(result.passed).toBe(true);
@@ -109,6 +142,26 @@ it('admits a definition with a current content review and its reviewed notices',
     }),
   ]);
   expect(result.failures).toEqual([]);
+});
+
+it('holds changed accepted content while admitting an unrelated reviewed definition', () => {
+  const input = fixture([entry(), entry('pf1/unrelated')]);
+  input.artifact.catalog.entries[0]!.description = 'Changed content';
+  expect(assessCatalogAdmission(input)).toMatchObject({
+    passed: true,
+    admitted: [{ externalKey: 'pf1/unrelated' }],
+    held: [
+      {
+        externalKey: 'pf1/feat',
+        reason:
+          'Accepted assessment no longer matches current content — re-review required.',
+        requiredNotices: ['BOOK'],
+        missingNotices: [],
+        evidence: ['comparison'],
+      },
+    ],
+    failures: [],
+  });
 });
 
 it('reports an intentional unresolved assessment without failing unrelated admission', () => {
@@ -154,19 +207,27 @@ it.each([{ books: [] }, { books: ['MISSING'] }])(
   },
 );
 
-it('identifies missing source notice attribution accurately for an otherwise reviewed unsourced definition', () => {
+it('holds an otherwise reviewed definition with no identified source notices', () => {
   const input = fixture();
   const assessment = input.assessments[0];
   if (!assessment) throw new Error('Fixture assessment missing');
   assessment.requiredNotices = [];
   assessment.noticeFingerprints = {};
-  expect(assessCatalogAdmission(input).failures).toEqual([
-    {
-      externalKey: 'pf1/feat',
-      reason:
-        'Missing source notice attribution: no sources or required notices identified.',
-    },
-  ]);
+  expect(assessCatalogAdmission(input)).toMatchObject({
+    passed: true,
+    admitted: [],
+    held: [
+      {
+        externalKey: 'pf1/feat',
+        reason:
+          'Missing source notice attribution: no sources or required notices identified — re-review required.',
+        requiredNotices: [],
+        missingNotices: [],
+        evidence: ['comparison'],
+      },
+    ],
+    failures: [],
+  });
 });
 
 it.each(['content', 'mapping'])(
@@ -193,73 +254,227 @@ it.each(['content', 'mapping'])(
   },
 );
 
-it.each([
-  [
-    'an unaccounted definition',
-    (input: ReturnType<typeof fixture>) => {
-      input.artifact.comparison.records = [];
-    },
-    /unaccounted/i,
-  ],
-  [
-    'changed content',
-    (input: ReturnType<typeof fixture>) => {
+const acceptedReviewGaps: {
+  problem: string;
+  change: (input: ReturnType<typeof reviewedPair>) => void;
+  reason: string;
+  missingNotices?: string[];
+  evidence?: string[];
+}[] = [
+  {
+    problem: 'changed content',
+    change: (input) => {
       input.artifact.catalog.entries[0]!.description = 'Changed';
     },
-    /stale.*content/i,
-  ],
-  [
-    'changed mapping',
-    (input: ReturnType<typeof fixture>) => {
-      input.artifact.catalog.entries[0]!.upstreamKey = 'pf1/new';
-      input.artifact.comparison.records[0]!.externalKey = 'pf1/new';
+    reason:
+      'Accepted assessment no longer matches current content — re-review required.',
+  },
+  {
+    problem: 'changed mapping',
+    change: (input) => {
+      input.assessments[0]!.mappingFingerprint = '0'.repeat(64);
     },
-    /stale/i,
-  ],
-  [
-    'changed evidence',
-    (input: ReturnType<typeof fixture>) => {
+    reason:
+      'Accepted assessment no longer matches current identity mapping — re-review required.',
+  },
+  {
+    problem: 'changed evidence',
+    change: (input) => {
       input.evidence.comparison!.content = 'Corrected comparison';
     },
-    /stale.*evidence/i,
-  ],
-  [
-    'changed notices',
-    (input: ReturnType<typeof fixture>) => {
-      input.registry.BOOK.notice = 'Corrected notice';
+    reason: 'Attribution evidence requires re-review: comparison (changed).',
+  },
+  {
+    problem: 'absent evidence',
+    change: (input) => {
+      delete input.evidence.comparison;
     },
-    /stale.*notice/i,
-  ],
-  [
-    'missing notices',
-    (input: ReturnType<typeof fixture>) => {
-      input.registry = {
-        ...input.registry,
-        BOOK: { ...input.registry.BOOK, notice: '' },
-      };
+    reason: 'Attribution evidence requires re-review: comparison (missing).',
+  },
+  {
+    problem: 'blank evidence',
+    change: (input) => {
+      input.evidence.comparison!.content = ' ';
     },
-    /missing.*notice/i,
-  ],
-  [
-    'missing review evidence',
-    (input: ReturnType<typeof fixture>) => {
+    reason: 'Attribution evidence requires re-review: comparison (missing).',
+  },
+  {
+    problem: 'revoked evidence',
+    change: (input) => {
+      input.evidence.comparison!.revoked = true;
+    },
+    reason: 'Attribution evidence requires re-review: comparison (revoked).',
+  },
+  {
+    problem: 'no bound evidence',
+    change: (input) => {
       input.assessments[0]!.evidenceFingerprints = {};
     },
-    /evidence/i,
-  ],
-])('fails admission for %s', (_, change, reason) => {
+    reason:
+      'Accepted assessment has no attribution evidence — re-review required.',
+    evidence: [],
+  },
+  {
+    problem: 'changed notice text',
+    change: (input) => {
+      input.registry.BOOK.notice = 'Corrected notice';
+    },
+    reason: 'Notice bindings require re-review: BOOK (changed).',
+  },
+  {
+    problem: 'absent notice binding',
+    change: (input) => {
+      input.assessments[0]!.noticeFingerprints = {};
+    },
+    reason: 'Notice bindings require re-review: BOOK (missing).',
+  },
+  {
+    problem: 'missing required notice',
+    change: (input) => {
+      input.assessments[0]!.requiredNotices = ['ABSENT'];
+    },
+    reason: 'Missing or unreviewed required notices: ABSENT.',
+    missingNotices: ['ABSENT'],
+  },
+  {
+    problem: 'blank notice text',
+    change: (input) => {
+      input.registry.BOOK.notice = ' ';
+    },
+    reason: 'Missing or unreviewed required notices: BOOK.',
+    missingNotices: ['BOOK'],
+  },
+  {
+    problem: 'unreviewed notice',
+    change: (input) => {
+      Object.assign(input.registry.BOOK, {
+        reviewStatus: 'unreviewed',
+        checkedAgainst: 'unreviewed',
+      });
+    },
+    reason: 'Missing or unreviewed required notices: BOOK.',
+    missingNotices: ['BOOK'],
+  },
+  {
+    problem: 'notice without review provenance',
+    change: (input) => {
+      input.registry.BOOK.provenance = [];
+    },
+    reason: 'Missing or unreviewed required notices: BOOK.',
+    missingNotices: ['BOOK'],
+  },
+];
+
+it.each(
+  (['confirmed', 'reviewed-coverage'] as const).flatMap((status) =>
+    acceptedReviewGaps.map((gap) => ({ ...gap, status })),
+  ),
+)(
+  'holds $status attribution with $problem without failing unrelated admission',
+  ({
+    status,
+    change,
+    reason,
+    missingNotices = [],
+    evidence = ['comparison'],
+  }) => {
+    const input = reviewedPair();
+    input.assessments[0]!.status = status;
+    change(input);
+    const result = assessCatalogAdmission(input);
+    expect(result).toMatchObject({
+      passed: true,
+      admitted: [{ externalKey: 'pf1/unrelated' }],
+      held: [{ externalKey: 'pf1/feat', reason, missingNotices, evidence }],
+      requiredNotices: ['OTHER'],
+      failures: [],
+    });
+  },
+);
+
+it('fails a candidate absent from the import inventory', () => {
   const input = fixture();
-  change(input);
-  const result = assessCatalogAdmission(input);
-  expect(result.passed).toBe(false);
-  expect(result.admitted).toEqual([]);
-  expect(result.failures).toContainEqual(
-    expect.objectContaining({
-      externalKey: 'pf1/feat',
-      reason: expect.stringMatching(reason),
-    }),
-  );
+  input.artifact.comparison.records = [];
+  expect(assessCatalogAdmission(input)).toMatchObject({
+    passed: false,
+    admitted: [],
+    failures: [
+      {
+        externalKey: 'pf1/feat',
+        reason: expect.stringMatching(/unaccounted/i),
+      },
+    ],
+  });
 });
+
+it('reports mapping, content and evidence review gaps together while preserving unrelated admission and missing notices', () => {
+  const input = reviewedPair();
+  input.artifact.catalog.entries[0]!.upstreamKey = 'pf1/new';
+  input.artifact.comparison.records[0]!.externalKey = 'pf1/new';
+  input.artifact.catalog.entries[0]!.description = 'Changed content';
+  input.evidence.comparison!.revoked = true;
+  input.assessments[0]!.requiredNotices = ['ABSENT'];
+  expect(assessCatalogAdmission(input)).toMatchObject({
+    passed: true,
+    admitted: [{ externalKey: 'pf1/unrelated' }],
+    held: [
+      {
+        externalKey: 'pf1/feat',
+        reason:
+          'Accepted assessment no longer matches current identity mapping — re-review required. ' +
+          'Accepted assessment no longer matches current content — re-review required. ' +
+          'Attribution evidence requires re-review: comparison (revoked).',
+        requiredNotices: ['ABSENT'],
+        missingNotices: ['ABSENT'],
+        evidence: ['comparison'],
+      },
+    ],
+    requiredNotices: ['OTHER'],
+    failures: [],
+  });
+});
+
+it.each(
+  (['content', 'mapping'] as const).flatMap((changedPart) =>
+    (['missing', 'changed', 'revoked'] as const).map((evidenceGap) => ({
+      changedPart,
+      evidenceGap,
+    })),
+  ),
+)(
+  'reports $evidenceGap evidence and missing notices alongside changed $changedPart',
+  ({ changedPart, evidenceGap }) => {
+    const input = reviewedPair();
+    if (changedPart === 'content')
+      input.artifact.catalog.entries[0]!.description = 'Changed content';
+    else {
+      input.assessments[0]!.mappingFingerprint = '0'.repeat(64);
+    }
+    if (evidenceGap === 'missing') delete input.evidence.comparison;
+    else if (evidenceGap === 'changed')
+      input.evidence.comparison!.content = 'Corrected comparison';
+    else input.evidence.comparison!.revoked = true;
+    input.assessments[0]!.requiredNotices = ['ABSENT'];
+    expect(assessCatalogAdmission(input)).toMatchObject({
+      passed: true,
+      admitted: [{ externalKey: 'pf1/unrelated' }],
+      held: [
+        {
+          externalKey: 'pf1/feat',
+          reason:
+            (changedPart === 'content'
+              ? 'Accepted assessment no longer matches current content — re-review required. '
+              : 'Accepted assessment no longer matches current identity mapping — re-review required. ') +
+            `Attribution evidence requires re-review: comparison (${evidenceGap}).`,
+          requiredNotices: ['ABSENT'],
+          missingNotices: ['ABSENT'],
+          evidence: ['comparison'],
+        },
+      ],
+      failures: [],
+    });
+  },
+);
 
 it('omits parents and resources transitively when their referenced definition is held', () => {
   const feature = entry('pf1/feature');
@@ -281,6 +496,86 @@ it('omits parents and resources transitively when their referenced definition is
   expect(
     result.dependentOmissions.map((row) => row.externalKey).sort(),
   ).toEqual(['pf1/parent', 'pf1/resource']);
+});
+
+it('fails an admitted definition whose required notice becomes unavailable and omits its dependents', () => {
+  const feature = entry('pf1/feature');
+  const parent = {
+    ...entry('pf1/parent'),
+    description: '<a href="catalog:pf1/feature">Feature</a>',
+  };
+  const resource = {
+    ...entry('pf1/resource'),
+    description: '<a href="catalog:pf1/parent">Parent</a>',
+  };
+  const input = {
+    ...fixture([feature, parent, resource, entry('pf1/unrelated')]),
+    registry: {
+      ...fixture([]).registry,
+      OTHER: { ...fixture([]).registry.BOOK },
+    },
+  };
+  for (const assessment of input.assessments.slice(1)) {
+    const candidate = input.artifact.catalog.entries.find(
+      (item) => item.externalKey === assessment.externalKey,
+    );
+    if (!candidate) throw new Error('Fixture entry missing');
+    assessment.requiredNotices = ['OTHER'];
+    Object.assign(
+      assessment,
+      buildAssessmentBinding({
+        entry: candidate,
+        artifact: input.artifact,
+        evidence: input.evidence,
+        registry: input.registry,
+        requiredNotices: ['OTHER'],
+        evidenceIds: ['comparison'],
+      }),
+    );
+  }
+  input.artifact.catalog.resources.push(
+    input.artifact.catalog.entries.splice(2, 1)[0]!,
+  );
+  const resolveNotice = noticeResolver.resolveNotice;
+  let bookResolved = false;
+  const resolver = vi
+    .spyOn(noticeResolver, 'resolveNotice')
+    .mockImplementation((args) => {
+      if (args.code !== 'BOOK') return resolveNotice(args);
+      if (bookResolved) return undefined;
+      bookResolved = true;
+      return resolveNotice(args);
+    });
+  try {
+    const result = assessCatalogAdmission(input);
+    expect(result).toMatchObject({
+      passed: false,
+      admitted: [{ externalKey: 'pf1/unrelated' }],
+      held: [],
+      requiredNotices: ['OTHER'],
+      failures: [
+        {
+          externalKey: 'pf1/feature',
+          reason:
+            'Admitted candidate is missing reviewed required notices: BOOK.',
+        },
+      ],
+    });
+    expect(
+      result.dependentOmissions.map((row) => ({
+        externalKey: row.externalKey,
+        reason: row.reason,
+      })),
+    ).toEqual([
+      { externalKey: 'pf1/parent', reason: 'Dependent omission: pf1/feature.' },
+      {
+        externalKey: 'pf1/resource',
+        reason: 'Dependent omission: pf1/parent.',
+      },
+    ]);
+  } finally {
+    resolver.mockRestore();
+  }
 });
 
 it('resolves cyclic dependencies and preserves transitive omission order when a dependency becomes held', () => {
@@ -321,13 +616,105 @@ it('reopens a whole-content comparison when referenced content changes at its st
   ]);
   input.artifact.catalog.entries[0]!.description = 'Changed linked definition';
   const result = assessCatalogAdmission(input);
-  expect(result.failures).toContainEqual(
-    expect.objectContaining({
-      externalKey: 'pf1/parent',
-      reason: expect.stringMatching(/stale.*content/i),
-    }),
-  );
+  expect(result).toMatchObject({
+    passed: true,
+    admitted: [],
+    held: [
+      { externalKey: 'pf1/feat' },
+      {
+        externalKey: 'pf1/parent',
+        reason:
+          'Accepted assessment no longer matches current content — re-review required.',
+      },
+    ],
+    failures: [],
+  });
 });
+
+it.each(['revoked evidence', 'missing notice binding'])(
+  'omits dependent parents and resources transitively when their child has %s',
+  (problem) => {
+    const feature = entry('pf1/feature');
+    const parent = {
+      ...entry('pf1/parent'),
+      description: '<a href="catalog:pf1/feature">Feature</a>',
+    };
+    const resource = {
+      ...entry('pf1/resource'),
+      description: '<a href="catalog:pf1/parent">Parent</a>',
+    };
+    const input = fixture([feature, parent, resource]);
+    input.evidence.parents = { content: 'Independent parent comparisons.' };
+    for (const assessment of input.assessments.slice(1)) {
+      const candidate = input.artifact.catalog.entries.find(
+        (item) => item.externalKey === assessment.externalKey,
+      );
+      if (!candidate) throw new Error('Fixture entry missing');
+      Object.assign(
+        assessment,
+        buildAssessmentBinding({
+          entry: candidate,
+          artifact: input.artifact,
+          evidence: input.evidence,
+          registry: input.registry,
+          requiredNotices: ['BOOK'],
+          evidenceIds: ['parents'],
+        }),
+      );
+    }
+    input.artifact.catalog.resources.push(
+      input.artifact.catalog.entries.pop()!,
+    );
+    if (problem === 'revoked evidence')
+      input.evidence.comparison!.revoked = true;
+    else input.assessments[0]!.noticeFingerprints = {};
+    const result = assessCatalogAdmission(input);
+    expect(result).toMatchObject({
+      passed: true,
+      admitted: [],
+      held: [{ externalKey: 'pf1/feature' }],
+      failures: [],
+    });
+    expect(
+      result.dependentOmissions.map((row) => row.externalKey).sort(),
+    ).toEqual(['pf1/parent', 'pf1/resource']);
+  },
+);
+
+it.each(['content', 'evidence', 'notice'])(
+  'admits the same stable identity after re-review of changed %s',
+  (change) => {
+    const input = fixture();
+    if (change === 'content')
+      input.artifact.catalog.entries[0]!.description = 'Corrected content';
+    else if (change === 'evidence')
+      input.evidence.comparison!.content = 'Corrected comparison';
+    else input.registry.BOOK.notice = 'Corrected notice';
+    expect(assessCatalogAdmission(input)).toMatchObject({
+      passed: true,
+      admitted: [],
+      held: [{ externalKey: 'pf1/feat' }],
+      failures: [],
+    });
+    Object.assign(
+      input.assessments[0]!,
+      buildAssessmentBinding({
+        entry: input.artifact.catalog.entries[0]!,
+        artifact: input.artifact,
+        evidence: input.evidence,
+        registry: input.registry,
+        requiredNotices: ['BOOK'],
+        evidenceIds: ['comparison'],
+      }),
+    );
+    expect(assessCatalogAdmission(input)).toMatchObject({
+      passed: true,
+      admitted: [{ externalKey: 'pf1/feat' }],
+      held: [],
+      failures: [],
+    });
+  },
+);
 
 it.each([
   [
@@ -469,18 +856,26 @@ it('invalidates notice evidence through aliases and shared revoked evidence', ()
   }));
   expect(assessCatalogAdmission(input).passed).toBe(true);
   input.registry.BOOK.notice = 'Corrected canonical notice';
-  expect(assessCatalogAdmission(input).failures).toHaveLength(2);
+  expect(assessCatalogAdmission(input)).toMatchObject({
+    passed: true,
+    admitted: [],
+    held: [
+      { reason: 'Notice bindings require re-review: OLD_CODE (changed).' },
+      { reason: 'Notice bindings require re-review: OLD_CODE (changed).' },
+    ],
+    failures: [],
+  });
   input.evidence = {
     comparison: {
       content: 'Whole fixture content compared with fixture book.',
       revoked: true,
     },
   };
-  expect(
-    assessCatalogAdmission(input).failures.every((row) =>
-      /evidence/i.test(row.reason),
-    ),
-  ).toBe(true);
+  expect(assessCatalogAdmission(input).held.map((row) => row.reason)).toEqual([
+    'Attribution evidence requires re-review: comparison (revoked).',
+    'Attribution evidence requires re-review: comparison (revoked).',
+  ]);
+  expect(assessCatalogAdmission(input).failures).toEqual([]);
 });
 
 it('carries explicit importer attribution holds without fabricating a review', () => {
@@ -517,8 +912,17 @@ it('requires actual reviewed notice provenance, not a reviewed status alone', ()
     }),
   };
   const result = assessCatalogAdmission(input);
-  expect(result.passed).toBe(false);
-  expect(result.failures[0]?.reason).toMatch(/missing.*notice/i);
+  expect(result).toMatchObject({
+    passed: true,
+    admitted: [],
+    held: [
+      {
+        reason: 'Missing or unreviewed required notices: BOOK.',
+        missingNotices: ['BOOK'],
+      },
+    ],
+    failures: [],
+  });
 });
 
 it('accounts for a last usable candidate body as a retained exception without new admission', () => {

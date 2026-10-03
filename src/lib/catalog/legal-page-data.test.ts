@@ -185,6 +185,21 @@ it('publishes the owner-approved Keepnet notice and public product name', () => 
   expect(page.sections[3]?.notices[0]?.text).toContain('Keepnet');
 });
 
+it('identifies only reproduced contributor-designated Pathfinder content as Open Game Content', () => {
+  const page = buildLegalPageData({
+    registry: section15Registry,
+    resources: legalResources,
+    permanentNoticeSuperset: legalResources.permanentNoticeSuperset,
+    requiredNotices: [],
+  });
+  expect(page.sections[2]?.notices[0]?.text).toBe(
+    'The Open Game Content distributed by Keepnet consists only of the Pathfinder game rules, mechanics, and rules text identified as Open Game Content by their contributors and reproduced here. No other content of Keepnet is Open Game Content.',
+  );
+  expect(legalResources.section8.provenance).toContain(
+    'Owner-approved identification wording, 2026-10-03.',
+  );
+});
+
 it('merges the release notice superset with its required reviewed notices', () => {
   const page = buildLegalPageData({
     registry,

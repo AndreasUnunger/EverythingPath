@@ -9,6 +9,8 @@ The manifests retain genuine `id`, `version`, and `packs` fields. Pack declarati
 
 The Haste spell is deliberately moved one directory deeper to exercise recursive discovery. The ARG Race Builder folder chain leads to the excluded Aberration racial trait. Abandoned is outside that chain and must remain admitted despite its `racePoints` field. Folder records, non-generic Amphibious, the two helper templates, and goods/services, third-party, and 3.5 records exercise exclusions. All 13 creature-type resources and 13 generic attacks are present, along with each of the six companion packs.
 
+`admitted` in the fixture extraction reports means in scope for extraction. The separate attribution gate holds unreviewed candidates and preserves broken-reference failures. `tests/catalog/preview.test.ts` also creates a synthetic single-feat fixture with a current accepted assessment and reviewed notice, then changes each binding or review requirement to verify an individual hold and a successful CLI exit. Its synthetic evidence and notices are only test inputs. The committed fixture data carries no accepted assessment or source backfill.
+
 ## Record provenance
 
 Remove the `nested/` segment from the Haste fixture path to obtain its original upstream path. All other paths mirror the source checkout exactly.

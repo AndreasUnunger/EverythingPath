@@ -10,9 +10,9 @@
   "runs": [
     {
       "name": "fixture",
-      "command": "pnpm -s catalog:preview --system tests/fixtures/catalog/pf1 --content tests/fixtures/catalog/pf1-content --allow-unverified-checkouts --out .catalog-preview/r2-fixture",
+      "command": "pnpm -s catalog:preview --system tests/fixtures/catalog/pf1 --content tests/fixtures/catalog/pf1-content --allow-unverified-checkouts --out .catalog-preview/fixture",
       "exitCode": 1,
-      "artifactDirectory": ".catalog-preview/r2-fixture",
+      "artifactDirectory": ".catalog-preview/fixture",
       "inputVerification": {
         "status": "unverified"
       },
@@ -61,20 +61,20 @@
       "fingerprints": {
         "extractionFingerprint": "f68d91c547fba979a8d87903107afbf9494be3b86930e3539614ef54b88f513b",
         "reviewedInputsFingerprint": "e3dae698d6941112764634d03e1f5cf8657a1d0a54b5d1093efb39e587c80ab1",
-        "legalResourcesFingerprint": "feac9f7f841fadf63173706f3f288a5a39e1db484053eb5759d599abb7a2d2fd"
+        "legalResourcesFingerprint": "5ff025c7499a505ec206cc391e5c7a40fb5e190a1262c786f97145208561a97e"
       },
       "artifactSha256": {
         "catalog.json": "c6c4c48708813f4756743ef5ca23fb236a88bb1df89e43c4cbd3fe837b3dce01",
         "comparison.json": "622d122cd1064565354ece11e357d8d01f72e406363d18bebe017e27a62cbe1d",
         "unsupported.json": "cbb4c5ffe999c5f13f76085babbd6c17bd2411ce6d5fda68b276df4c47a1f665",
-        "admission.json": "afbfcb4dc4bd88cb40d994585c0ee23b82e14cb1142d57394eabd7f520852691"
+        "admission.json": "48b76f502d488159d0af308826872791b605daf46e5dc57639aa55c61ab3b5c9"
       }
     },
     {
       "name": "pinned",
-      "command": "pnpm -s catalog:preview --system \"$PF1_PINNED_CHECKOUT\" --content \"$PF1_CONTENT_PINNED_CHECKOUT\" --out .catalog-preview/r2-pinned",
+      "command": "pnpm -s catalog:preview --system \"$PF1_PINNED_CHECKOUT\" --content \"$PF1_CONTENT_PINNED_CHECKOUT\" --out .catalog-preview/pinned",
       "exitCode": 1,
-      "artifactDirectory": ".catalog-preview/r2-pinned",
+      "artifactDirectory": ".catalog-preview/pinned",
       "inputVerification": {
         "status": "verified",
         "repositories": [
@@ -514,19 +514,27 @@
       "fingerprints": {
         "extractionFingerprint": "794f44ee15dea8ddc471a7952c740d30629ccf37c2330b4cc0a47fc5b2fed79d",
         "reviewedInputsFingerprint": "e3dae698d6941112764634d03e1f5cf8657a1d0a54b5d1093efb39e587c80ab1",
-        "legalResourcesFingerprint": "feac9f7f841fadf63173706f3f288a5a39e1db484053eb5759d599abb7a2d2fd"
+        "legalResourcesFingerprint": "5ff025c7499a505ec206cc391e5c7a40fb5e190a1262c786f97145208561a97e"
       },
       "artifactSha256": {
         "catalog.json": "dfe0d4b29d0195ac408c9b8ffe21d62ea455e1e290435d15586fdb858d03278c",
         "comparison.json": "a3c767a2f771d4a74b646f56e3474dcc83bff9fc014cb3e1c5f9d22d3ea7140e",
         "unsupported.json": "13731c72b8e623e2a6ccc1d989d742a505d0ae82541c0639ff563d97d384d9c3",
-        "admission.json": "df793644f0539ca7ad5d47c39d37ffe64bf753d13c3943261b39afb8898bb9e5"
+        "admission.json": "e7fdb68f018713cac6bde0a5214cca4ccdbd4bdedba7db86c51941cf5ff94e54"
       }
     }
   ],
-  "artifactPaths": "Repository-relative local output directories; complete admission.json files individually identify all held and failed candidates.",
-  "pinnedCheckoutVariables": {
-    "PF1_PINNED_CHECKOUT": "Clean Foundry PF1 checkout at v11.11 (418761d2e16a6037c0156bb4a241f7cea5a2986d)",
-    "PF1_CONTENT_PINNED_CHECKOUT": "Clean pf1-content checkout at 11.4.0 (02f4ab0d92e0d64f9eb2d127f42fd809cb23db7d)"
+  "artifactPaths": "Portable git-ignored output directories; complete admission.json files individually identify all held and failed candidates.",
+  "pinnedCheckouts": {
+    "pf1": {
+      "path": "$PF1_PINNED_CHECKOUT",
+      "tag": "v11.11",
+      "commit": "418761d2e16a6037c0156bb4a241f7cea5a2986d"
+    },
+    "pf1-content": {
+      "path": "$PF1_CONTENT_PINNED_CHECKOUT",
+      "tag": "11.4.0",
+      "commit": "02f4ab0d92e0d64f9eb2d127f42fd809cb23db7d"
+    }
   }
 }

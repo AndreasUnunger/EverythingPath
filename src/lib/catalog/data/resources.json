@@ -38,8 +38,9 @@
   "section8": {
     "id": "section8",
     "title": "Identification of Open Game Content",
-    "text": "The Open Game Content distributed by Keepnet consists of the imported Pathfinder game rules, mechanics, and rules descriptions identified as Open Game Content by their contributors, together with original Keepnet rules content expressly designated as Open Game Content. Product Identity, including trademarks and artwork, is not designated as Open Game Content. Open Game Content is distributed under the Open Game License Version 1.0a.",
+    "text": "The Open Game Content distributed by Keepnet consists only of the Pathfinder game rules, mechanics, and rules text identified as Open Game Content by their contributors and reproduced here. No other content of Keepnet is Open Game Content.",
     "provenance": [
+      "Owner-approved identification wording, 2026-10-03.",
       "docs/pf-character-sheet-data-model.md#global-catalog-import",
       "https://github.com/AndreasUnunger/EverythingPath/issues/251"
     ]

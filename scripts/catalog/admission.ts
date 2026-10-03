@@ -238,6 +238,19 @@ export function assessCatalogAdmission({
         break;
     }
   }
+  for (let index = admitted.length - 1; index >= 0; index--) {
+    const row = admitted[index];
+    if (!row) continue;
+    const missingNotices = row.requiredNotices.filter(
+      (code) => !hasReviewedNotice(code),
+    );
+    if (!missingNotices.length) continue;
+    failures.push({
+      externalKey: row.externalKey,
+      reason: `Admitted candidate is missing reviewed required notices: ${missingNotices.join(', ')}.`,
+    });
+    admitted.splice(index, 1);
+  }
   const dependentOmissions = omitUnavailableDependents({
     admitted,
     held,
@@ -353,6 +366,45 @@ function collectInventoryFailures({
   return failures;
 }
 
+function describeAcceptedReviewGap({
+  assessment,
+  binding,
+  evidence,
+}: {
+  assessment: AttributionAssessment;
+  binding: ReturnType<ReturnType<typeof createBindingBuilder>>;
+  evidence: AttributionEvidence;
+}) {
+  const reasons: string[] = [];
+  if (assessment.mappingFingerprint !== binding.mappingFingerprint)
+    reasons.push(
+      'Accepted assessment no longer matches current identity mapping — re-review required.',
+    );
+  if (assessment.contentFingerprint !== binding.contentFingerprint)
+    reasons.push(
+      'Accepted assessment no longer matches current content — re-review required.',
+    );
+  const evidenceIds = Object.keys(assessment.evidenceFingerprints);
+  const evidenceProblems = evidenceIds.flatMap((id) => {
+    if (!evidence[id]?.content.trim()) return [`${id} (missing)`];
+    if (evidence[id]?.revoked === true) return [`${id} (revoked)`];
+    if (
+      assessment.evidenceFingerprints[id] !== binding.evidenceFingerprints[id]
+    )
+      return [`${id} (changed)`];
+    return [];
+  });
+  if (!evidenceIds.length)
+    reasons.push(
+      'Accepted assessment has no attribution evidence — re-review required.',
+    );
+  else if (evidenceProblems.length)
+    reasons.push(
+      `Attribution evidence requires re-review: ${evidenceProblems.join(', ')}.`,
+    );
+  return reasons.join(' ');
+}
+
 function classifyCandidate({
   entry,
   assessmentsByKey,
@@ -452,6 +504,10 @@ function classifyCandidate({
     missingNotices,
     evidence: Object.keys(assessment.evidenceFingerprints),
   };
+  const hold = (reason: string): Classification => ({
+    kind: 'held',
+    row: { ...row, reason },
+  });
   if (assessment.status === 'unresolved') {
     return { kind: 'held', row };
   }
@@ -460,40 +516,34 @@ function classifyCandidate({
     requiredNotices,
     evidenceIds: Object.keys(assessment.evidenceFingerprints),
   });
-  if (
-    assessment.contentFingerprint !== binding.contentFingerprint ||
-    assessment.mappingFingerprint !== binding.mappingFingerprint
-  ) {
-    return fail('Stale assessment: content or identity mapping changed.');
-  }
-  if (
-    !Object.keys(assessment.evidenceFingerprints).length ||
-    Object.keys(assessment.evidenceFingerprints).some(
-      (id) =>
-        !evidence[id]?.content.trim() ||
-        evidence[id]?.revoked === true ||
-        assessment.evidenceFingerprints[id] !==
-          binding.evidenceFingerprints[id],
-    )
-  ) {
-    return fail('Stale or missing attribution evidence.');
-  }
+  const reviewGap = describeAcceptedReviewGap({
+    assessment,
+    binding,
+    evidence,
+  });
+  if (reviewGap) return hold(reviewGap);
   if (missingNotices.length) {
-    return fail(`Missing reviewed notices: ${missingNotices.join(', ')}.`);
-  }
-  if (!requiredNotices.length) {
-    return fail(
-      'Missing source notice attribution: no sources or required notices identified.',
+    return hold(
+      `Missing or unreviewed required notices: ${missingNotices.join(', ')}.`,
     );
   }
-  if (
-    requiredNotices.some(
-      (code) =>
-        assessment.noticeFingerprints[code] !==
-        binding.noticeFingerprints[code],
+  if (!requiredNotices.length) {
+    return hold(
+      'Missing source notice attribution: no sources or required notices identified — re-review required.',
+    );
+  }
+  const noticeProblems = requiredNotices.flatMap((code) => {
+    if (!assessment.noticeFingerprints[code]) return [`${code} (missing)`];
+    if (
+      assessment.noticeFingerprints[code] !== binding.noticeFingerprints[code]
     )
-  ) {
-    return fail('Stale or missing notice binding.');
+      return [`${code} (changed)`];
+    return [];
+  });
+  if (noticeProblems.length) {
+    return hold(
+      `Notice bindings require re-review: ${noticeProblems.join(', ')}.`,
+    );
   }
   return { kind: 'admitted', row };
 }
