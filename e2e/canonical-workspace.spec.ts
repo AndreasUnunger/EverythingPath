@@ -224,7 +224,10 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await die(gm).pressSequentially('x');
     await expect(die(gm)).toHaveValue('10');
     await expect(
-      gm.getByRole('alert').filter({ hasText: 'Use digits only.' }),
+      gm
+        .getByRole('main')
+        .getByRole('alert')
+        .filter({ hasText: 'Use digits only.' }),
     ).toBeVisible();
     await gm.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await gm.evaluate(() => navigator.clipboard.writeText('12x'));
@@ -244,7 +247,10 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await die(gm).press('Tab');
     await expect(die(player)).toHaveValue('');
     await expect(
-      gm.getByRole('alert').filter({ hasText: 'A value is required.' }),
+      gm
+        .getByRole('main')
+        .getByRole('alert')
+        .filter({ hasText: 'A value is required.' }),
     ).toBeVisible();
     await die(gm).fill('10');
     await expect(die(player)).toHaveValue('10');
@@ -260,12 +266,15 @@ test('players prepare shared Upkeep with independent navigation and save recover
     });
     await addTransfer.click();
     await expect(
-      gm.getByRole('alert').filter({ hasText: 'An amount is required.' }),
+      gm
+        .getByRole('main')
+        .getByRole('alert')
+        .filter({ hasText: 'An amount is required.' }),
     ).toBeVisible();
     await gmAmount.fill('0.001');
     await addTransfer.click();
     await expect(
-      gm.getByRole('alert').filter({
+      gm.getByRole('main').getByRole('alert').filter({
         hasText: 'Use at most two decimal places (1 cp = 0.01 gp).',
       }),
     ).toBeVisible();

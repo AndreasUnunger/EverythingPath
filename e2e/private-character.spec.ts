@@ -21,7 +21,9 @@ function findDeleteQuestion(page: Page) {
   return page.getByRole('group', { name: `Delete ${name}?`, exact: true });
 }
 async function expectNoSheet(page: Page) {
-  await expect(page.getByRole('alert')).toContainText(failure);
+  await expect(page.getByRole('main').getByRole('alert')).toContainText(
+    failure,
+  );
   await expect(page.getByText(name)).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Strength' })).toHaveCount(0);
   await expect(

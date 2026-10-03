@@ -110,9 +110,9 @@ test('players find grouped Characters and create campaign sheets with independen
       owner.getByRole('link', { name: new RegExp(`^${campaignName}`) }),
     ).toBeVisible();
     await players.outsider.goto(`${sheetUrl.pathname}${sheetUrl.search}`);
-    await expect(players.outsider.getByRole('alert')).toContainText(
-      'The character sheet could not be loaded.',
-    );
+    await expect(
+      players.outsider.getByRole('main').getByRole('alert'),
+    ).toContainText('The character sheet could not be loaded.');
     await expect(
       players.outsider.getByText(campaignName, { exact: true }),
     ).toHaveCount(0);

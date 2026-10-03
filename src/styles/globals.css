@@ -225,7 +225,8 @@ html body[data-scroll-locked] {
 /* From 768px Setup's footer (Next, Start militia week) sticks to the bottom
    of the viewport (#138 §3). Focus scrolls the detail pane's controls clear
    of it. */
-html:has([data-setup-layout='wide']) {
+html:has([data-setup-layout='wide']),
+[data-rail-host]:has([data-setup-layout='wide']) {
   scroll-padding-bottom: 5rem;
 }
 

@@ -13,7 +13,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 // the editor column that scrolls, the docked reference panel and any open
 // dialog or sheet, all fit their own width. The top bar's controls are
 // checked by their boxes too: a header that clips its own overflow would
-// hide controls without any document overflow.
+// hide controls without any document overflow. The Pages strip scrolls
+// horizontally, so its own box and current page must fit instead.
 export async function expectNoHorizontalOverflow(page: Page) {
   const overflowing = await page.evaluate(() => {
     const boxes = [
@@ -29,7 +30,9 @@ export async function expectNoHorizontalOverflow(page: Page) {
   expect(overflowing, 'no horizontal overflow').toEqual([]);
   const { width } = page.viewportSize()!;
   for (const box of await page
-    .locator('header :is(a, button, [role="combobox"]):visible')
+    .locator(
+      'header :is(a, button, [role="combobox"]):visible:not(nav[aria-label="Pages"] *)',
+    )
     .all()) {
     const bounds = (await box.boundingBox())!;
     expect(
@@ -40,6 +43,30 @@ export async function expectNoHorizontalOverflow(page: Page) {
       bounds.x,
       'top bar content starts inside the viewport',
     ).toBeGreaterThanOrEqual(-1);
+  }
+  for (const strip of await page
+    .locator('nav[aria-label="Pages"]:visible')
+    .all()) {
+    const bounds = (await strip.boundingBox())!;
+    expect(
+      bounds.x,
+      'Pages strip starts inside the viewport',
+    ).toBeGreaterThanOrEqual(-1);
+    expect(
+      bounds.x + bounds.width,
+      'Pages strip fits the viewport',
+    ).toBeLessThanOrEqual(width + 1);
+    const active = strip.locator('a[aria-current="page"]');
+    await expect(active).toHaveCount(1);
+    const current = (await active.boundingBox())!;
+    expect(
+      current.x,
+      'current page starts inside the visible Pages strip',
+    ).toBeGreaterThanOrEqual(bounds.x - 1);
+    expect(
+      current.x + current.width,
+      'current page fits the visible Pages strip',
+    ).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
   }
 }
 

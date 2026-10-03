@@ -46,7 +46,10 @@ export function PlacePicker({
           !nav.campaign && 'md:hidden',
         )}
       >
-        <SelectValue>{nav.campaign?.name}</SelectValue>
+        <SelectValue>
+          {nav.campaign?.name ??
+            (nav.activeTab === 'characters' ? 'Characters' : 'Campaigns')}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={CAMPAIGNS_PLACE} className="min-h-11">

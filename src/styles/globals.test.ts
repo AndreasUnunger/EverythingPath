@@ -95,3 +95,25 @@ test('[styles.sticky] the body clips its overflow and never becomes a scroll con
   );
   expect(css).toMatch(/html\s*\{[^}]*overflow-y:\s*scroll/);
 });
+
+test('[styles.setup] the pinned Setup footer reserves clearance on both document and rail scrolling', async () => {
+  const css = await compiledStyles();
+  const selectors: string[] = [];
+  postcss.parse(css).walkRules((rule) => {
+    if (
+      rule.nodes.some(
+        (node) =>
+          node.type === 'decl' &&
+          node.prop === 'scroll-padding-bottom' &&
+          node.value === '5rem',
+      )
+    )
+      selectors.push(...rule.selectors);
+  });
+  expect(selectors).toEqual(
+    expect.arrayContaining([
+      "html:has([data-setup-layout='wide'])",
+      "[data-rail-host]:has([data-setup-layout='wide'])",
+    ]),
+  );
+});

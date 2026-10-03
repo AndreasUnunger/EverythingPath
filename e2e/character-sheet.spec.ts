@@ -375,7 +375,7 @@ test('two players edit one living sheet; failures stay local and rows keep their
       await expect(findSummaryValue(page, 'Level')).toHaveText('0');
       await expect(findSummaryValue(page, 'HP')).toHaveText('0');
       await expect(
-        findLevels(page).getByText('This PC has no Class Levels.', {
+        findLevels(page).getByText('A PC has no Class Levels.', {
           exact: true,
         }),
       ).toBeVisible();
@@ -405,6 +405,7 @@ test('two players edit one living sheet; failures stay local and rows keep their
     await players.outsider.goto(url);
     await expect(
       players.outsider
+        .getByRole('main')
         .getByRole('alert')
         .filter({ hasText: 'The character sheet could not be loaded.' }),
     ).toBeVisible();

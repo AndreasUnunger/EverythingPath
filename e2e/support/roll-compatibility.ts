@@ -134,7 +134,10 @@ export async function exerciseRollCompatibility(
       ).toBeVisible();
       await expect(page.getByRole('textbox', { name: /die/ })).toHaveCount(0);
       await expect(
-        page.getByRole('alert').filter({ hasText: 'A value is required.' }),
+        page
+          .getByRole('main')
+          .getByRole('alert')
+          .filter({ hasText: 'A value is required.' }),
       ).toHaveCount(0);
       // One range advisory under the field; the step's notes do not repeat
       // it. Review & confirm below still lists the warning.

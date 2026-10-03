@@ -198,6 +198,7 @@ function CampaignShellContent({
             {rail ? <AppMilitiaRail links={nav.militiaPages} /> : null}
             <div
               data-week-host={week || undefined}
+              data-rail-host={rail || undefined}
               className={`flex min-h-0 min-w-0 flex-1 flex-col ${week ? 'overflow-y-auto' : rail ? 'md:overflow-y-auto' : ''}`}
             >
               {children}
