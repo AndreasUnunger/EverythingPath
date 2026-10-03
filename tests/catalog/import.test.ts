@@ -800,3 +800,112 @@ describe('pinned catalog extraction', () => {
     }
   });
 });
+
+it('admits resolved named caster-level scaling and recorded Spell Effect caster levels before ability resolution', async () => {
+  // #251 §8: qualified casting values feed dependent stats; recorded Spell Effect CL is an early input.
+  const root = await copyFixtures();
+  const { parse, stringify } = await import('yaml');
+  const humanFile = join(root, 'pf1/packs/races/human.e6IaBxKgMxy1yKlr.yaml');
+  const human = parse(await readFile(humanFile, 'utf8'));
+  human.system.changes = [
+    {
+      target: 'damage',
+      type: 'untyped',
+      formula: '@casterLevel.arcane + @casterLevel.campaign.wizard',
+    },
+    { target: 'str', type: 'racial', formula: '@casterLevel.arcane' },
+  ];
+  await writeFile(humanFile, stringify(human));
+  const spellFile = join(
+    root,
+    'pf1/packs/buffs/accurate-stance.CjQ4VmDIRBb3k7Dg.yaml',
+  );
+  const effect = parse(await readFile(spellFile, 'utf8'));
+  effect.system.subType = 'spell';
+  effect.system.changes = [
+    { target: 'str', type: 'enh', formula: 'floor(@casterLevel / 6)' },
+  ];
+  await writeFile(spellFile, stringify(effect));
+  const result = await importCatalog({
+    systemPath: join(root, 'pf1'),
+    contentPath: join(root, 'pf1-content'),
+    remaps: [],
+  });
+  expect(
+    result.catalog.entries.find((entry) => entry.name === 'Human')?.modifiers,
+  ).toEqual([
+    {
+      target: 'damage',
+      bonusType: 'untyped',
+      value: '@casterLevel.arcane + @casterLevel.campaign.wizard',
+    },
+  ]);
+  expect(
+    result.catalog.entries.find((entry) => entry.name === 'Accurate Stance')
+      ?.modifiers,
+  ).toEqual([
+    {
+      target: 'ability.str',
+      bonusType: 'enhancement',
+      value: 'floor(@casterLevel / 6)',
+    },
+  ]);
+});
+
+it('retains unsafe integer literals as unsupported instead of admitting corrupted numeric contributions', async () => {
+  const root = await copyFixtures();
+  const { parse, stringify } = await import('yaml');
+  const file = join(root, 'pf1/packs/races/human.e6IaBxKgMxy1yKlr.yaml');
+  const human = parse(await readFile(file, 'utf8'));
+  human.system.changes = [
+    { target: 'str', type: 'racial', formula: '9007199254740993' },
+    { target: 'str', type: 'racial', formula: '-9007199254740993' },
+    { target: 'str', type: 'racial', formula: '9'.repeat(400) },
+    { target: 'damage', type: 'untyped', formula: '9007199254740993 + 1' },
+  ];
+  await writeFile(file, stringify(human));
+  const result = await importCatalog({
+    systemPath: join(root, 'pf1'),
+    contentPath: join(root, 'pf1-content'),
+    remaps: [],
+  });
+  const entry = result.catalog.entries.find(
+    (catalog) => catalog.name === 'Human',
+  );
+  expect(entry?.modifiers).toEqual([]);
+  expect(
+    entry?.unsupported.filter((issue) => issue.field === 'changes'),
+  ).toHaveLength(4);
+});
+
+it('uses the sheet grammar bounds when admitting catalog formulas', async () => {
+  // #251 §8: importer and calculation admit one closed, bounded language.
+  const root = await copyFixtures();
+  const { parse, stringify } = await import('yaml');
+  const file = join(root, 'pf1/packs/races/human.e6IaBxKgMxy1yKlr.yaml');
+  const human = parse(await readFile(file, 'utf8'));
+  const longArithmetic = '1+'.repeat(100) + '1';
+  const excessiveNesting = '('.repeat(65) + '1' + ')'.repeat(65);
+  human.system.changes = [
+    { target: 'damage', type: 'untyped', formula: longArithmetic },
+    { target: 'damage', type: 'untyped', formula: excessiveNesting },
+    { target: 'damage', type: 'untyped', formula: '0'.repeat(4097) },
+    { target: 'damage', type: 'untyped', formula: '@resources.rage' },
+    { target: 'damage', type: 'untyped', formula: '@item.level' },
+  ];
+  await writeFile(file, stringify(human));
+  const result = await importCatalog({
+    systemPath: join(root, 'pf1'),
+    contentPath: join(root, 'pf1-content'),
+    remaps: [],
+  });
+  const entry = result.catalog.entries.find(
+    (catalog) => catalog.name === 'Human',
+  );
+  expect(entry?.modifiers).toEqual([
+    { target: 'damage', bonusType: 'untyped', value: longArithmetic },
+  ]);
+  expect(
+    entry?.unsupported.filter((issue) => issue.field === 'changes'),
+  ).toHaveLength(4);
+});

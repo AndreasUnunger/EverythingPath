@@ -3,7 +3,8 @@ import type { Doc } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import {
   abilityKeys,
-  calculateCharacterSheet,
+  type calculateCharacterSheet,
+  calculateCharacterSheetProjections,
 } from '../../src/lib/character-sheet';
 
 function isBaseCatalogEntry(
@@ -100,6 +101,8 @@ export async function readCharacterSheetData(
   for (const entry of entries) {
     if (
       entry.kind === 'base' ||
+      entry.kind === 'abilityDamage' ||
+      entry.kind === 'abilityDrain' ||
       (entry.kind === 'classLevel' && entry.state.classEntryId === null)
     )
       continue;
@@ -108,7 +111,7 @@ export async function readCharacterSheetData(
         ? entry.state.classEntryId
         : entry.catalogEntryId;
     const definition = definitions.find((row) => row._id === definitionId);
-    const expectedKind = entry.kind === 'classLevel' ? 'class' : 'manual';
+    const expectedKind = entry.kind === 'classLevel' ? 'class' : entry.kind;
     if (
       definition?.characterId !== character._id ||
       definition.detail.kind !== expectedKind
@@ -116,18 +119,22 @@ export async function readCharacterSheetData(
       throw new ConvexError(
         entry.kind === 'classLevel'
           ? 'Class definition does not belong to this Character'
-          : 'Personal adjustment does not belong to this Character',
+          : entry.kind === 'manual'
+            ? 'Personal adjustment does not belong to this Character'
+            : 'Catalog Entry does not belong to this Character',
       );
     if (!catalogEntries.some((row) => row._id === definition._id))
       catalogEntries.push(definition);
   }
-  const calculated = calculateCharacterSheet({
-    entries,
-    catalogEntries,
-    characterKind: character.kind,
-    sheetMode: character.sheetMode,
-  });
+  const { current: calculated, permanent: permanentCalculated } =
+    calculateCharacterSheetProjections({
+      entries,
+      catalogEntries,
+      characterKind: character.kind,
+      sheetMode: character.sheetMode,
+    });
   requireWholeCalculatedAbilities(calculated);
+  requireWholeCalculatedAbilities(permanentCalculated);
   const classLevels = entries
     .filter((entry) => entry.kind === 'classLevel')
     .sort((a, b) => a.state.position - b.state.position);
@@ -136,11 +143,14 @@ export async function readCharacterSheetData(
     entries: [
       ...entries.filter((entry) => entry.kind === 'base'),
       ...classLevels,
-      ...entries.filter((entry) => entry.kind === 'manual'),
+      ...entries.filter(
+        (entry) => entry.kind !== 'base' && entry.kind !== 'classLevel',
+      ),
     ],
     catalogEntries,
     baseScoresEntry,
     calculated,
+    permanentCalculated,
     acceptedWarnings,
     revision: character.sheetRevision ?? 0,
     lastOperationId: character.sheetLastOperationId ?? null,

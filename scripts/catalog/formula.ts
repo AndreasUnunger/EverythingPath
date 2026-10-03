@@ -1,3 +1,8 @@
+import {
+  FormulaError,
+  parseFormula,
+} from '../../src/lib/character-sheet-formulas.ts';
+
 // Parse only the documented arithmetic grammar. No Foundry expression is executed.
 export function mapFormula({
   input,
@@ -18,59 +23,26 @@ export function mapFormula({
       classTag ? `@classLevel.${classTag}` : '@unresolvedClass',
     )
     .replace(/@item\.level\b/g, '@unresolvedItem');
-  if (/^-?\d+$/.test(formula.trim())) return Number(formula);
-  const tokens =
-    formula.match(/@[A-Za-z][A-Za-z0-9_.]*|[A-Za-z]+|\d+|[^\s]/g) ?? [];
-  let index = 0;
-  const variables =
-    /^@(?:level|hitDice|bab|ability\.(?:str|dex|con|int|wis|cha)\.mod|classLevel\.[A-Za-z][A-Za-z0-9]*|casterLevel\.[A-Za-z][A-Za-z0-9]*)$/;
-  function atom(): boolean {
-    const token = tokens[index++];
-    if (!token) return false;
-    if (token === '+' || token === '-') return atom();
-    if (
-      /^\d+$/.test(token) ||
-      variables.test(token) ||
-      (allowCasterLevel && token === '@casterLevel')
+  try {
+    parseFormula(formula);
+  } catch (error) {
+    if (!(error instanceof FormulaError)) throw error;
+    return undefined;
+  }
+  if (/^-?\d+$/.test(formula.trim())) {
+    const number = Number(formula);
+    return Number.isSafeInteger(number) ? number : undefined;
+  }
+  const variables = formula.match(/@[A-Za-z][A-Za-z0-9_.]*/g) ?? [];
+  const supportedVariable =
+    /^@(?:level|hitDice|bab|ability\.(?:str|dex|con|int|wis|cha)\.mod|classLevel\.[A-Za-z][A-Za-z0-9_.]*|casterLevel\.[A-Za-z][A-Za-z0-9_.]*)$/;
+  if (
+    variables.some(
+      (name) =>
+        !supportedVariable.test(name) &&
+        !(allowCasterLevel && name === '@casterLevel'),
     )
-      return true;
-    if (token === '(') return expression() && tokens[index++] === ')';
-    if (
-      !['floor', 'ceil', 'min', 'max'].includes(token) ||
-      tokens[index++] !== '(' ||
-      !expression()
-    )
-      return false;
-    let argumentsCount = 1;
-    while (tokens[index] === ',') {
-      index++;
-      if (!expression()) return false;
-      argumentsCount++;
-    }
-    return (
-      tokens[index++] === ')' &&
-      (['floor', 'ceil'].includes(token)
-        ? argumentsCount === 1
-        : argumentsCount >= 2)
-    );
-  }
-  function product(): boolean {
-    if (!atom()) return false;
-    while (tokens[index] === '*' || tokens[index] === '/') {
-      index++;
-      if (!atom()) return false;
-    }
-    return true;
-  }
-  function expression(): boolean {
-    if (!product()) return false;
-    while (tokens[index] === '+' || tokens[index] === '-') {
-      index++;
-      if (!product()) return false;
-    }
-    return true;
-  }
-  if (tokens.length > 200 || !expression() || index !== tokens.length)
+  )
     return undefined;
   return formula.trim();
 }

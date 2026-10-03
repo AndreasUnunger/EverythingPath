@@ -187,6 +187,14 @@ function sheet({
       entries,
       catalogEntries: [catalogEntry],
     }),
+    permanentCalculated: calculateCharacterSheet(
+      {
+        characterKind: 'pc',
+        entries,
+        catalogEntries: [catalogEntry],
+      },
+      { permanentOnly: true },
+    ),
     acceptedWarnings: accepted.map((warning, index) => ({
       _id: `accepted-${index}` as Id<'acceptedWarning'>,
       _creationTime: 10 + index,

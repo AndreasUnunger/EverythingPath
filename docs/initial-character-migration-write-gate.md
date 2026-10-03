@@ -68,6 +68,7 @@ The Write Epoch exemptions are the reviewed identity webhook builder and `retire
 
 Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membership webhooks, fixture reset/seed/cleanup, accepted-campaign setup, corrections, confirmations and scheduled draft retirement appear individually below. Ownership and campaign references are frozen through Character, membership, Setup and correction writers; there are no separate ungated ownership endpoints. Historical rewrite is not yet a registered writer in this release and must enter this inventory when implemented.
 
+<!-- prettier-ignore -->
 | Registered writer | Gate or reviewed exception |
 | --- | --- |
 | `convex/campaign.ts:createCampaign` | Shared write gate (epoch + maintenance) |
@@ -98,15 +99,21 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:archive` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:buildOut` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:create` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:createAbilityChange` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:createPersonalAdjustment` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:createSheetEntry` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:deleteClassLevel` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:deletePrivate` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:editAbilityChange` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editBaseScores` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editClassLevel` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editCreationSettings` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editPersonalAdjustment` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:editSheetEntry` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:moveClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:removeAbilityChange` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:removePersonalAdjustment` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:removeSheetEntry` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:reopenWarning` | Shared write gate (epoch + maintenance) |
 | `convex/clerk.ts:fulfill` | Signature verification only; no writes or scheduling |
 | `convex/cutover.ts:activate` | Retired: always rejects; never mutates |

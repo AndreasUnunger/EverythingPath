@@ -70,7 +70,9 @@ function renderSheet(initial: CharacterSheetSnapshot) {
 }
 // The trigger's name is "<label> <visible number>, breakdown" (WCAG 2.5.3).
 const trigger = (label: string) =>
-  screen.getByRole('button', { name: new RegExp(`^${label} .+, breakdown$`) });
+  screen.getByRole('button', {
+    name: new RegExp(`^${label} (?!modifier ).+, breakdown$`),
+  });
 const panel = (label: string) =>
   screen.getByRole('group', { name: `${label} breakdown` });
 const queryPanel = (label: string) =>
@@ -240,8 +242,10 @@ test('an adjusted Strength shows 14 as the total while the base score stays 10, 
     '10',
   );
   expect(
-    within(scores).getByText(/^Strength modifier/).parentElement,
-  ).toHaveTextContent('Strength modifier +2');
+    within(scores).getByRole('button', {
+      name: 'Strength modifier +2, breakdown',
+    }),
+  ).toBeVisible();
 });
 
 test('HP stays not complete while a Class Level lacks hit points, explains why, and lists each contribution once complete', () => {

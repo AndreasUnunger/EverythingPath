@@ -21,6 +21,7 @@ export function StatBreakdown({
   statistic,
   target,
   incompleteReason = null,
+  format = String,
   className,
 }: {
   label: string;
@@ -28,15 +29,17 @@ export function StatBreakdown({
   target: BreakdownTarget;
   /** Why the number cannot be stated yet; shown instead of a total. */
   incompleteReason?: string | null;
+  /** How the total reads, in the number and in its name: "+2" for a modifier. */
+  format?: (total: number) => string;
   className?: string;
 }) {
   const popup = useStatBreakdownPopup();
   const panelId = useId();
   const totalText =
-    incompleteReason === null ? String(statistic.total) : 'not complete';
+    incompleteReason === null ? format(statistic.total) : 'not complete';
   const total =
     incompleteReason === null ? (
-      statistic.total
+      totalText
     ) : (
       <>
         <span aria-hidden>—</span>

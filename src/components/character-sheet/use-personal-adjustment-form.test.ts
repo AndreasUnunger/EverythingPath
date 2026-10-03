@@ -432,3 +432,98 @@ test('unsupported modifier conditions produce field errors instead of silently s
     view.result.current.form.formState.errors.modifiers?.[0]?.condition,
   ).toBeDefined();
 });
+
+test('formula mode preserves supported and unsupported expressions as formulas instead of coercing numbers', async () => {
+  // #298 Formulas: unsupported text is retained for the resolver warning.
+  const saved: PersonalAdjustmentInput[] = [];
+  const view = renderHook(() =>
+    usePersonalAdjustmentForm({
+      save: async (input) => {
+        saved.push(input);
+      },
+    }),
+  );
+  act(() => {
+    view.result.current.form.setValue('name', 'Formula');
+    view.result.current.form.setValue('modifiers.0.valueKind', 'formula');
+    view.result.current.form.setValue('modifiers.0.value', 'floor(@level / 2)');
+  });
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('saved');
+  });
+  expect(saved[0]?.modifiers[0]?.value).toEqual({
+    formula: 'floor(@level / 2)',
+  });
+});
+
+test('a second save cannot acknowledge an unchanged draft while its earlier write is pending', async () => {
+  const adjustment: PersonalAdjustmentInput = {
+    name: 'Blessing',
+    modifiers: [],
+  };
+  let complete: (() => void) | undefined;
+  const pending = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  const view = renderHook(() =>
+    usePersonalAdjustmentForm({ adjustment, save: () => pending }),
+  );
+  act(() =>
+    view.result.current.form.setValue('name', 'Greater blessing', {
+      shouldDirty: true,
+    }),
+  );
+  let saving: Promise<PersonalAdjustmentSaveOutcome> | undefined;
+  await act(async () => {
+    saving = view.result.current.save();
+  });
+  expect(view.result.current.status.kind).toBe('saving');
+  act(() =>
+    view.result.current.form.setValue('name', 'Blessing', {
+      shouldDirty: true,
+    }),
+  );
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('failed');
+  });
+  expect(view.result.current.status.kind).toBe('saving');
+  await act(async () => {
+    complete?.();
+    await saving;
+  });
+  expect(view.result.current.form.getValues('name')).toBe('Blessing');
+  expect(view.result.current.form.formState.isDirty).toBe(true);
+});
+
+test.each(['9007199254740992', '-9007199254740992'])(
+  'numeric ability modifiers reject unsafe integers (%s) while formulas retain their expression',
+  async (value) => {
+    const saved: PersonalAdjustmentInput[] = [];
+    const view = renderHook(() =>
+      usePersonalAdjustmentForm({
+        save: async (input) => {
+          saved.push(input);
+        },
+      }),
+    );
+    act(() => {
+      view.result.current.form.setValue('name', 'Ability adjustment');
+      view.result.current.form.setValue('modifiers.0.value', value);
+    });
+    await act(async () => {
+      expect(await view.result.current.save()).toBe('failed');
+    });
+    expect(saved).toEqual([]);
+    expect(
+      view.result.current.form.getFieldState('modifiers.0.value').error
+        ?.message,
+    ).toBe('Ability score modifiers must be whole numbers');
+    act(() => {
+      view.result.current.form.setValue('modifiers.0.valueKind', 'formula');
+    });
+    await act(async () => {
+      expect(await view.result.current.save()).toBe('saved');
+    });
+    expect(saved[0]?.modifiers[0]?.value).toEqual({ formula: value });
+  },
+);

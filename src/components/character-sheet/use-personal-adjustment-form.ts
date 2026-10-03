@@ -3,7 +3,7 @@
 import type { Id } from '@convex/_generated/dataModel';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRef, useState } from 'react';
-import { useFieldArray, useForm, type UseFormReturn } from 'react-hook-form';
+import { useFieldArray, type UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import {
   personalBonusTypes,
@@ -12,6 +12,7 @@ import {
 } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { SaveStatus } from './save-status';
+import { useSheetFormState } from './use-sheet-form-state';
 import type { PersonalAdjustmentInput } from './use-character-sheet';
 
 const numberPattern = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i;
@@ -39,30 +40,40 @@ const schema = z.object({
       .object({
         target: z.enum(modifierTargets),
         bonusType: z.enum(personalBonusTypes),
-        value: z.string().superRefine((raw, context) => {
-          const value = raw.trim();
-          if (!value)
-            context.addIssue({
-              code: 'custom',
-              message: 'Modifier value is required',
-            });
-          else if (
-            !numberPattern.test(value) ||
-            !Number.isFinite(Number(value))
-          )
-            context.addIssue({
-              code: 'custom',
-              message: 'Modifier value must be a number',
-            });
-        }),
+        value: z.string(),
+        valueKind: z.enum(['number', 'formula']).optional(),
         condition: conditionSchema.optional(),
       })
       .superRefine((modifier, context) => {
-        if (
+        const value = modifier.value.trim();
+        if (!value)
+          context.addIssue({
+            code: 'custom',
+            path: ['value'],
+            message:
+              modifier.valueKind === 'formula'
+                ? 'Formula is required'
+                : 'Modifier value is required',
+          });
+        else if (modifier.valueKind === 'formula') {
+          if (value.length > 4096)
+            context.addIssue({
+              code: 'custom',
+              path: ['value'],
+              message: 'Formula is too long',
+            });
+        } else if (
+          !numberPattern.test(value) ||
+          !Number.isFinite(Number(value))
+        )
+          context.addIssue({
+            code: 'custom',
+            path: ['value'],
+            message: 'Modifier value must be a number',
+          });
+        else if (
           modifier.target.startsWith('ability.') &&
-          Number.isFinite(Number(modifier.value)) &&
-          modifier.value.trim() &&
-          !Number.isSafeInteger(Number(modifier.value))
+          !Number.isSafeInteger(Number(value))
         )
           context.addIssue({
             code: 'custom',
@@ -91,7 +102,10 @@ function formValues(adjustment?: PersonalAdjustmentInput): Values {
           ({ target, bonusType, value, condition }) => ({
             target,
             bonusType: z.enum(personalBonusTypes).parse(bonusType),
-            value: String(value),
+            value: typeof value === 'number' ? String(value) : value.formula,
+            ...(typeof value === 'number'
+              ? {}
+              : { valueKind: 'formula' as const }),
             ...(condition
               ? {
                   condition: {
@@ -108,9 +122,10 @@ function formValues(adjustment?: PersonalAdjustmentInput): Values {
 function toInput(values: Values): PersonalAdjustmentInput {
   return {
     name: values.name.trim(),
-    modifiers: values.modifiers.map((modifier) => ({
+    modifiers: values.modifiers.map(({ valueKind, value, ...modifier }) => ({
       ...modifier,
-      value: Number(modifier.value),
+      value:
+        valueKind === 'formula' ? { formula: value.trim() } : Number(value),
     })),
   };
 }
@@ -134,28 +149,14 @@ export function usePersonalAdjustmentForm({
   adjustment?: PersonalAdjustmentInput;
   save: (input: PersonalAdjustmentInput) => Promise<unknown>;
 }) {
-  const incoming = formValues(adjustment);
-  const [source, setSource] = useState(incoming);
-  const [baseline, setBaseline] = useState(incoming);
-  const [pristineValues, setPristineValues] = useState(incoming);
-  const [hasRemoteChange, setHasRemoteChange] = useState(false);
-  const expected = useRef<string | null>(null);
-  const latest = useRef({ source, baseline });
-  latest.current = { source, baseline };
-  const form = useForm<Values>({
-    values: pristineValues,
+  const state = useSheetFormState({
+    incoming: formValues(adjustment),
     resolver: zodResolver(schema),
+    // Merging array indexes could attach another player's value to a different
+    // modifier after a row is removed. Keep the modifier list as one draft.
+    draftPolicy: 'whole',
   });
-  const isDirty = form.formState.isDirty;
-  if (JSON.stringify(incoming) !== JSON.stringify(source)) {
-    setSource(incoming);
-    setBaseline(incoming);
-    if (expected.current === JSON.stringify(incoming)) expected.current = null;
-    else setHasRemoteChange(true);
-    // Treat the modifier list as one draft: merging array indexes could apply
-    // another player's value to a different modifier after a row was removed.
-    if (!isDirty) setPristineValues(incoming);
-  }
+  const { form, source, baseline, setBaseline, expected, latest } = state;
   const fields = useFieldArray({ control: form.control, name: 'modifiers' });
   const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' });
   const busy = useRef(false);
@@ -164,11 +165,6 @@ export function usePersonalAdjustmentForm({
     values: Values,
   ): Promise<PersonalAdjustmentSaveOutcome> {
     const submitted = formValues(toInput(values));
-    if (adjustment && JSON.stringify(submitted) === JSON.stringify(baseline)) {
-      form.reset(baseline);
-      setStatus({ kind: 'idle' });
-      return 'saved';
-    }
     expected.current = JSON.stringify(submitted);
     setStatus({ kind: 'saving' });
     function acceptSavedDraft(): PersonalAdjustmentSaveOutcome {
@@ -200,7 +196,7 @@ export function usePersonalAdjustmentForm({
       return 'failed';
     }
   }
-  async function save(): Promise<PersonalAdjustmentSaveOutcome> {
+  async function saveAdditionalChanges(): Promise<PersonalAdjustmentSaveOutcome> {
     if (busy.current) return 'failed';
     busy.current = true;
     try {
@@ -213,14 +209,29 @@ export function usePersonalAdjustmentForm({
       busy.current = false;
     }
   }
+  async function save(): Promise<PersonalAdjustmentSaveOutcome> {
+    if (busy.current) return 'failed';
+    const parsed = schema.safeParse(form.getValues());
+    if (
+      parsed.success &&
+      JSON.stringify(formValues(toInput(parsed.data))) ===
+        JSON.stringify(baseline)
+    ) {
+      form.reset(baseline);
+      setStatus({ kind: 'idle' });
+      return 'saved';
+    }
+    return saveAdditionalChanges();
+  }
   return {
     form,
     fields: fields.fields,
     addModifier: () => fields.append({ ...emptyModifier }),
     removeModifier: fields.remove,
     status,
-    hasRemoteChange,
-    dismissRemoteChange: () => setHasRemoteChange(false),
+    hasRemoteChange: state.hasRemoteChange,
+    dismissRemoteChange: state.dismissRemoteChange,
     save,
+    saveAdditionalChanges,
   };
 }

@@ -1,25 +1,18 @@
 'use client';
-import { Plus } from 'lucide-react';
 import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '~/components/ui/form';
-import { Input } from '~/components/ui/input';
-import { cn } from '~/lib/utils';
-import {
-  modifierColumns,
-  PersonalAdjustmentModifierRow,
-} from './personal-adjustment-modifier-row';
-import { action, fieldLabel, RemoteNotice, SaveFeedback } from './sheet-parts';
-import type { PersonalAdjustmentInput } from './use-character-sheet';
+import { Form } from '~/components/ui/form';
+import { AdjustmentNameField, ModifierListFields } from './adjustment-fields';
+import { action, RemoteNotice, SaveFeedback } from './sheet-parts';
+import type {
+  PersonalAdjustmentInput,
+  SheetWarningView,
+  useCharacterSheet,
+} from './use-character-sheet';
 import { usePersonalAdjustmentForm } from './use-personal-adjustment-form';
+
+type Controller = ReturnType<typeof useCharacterSheet>;
 
 /**
  * One personal adjustment, edited in place: its name and the Modifiers it
@@ -33,6 +26,8 @@ export function PersonalAdjustmentEditor({
   onClose,
   isNew,
   isRemoved = false,
+  warnings = [],
+  warningController,
 }: {
   adjustment?: PersonalAdjustmentInput;
   save: (input: PersonalAdjustmentInput) => Promise<unknown>;
@@ -41,6 +36,9 @@ export function PersonalAdjustmentEditor({
   isNew: boolean;
   /** Another player removed the entry this draft belongs to. */
   isRemoved?: boolean;
+  /** The saved entry's Modifier warnings, shown under their Modifiers. */
+  warnings?: SheetWarningView[];
+  warningController?: Controller['warnings'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const editor = usePersonalAdjustmentForm({ adjustment, save });
@@ -92,58 +90,16 @@ export function PersonalAdjustmentEditor({
           void saveAndCloseWhenClean();
         }}
       >
-        <FormField
+        <AdjustmentNameField
           control={editor.form.control}
-          name="name"
-          render={({ field, fieldState }) => (
-            <FormItem className="gap-0.5">
-              <FormLabel className={fieldLabel}>Name</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  disabled={isDisabled}
-                  autoComplete="off"
-                  className="h-11 md:h-8"
-                />
-              </FormControl>
-              <FormMessage role={fieldState.error ? 'alert' : undefined} />
-            </FormItem>
-          )}
+          isDisabled={isDisabled}
         />
-        <div
-          aria-hidden
-          className={cn('hidden md:grid', modifierColumns, fieldLabel)}
-        >
-          <span>Statistic</span>
-          <span>Bonus type</span>
-          <span>Value</span>
-          <span>Only when…</span>
-          <span />
-        </div>
-        <ul aria-label="Modifiers" className="space-y-1">
-          {editor.fields.map((row, index) => (
-            <PersonalAdjustmentModifierRow
-              key={row.id}
-              editor={editor}
-              index={index}
-              isDisabled={isDisabled}
-              canRemove={editor.fields.length > 1}
-            />
-          ))}
-        </ul>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className={action}
-            disabled={isDisabled}
-            onClick={editor.addModifier}
-          >
-            <Plus aria-hidden className="size-4" />
-            Add modifier
-          </Button>
-        </div>
+        <ModifierListFields
+          editor={editor}
+          isDisabled={isDisabled}
+          warnings={warnings}
+          warningController={warningController}
+        />
         {isRemoved ? (
           <p role="status" className="text-xs text-sky-300">
             This adjustment is no longer on the sheet. Save adds it as a new

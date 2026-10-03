@@ -1,52 +1,60 @@
 'use client';
 import type { Id } from '@convex/_generated/dataModel';
 import { Check, Plus, SquarePen, Trash2 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
+import { abilityLabels } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
-import { InlineWarnings } from './inline-warning';
-import { describeModifier } from './modifier-labels';
-import { listEntryModifierWarnings } from './modifier-warnings';
-import { PersonalAdjustmentEditor } from './personal-adjustment-editor';
+import { AbilityChangeEditor } from './ability-change-editor';
 import { action, Block, chip, RemoteNotice, SaveFeedback } from './sheet-parts';
-import type {
-  SheetWarningView,
-  useCharacterSheet,
-} from './use-character-sheet';
+import type { useCharacterSheet } from './use-character-sheet';
+import type { AbilityChangeInput } from './use-character-sheet-entries';
 import { useCreateThenEdit } from './use-create-then-edit';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
-type Row = NonNullable<Controller['sheet']>['adjustments'][number];
+type Row = NonNullable<Controller['sheet']>['abilityChanges'][number];
 type EntryId = Id<'characterSheetEntry'>;
 type OpenEditor = { kind: 'new' } | { kind: 'entry'; entryId: EntryId } | null;
-type WarningProps = {
-  warnings: SheetWarningView[];
-  warningController: Controller['warnings'];
-};
 
-const newEditorKey = 'new-adjustment';
+/** "Strength damage", "Constitution drain": the row's name on the sheet. */
+function describeRow(row: Row) {
+  const noun = row.kind === 'abilityDamage' ? 'damage' : 'drain';
+  return `${abilityLabels[row.state.ability]} ${noun}`;
+}
 
-// A row's formula warnings sit under it while its editor is closed; once
-// open, the editor shows each one under the Modifier it is about.
-function AdjustmentRow({
+// What the points do, in the row: damage to the modifier, drain to the score.
+function describeConsequence(row: Row) {
+  const points = `${row.state.points} ${row.state.points === 1 ? 'point' : 'points'}`;
+  if (row.kind === 'abilityDrain')
+    return `${points} · score −${row.state.points}`;
+  return `${points} · modifier −${Math.floor(row.state.points / 2)}`;
+}
+
+function toInput(row: Row): AbilityChangeInput {
+  return {
+    kind: row.kind,
+    ability: row.state.ability,
+    points: row.state.points,
+  };
+}
+
+function AbilityChangeRow({
   row,
   isBusy,
   isOpen,
   actions,
-  warnings,
-  warningController,
   onEdit,
-}: WarningProps & {
+}: {
   row: Row;
   isBusy: boolean;
   isOpen: boolean;
-  actions: Controller['adjustments'];
+  actions: Controller['abilityChanges'];
   onEdit: () => void;
 }) {
   const maintenance = useInitialMigrationMaintenance();
-  const nameId = useId();
+  const name = describeRow(row);
   const isDisabled = isBusy || maintenance.readOnly;
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
@@ -54,9 +62,9 @@ function AdjustmentRow({
         type="button"
         role="switch"
         aria-checked={row.active}
-        aria-label={`${row.name}: ${row.active ? 'active' : 'inactive'}`}
+        aria-label={`${name}: ${row.active ? 'active' : 'inactive'}`}
         disabled={isDisabled}
-        onClick={() => void actions.setActive(row.entryId, !row.active)}
+        onClick={() => void actions.setActive(row._id, !row.active)}
         className={cn(
           'mt-0.5 inline-flex size-11 shrink-0 items-center justify-center border md:size-7',
           row.active
@@ -70,28 +78,20 @@ function AdjustmentRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h3
-            id={nameId}
             className={cn(
-              'font-sans text-base [overflow-wrap:anywhere]',
+              'font-sans text-base',
               row.active ? '' : 'text-muted-foreground',
             )}
           >
-            {row.name}
+            {name}
           </h3>
           <span className={cn(chip, row.active ? '' : 'text-muted-foreground')}>
             {row.active ? 'Active' : 'Inactive'}
           </span>
         </div>
-        <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]">
-          {row.modifiers.map(describeModifier).join(' · ')}
+        <p className="text-muted-foreground font-mono text-xs">
+          {describeConsequence(row)}
         </p>
-        {isOpen ? null : (
-          <InlineWarnings
-            warnings={warnings}
-            controller={warningController}
-            className="mt-1"
-          />
-        )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button
@@ -103,7 +103,7 @@ function AdjustmentRow({
           onClick={onEdit}
         >
           <SquarePen aria-hidden className="size-4" />
-          <span className="sr-only">Edit {row.name}</span>
+          <span className="sr-only">Edit {name}</span>
         </Button>
         <Button
           type="button"
@@ -111,83 +111,69 @@ function AdjustmentRow({
           size="icon"
           className="size-11 md:size-8"
           disabled={isDisabled}
-          onClick={() => void actions.remove(row.entryId)}
+          onClick={() => void actions.remove(row._id)}
         >
           <Trash2 aria-hidden className="size-4" />
-          <span className="sr-only">Remove {row.name}</span>
+          <span className="sr-only">Remove {name}</span>
         </Button>
       </div>
     </div>
   );
 }
 
-function NewAdjustmentEditor({
+// An existing entry keeps its kind, so only the ability and points are sent.
+function NewAbilityChangeEditor({
   actions,
   onClose,
 }: {
-  actions: Controller['adjustments'];
+  actions: Controller['abilityChanges'];
   onClose: () => void;
 }) {
   const creation = useCreateThenEdit({
     create: actions.create,
-    edit: actions.edit,
+    edit: (entryId, { ability, points }: AbilityChangeInput) =>
+      actions.edit(entryId, { ability, points }),
   });
-  return (
-    <PersonalAdjustmentEditor save={creation.save} onClose={onClose} isNew />
-  );
+  return <AbilityChangeEditor save={creation.save} onClose={onClose} isNew />;
 }
 
-// The open entry's editor lives below the list, not in its row, so another
-// player removing the row cannot take an unsaved draft with it. A removed
-// entry's draft saves as a new adjustment and then follows that one.
+// The editor lives below the list so another player's removal cannot take
+// a draft with it; a removed entry's draft is offered to be closed.
 function EntryEditor({
   entryId,
   rows,
   actions,
-  warnings,
-  warningController,
   onClose,
-}: WarningProps & {
+}: {
   entryId: EntryId;
   rows: Row[];
-  actions: Controller['adjustments'];
+  actions: Controller['abilityChanges'];
   onClose: () => void;
 }) {
-  const creation = useCreateThenEdit({
-    create: actions.create,
-    edit: actions.edit,
-  });
-  const row = rows.find(
-    (item) => item.entryId === (creation.createdId ?? entryId),
-  );
+  const row = rows.find((item) => item._id === entryId);
   return (
-    <PersonalAdjustmentEditor
-      adjustment={
-        row ? { name: row.name, modifiers: row.modifiers } : undefined
-      }
-      save={row ? (input) => actions.edit(row.entryId, input) : creation.save}
+    <AbilityChangeEditor
+      value={row ? toInput(row) : undefined}
+      save={({ ability, points }) => actions.edit(entryId, { ability, points })}
       onClose={onClose}
       isNew={false}
       isRemoved={!row}
-      warnings={row ? listEntryModifierWarnings(warnings, row.entryId) : []}
-      warningController={warningController}
     />
   );
 }
 
 /**
- * The player's own additions to the sheet: each with its name, active state
- * and Modifiers, toggled, edited and removed in place. One editor is open at
- * a time, keyed by its entry so switching rows never carries a draft over.
+ * Ability damage and drain: each entry names its ability and points, is
+ * switched off and on, edited and removed in place. Damage leaves the score
+ * and lowers the modifier; drain lowers the score. One editor is open at a
+ * time, keyed by its entry.
  */
-export function PersonalAdjustments({
+export function AbilityChanges({
   rows,
   actions,
-  warnings,
-  warningController,
-}: WarningProps & {
+}: {
   rows: Row[];
-  actions: Controller['adjustments'];
+  actions: Controller['abilityChanges'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const [open, setOpen] = useState<OpenEditor>(null);
@@ -195,41 +181,32 @@ export function PersonalAdjustments({
   const close = () => setOpen(null);
   const openEntryId = open?.kind === 'entry' ? open.entryId : null;
   return (
-    <Block
-      title="Personal adjustments"
-      aside={
-        <p className="text-muted-foreground font-mono text-xs">
-          {rows.length} {rows.length === 1 ? 'adjustment' : 'adjustments'}
-        </p>
-      }
-    >
+    <Block title="Ability damage and drain">
       <div className="space-y-2">
         <RemoteNotice
           isShown={actions.hasRemoteChange}
-          message="Personal adjustments changed."
-          subject="personal adjustments"
+          message="Ability damage and drain changed."
+          subject="ability damage and drain"
           onDismiss={actions.dismissRemoteChange}
         />
         {rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No personal adjustments.
+            No ability damage or drain.
           </p>
         ) : (
           <ul className="divide-foreground/10 divide-y">
             {rows.map((row) => (
-              <li key={row.entryId} aria-label={row.name}>
-                <AdjustmentRow
+              <li key={row._id} aria-label={describeRow(row)}>
+                <AbilityChangeRow
                   row={row}
                   isBusy={isBusy}
-                  isOpen={openEntryId === row.entryId}
+                  isOpen={openEntryId === row._id}
                   actions={actions}
-                  warnings={listEntryModifierWarnings(warnings, row.entryId)}
-                  warningController={warningController}
                   onEdit={() =>
                     setOpen(
-                      openEntryId === row.entryId
+                      openEntryId === row._id
                         ? null
-                        : { kind: 'entry', entryId: row.entryId },
+                        : { kind: 'entry', entryId: row._id },
                     )
                   }
                 />
@@ -243,14 +220,12 @@ export function PersonalAdjustments({
             entryId={openEntryId}
             rows={rows}
             actions={actions}
-            warnings={warnings}
-            warningController={warningController}
             onClose={close}
           />
         ) : null}
         {open?.kind === 'new' ? (
-          <NewAdjustmentEditor
-            key={newEditorKey}
+          <NewAbilityChangeEditor
+            key="new-ability-change"
             actions={actions}
             onClose={close}
           />
@@ -265,12 +240,9 @@ export function PersonalAdjustments({
             onClick={() => setOpen({ kind: 'new' })}
           >
             <Plus aria-hidden className="size-4" />
-            Add personal adjustment
+            Add ability damage or drain
           </Button>
-          <SaveFeedback
-            status={actions.status}
-            savedText="Personal adjustments saved."
-          />
+          <SaveFeedback status={actions.status} savedText="Saved." />
           <MaintenanceReason notice={maintenance} />
         </div>
       </div>

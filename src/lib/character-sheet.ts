@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  evaluateFormula,
+  FormulaError,
+  parseFormula,
+} from './character-sheet-formulas';
 
 export const abilityKeys = [
   'strength',
@@ -59,12 +64,15 @@ export type SheetWarning = {
     | 'hpGainedBelowMinimum'
     | 'totalHpUnresolved'
     | 'levelZero'
-    | 'pointBuy';
+    | 'pointBuy'
+    | 'unsupportedFormula'
+    | 'formulaDependency';
   target:
     | { kind: 'pointBuy' }
     | { kind: 'classLevel'; entryId: string; field: 'class' | 'hpGained' }
     | { kind: 'hitPoints' }
-    | { kind: 'classLevels' };
+    | { kind: 'classLevels' }
+    | { kind: 'modifier'; entryId: string; modifierIndex: number };
   subject: string;
   fingerprint: string;
   message: string;
@@ -101,7 +109,7 @@ export function calculatePointBuy({
     : costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0);
   return { spent };
 }
-type SheetEntry = { _id: string } & (
+export type SheetEntry = { _id: string } & (
   | {
       kind: 'base';
       active: true;
@@ -114,6 +122,27 @@ type SheetEntry = { _id: string } & (
       catalogEntryId: string;
       state: { kind: 'manual' };
     }
+  | {
+      [Kind in 'abilityDamage' | 'abilityDrain']: {
+        kind: Kind;
+        active: boolean;
+        state: { kind: Kind; ability: Ability; points: number };
+      };
+    }['abilityDamage' | 'abilityDrain']
+  | {
+      kind: 'spellEffect';
+      active: boolean;
+      catalogEntryId: string;
+      state: { kind: 'spellEffect'; casterLevel: number };
+    }
+  | {
+      [Kind in 'condition' | 'item' | 'spell']: {
+        kind: Kind;
+        active: boolean;
+        catalogEntryId: string;
+        state: { kind: Kind };
+      };
+    }['condition' | 'item' | 'spell']
   | {
       kind: 'classLevel';
       active: true;
@@ -138,27 +167,45 @@ export function creationSettingsFor(
   };
 }
 
-export function calculateCharacterSheet(
-  {
-    entries,
-    catalogEntries,
-    characterKind,
-    sheetMode,
-  }: {
-    sheetMode?: 'militiaOnly' | 'full';
-    characterKind: 'pc' | 'npc';
-    entries: readonly SheetEntry[];
-    catalogEntries: readonly {
-      _id: string;
-      name?: string;
-      ruleIdentity: string;
-      sourceKey?: string;
-      stacksWithItself?: boolean;
-      modifiers: readonly Modifier[];
-    }[];
-  },
-  options: ResolveOptions = {},
+export type SheetCatalogEntryDetail =
+  | { kind: 'spellEffect'; lastsOverOneDay?: boolean }
+  | { kind: 'item'; consumable?: boolean }
+  | { kind: 'base' | 'manual' | 'class' | 'condition' | 'spell' };
+
+export function isTemporaryEffect(
+  entry: Pick<SheetEntry, 'kind'>,
+  detail?: SheetCatalogEntryDetail,
 ) {
+  return (
+    entry.kind === 'abilityDamage' ||
+    entry.kind === 'condition' ||
+    (entry.kind === 'spellEffect' &&
+      (detail?.kind !== 'spellEffect' || detail.lastsOverOneDay !== true)) ||
+    (entry.kind === 'item' &&
+      detail?.kind === 'item' &&
+      detail.consumable === true)
+  );
+}
+
+export type CharacterSheetInput = {
+  sheetMode?: 'militiaOnly' | 'full';
+  characterKind: 'pc' | 'npc';
+  entries: readonly SheetEntry[];
+  catalogEntries: readonly {
+    _id: string;
+    name?: string;
+    ruleIdentity: string;
+    sourceKey?: string;
+    stacksWithItself?: boolean;
+    modifiers: readonly Modifier[];
+    detail?: SheetCatalogEntryDetail;
+  }[];
+};
+
+type ClassLevelEntry = Extract<SheetEntry, { kind: 'classLevel' }>;
+type FormulaCache = Map<string, ReturnType<typeof parseFormula> | FormulaError>;
+
+function baseScoresFor({ entries, catalogEntries }: CharacterSheetInput) {
   const [base, ...otherBases] = entries.filter(
     (entry) => entry.kind === 'base',
   );
@@ -178,6 +225,7 @@ export function calculateCharacterSheet(
       !modifier ||
       others.length ||
       modifier.bonusType !== 'base' ||
+      typeof modifier.value !== 'number' ||
       !Number.isFinite(modifier.value)
     )
       throw new Error('Base scores require six finite Modifiers');
@@ -187,13 +235,27 @@ export function calculateCharacterSheet(
       value: modifier.value,
     };
   });
-  const sourced = entries.flatMap((entry): SourcedModifier[] => {
-    if (!entry.active || entry.kind === 'classLevel') return [];
+  return { base, baseModifiers };
+}
+
+function sourceCatalogModifiers(
+  { entries, catalogEntries }: CharacterSheetInput,
+  options: ResolveOptions,
+): InputSourcedModifier[] {
+  return entries.flatMap((entry): InputSourcedModifier[] => {
+    if (!entry.active || !('catalogEntryId' in entry) || entry.kind === 'spell')
+      return [];
     const catalog = catalogEntries.find(
       (item) => item._id === entry.catalogEntryId,
     );
     if (!catalog) throw new Error('Catalog Entry is unavailable');
-    return catalog.modifiers.map((modifier) => ({
+    if (options.permanentOnly && isTemporaryEffect(entry, catalog.detail))
+      return [];
+    return catalog.modifiers.map((modifier, modifierIndex) => ({
+      modifierIndex,
+      ...(entry.state.kind === 'spellEffect'
+        ? { effectCasterLevel: entry.state.casterLevel }
+        : {}),
       ...modifier,
       sheetEntryId: entry._id,
       entryName:
@@ -204,21 +266,148 @@ export function calculateCharacterSheet(
       stacksWithItself: catalog.stacksWithItself,
     }));
   });
-  const context = {
+}
+
+function abilityChangesFor(
+  entries: readonly SheetEntry[],
+  options: ResolveOptions,
+) {
+  const abilityDamage: Partial<Record<Ability, number>> = {};
+  const drainModifiers: InputSourcedModifier[] = [];
+  for (const entry of entries) {
+    if (!entry.active) continue;
+    if (entry.kind === 'abilityDamage' && !options.permanentOnly)
+      abilityDamage[entry.state.ability] =
+        (abilityDamage[entry.state.ability] ?? 0) + entry.state.points;
+    if (entry.kind === 'abilityDrain')
+      drainModifiers.push({
+        target: abilityTargets[entry.state.ability],
+        bonusType: 'untyped',
+        value: -entry.state.points,
+        sheetEntryId: entry._id,
+        entryName: 'Ability drain',
+        source: `drain:${entry._id}`,
+        builtIn: true,
+      });
+  }
+  return { abilityDamage, drainModifiers };
+}
+
+function characterLevelInputs(levels: readonly ClassLevelEntry[]) {
+  return { level: levels.length, hitDice: levels.length };
+}
+
+function calculationContext(
+  { entries, catalogEntries }: CharacterSheetInput,
+  levels: readonly ClassLevelEntry[],
+  abilityDamage: Partial<Record<Ability, number>>,
+  options: ResolveOptions,
+): ResolveOptions {
+  return {
     ...options,
-    activeCatalogEntryIds: entries.flatMap((entry) =>
-      entry.active && entry.kind !== 'classLevel' ? [entry.catalogEntryId] : [],
-    ),
+    ...characterLevelInputs(levels),
+    abilityDamage,
+    activeCatalogEntryIds: entries.flatMap((entry) => {
+      if (!entry.active || !('catalogEntryId' in entry)) return [];
+      const catalog = catalogEntries.find(
+        (item) => item._id === entry.catalogEntryId,
+      );
+      return options.permanentOnly && isTemporaryEffect(entry, catalog?.detail)
+        ? []
+        : [entry.catalogEntryId];
+    }),
   };
-  const constitution = resolveStatistic(
-    sourced.filter(
-      (item) =>
-        item.target === 'ability.con' && conditionApplies(item, context),
+}
+
+function abilityValue(
+  ability: Ability,
+  breakdowns: Record<LeafTarget, ResolvedStatistic>,
+  abilityDamage: Partial<Record<Ability, number>>,
+) {
+  const score = breakdowns[abilityTargets[ability]].total;
+  const modifier =
+    Math.floor((score - 10) / 2) -
+    Math.floor((abilityDamage[ability] ?? 0) / 2);
+  return { score, modifier };
+}
+
+function calculateAbilities(
+  breakdowns: Record<LeafTarget, ResolvedStatistic>,
+  abilityDamage: Partial<Record<Ability, number>>,
+) {
+  return {
+    strength: abilityValue('strength', breakdowns, abilityDamage),
+    dexterity: abilityValue('dexterity', breakdowns, abilityDamage),
+    constitution: abilityValue('constitution', breakdowns, abilityDamage),
+    intelligence: abilityValue('intelligence', breakdowns, abilityDamage),
+    wisdom: abilityValue('wisdom', breakdowns, abilityDamage),
+    charisma: abilityValue('charisma', breakdowns, abilityDamage),
+  };
+}
+
+function abilityModifierBreakdown(
+  ability: Ability,
+  abilities: ReturnType<typeof calculateAbilities>,
+  abilityDamage: Partial<Record<Ability, number>>,
+): ResolvedStatistic {
+  const points = abilityDamage[ability] ?? 0;
+  const applied: SourcedModifier[] = [
+    {
+      target: abilityTargets[ability],
+      bonusType: 'base',
+      value: Math.floor((abilities[ability].score - 10) / 2),
+      sheetEntryId: `builtin:modifier:${ability}`,
+      entryName: `${abilityLabels[ability]} modifier`,
+      source: `builtin:modifier:${ability}`,
+      builtIn: true,
+    },
+  ];
+  if (points)
+    applied.push({
+      target: abilityTargets[ability],
+      bonusType: 'untyped',
+      value: -Math.floor(points / 2),
+      sheetEntryId: `builtin:damage:${ability}`,
+      entryName: `Ability damage (${points} points)`,
+      source: `builtin:damage:${ability}`,
+      builtIn: true,
+    });
+  return {
+    total: abilities[ability].modifier,
+    applied,
+    suppressed: [],
+    conditional: [],
+  };
+}
+
+function calculateAbilityModifierBreakdowns(
+  abilities: ReturnType<typeof calculateAbilities>,
+  abilityDamage: Partial<Record<Ability, number>>,
+) {
+  return {
+    strength: abilityModifierBreakdown('strength', abilities, abilityDamage),
+    dexterity: abilityModifierBreakdown('dexterity', abilities, abilityDamage),
+    constitution: abilityModifierBreakdown(
+      'constitution',
+      abilities,
+      abilityDamage,
     ),
-  );
-  const constitutionModifier = Math.floor((constitution.total - 10) / 2);
-  const levels = entries.filter((entry) => entry.kind === 'classLevel');
-  const hpModifiers: SourcedModifier[] = levels.flatMap((entry) =>
+    intelligence: abilityModifierBreakdown(
+      'intelligence',
+      abilities,
+      abilityDamage,
+    ),
+    wisdom: abilityModifierBreakdown('wisdom', abilities, abilityDamage),
+    charisma: abilityModifierBreakdown('charisma', abilities, abilityDamage),
+  };
+}
+
+function builtInHpModifiers(
+  levels: readonly ClassLevelEntry[],
+  breakdowns: Record<LeafTarget, ResolvedStatistic>,
+  options: ResolveOptions,
+): SourcedModifier[] {
+  const modifiers: SourcedModifier[] = levels.flatMap((entry) =>
     entry.state.hpGained === null
       ? []
       : [
@@ -234,30 +423,40 @@ export function calculateCharacterSheet(
         ],
   );
   if (levels.length)
-    hpModifiers.push({
+    modifiers.push({
       target: 'hp',
       bonusType: 'untyped',
-      value: constitutionModifier * levels.length,
+      value:
+        abilityValue('constitution', breakdowns, options.abilityDamage ?? {})
+          .modifier * levels.length,
       sheetEntryId: 'builtin:constitution-hp',
       entryName: 'Constitution',
       source: 'constitution-hp',
       builtIn: true,
     });
-  const breakdowns = resolveSheet([...sourced, ...hpModifiers], context);
-  function calculateAbilityValue(ability: Ability) {
-    const score = breakdowns[abilityTargets[ability]].total;
-    const abilityModifier = Math.floor((score - 10) / 2);
-    return { score, modifier: abilityModifier };
-  }
-  const abilities = {
-    strength: calculateAbilityValue('strength'),
-    dexterity: calculateAbilityValue('dexterity'),
-    constitution: calculateAbilityValue('constitution'),
-    intelligence: calculateAbilityValue('intelligence'),
-    wisdom: calculateAbilityValue('wisdom'),
-    charisma: calculateAbilityValue('charisma'),
-  };
+  return modifiers;
+}
 
+function calculateSheetProjection(
+  input: CharacterSheetInput,
+  options: ResolveOptions,
+  formulaCache: FormulaCache,
+  { base, baseModifiers } = baseScoresFor(input),
+) {
+  const sourced = sourceCatalogModifiers(input, options);
+  const levels = input.entries.filter((entry) => entry.kind === 'classLevel');
+  const { abilityDamage, drainModifiers } = abilityChangesFor(
+    input.entries,
+    options,
+  );
+  const context = calculationContext(input, levels, abilityDamage, options);
+  const { breakdowns, warnings: formulaWarnings } = resolveCalculation(
+    [...sourced, ...drainModifiers],
+    context,
+    formulaCache,
+    levels,
+  );
+  const abilities = calculateAbilities(breakdowns, abilityDamage);
   const hp = levels.some((entry) => entry.state.hpGained === null)
     ? null
     : breakdowns.hp.total;
@@ -266,31 +465,88 @@ export function calculateCharacterSheet(
     baseModifiers,
     abilityMethod: creationSettings.abilityMethod,
   });
-  const derivedStatistics = deriveDefenses({
-    breakdowns,
-    strength: abilities.strength.modifier,
-    dexterity: abilities.dexterity.modifier,
-  });
   return {
     abilities,
-    level: levels.length,
-    hitDice: levels.length,
+    abilityModifierBreakdowns: calculateAbilityModifierBreakdowns(
+      abilities,
+      abilityDamage,
+    ),
+    ...characterLevelInputs(levels),
     hp,
     creationSettings,
     pointBuy,
-    warnings: sheetWarnings({
-      characterKind,
-      base,
-      levels,
-      baseModifiers,
-      creationSettings,
-      pointBuy,
-      hp,
-    }).filter(
-      (warning) => sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
+    warnings: [
+      ...sheetWarnings({
+        characterKind: input.characterKind,
+        base,
+        levels,
+        baseModifiers,
+        creationSettings,
+        pointBuy,
+        hp,
+      }),
+      ...formulaWarnings,
+    ].filter(
+      (warning) =>
+        input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
     ),
     breakdowns,
-    derivedStatistics,
+    derivedStatistics: deriveDefenses({
+      breakdowns,
+      strength: abilities.strength.modifier,
+      dexterity: abilities.dexterity.modifier,
+    }),
+  };
+}
+
+export function calculateCharacterSheet(
+  input: CharacterSheetInput,
+  options: ResolveOptions = {},
+) {
+  return calculateSheetProjection(input, options, new Map());
+}
+
+export type CharacterSheetProjections = ReturnType<
+  typeof calculateCharacterSheetProjections
+>;
+
+export function calculateCharacterSheetProjections(
+  input: CharacterSheetInput,
+  options: Omit<ResolveOptions, 'permanentOnly'> & {
+    projectionInputs?: {
+      current: Pick<
+        ResolveOptions,
+        | 'classLevels'
+        | 'casterLevels'
+        | 'arcaneCasterLevel'
+        | 'preModifierCasterLevel'
+      >;
+      permanent: Pick<
+        ResolveOptions,
+        | 'classLevels'
+        | 'casterLevels'
+        | 'arcaneCasterLevel'
+        | 'preModifierCasterLevel'
+      >;
+    };
+  } = {},
+) {
+  const { projectionInputs, ...shared } = options;
+  const formulaCache: FormulaCache = new Map();
+  const baseScores = baseScoresFor(input);
+  return {
+    current: calculateSheetProjection(
+      input,
+      { ...shared, ...projectionInputs?.current },
+      formulaCache,
+      baseScores,
+    ),
+    permanent: calculateSheetProjection(
+      input,
+      { ...shared, ...projectionInputs?.permanent, permanentOnly: true },
+      formulaCache,
+      baseScores,
+    ),
   };
 }
 
@@ -508,11 +764,21 @@ export type Situation = z.infer<typeof situationSchema>;
 export type Modifier = {
   target: ModifierTarget;
   bonusType: BonusType;
-  value: number;
+  value: number | { formula: string };
   condition?: z.infer<typeof modifierConditionSchema>;
   stacksWithinEntry?: true;
 };
-export type SourcedModifier = Modifier & {
+export type InputSourcedModifier = Modifier & {
+  modifierIndex?: number;
+  effectCasterLevel?: number;
+  sheetEntryId: string;
+  entryName: string;
+  source: string;
+  builtIn: boolean;
+  stacksWithItself?: boolean;
+};
+export type SourcedModifier = Omit<InputSourcedModifier, 'value'> & {
+  value: number;
   sheetEntryId: string;
   entryName: string;
   source: string;
@@ -676,6 +942,14 @@ function resolveStatistic(modifiers: SourcedModifier[]): ResolvedStatistic {
 }
 
 export type ResolveOptions = {
+  permanentOnly?: boolean;
+  level?: number;
+  hitDice?: number;
+  classLevels?: Readonly<Record<string, number>>;
+  casterLevels?: Readonly<Record<string, number>>;
+  arcaneCasterLevel?: number;
+  preModifierCasterLevel?: number;
+  abilityDamage?: Partial<Record<Ability, number>>;
   situations?: readonly (
     | string
     | { local: string; sheetEntryId: string }
@@ -684,7 +958,10 @@ export type ResolveOptions = {
   activeCatalogEntryIds?: readonly string[];
 };
 
-function conditionApplies(modifier: SourcedModifier, options: ResolveOptions) {
+function conditionApplies(
+  modifier: InputSourcedModifier,
+  options: ResolveOptions,
+) {
   const condition = modifier.condition;
   if (!condition) return true;
   if (
@@ -709,7 +986,9 @@ function conditionApplies(modifier: SourcedModifier, options: ResolveOptions) {
   );
 }
 
-function expandModifier(modifier: SourcedModifier): SourcedModifier[] {
+function expandModifier(
+  modifier: InputSourcedModifier,
+): InputSourcedModifier[] {
   if (modifier.target === 'ac') {
     const target: LeafTarget =
       modifier.bonusType === 'armor'
@@ -727,83 +1006,314 @@ function expandModifier(modifier: SourcedModifier): SourcedModifier[] {
     : [modifier];
 }
 
+export function targetStage(target: string) {
+  if (target.startsWith('ability.')) return 1;
+  if (target === 'bab') return 3;
+  if (target === 'casterLevel') return 4;
+  return 5;
+}
+
+function emptyStatistic(): ResolvedStatistic {
+  return { total: 0, applied: [], suppressed: [], conditional: [] };
+}
+
+function emptyBreakdowns(): Record<LeafTarget, ResolvedStatistic> {
+  return {
+    'ability.str': emptyStatistic(),
+    'ability.dex': emptyStatistic(),
+    'ability.con': emptyStatistic(),
+    'ability.int': emptyStatistic(),
+    'ability.wis': emptyStatistic(),
+    'ability.cha': emptyStatistic(),
+    'ac.armor': emptyStatistic(),
+    'ac.shield': emptyStatistic(),
+    'ac.natural': emptyStatistic(),
+    'ac.other': emptyStatistic(),
+    'save.fort': emptyStatistic(),
+    'save.ref': emptyStatistic(),
+    'save.will': emptyStatistic(),
+    'skill.acr': emptyStatistic(),
+    'skill.apr': emptyStatistic(),
+    'skill.blf': emptyStatistic(),
+    'skill.clm': emptyStatistic(),
+    'skill.crf': emptyStatistic(),
+    'skill.dip': emptyStatistic(),
+    'skill.dev': emptyStatistic(),
+    'skill.dis': emptyStatistic(),
+    'skill.esc': emptyStatistic(),
+    'skill.fly': emptyStatistic(),
+    'skill.han': emptyStatistic(),
+    'skill.hea': emptyStatistic(),
+    'skill.int': emptyStatistic(),
+    'skill.kar': emptyStatistic(),
+    'skill.kdu': emptyStatistic(),
+    'skill.ken': emptyStatistic(),
+    'skill.kge': emptyStatistic(),
+    'skill.khi': emptyStatistic(),
+    'skill.klo': emptyStatistic(),
+    'skill.kna': emptyStatistic(),
+    'skill.kno': emptyStatistic(),
+    'skill.kpl': emptyStatistic(),
+    'skill.kre': emptyStatistic(),
+    'skill.lin': emptyStatistic(),
+    'skill.per': emptyStatistic(),
+    'skill.prf': emptyStatistic(),
+    'skill.pro': emptyStatistic(),
+    'skill.rid': emptyStatistic(),
+    'skill.sen': emptyStatistic(),
+    'skill.slt': emptyStatistic(),
+    'skill.spl': emptyStatistic(),
+    'skill.ste': emptyStatistic(),
+    'skill.sur': emptyStatistic(),
+    'skill.swm': emptyStatistic(),
+    'skill.umd': emptyStatistic(),
+    bab: emptyStatistic(),
+    'attack.melee': emptyStatistic(),
+    'attack.ranged': emptyStatistic(),
+    'damage.melee': emptyStatistic(),
+    'damage.ranged': emptyStatistic(),
+    cmb: emptyStatistic(),
+    cmd: emptyStatistic(),
+    init: emptyStatistic(),
+    hp: emptyStatistic(),
+    casterLevel: emptyStatistic(),
+    spellDC: emptyStatistic(),
+    concentration: emptyStatistic(),
+  };
+}
+
+class FormulaDependencyError extends FormulaError {}
+
+function readNamedLevel(
+  name: string,
+  key: string,
+  levels: Readonly<Record<string, number>> = {},
+) {
+  if (Object.hasOwn(levels, key)) return levels[key] ?? 0;
+  if (key in levels)
+    throw new FormulaError(`${name} is not a supported variable.`);
+  return 0;
+}
+
+type FormulaContext = {
+  name: string;
+  modifier: InputSourcedModifier;
+  options: ResolveOptions;
+  breakdowns: Record<LeafTarget, ResolvedStatistic>;
+};
+
+type VariableRule = {
+  match: (name: string) => boolean;
+  stage: number;
+  read: (context: FormulaContext) => number;
+};
+
+const abilityVariables: Readonly<Record<string, Ability | undefined>> = {
+  '@ability.str.mod': 'strength',
+  '@ability.dex.mod': 'dexterity',
+  '@ability.con.mod': 'constitution',
+  '@ability.int.mod': 'intelligence',
+  '@ability.wis.mod': 'wisdom',
+  '@ability.cha.mod': 'charisma',
+};
+
+const variableRules: readonly VariableRule[] = [
+  {
+    match: (name) => name === '@level',
+    stage: 0,
+    read: ({ options }) => options.level ?? 0,
+  },
+  {
+    match: (name) => /^@classLevel\.[A-Za-z][A-Za-z0-9_.]*$/.test(name),
+    stage: 0,
+    read: ({ name, options }) =>
+      readNamedLevel(
+        name,
+        name.slice('@classLevel.'.length),
+        options.classLevels,
+      ),
+  },
+  {
+    match: (name) => name === '@hitDice',
+    stage: 3,
+    read: ({ options }) => options.hitDice ?? 0,
+  },
+  {
+    match: (name) => name === '@bab',
+    stage: 3,
+    read: ({ breakdowns }) => breakdowns.bab.total,
+  },
+  {
+    match: (name) => Object.hasOwn(abilityVariables, name),
+    stage: 2,
+    read: ({ name, breakdowns, options }) => {
+      const ability = abilityVariables[name];
+      if (!ability) throw new FormulaError('Unsupported ability.');
+      return abilityValue(ability, breakdowns, options.abilityDamage ?? {})
+        .modifier;
+    },
+  },
+  {
+    match: (name) => name === '@casterLevel',
+    stage: 0,
+    read: ({ modifier, options }) => {
+      if (modifier.effectCasterLevel !== undefined)
+        return modifier.effectCasterLevel;
+      if (modifier.target === 'casterLevel')
+        return options.preModifierCasterLevel ?? 0;
+      throw new FormulaError(
+        '@casterLevel is supported only on a Spell Effect or caster-level Modifier.',
+      );
+    },
+  },
+  {
+    match: (name) => /^@casterLevel\.[A-Za-z][A-Za-z0-9_.]*$/.test(name),
+    stage: 4,
+    read: ({ name, options }) => {
+      const key = name.slice('@casterLevel.'.length);
+      return key === 'arcane'
+        ? (options.arcaneCasterLevel ?? 0)
+        : readNamedLevel(name, key, options.casterLevels);
+    },
+  },
+];
+
+function resolveVariable(context: FormulaContext): number {
+  const rule = variableRules.find((rule) => rule.match(context.name));
+  if (!rule)
+    throw new FormulaError(`${context.name} is not a supported variable.`);
+  if (rule.stage >= targetStage(context.modifier.target))
+    throw new FormulaDependencyError(
+      `${context.name} depends on its own result or a statistic calculated later.`,
+    );
+  return rule.read(context);
+}
+
+function cachedFormula(expression: string, cache: FormulaCache) {
+  const cached = cache.get(expression);
+  if (cached instanceof FormulaError) throw cached;
+  if (cached) return cached;
+  try {
+    const parsed = parseFormula(expression);
+    cache.set(expression, parsed);
+    return parsed;
+  } catch (error) {
+    if (error instanceof FormulaError) cache.set(expression, error);
+    throw error;
+  }
+}
+
+function resolveModifierValue(
+  modifier: InputSourcedModifier,
+  options: ResolveOptions,
+  breakdowns: Record<LeafTarget, ResolvedStatistic>,
+  formulaCache: FormulaCache,
+) {
+  if (typeof modifier.value === 'number') return modifier.value;
+  return evaluateFormula(
+    cachedFormula(modifier.value.formula, formulaCache),
+    (name) => resolveVariable({ name, modifier, options, breakdowns }),
+  );
+}
+
+function recordFormulaWarning(
+  warnings: SheetWarning[],
+  modifier: InputSourcedModifier,
+  error: FormulaError,
+) {
+  const warning: SheetWarning = {
+    kind: 'rules',
+    check:
+      error instanceof FormulaDependencyError
+        ? 'formulaDependency'
+        : 'unsupportedFormula',
+    subject: `${modifier.sheetEntryId}:${modifier.modifierIndex ?? 0}`,
+    target: {
+      kind: 'modifier',
+      entryId: modifier.sheetEntryId,
+      modifierIndex: modifier.modifierIndex ?? 0,
+    },
+    fingerprint: JSON.stringify([
+      modifier.target,
+      modifier.value,
+      error.message,
+    ]),
+    message: `This Modifier contributes nothing. ${error.message}`,
+  };
+  if (
+    !warnings.some(
+      (item) =>
+        item.subject === warning.subject && item.check === warning.check,
+    )
+  )
+    warnings.push(warning);
+}
+
+function resolveTarget(
+  target: LeafTarget,
+  modifiers: readonly InputSourcedModifier[],
+  options: ResolveOptions,
+  breakdowns: Record<LeafTarget, ResolvedStatistic>,
+  formulaCache: FormulaCache,
+  warnings: SheetWarning[],
+): ResolvedStatistic {
+  const active: SourcedModifier[] = [];
+  const conditional: SourcedModifier[] = [];
+  for (const modifier of modifiers.filter((item) => item.target === target)) {
+    try {
+      const value = resolveModifierValue(
+        modifier,
+        options,
+        breakdowns,
+        formulaCache,
+      );
+      const {
+        modifierIndex: _index,
+        effectCasterLevel: _casterLevel,
+        ...displayModifier
+      } = modifier;
+      const resolved = { ...displayModifier, value };
+      if (conditionApplies(modifier, options)) active.push(resolved);
+      else conditional.push(resolved);
+    } catch (error) {
+      if (!(error instanceof FormulaError)) throw error;
+      recordFormulaWarning(warnings, modifier, error);
+    }
+  }
+  return { ...resolveStatistic(active), conditional };
+}
+
+function resolveCalculation(
+  modifiers: readonly InputSourcedModifier[],
+  options: ResolveOptions,
+  formulaCache: FormulaCache = new Map(),
+  levels: readonly ClassLevelEntry[] = [],
+) {
+  const expanded = modifiers.flatMap(expandModifier);
+  const breakdowns = emptyBreakdowns();
+  const warnings: SheetWarning[] = [];
+  for (const target of [...leafTargets].sort(
+    (a, b) => targetStage(a) - targetStage(b),
+  )) {
+    if (target === 'hp')
+      expanded.push(...builtInHpModifiers(levels, breakdowns, options));
+    breakdowns[target] = resolveTarget(
+      target,
+      expanded,
+      options,
+      breakdowns,
+      formulaCache,
+      warnings,
+    );
+  }
+  return { breakdowns, warnings };
+}
+
 export function resolveSheet(
-  modifiers: readonly SourcedModifier[],
+  modifiers: readonly InputSourcedModifier[],
   options: ResolveOptions = {},
 ): Record<LeafTarget, ResolvedStatistic> {
-  const expanded = modifiers.flatMap(expandModifier);
-  const resolve = (target: LeafTarget): ResolvedStatistic => ({
-    ...resolveStatistic(
-      expanded.filter(
-        (item) => item.target === target && conditionApplies(item, options),
-      ),
-    ),
-    conditional: expanded.filter(
-      (item) => item.target === target && !conditionApplies(item, options),
-    ),
-  });
-  return {
-    'ability.str': resolve('ability.str'),
-    'ability.dex': resolve('ability.dex'),
-    'ability.con': resolve('ability.con'),
-    'ability.int': resolve('ability.int'),
-    'ability.wis': resolve('ability.wis'),
-    'ability.cha': resolve('ability.cha'),
-    'ac.armor': resolve('ac.armor'),
-    'ac.shield': resolve('ac.shield'),
-    'ac.natural': resolve('ac.natural'),
-    'ac.other': resolve('ac.other'),
-    'save.fort': resolve('save.fort'),
-    'save.ref': resolve('save.ref'),
-    'save.will': resolve('save.will'),
-    'skill.acr': resolve('skill.acr'),
-    'skill.apr': resolve('skill.apr'),
-    'skill.blf': resolve('skill.blf'),
-    'skill.clm': resolve('skill.clm'),
-    'skill.crf': resolve('skill.crf'),
-    'skill.dip': resolve('skill.dip'),
-    'skill.dev': resolve('skill.dev'),
-    'skill.dis': resolve('skill.dis'),
-    'skill.esc': resolve('skill.esc'),
-    'skill.fly': resolve('skill.fly'),
-    'skill.han': resolve('skill.han'),
-    'skill.hea': resolve('skill.hea'),
-    'skill.int': resolve('skill.int'),
-    'skill.kar': resolve('skill.kar'),
-    'skill.kdu': resolve('skill.kdu'),
-    'skill.ken': resolve('skill.ken'),
-    'skill.kge': resolve('skill.kge'),
-    'skill.khi': resolve('skill.khi'),
-    'skill.klo': resolve('skill.klo'),
-    'skill.kna': resolve('skill.kna'),
-    'skill.kno': resolve('skill.kno'),
-    'skill.kpl': resolve('skill.kpl'),
-    'skill.kre': resolve('skill.kre'),
-    'skill.lin': resolve('skill.lin'),
-    'skill.per': resolve('skill.per'),
-    'skill.prf': resolve('skill.prf'),
-    'skill.pro': resolve('skill.pro'),
-    'skill.rid': resolve('skill.rid'),
-    'skill.sen': resolve('skill.sen'),
-    'skill.slt': resolve('skill.slt'),
-    'skill.spl': resolve('skill.spl'),
-    'skill.ste': resolve('skill.ste'),
-    'skill.sur': resolve('skill.sur'),
-    'skill.swm': resolve('skill.swm'),
-    'skill.umd': resolve('skill.umd'),
-    bab: resolve('bab'),
-    'attack.melee': resolve('attack.melee'),
-    'attack.ranged': resolve('attack.ranged'),
-    'damage.melee': resolve('damage.melee'),
-    'damage.ranged': resolve('damage.ranged'),
-    cmb: resolve('cmb'),
-    cmd: resolve('cmd'),
-    init: resolve('init'),
-    hp: resolve('hp'),
-    casterLevel: resolve('casterLevel'),
-    spellDC: resolve('spellDC'),
-    concentration: resolve('concentration'),
-  };
+  return resolveCalculation(modifiers, options).breakdowns;
 }
 
 function builtIn({

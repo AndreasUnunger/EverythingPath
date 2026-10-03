@@ -1,6 +1,7 @@
 import { parseCharacterSheetBreakdowns } from '~/lib/character-sheet-breakdowns';
 import { abilityTargets, type Ability } from '~/lib/character-sheet';
 import { characterLedgerDetails } from '~/lib/character-ledger';
+import { isCatalogSheetEntry } from '~/lib/character-sheet-entries';
 import type {
   CharacterSheetSnapshot,
   SheetWarningView,
@@ -32,6 +33,31 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
     campaign: snapshot.campaign,
     canBuildOut,
     calculated,
+    permanentCalculated: {
+      ...snapshot.permanentCalculated,
+      breakdowns: parseCharacterSheetBreakdowns(
+        snapshot.permanentCalculated.breakdowns,
+      ),
+    },
+    abilityChanges: snapshot.entries.filter(
+      (entry) =>
+        entry.kind === 'abilityDamage' || entry.kind === 'abilityDrain',
+    ),
+    sheetEntries: snapshot.entries.filter(isCatalogSheetEntry).map((entry) => {
+      const catalog = snapshot.catalogEntries.find(
+        (row) => row._id === entry.catalogEntryId,
+      );
+      if (!catalog || !isCatalogSheetEntry(catalog.detail))
+        throw new Error('Character Sheet Entry is unavailable.');
+      return {
+        entryId: entry._id,
+        active: entry.active,
+        name: catalog.name,
+        modifiers: catalog.modifiers,
+        detail: catalog.detail,
+        state: entry.state,
+      };
+    }),
     baseScores: {
       strength: baseScore('strength'),
       dexterity: baseScore('dexterity'),

@@ -7,7 +7,7 @@ import {
   abilityTargets,
   defaultAbilityScores,
   defaultCreationSettings,
-  calculateCharacterSheet,
+  calculateCharacterSheetProjections,
   type AbilityScores,
 } from '../../src/lib/character-sheet';
 import { requireCharacterAccess, type CharacterScope } from './characterAccess';
@@ -169,19 +169,21 @@ export async function pruneWarningAcceptancesAndRecordChange(
   {
     sheet,
     operationId,
-    calculated = calculateCharacterSheet({
+  }: {
+    sheet: LoadedCharacterSheet;
+    operationId: string;
+  },
+) {
+  const { current: calculated, permanent } = calculateCharacterSheetProjections(
+    {
       entries: sheet.entries,
       catalogEntries: sheet.catalogEntries,
       characterKind: sheet.character.kind,
       sheetMode: sheet.character.sheetMode,
-    }),
-  }: {
-    sheet: LoadedCharacterSheet;
-    operationId: string;
-    calculated?: ReturnType<typeof calculateCharacterSheet>;
-  },
-) {
+    },
+  );
   requireWholeCalculatedAbilities(calculated);
+  requireWholeCalculatedAbilities(permanent);
   for (const accepted of sheet.acceptedWarnings) {
     const stillApplies = calculated.warnings.some(
       (warning) =>

@@ -12,6 +12,7 @@ import { detailMappers, type PreviewDetail } from './details.ts';
 import { readObject, readArray, readText, skillNames } from './values.ts';
 import { sanitizeDescription } from './sanitize.ts';
 import { mapFormula } from './formula.ts';
+import { targetStage } from '../../src/lib/character-sheet.ts';
 import { naturalAttackIds, packPolicy, type ImportKind } from './inventory.ts';
 
 export type PreviewEntry = {
@@ -488,13 +489,13 @@ function mapModifiers({
       classTag: readText({ value: system.class }) || undefined,
       allowCasterLevel: kind === 'spellEffect' || target === 'casterLevel',
     });
-    const stage = target?.startsWith('ability.') ? 1 : target === 'bab' ? 3 : 4;
+    const stage = targetStage(target ?? '');
     const sameStage =
       typeof value === 'string' &&
       ((stage <= 2 && value.includes('@ability.')) ||
         (stage <= 3 && /@(?:bab|hitDice)\b/.test(value)) ||
-        value.includes('@casterLevel.') ||
-        (stage < 4 && /@casterLevel\b/.test(value)));
+        (stage <= 4 && value.includes('@casterLevel.')) ||
+        (kind !== 'spellEffect' && stage < 4 && /@casterLevel\b/.test(value)));
     if (
       target &&
       bonusTypes.has(bonusType) &&

@@ -121,6 +121,153 @@ test('creating a Full sheet in an isolated campaign publishes its facts without 
   );
 });
 
+test('militia facts include ability drain and exclude damage and short Spell Effects on the same prepared sheet', async () => {
+  const { owner, member, scope, listArgs, militiaScope, campaignId } =
+    await fixture();
+  await member.mutation(api.characterSheet.createAbilityChange, {
+    ...scope,
+    kind: 'abilityDrain',
+    ability: 'strength',
+    points: 3,
+    operationId: 'drain',
+  });
+  const drained = await owner.query(api.canonicalLedger.read, militiaScope);
+  await member.mutation(api.characterSheet.createSheetEntry, {
+    ...scope,
+    name: 'Short strength spell',
+    detail: {
+      kind: 'spellEffect',
+      lastsOverOneDay: false,
+      defaultCasterLevel: 1,
+    },
+    modifiers: [{ target: 'ability.str', bonusType: 'enhancement', value: 4 }],
+    operationId: 'temporary-spell',
+  });
+  await member.mutation(api.characterSheet.createAbilityChange, {
+    ...scope,
+    kind: 'abilityDamage',
+    ability: 'strength',
+    points: 4,
+    operationId: 'damage',
+  });
+  const sheet = await owner.query(api.characterSheet.read, scope);
+  expect(sheet?.calculated.abilities.strength).toEqual({
+    score: 13,
+    modifier: -1,
+  });
+  expect(sheet?.permanentCalculated.abilities.strength).toEqual({
+    score: 9,
+    modifier: -1,
+  });
+  expect(
+    (await member.query(api.character.listByCampaign, listArgs)).find(
+      (row) => row._id === scope.characterId,
+    ),
+  ).toMatchObject({ strength: 9 });
+  expect(
+    (
+      await member.query(api.canonicalSetup.options, { campaignId })
+    )?.characters.find((row) => row.characterId === scope.characterId),
+  ).toMatchObject({ strength: 9 });
+  expect(await member.query(api.canonicalLedger.read, militiaScope)).toEqual(
+    drained,
+  );
+  await member.mutation(api.character.updateCharacter, {
+    ...scope,
+    patch: { strength: 14 },
+  });
+  const edited = await owner.query(api.characterSheet.read, scope);
+  expect(edited?.baseScoresEntry.modifiers).toContainEqual({
+    target: 'ability.str',
+    bonusType: 'base',
+    value: 17,
+  });
+  expect(edited?.calculated.abilities.strength.score).toBe(18);
+  expect(edited?.permanentCalculated.abilities.strength.score).toBe(14);
+  expect(
+    (
+      await member.query(api.canonicalLedger.read, militiaScope)
+    ).state.militiaSnapshot.characters.find(
+      (row) => row.characterId === scope.characterId,
+    ),
+  ).toMatchObject({ strength: 14 });
+});
+
+test.each([
+  {
+    detail: {
+      kind: 'spellEffect' as const,
+      lastsOverOneDay: false,
+      defaultCasterLevel: 1,
+    },
+    permanent: 12,
+  },
+  {
+    detail: {
+      kind: 'spellEffect' as const,
+      lastsOverOneDay: true,
+      defaultCasterLevel: 1,
+    },
+    permanent: 13,
+  },
+  { detail: { kind: 'condition' as const }, permanent: 12 },
+  { detail: { kind: 'item' as const, consumable: true }, permanent: 12 },
+  { detail: { kind: 'item' as const, consumable: false }, permanent: 13 },
+  { detail: { kind: 'spell' as const }, permanent: 12 },
+])(
+  'catalog-backed $detail updates prepared militia facts with whole formula values',
+  async ({ detail, permanent }) => {
+    const { owner, member, scope, militiaScope, campaignId } = await fixture();
+    const before = await owner.query(api.characterSheet.read, scope);
+    await expect(
+      member.mutation(api.characterSheet.createSheetEntry, {
+        ...scope,
+        name: 'Fractional ability Modifier',
+        detail,
+        modifiers: [
+          { target: 'ability.str', bonusType: 'untyped', value: 0.5 },
+        ],
+        operationId: 'fractional-ability',
+      }),
+    ).rejects.toThrow('Ability Modifiers must be whole numbers');
+    expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+    await member.mutation(api.characterSheet.createSheetEntry, {
+      ...scope,
+      name: 'Whole formula result',
+      detail,
+      modifiers: [
+        {
+          target: 'ability.str',
+          bonusType: 'untyped',
+          value: { formula: '3 / 2' },
+        },
+        { target: 'init', bonusType: 'untyped', value: 0.5 },
+      ],
+      operationId: 'formula-and-fraction',
+    });
+    const sheet = await owner.query(api.characterSheet.read, scope);
+    expect(sheet?.calculated.abilities.strength.score).toBe(
+      detail.kind === 'spell' ? 12 : 13,
+    );
+    expect(sheet?.permanentCalculated.abilities.strength.score).toBe(permanent);
+    expect(sheet?.calculated.breakdowns.init?.total).toBe(
+      detail.kind === 'spell' ? 0 : 0.5,
+    );
+    expect(
+      (
+        await member.query(api.canonicalLedger.read, militiaScope)
+      ).state.militiaSnapshot.characters.find(
+        (row) => row.characterId === scope.characterId,
+      ),
+    ).toMatchObject({ strength: permanent });
+    expect(
+      (
+        await member.query(api.canonicalSetup.options, { campaignId })
+      )?.characters.find((row) => row.characterId === scope.characterId),
+    ).toMatchObject({ strength: permanent });
+  },
+);
+
 test('ledger level and permanent-score edits write sheet entries and keep their live facts current', async () => {
   const { owner, member, scope, listArgs, militiaScope } = await fixture();
   const before = await owner.query(api.characterSheet.read, scope);

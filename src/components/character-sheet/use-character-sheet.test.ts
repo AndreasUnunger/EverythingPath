@@ -45,6 +45,12 @@ vi.mock('@convex/_generated/api', () => ({
       createPersonalAdjustment: 'createAdjustment',
       editPersonalAdjustment: 'editAdjustment',
       removePersonalAdjustment: 'removeAdjustment',
+      createAbilityChange: 'createAbilityChange',
+      editAbilityChange: 'editAbilityChange',
+      removeAbilityChange: 'removeAbilityChange',
+      createSheetEntry: 'createSheetEntry',
+      editSheetEntry: 'editSheetEntry',
+      removeSheetEntry: 'removeSheetEntry',
     },
   },
 }));
@@ -203,6 +209,14 @@ async function fixture(acceptPointBuy = false) {
         entries: completeEntries,
         catalogEntries: [catalogEntry, adjustment],
       }),
+      permanentCalculated: calculateCharacterSheet(
+        {
+          characterKind: character.kind,
+          entries: completeEntries,
+          catalogEntries: [catalogEntry, adjustment],
+        },
+        { permanentOnly: true },
+      ),
       acceptedWarnings,
       revision: 1,
       lastOperationId: 'seed',
@@ -745,6 +759,14 @@ test.each(['own', 'another session'])(
         catalogEntries: seeded.catalogEntries,
         characterKind: 'pc',
       }),
+      permanentCalculated: calculateCharacterSheet(
+        {
+          entries,
+          catalogEntries: seeded.catalogEntries,
+          characterKind: 'pc',
+        },
+        { permanentOnly: true },
+      ),
     };
     const initial = snapshot;
     const campaignId = initial.character.campaignId;
@@ -783,6 +805,14 @@ test.each(['own', 'another session'])(
         catalogEntries: initial.catalogEntries,
         characterKind: 'npc',
       }),
+      permanentCalculated: calculateCharacterSheet(
+        {
+          entries,
+          catalogEntries: initial.catalogEntries,
+          characterKind: 'npc',
+        },
+        { permanentOnly: true },
+      ),
       revision: 2,
       lastOperationId:
         session === 'own'
@@ -835,6 +865,14 @@ test('a personal Strength adjustment changes the total without changing base sco
       catalogEntries,
       characterKind: 'pc',
     }),
+    permanentCalculated: calculateCharacterSheet(
+      {
+        entries,
+        catalogEntries,
+        characterKind: 'pc',
+      },
+      { permanentOnly: true },
+    ),
   };
   const view = renderHook(() =>
     useCharacterSheet({ organizationId: 'org', characterId: 'hero' }),
@@ -1043,3 +1081,41 @@ function required<T>(value: T | null | undefined): T {
     throw new Error('Expected fixture value');
   return value;
 }
+
+test('Character Sheet Entries and ability changes expose save acknowledgements and localize refused writes', async () => {
+  snapshot = await fixture();
+  const initial = snapshot;
+  const view = renderHook(() =>
+    useCharacterSheet({
+      organizationId: 'org',
+      characterId: initial.character._id,
+    }),
+  );
+  expect(
+    view.result.current.sheet?.permanentCalculated.abilities.strength.score,
+  ).toBe(14);
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = view.result.current.abilityChanges.setActive(
+      initial.entries[0]!._id,
+      false,
+    );
+  });
+  expect(view.result.current.abilityChanges.status.kind).toBe('saving');
+  expect(calls[0]?.name).toBe('editAbilityChange');
+  await act(async () => {
+    calls[0]?.reject(new ConvexError('Editing is paused'));
+    await pending;
+  });
+  expect(view.result.current.abilityChanges.status.kind).toBe('error');
+  act(() => {
+    pending = view.result.current.sheetEntries.remove(initial.entries[0]!._id);
+  });
+  expect(view.result.current.sheetEntries.status.kind).toBe('saving');
+  expect(calls[1]?.name).toBe('removeSheetEntry');
+  await act(async () => {
+    calls[1]?.resolve(null);
+    await pending;
+  });
+  expect(view.result.current.sheetEntries.status.kind).toBe('saved');
+});

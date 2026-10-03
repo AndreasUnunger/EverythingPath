@@ -2,7 +2,11 @@ import type { Doc } from '../_generated/dataModel';
 import type { CanonicalWeekState } from '../../src/lib/canonical-weekly-source';
 import type { ReadCtx } from '../types';
 import { ConvexError } from 'convex/values';
-import { abilityKeys, type Ability } from '../../src/lib/character-sheet';
+import {
+  abilityKeys,
+  calculateCharacterSheetProjections,
+  type Ability,
+} from '../../src/lib/character-sheet';
 import {
   loadPreparedCharacterSheet,
   requireAbilityScore,
@@ -30,9 +34,14 @@ export async function calculateMilitiaCharacterFacts(
     preparedSheet === undefined
       ? await loadPreparedCharacterSheet(ctx, character)
       : preparedSheet;
-  // Base scores, Class Levels and Personal Adjustments are permanent today.
-  // Select the shared permanent projection here when temporary entries land.
-  const calculated = sheet?.calculated;
+  const calculated = sheet
+    ? calculateCharacterSheetProjections({
+        entries: sheet.entries,
+        catalogEntries: sheet.catalogEntries,
+        characterKind: character.kind,
+        sheetMode: character.sheetMode,
+      }).permanent
+    : null;
   const facts = {
     characterId: character._id,
     level: calculated?.level ?? character.level,

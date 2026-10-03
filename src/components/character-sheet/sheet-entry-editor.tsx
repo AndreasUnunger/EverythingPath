@@ -1,0 +1,185 @@
+'use client';
+import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
+import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
+import { Button } from '~/components/ui/button';
+import { Form } from '~/components/ui/form';
+import { AdjustmentNameField, ModifierListFields } from './adjustment-fields';
+import {
+  SheetEntryKindCards,
+  SheetEntryKindFields,
+} from './sheet-entry-classification-fields';
+import { action, RemoteNotice, SaveFeedback } from './sheet-parts';
+import type {
+  SheetWarningView,
+  useCharacterSheet,
+} from './use-character-sheet';
+import type { SheetEntryInput } from './use-character-sheet-entries';
+import { useSheetEntryForm } from './use-sheet-entry-form';
+
+type Controller = ReturnType<typeof useCharacterSheet>;
+type Editor = ReturnType<typeof useSheetEntryForm>;
+
+// A recorded Spell grants no Modifiers: the rows typed for another kind and
+// left blank are dropped before saving, while any retained definition data
+// (an imported Spell's Modifiers) travels along untouched.
+function dropBlankModifiers(editor: Editor) {
+  const modifiers = editor.adjustmentForm.getValues('modifiers');
+  modifiers
+    .map((modifier, index) => ({ index, isBlank: !modifier.value.trim() }))
+    .filter((row) => row.isBlank)
+    .reverse()
+    .forEach((row) => editor.removeModifier(row.index));
+}
+
+/**
+ * One Character Sheet Entry, edited in place: its kind with what that kind
+ * needs, its name and the Modifiers it grants. A new entry chooses its
+ * kind; an existing one keeps it. Saving, saved and failures read here; a
+ * new editor closes after a clean save.
+ */
+export function SheetEntryEditor({
+  value,
+  save,
+  onClose,
+  isNew,
+  isRemoved = false,
+  warnings = [],
+  warningController,
+}: {
+  value?: SheetEntryInput;
+  save: (input: SheetEntryInput) => Promise<unknown>;
+  onClose: () => void;
+  isNew: boolean;
+  /** Another player removed the entry this draft belongs to. */
+  isRemoved?: boolean;
+  /** The saved entry's Modifier warnings, shown under their Modifiers. */
+  warnings?: SheetWarningView[];
+  warningController?: Controller['warnings'];
+}) {
+  const maintenance = useInitialMigrationMaintenance();
+  const editor = useSheetEntryForm({ value, save });
+  const isDisabled = maintenance.readOnly;
+  const isDirty =
+    editor.form.formState.isDirty || editor.adjustmentForm.formState.isDirty;
+  const isSaving = editor.status.kind === 'saving';
+  const isSaved = editor.status.kind === 'saved';
+  const kind = editor.form.watch('kind');
+  const defaultCasterLevel = editor.form.watch('defaultCasterLevel');
+
+  async function saveAndCloseWhenClean() {
+    if (kind === 'spell') dropBlankModifiers(editor);
+    let hasNewerInput = isDirty;
+    const unsubscribe = editor.adjustmentForm.subscribe({
+      formState: { isDirty: true },
+      callback: (state) => {
+        if (state.isDirty !== undefined) hasNewerInput = state.isDirty;
+      },
+    });
+    const outcome = await editor.save();
+    unsubscribe();
+    if (isNew && outcome === 'saved' && !hasNewerInput) onClose();
+  }
+
+  if (isRemoved && !isDirty)
+    return (
+      <div
+        role="status"
+        className="border-foreground/20 flex flex-wrap items-center gap-x-3 gap-y-1 border p-3 text-sm"
+      >
+        <span>This entry is no longer on the sheet.</span>
+        <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+          Close <span className="sr-only">editor</span>
+        </Button>
+      </div>
+    );
+
+  return (
+    <form
+      noValidate
+      aria-label={isNew ? 'New entry' : 'Edit entry'}
+      className="border-foreground/20 space-y-3 border p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (isDisabled) return;
+        void saveAndCloseWhenClean();
+      }}
+    >
+      <Form {...editor.form}>
+        <SheetEntryKindCards
+          control={editor.form.control}
+          isDisabled={isDisabled}
+          isFixed={!isNew}
+        />
+        <SheetEntryKindFields
+          control={editor.form.control}
+          isDisabled={isDisabled}
+          kind={kind}
+          defaultCasterLevel={defaultCasterLevel}
+        />
+      </Form>
+      <Form {...editor.adjustmentForm}>
+        <AdjustmentNameField
+          control={editor.adjustmentForm.control}
+          isDisabled={isDisabled}
+        />
+        {kind === 'spell' ? (
+          <p className="text-muted-foreground text-xs">
+            A recorded Spell grants no Modifiers.
+          </p>
+        ) : (
+          <ModifierListFields
+            editor={{
+              form: editor.adjustmentForm,
+              fields: editor.fields,
+              addModifier: editor.addModifier,
+              removeModifier: editor.removeModifier,
+            }}
+            isDisabled={isDisabled}
+            warnings={warnings}
+            warningController={warningController}
+          />
+        )}
+      </Form>
+      {isRemoved ? (
+        <p role="status" className="text-xs text-sky-300">
+          This entry is no longer on the sheet. Save adds it as a new entry.
+        </p>
+      ) : (
+        <RemoteNotice
+          isShown={editor.hasRemoteChange}
+          message={
+            isDirty
+              ? 'This entry changed while you were editing. Your edits are kept.'
+              : 'Updated by another player.'
+          }
+          subject="entry"
+          onDismiss={editor.dismissRemoteChange}
+        />
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Button
+          type="submit"
+          size="sm"
+          className={action}
+          disabled={isSaving || isDisabled}
+        >
+          {isSaving ? 'Saving…' : 'Save entry'}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className={action}
+          onClick={onClose}
+        >
+          Close <span className="sr-only">editor</span>
+        </Button>
+        <SaveFeedback status={editor.status} savedText="Saved." />
+        {isSaved && isDirty ? (
+          <p className="text-xs text-amber-300">Unsaved edits.</p>
+        ) : null}
+        <MaintenanceReason notice={maintenance} />
+      </div>
+    </form>
+  );
+}

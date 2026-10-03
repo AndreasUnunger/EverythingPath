@@ -15,6 +15,7 @@ import {
   abilityKeys,
   abilityLabels,
   abilityTargets,
+  type Ability,
   type AbilityScores,
   type CreationSettings,
 } from '~/lib/character-sheet';
@@ -64,8 +65,40 @@ function PointCounter({
   );
 }
 
-// Label | base input | calculated total | modifier, the message under the row.
+// Label | base input | current total | modifier, the message under the row.
 const columns = 'grid grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3rem] gap-x-3';
+
+type AbilityValue = Abilities[Ability];
+
+function differsFromPermanent(current: AbilityValue, permanent: AbilityValue) {
+  return (
+    current.score !== permanent.score || current.modifier !== permanent.modifier
+  );
+}
+
+// The permanent values, under a row whose current values differ from them
+// (approved prototype's compact treatment): damage leaves the score and
+// changes only the modifier, so both are compared.
+function PermanentValues({
+  label,
+  current,
+  permanent,
+}: {
+  label: string;
+  current: AbilityValue;
+  permanent: AbilityValue;
+}) {
+  if (!differsFromPermanent(current, permanent)) return null;
+  return (
+    <p className="text-muted-foreground col-span-4 flex items-baseline justify-end gap-x-2 text-xs">
+      <span className={fieldLabel}>
+        <span className="sr-only">{label} </span>Permanent
+      </span>{' '}
+      <span className="font-mono">{permanent.score}</span>{' '}
+      <span className="font-mono">{formatModifier(permanent.modifier)}</span>
+    </p>
+  );
+}
 
 /**
  * The one permanent base-scores entry: six fields that are always present,
@@ -82,6 +115,8 @@ export function BaseScoresEditor({
   warnings,
   warningController,
   breakdowns,
+  modifierBreakdowns,
+  permanent,
   save,
 }: {
   scores: AbilityScores;
@@ -91,6 +126,9 @@ export function BaseScoresEditor({
   warnings: SheetWarningView[];
   warningController: Controller['warnings'];
   breakdowns: ReadySheet['calculated']['breakdowns'];
+  modifierBreakdowns: ReadySheet['calculated']['abilityModifierBreakdowns'];
+  /** The same abilities without Temporary Effects. */
+  permanent: Abilities;
   save: Controller['saveBaseScores'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
@@ -98,6 +136,9 @@ export function BaseScoresEditor({
   const isSaving = editor.status.kind === 'saving';
   const pointBuyWarnings = warnings.filter(
     (warning) => warning.target.kind === 'pointBuy',
+  );
+  const hasPermanentDifference = abilityKeys.some((ability) =>
+    differsFromPermanent(abilities[ability], permanent[ability]),
   );
   return (
     <Block
@@ -133,7 +174,7 @@ export function BaseScoresEditor({
           <div aria-hidden className={`${columns} ${fieldLabel} pb-0.5`}>
             <span />
             <span className="text-center">Base</span>
-            <span className="text-right">Total</span>
+            <span className="text-right">Current</span>
             <span className="text-right">Mod</span>
           </div>
           {abilityKeys.map((ability) => (
@@ -169,20 +210,34 @@ export function BaseScoresEditor({
                       className="text-base"
                     />
                   </span>
-                  <span className="text-right font-mono text-base">
-                    <span className="sr-only">
-                      {abilityLabels[ability]} modifier{' '}
-                    </span>
-                    {formatModifier(abilities[ability].modifier)}
+                  <span className="flex justify-end font-mono text-base">
+                    <StatBreakdown
+                      label={`${abilityLabels[ability]} modifier`}
+                      statistic={modifierBreakdowns[ability]}
+                      target={abilityTargets[ability]}
+                      format={formatModifier}
+                      className="text-base"
+                    />
                   </span>
                   <FormMessage
                     role={fieldState.error ? 'alert' : undefined}
                     className="col-span-4"
                   />
+                  <PermanentValues
+                    label={abilityLabels[ability]}
+                    current={abilities[ability]}
+                    permanent={permanent[ability]}
+                  />
                 </FormItem>
               )}
             />
           ))}
+          {hasPermanentDifference ? (
+            <p className="text-muted-foreground pt-1 text-xs">
+              Permanent values exclude short-duration spells, conditions,
+              consumables and ability damage.
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2">
             <Button
               type="submit"

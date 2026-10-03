@@ -137,6 +137,14 @@ const bullStrength: Adjustment = {
     { target: 'save.will', bonusType: 'morale', value: 2 },
   ],
 };
+// Bull strength after its Strength Modifier is raised to +6.
+const strongerBullStrength: Adjustment = {
+  ...bullStrength,
+  modifiers: [
+    { target: 'ability.str', bonusType: 'enhancement', value: 6 },
+    bullStrength.modifiers[1]!,
+  ],
+};
 
 beforeEach(() => {
   calls = [];
@@ -144,7 +152,7 @@ beforeEach(() => {
   snapshot = undefined;
 });
 
-test('an adjustment with two Modifiers is added, raises the calculated score but not the base score, is edited, switched off and on, and removed, all on the sheet', async () => {
+test('an adjustment with two Modifiers is added on the sheet and raises the calculated score but not the base score', async () => {
   const view = renderSheet(buildSheet());
   expect(within(region()).getByText('No personal adjustments.')).toBeVisible();
   fireEvent.click(button('Add personal adjustment'));
@@ -203,14 +211,18 @@ test('an adjustment with two Modifiers is added, raises the calculated score but
   expect(
     within(region()).queryByText(/changed|another player/),
   ).not.toBeInTheDocument();
+});
 
+test("an adjustment's Modifier is edited in place and the calculated score follows the saved value", async () => {
+  const view = renderSheet(buildSheet({ adjustments: [bullStrength] }));
+  expect(strengthTotal()).toHaveTextContent('14');
   fireEvent.click(button('Edit Bull strength'));
   expect(field('Name')).toHaveValue('Bull strength');
   expect(field('Modifier 1 value')).toHaveValue('4');
   expect(picker('Modifier 2 statistic')).toHaveValue('save.will');
   fireEvent.change(field('Modifier 1 value'), { target: { value: '6' } });
   fireEvent.click(button('Save adjustment'));
-  await waitFor(() => expect(calls).toHaveLength(2));
+  await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().name).toBe('editAdjustment');
   expect(lastCall().args).toMatchObject({
     entryId: 'adj-1',
@@ -220,19 +232,12 @@ test('an adjustment with two Modifiers is added, raises the calculated score but
       bullStrength.modifiers[1],
     ],
   });
-  const edited: Adjustment = {
-    ...bullStrength,
-    modifiers: [
-      { target: 'ability.str', bonusType: 'enhancement', value: 6 },
-      bullStrength.modifiers[1]!,
-    ],
-  };
   await act(async () => {
     lastCall().resolve(null);
   });
   view.show(
     buildSheet({
-      adjustments: [edited],
+      adjustments: [strongerBullStrength],
       lastOperationId: operationOf(lastCall()),
     }),
   );
@@ -243,13 +248,7 @@ test('an adjustment with two Modifiers is added, raises the calculated score but
 });
 
 test('an adjustment switched off keeps its definition and stays editable, returns when switched on, and leaves only with the subscription when removed', async () => {
-  const edited: Adjustment = {
-    ...bullStrength,
-    modifiers: [
-      { target: 'ability.str', bonusType: 'enhancement', value: 6 },
-      bullStrength.modifiers[1]!,
-    ],
-  };
+  const edited = strongerBullStrength;
   const view = renderSheet(buildSheet({ adjustments: [edited] }));
   fireEvent.click(button('Edit Bull strength'));
   expect(strengthTotal()).toHaveTextContent('16');

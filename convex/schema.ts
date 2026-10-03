@@ -9,6 +9,7 @@ import {
 import { v } from 'convex/values';
 import {
   abilityTargets,
+  abilityKeys,
   bonusTypes,
   modifierConditionSchema,
   modifierTargets,
@@ -151,7 +152,7 @@ const modifierConditionValidator = zodOutputToConvex(
 export const modifierValidator = v.object({
   target: v.union(...modifierTargets.map((target) => v.literal(target))),
   bonusType: v.union(...bonusTypes.map((type) => v.literal(type))),
-  value: v.number(),
+  value: v.union(v.number(), v.object({ formula: v.string() })),
   condition: v.optional(modifierConditionValidator),
   stacksWithinEntry: v.optional(v.literal(true)),
 });
@@ -162,6 +163,7 @@ const baseModifierValidator = modifierValidator
       ...Object.values(abilityTargets).map((target) => v.literal(target)),
     ),
     bonusType: v.literal('base'),
+    value: v.number(),
   });
 const catalogEntryFields = v.object({
   scope: v.literal('character'),
@@ -174,6 +176,23 @@ const catalogEntryFields = v.object({
     v.object({ book: v.string(), pages: v.optional(v.string()) }),
   ),
 });
+export const sheetEntryDetailValidator = v.union(
+  v.object({
+    kind: v.literal('spellEffect'),
+    lastsOverOneDay: v.boolean(),
+    defaultCasterLevel: v.number(),
+  }),
+  v.object({ kind: v.literal('condition') }),
+  v.object({ kind: v.literal('item'), consumable: v.boolean() }),
+  v.object({ kind: v.literal('spell') }),
+);
+export const abilityValidator = v.union(
+  ...abilityKeys.map((ability) => v.literal(ability)),
+);
+export const abilityChangeKindValidator = v.union(
+  v.literal('abilityDamage'),
+  v.literal('abilityDrain'),
+);
 export const catalogEntryValidator = v.union(
   catalogEntryFields.extend({
     modifiers: v.array(modifierValidator),
@@ -187,6 +206,10 @@ export const catalogEntryValidator = v.union(
     modifiers: v.array(modifierValidator),
     detail: v.object({ kind: v.literal('manual') }),
   }),
+  catalogEntryFields.extend({
+    modifiers: v.array(modifierValidator),
+    detail: sheetEntryDetailValidator,
+  }),
 );
 export const creationSettingsValidator = v.object({
   abilityMethod: v.union(
@@ -197,6 +220,57 @@ export const creationSettingsValidator = v.object({
   campaignTraitRequired: v.boolean(),
 });
 export const characterSheetEntryValidator = v.union(
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('abilityDamage'),
+    active: v.boolean(),
+    state: v.object({
+      kind: v.literal('abilityDamage'),
+      ability: abilityValidator,
+      points: v.number(),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('abilityDrain'),
+    active: v.boolean(),
+    state: v.object({
+      kind: v.literal('abilityDrain'),
+      ability: abilityValidator,
+      points: v.number(),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('spellEffect'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    state: v.object({
+      kind: v.literal('spellEffect'),
+      casterLevel: v.number(),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('condition'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    state: v.object({ kind: v.literal('condition') }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('item'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    state: v.object({ kind: v.literal('item') }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('spell'),
+    active: v.boolean(),
+    catalogEntryId: v.id('catalogEntry'),
+    state: v.object({ kind: v.literal('spell') }),
+  }),
   v.object({
     characterId: v.id('character'),
     kind: v.literal('manual'),

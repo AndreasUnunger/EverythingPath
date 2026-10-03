@@ -1,5 +1,5 @@
 'use client';
-import { Trash2 } from 'lucide-react';
+import { Sigma, Trash2 } from 'lucide-react';
 import { useWatch } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import {
@@ -20,17 +20,27 @@ import {
 } from '~/components/ui/select';
 import { personalBonusTypes } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
+import { InlineWarnings } from './inline-warning';
 import {
   bonusTypeLabels,
   describeSituation,
   modifierTargetLabels,
   targetPickerGroups,
 } from './modifier-labels';
+import { listModifierWarnings } from './modifier-warnings';
 import { fieldLabel } from './sheet-parts';
-import type { PersonalAdjustmentInput } from './use-character-sheet';
+import type {
+  PersonalAdjustmentInput,
+  SheetWarningView,
+  useCharacterSheet,
+} from './use-character-sheet';
 import type { usePersonalAdjustmentForm } from './use-personal-adjustment-form';
 
-type Editor = ReturnType<typeof usePersonalAdjustmentForm>;
+type Controller = ReturnType<typeof useCharacterSheet>;
+type Editor = Pick<
+  ReturnType<typeof usePersonalAdjustmentForm>,
+  'form' | 'removeModifier'
+>;
 type Condition = NonNullable<
   PersonalAdjustmentInput['modifiers'][number]['condition']
 >;
@@ -41,7 +51,7 @@ type Condition = NonNullable<
  * then bonus type and value, then the whole-width "Only when…".
  */
 export const modifierColumns =
-  'md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_4.5rem_minmax(0,1fr)_auto] md:gap-x-2';
+  'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(8rem,1.2fr)_minmax(0,1fr)_auto] md:gap-x-2';
 
 const control = 'bg-field h-11 w-full font-sans md:h-8';
 
@@ -67,16 +77,102 @@ function withSituation(condition: Condition | undefined, text: string) {
     : undefined;
 }
 
+// The value is typed once, as a number or as a formula the resolver reads;
+// the toggle beside it says which. A formula the resolver cannot read is
+// kept and warned about right here, under the field it is about.
+function ValueField({
+  editor,
+  index,
+  isDisabled,
+  warnings,
+  warningController,
+}: {
+  editor: Editor;
+  index: number;
+  isDisabled: boolean;
+  warnings: SheetWarningView[];
+  warningController?: Controller['warnings'];
+}) {
+  const ordinal = index + 1;
+  const valueKind = useWatch({
+    control: editor.form.control,
+    name: `modifiers.${index}.valueKind`,
+  });
+  const isFormula = valueKind === 'formula';
+  return (
+    <FormField
+      control={editor.form.control}
+      name={`modifiers.${index}.value`}
+      render={({ field, fieldState }) => (
+        <FormItem className="gap-0">
+          <span aria-hidden className={cn(fieldLabel, 'md:hidden')}>
+            {isFormula ? 'Formula' : 'Value'}
+          </span>
+          <div className="flex items-start gap-1">
+            <FormControl>
+              <Input
+                {...field}
+                aria-label={`Modifier ${ordinal} value`}
+                disabled={isDisabled}
+                type="text"
+                inputMode={isFormula ? 'text' : 'decimal'}
+                autoComplete="off"
+                spellCheck={false}
+                className={cn(
+                  control,
+                  'font-mono',
+                  isFormula ? 'text-left' : 'text-center',
+                )}
+              />
+            </FormControl>
+            <Button
+              type="button"
+              variant={isFormula ? 'secondary' : 'ghost'}
+              size="icon"
+              className="size-11 shrink-0 md:size-8"
+              aria-pressed={isFormula}
+              disabled={isDisabled}
+              onClick={() =>
+                editor.form.setValue(
+                  `modifiers.${index}.valueKind`,
+                  isFormula ? 'number' : 'formula',
+                  { shouldDirty: true },
+                )
+              }
+            >
+              <Sigma aria-hidden className="size-4" />
+              <span className="sr-only">Modifier {ordinal} as formula</span>
+            </Button>
+          </div>
+          <FormMessage role={fieldState.error ? 'alert' : undefined} />
+          {warningController ? (
+            <InlineWarnings
+              warnings={listModifierWarnings(warnings, index)}
+              controller={warningController}
+              className="pt-1"
+            />
+          ) : null}
+        </FormItem>
+      )}
+    />
+  );
+}
+
 export function PersonalAdjustmentModifierRow({
   editor,
   index,
   isDisabled,
   canRemove,
+  warnings = [],
+  warningController,
 }: {
   editor: Editor;
   index: number;
   isDisabled: boolean;
   canRemove: boolean;
+  /** The saved entry's Modifier warnings; none while the entry is new. */
+  warnings?: SheetWarningView[];
+  warningController?: Controller['warnings'];
 }) {
   const ordinal = index + 1;
   const condition = useWatch({
@@ -160,28 +256,12 @@ export function PersonalAdjustmentModifierRow({
           </FormItem>
         )}
       />
-      <FormField
-        control={editor.form.control}
-        name={`modifiers.${index}.value`}
-        render={({ field, fieldState }) => (
-          <FormItem className="gap-0">
-            <span aria-hidden className={cn(fieldLabel, 'md:hidden')}>
-              Value
-            </span>
-            <FormControl>
-              <Input
-                {...field}
-                aria-label={`Modifier ${ordinal} value`}
-                disabled={isDisabled}
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                className={cn(control, 'text-center font-mono')}
-              />
-            </FormControl>
-            <FormMessage role={fieldState.error ? 'alert' : undefined} />
-          </FormItem>
-        )}
+      <ValueField
+        editor={editor}
+        index={index}
+        isDisabled={isDisabled}
+        warnings={warnings}
+        warningController={warningController}
       />
       <FormItem className="col-span-3 gap-0 md:col-span-1">
         <span aria-hidden className={cn(fieldLabel, 'md:hidden')}>

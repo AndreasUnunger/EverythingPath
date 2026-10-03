@@ -201,5 +201,5 @@ export function describeModifier(modifier: Modifier) {
     modifier.bonusType === 'untyped'
       ? ''
       : ` ${bonusTypeLabels[modifier.bonusType]}`;
-  return `${formatModifier(modifier.value)}${type} to ${modifierTargetLabels[modifier.target]}${describeWhen(modifier.condition?.situation)}`;
+  return `${typeof modifier.value === 'number' ? formatModifier(modifier.value) : modifier.value.formula}${type} to ${modifierTargetLabels[modifier.target]}${describeWhen(modifier.condition?.situation)}`;
 }

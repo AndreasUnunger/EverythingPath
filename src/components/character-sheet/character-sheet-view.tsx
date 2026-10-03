@@ -1,9 +1,11 @@
 'use client';
 import type { ReactNode } from 'react';
 import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
+import { AbilityChanges } from './ability-changes';
 import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { BuildOutControl } from './build-out-control';
+import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
 import { PersonalAdjustments } from './personal-adjustments';
@@ -122,10 +124,12 @@ function CampaignRow({
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Class Levels,
- * and Ability scores in the left five of the sheet's twelve columns with
- * the creation settings beside them. Each calculation warning sits by its
- * subject (unresolved HP under the Class Levels it is summed from); only
- * another player's acceptances are announced for the sheet.
+ * and Ability scores with their damage and drain in the left five of the
+ * sheet's twelve columns, with personal adjustments, sheet entries and the
+ * creation settings beside them. Each calculation warning sits by its
+ * subject (unresolved HP under the Class Levels it is summed from, a
+ * formula under its Modifier); only another player's acceptances are
+ * announced for the sheet.
  */
 export function CharacterSheetView({
   sheet,
@@ -182,7 +186,7 @@ export function CharacterSheetView({
               saveHitPoints={controller.saveHitPoints}
             />
           </div>
-          <div className="min-w-0 lg:col-span-5">
+          <div className="flex min-w-0 flex-col gap-3 lg:col-span-5">
             <BaseScoresEditor
               scores={sheet.baseScores}
               abilities={sheet.calculated.abilities}
@@ -191,13 +195,27 @@ export function CharacterSheetView({
               warnings={sheet.warnings}
               warningController={controller.warnings}
               breakdowns={sheet.calculated.breakdowns}
+              modifierBreakdowns={sheet.calculated.abilityModifierBreakdowns}
+              permanent={sheet.permanentCalculated.abilities}
               save={controller.saveBaseScores}
             />
+            <AbilityChanges
+              rows={sheet.abilityChanges}
+              actions={controller.abilityChanges}
+            />
           </div>
-          <div className="min-w-0 lg:col-span-7">
+          <div className="flex min-w-0 flex-col gap-3 lg:col-span-7">
             <PersonalAdjustments
               rows={sheet.adjustments}
               actions={controller.adjustments}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
+            />
+            <CharacterSheetEntries
+              rows={sheet.sheetEntries}
+              actions={controller.sheetEntries}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
             />
             <CreationSettingsEditor
               settings={sheet.calculated.creationSettings}

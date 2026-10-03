@@ -239,6 +239,14 @@ function sheet({
       entries,
       catalogEntries: [catalogEntry, ...classEntries],
     }),
+    permanentCalculated: calculateCharacterSheet(
+      {
+        characterKind: 'pc',
+        entries,
+        catalogEntries: [catalogEntry],
+      },
+      { permanentOnly: true },
+    ),
     acceptedWarnings: [],
     revision: 1,
     lastOperationId,
@@ -596,8 +604,10 @@ test("another player's scores update untouched fields and keep a dirty field wit
     within(scoresRegion()).getByText(/^Strength total/).parentElement,
   ).toHaveTextContent('Strength total 14');
   expect(
-    within(scoresRegion()).getByText(/^Dexterity modifier/).parentElement,
-  ).toHaveTextContent('Dexterity modifier +3');
+    within(scoresRegion()).getByRole('button', {
+      name: 'Dexterity modifier +3, breakdown',
+    }),
+  ).toBeVisible();
   const notice = within(scoresRegion()).getByText(
     'Updated by another player. Your edits are kept.',
   );

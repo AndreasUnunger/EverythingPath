@@ -5,20 +5,23 @@ import { useId, useState } from 'react';
 import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
+import { isTemporaryEffect } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
+import { SheetEntryEditor } from './sheet-entry-editor';
+import { sheetEntryKindLabels } from './sheet-entry-classification-fields';
 import { InlineWarnings } from './inline-warning';
 import { describeModifier } from './modifier-labels';
 import { listEntryModifierWarnings } from './modifier-warnings';
-import { PersonalAdjustmentEditor } from './personal-adjustment-editor';
 import { action, Block, chip, RemoteNotice, SaveFeedback } from './sheet-parts';
 import type {
   SheetWarningView,
   useCharacterSheet,
 } from './use-character-sheet';
+import type { SheetEntryInput } from './use-character-sheet-entries';
 import { useCreateThenEdit } from './use-create-then-edit';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
-type Row = NonNullable<Controller['sheet']>['adjustments'][number];
+type Row = NonNullable<Controller['sheet']>['sheetEntries'][number];
 type EntryId = Id<'characterSheetEntry'>;
 type OpenEditor = { kind: 'new' } | { kind: 'entry'; entryId: EntryId } | null;
 type WarningProps = {
@@ -26,11 +29,40 @@ type WarningProps = {
   warningController: Controller['warnings'];
 };
 
-const newEditorKey = 'new-adjustment';
+/** "Spell Effect · CL 7", "Consumable item": the row's classification. */
+function describeClassification(row: Row) {
+  const { detail, state } = row;
+  if (detail.kind === 'spellEffect' && state.kind === 'spellEffect')
+    return `${sheetEntryKindLabels.spellEffect} · CL ${state.casterLevel}`;
+  if (detail.kind === 'item' && detail.consumable) return 'Consumable item';
+  return sheetEntryKindLabels[detail.kind];
+}
+
+// The resolver's own classification, so the chip never disagrees with it.
+function isTemporaryRow({ detail }: Row) {
+  return isTemporaryEffect({ kind: detail.kind }, detail);
+}
+
+function describeModifiers(row: Row) {
+  if (row.detail.kind === 'spell') return 'Grants no Modifiers.';
+  if (row.modifiers.length === 0) return 'No Modifiers.';
+  return row.modifiers.map(describeModifier).join(' · ');
+}
+
+function toInput(row: Row): SheetEntryInput {
+  return {
+    name: row.name,
+    modifiers: row.modifiers,
+    detail: row.detail,
+    ...(row.state.kind === 'spellEffect'
+      ? { casterLevel: row.state.casterLevel }
+      : {}),
+  };
+}
 
 // A row's formula warnings sit under it while its editor is closed; once
 // open, the editor shows each one under the Modifier it is about.
-function AdjustmentRow({
+function SheetEntryRow({
   row,
   isBusy,
   isOpen,
@@ -42,12 +74,13 @@ function AdjustmentRow({
   row: Row;
   isBusy: boolean;
   isOpen: boolean;
-  actions: Controller['adjustments'];
+  actions: Controller['sheetEntries'];
   onEdit: () => void;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const nameId = useId();
   const isDisabled = isBusy || maintenance.readOnly;
+  const isTemporary = isTemporaryRow(row);
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
       <button
@@ -79,11 +112,17 @@ function AdjustmentRow({
             {row.name}
           </h3>
           <span className={cn(chip, row.active ? '' : 'text-muted-foreground')}>
-            {row.active ? 'Active' : 'Inactive'}
+            {describeClassification(row)}
           </span>
+          {isTemporary ? (
+            <span className={cn(chip, 'text-muted-foreground')}>Temporary</span>
+          ) : null}
+          {row.active ? null : (
+            <span className={cn(chip, 'text-muted-foreground')}>Inactive</span>
+          )}
         </div>
         <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]">
-          {row.modifiers.map(describeModifier).join(' · ')}
+          {describeModifiers(row)}
         </p>
         {isOpen ? null : (
           <InlineWarnings
@@ -121,25 +160,23 @@ function AdjustmentRow({
   );
 }
 
-function NewAdjustmentEditor({
+function NewSheetEntryEditor({
   actions,
   onClose,
 }: {
-  actions: Controller['adjustments'];
+  actions: Controller['sheetEntries'];
   onClose: () => void;
 }) {
   const creation = useCreateThenEdit({
     create: actions.create,
     edit: actions.edit,
   });
-  return (
-    <PersonalAdjustmentEditor save={creation.save} onClose={onClose} isNew />
-  );
+  return <SheetEntryEditor save={creation.save} onClose={onClose} isNew />;
 }
 
-// The open entry's editor lives below the list, not in its row, so another
-// player removing the row cannot take an unsaved draft with it. A removed
-// entry's draft saves as a new adjustment and then follows that one.
+// The editor lives below the list so another player's removal cannot take a
+// draft with it. A removed entry's draft saves as a new entry and then
+// follows that one.
 function EntryEditor({
   entryId,
   rows,
@@ -150,7 +187,7 @@ function EntryEditor({
 }: WarningProps & {
   entryId: EntryId;
   rows: Row[];
-  actions: Controller['adjustments'];
+  actions: Controller['sheetEntries'];
   onClose: () => void;
 }) {
   const creation = useCreateThenEdit({
@@ -161,10 +198,8 @@ function EntryEditor({
     (item) => item.entryId === (creation.createdId ?? entryId),
   );
   return (
-    <PersonalAdjustmentEditor
-      adjustment={
-        row ? { name: row.name, modifiers: row.modifiers } : undefined
-      }
+    <SheetEntryEditor
+      value={row ? toInput(row) : undefined}
       save={row ? (input) => actions.edit(row.entryId, input) : creation.save}
       onClose={onClose}
       isNew={false}
@@ -176,18 +211,19 @@ function EntryEditor({
 }
 
 /**
- * The player's own additions to the sheet: each with its name, active state
- * and Modifiers, toggled, edited and removed in place. One editor is open at
- * a time, keyed by its entry so switching rows never carries a draft over.
+ * Spell Effects, conditions, items and recorded Spells on the Character:
+ * each with its name, classification, active state and Modifiers, toggled,
+ * edited and removed in place. One editor is open at a time, keyed by its
+ * entry so switching rows never carries a draft over.
  */
-export function PersonalAdjustments({
+export function CharacterSheetEntries({
   rows,
   actions,
   warnings,
   warningController,
 }: WarningProps & {
   rows: Row[];
-  actions: Controller['adjustments'];
+  actions: Controller['sheetEntries'];
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const [open, setOpen] = useState<OpenEditor>(null);
@@ -196,29 +232,27 @@ export function PersonalAdjustments({
   const openEntryId = open?.kind === 'entry' ? open.entryId : null;
   return (
     <Block
-      title="Personal adjustments"
+      title="Sheet entries"
       aside={
         <p className="text-muted-foreground font-mono text-xs">
-          {rows.length} {rows.length === 1 ? 'adjustment' : 'adjustments'}
+          {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
         </p>
       }
     >
       <div className="space-y-2">
         <RemoteNotice
           isShown={actions.hasRemoteChange}
-          message="Personal adjustments changed."
-          subject="personal adjustments"
+          message="Sheet entries changed."
+          subject="entries"
           onDismiss={actions.dismissRemoteChange}
         />
         {rows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No personal adjustments.
-          </p>
+          <p className="text-muted-foreground text-sm">No entries.</p>
         ) : (
           <ul className="divide-foreground/10 divide-y">
             {rows.map((row) => (
               <li key={row.entryId} aria-label={row.name}>
-                <AdjustmentRow
+                <SheetEntryRow
                   row={row}
                   isBusy={isBusy}
                   isOpen={openEntryId === row.entryId}
@@ -249,8 +283,8 @@ export function PersonalAdjustments({
           />
         ) : null}
         {open?.kind === 'new' ? (
-          <NewAdjustmentEditor
-            key={newEditorKey}
+          <NewSheetEntryEditor
+            key="new-entry"
             actions={actions}
             onClose={close}
           />
@@ -265,11 +299,11 @@ export function PersonalAdjustments({
             onClick={() => setOpen({ kind: 'new' })}
           >
             <Plus aria-hidden className="size-4" />
-            Add personal adjustment
+            Add entry
           </Button>
           <SaveFeedback
             status={actions.status}
-            savedText="Personal adjustments saved."
+            savedText="Sheet entries saved."
           />
           <MaintenanceReason notice={maintenance} />
         </div>
