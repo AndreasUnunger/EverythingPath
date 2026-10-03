@@ -18,6 +18,7 @@ import { ProficiencyChoiceCell } from './class-level-proficiency';
 import {
   buildSheet,
   emptyOwnerCandidates,
+  isClassCatalogEntry,
   type CatalogSheetEntry,
   type Level,
 } from './character-sheet-test-fixture';
@@ -99,7 +100,7 @@ const chainShirt: CatalogSheetEntry = {
 function build(input: Parameters<typeof buildSheet>[0]) {
   const sheet = buildSheet(input);
   const catalogEntries = sheet.catalogEntries.map((entry) =>
-    entry.detail.kind === 'class' && classSkills[entry._id]
+    isClassCatalogEntry(entry) && classSkills[entry._id]
       ? {
           ...entry,
           detail: { ...entry.detail, classSkills: classSkills[entry._id] },

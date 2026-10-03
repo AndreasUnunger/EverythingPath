@@ -16,6 +16,7 @@ import {
   createCatalogSheetEntryState,
   isSelectableCatalogSheetEntryKind,
   isCatalogSheetEntry,
+  isCatalogSheetDefinition,
   type SelectableCatalogSheetEntryKind,
 } from '../src/lib/character-sheet-entries';
 import {
@@ -63,6 +64,8 @@ import {
 import {
   abilityKeys,
   abilityTargets,
+  creatureSizes,
+  proficiencyCategories,
   defaultAbilityScores,
   creationSettingsFor,
   modifierConditionSchema,
@@ -179,6 +182,33 @@ const resolvedEntryValidator = v.object({
 const calculatedValidator = v.object({
   spellcastings: v.array(spellcastingValidator),
   spellcastingUnresolved: v.array(v.string()),
+  racial: v.object({
+    raceEntryId: v.union(v.string(), v.null()),
+    size: v.union(
+      v.union(...creatureSizes.map((size) => v.literal(size))),
+      v.null(),
+    ),
+    creatureTypes: v.array(v.string()),
+    creatureSubtypes: v.array(v.string()),
+    countsAsRaces: v.array(v.string()),
+    racialTraitIdentities: v.array(v.string()),
+    favoredClassCount: v.number(),
+    bonusSkillRanksPerLevel: v.number(),
+    proficiencies: v.array(
+      v.union(
+        v.object({
+          category: v.union(
+            ...proficiencyCategories.map((value) => v.literal(value)),
+          ),
+        }),
+        v.object({
+          baseType: v.string(),
+          asMartial: v.optional(v.literal(true)),
+        }),
+        v.object({ group: v.string() }),
+      ),
+    ),
+  }),
   resolvedEntries: v.array(resolvedEntryValidator),
   warningsForAcceptance: v.array(
     zodOutputToConvex(characterSheetWarningSchema),
@@ -1153,9 +1183,9 @@ function getSheetEntry(
   const catalog = sheet.catalogEntries.find(
     (row) => row._id === entry.catalogEntryId,
   );
-  if (!catalog || !isCatalogSheetEntry(catalog.detail))
+  if (!isCatalogSheetDefinition(catalog))
     throw new ConvexError('Catalog Entry definition is unavailable');
-  return { entry, catalog: { ...catalog, detail: catalog.detail } };
+  return { entry, catalog };
 }
 function validateSheetEntryDetail(
   detail: typeof sheetEntryDetailValidator.type,
@@ -1487,6 +1517,7 @@ export const editGrantState = campaignMutation({
       throw new ConvexError(
         'A Grant copy must retain its rule identity and kind',
       );
+    requireRacialAbilityScoreChoice(definition, args.state.choice);
     const choice =
       args.state.choice ??
       ('choice' in resolved.entry.state
@@ -1780,6 +1811,10 @@ export const selectEntry = campaignMutation({
       args.catalogEntryId,
     );
     requireEntryChoice(definition.detail.kind, args.choice);
+    requireAlternateRacialTrait(sheet, definition);
+    requireRacialAbilityScoreChoice(definition, args.choice);
+    if (definition.kind === 'race' && args.active !== false)
+      requireSingleActiveRace(sheet);
     const selectionSource = requireSelectionReferences(
       sheet,
       args.selectionSource,
@@ -1885,6 +1920,10 @@ export const editSelection = campaignMutation({
       throw new ConvexError('Catalog Entry does not belong to this Character');
     if (definition.detail.kind !== previous.kind)
       throw new ConvexError('A Selection must retain its kind');
+    requireAlternateRacialTrait(sheet, definition);
+    requireRacialAbilityScoreChoice(definition, args.choice);
+    if (previous.kind === 'race' && (args.active ?? previous.active))
+      requireSingleActiveRace(sheet, previous._id);
     // An unchanged broken Class Level link remains unplaced rather than guessed.
     const unchangedSource =
       args.selectionSource === undefined ||
@@ -1917,6 +1956,323 @@ export const editSelection = campaignMutation({
           : (args.gainedAtClassLevel ?? previous.gainedAtClassLevel),
     };
     await persistRecordedEntry(ctx, sheet, row, previous._id);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+/** Race switches leave each source row and its recorded Grants available to restore. */
+export const selectRace = campaignMutation({
+  args: {
+    ...writeScope,
+    catalogEntryId: v.union(v.id('catalogEntry'), v.null()),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const definition =
+      args.catalogEntryId === null
+        ? null
+        : requireCatalogSheetDefinition(sheet, args.catalogEntryId);
+    if (definition && definition.kind !== 'race')
+      throw new ConvexError('Choose a race');
+    const selected = sheet.entries.find(
+      (entry) =>
+        entry.kind === 'race' &&
+        !entry.grantKey &&
+        definition !== null &&
+        sheet.catalogEntries.some(
+          (catalog) =>
+            catalog._id === entry.catalogEntryId &&
+            catalog.ruleIdentity === definition.ruleIdentity,
+        ),
+    );
+    let changed = false;
+    for (const entry of sheet.entries) {
+      if (entry.kind !== 'race' || entry.grantKey) continue;
+      const active = entry._id === selected?._id;
+      if (entry.active === active) continue;
+      await ctx.db.patch('characterSheetEntry', entry._id, { active });
+      sheet.entries = sheet.entries.map((row) =>
+        row._id === entry._id ? { ...entry, active } : row,
+      );
+      changed = true;
+    }
+    if (
+      definition &&
+      selected?.kind === 'race' &&
+      selected.catalogEntryId !== definition._id
+    ) {
+      await ctx.db.patch('characterSheetEntry', selected._id, {
+        catalogEntryId: definition._id,
+      });
+      sheet.entries = sheet.entries.map((entry) =>
+        entry._id === selected._id && entry.kind === 'race'
+          ? { ...entry, catalogEntryId: definition._id }
+          : entry,
+      );
+      changed = true;
+    }
+    if (definition && !selected) {
+      await persistRecordedEntry(ctx, sheet, {
+        characterId: sheet.character._id,
+        catalogEntryId: definition._id,
+        kind: 'race',
+        active: true,
+        state: { kind: 'race' },
+      });
+      changed = true;
+    }
+    if (changed)
+      await pruneWarningAcceptancesAndRecordChange(ctx, {
+        sheet,
+        operationId: args.operationId,
+      });
+    return null;
+  },
+});
+
+export const setRacialTraitSelected = campaignMutation({
+  args: {
+    ...writeScope,
+    catalogEntryId: v.id('catalogEntry'),
+    selected: v.boolean(),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const definition = requireCatalogSheetDefinition(
+      sheet,
+      args.catalogEntryId,
+    );
+    if (definition.kind !== 'racialTrait')
+      throw new ConvexError('Choose a Racial Trait');
+    requireAlternateRacialTrait(sheet, definition);
+    const previous = sheet.entries.find(
+      (entry) =>
+        entry.kind === 'racialTrait' &&
+        !entry.grantKey &&
+        entry.catalogEntryId === args.catalogEntryId,
+    );
+    if (previous && previous.kind !== 'racialTrait')
+      throw new ConvexError('Choose a Racial Trait');
+    if (previous) {
+      if (previous.active === args.selected) return null;
+      await ctx.db.patch('characterSheetEntry', previous._id, {
+        active: args.selected,
+      });
+      sheet.entries = sheet.entries.map((entry) =>
+        entry._id === previous._id
+          ? { ...previous, active: args.selected }
+          : entry,
+      );
+    } else {
+      if (!args.selected) return null;
+      await persistRecordedEntry(ctx, sheet, {
+        characterId: sheet.character._id,
+        catalogEntryId: definition._id,
+        kind: 'racialTrait',
+        active: true,
+        state: { kind: 'racialTrait' },
+      });
+    }
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const chooseRacialAbilityScore = campaignMutation({
+  args: {
+    ...writeScope,
+    target: dormantTargetValidator,
+    ability: v.union(abilityValidator, v.null()),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const resolved = findResolvedEntry(sheet, args.target);
+    const entry = resolved.entry;
+    if (entry.kind !== 'racialTrait')
+      throw new ConvexError('Choose an ability score for a Racial Trait');
+    const definition = sheet.catalogEntries.find(
+      (row) => row._id === entry.catalogEntryId,
+    );
+    if (
+      !definition?.modifiers.some(
+        (modifier) => modifier.target === 'ability.$choice',
+      )
+    )
+      throw new ConvexError('This Racial Trait has no ability score choice');
+    const catalogEntryId = ctx.db.normalizeId(
+      'catalogEntry',
+      entry.catalogEntryId,
+    );
+    if (!catalogEntryId) throw new ConvexError('Racial Trait is unavailable');
+    const previous = sheet.entries.find(
+      (row) => row._id === resolved.storedEntryId,
+    );
+    if (previous && previous.kind !== 'racialTrait')
+      throw new ConvexError('Racial Trait is unavailable');
+    if ((entry.state.choice ?? null) === args.ability) return null;
+    await persistRecordedEntry(
+      ctx,
+      sheet,
+      {
+        characterId: sheet.character._id,
+        catalogEntryId,
+        active: entry.active,
+        ...buildRecordedCatalogState(ctx, previous ?? entry, args.ability),
+        ...(entry.grantKey ? { grantKey: entry.grantKey } : {}),
+        ...(previous?.notes !== undefined ? { notes: previous.notes } : {}),
+        ...(previous?.kept ? { kept: previous.kept } : {}),
+        ...(previous?.catalogOverride ? { catalogOverride: true } : {}),
+        ...(previous?.selectionSource
+          ? { selectionSource: previous.selectionSource }
+          : {}),
+        ...(previous?.gainedAtClassLevel
+          ? { gainedAtClassLevel: previous.gainedAtClassLevel }
+          : {}),
+      },
+      previous?._id,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+export const setRacialTraitReplacements = campaignMutation({
+  args: {
+    ...rowScope,
+    replaces: v.union(v.array(v.id('catalogEntry')), v.null()),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const previous = sheet.entries.find((entry) => entry._id === args.entryId);
+    if (previous?.kind !== 'racialTrait' || previous.grantKey)
+      throw new ConvexError(
+        'Alternate Racial Trait does not belong to this Character',
+      );
+    if (args.replaces && args.replaces.length > 256)
+      throw new ConvexError('Choose at most 256 replacements');
+    for (const id of args.replaces ?? []) {
+      const definition = requireCatalogSheetDefinition(sheet, id);
+      if (definition.kind !== 'racialTrait')
+        throw new ConvexError('Choose a Racial Trait to replace');
+    }
+    const state = {
+      ...previous.state,
+      replaces:
+        args.replaces === null ? undefined : [...new Set(args.replaces)],
+    };
+    if (compareValues(state, previous.state) === 0) return null;
+    await ctx.db.patch('characterSheetEntry', previous._id, { state });
+    sheet.entries = sheet.entries.map((entry) =>
+      entry._id === previous._id ? { ...previous, state } : entry,
+    );
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+function requireSingleActiveRace(sheet: WritableSheet, exceptEntryId?: string) {
+  if (
+    sheet.entries.some(
+      (entry) =>
+        entry.kind === 'race' && entry.active && entry._id !== exceptEntryId,
+    )
+  )
+    throw new ConvexError('Change your race with the race picker');
+}
+function requireAlternateRacialTrait(
+  sheet: WritableSheet,
+  definition: Doc<'catalogEntry'>,
+) {
+  if (definition.detail.kind !== 'racialTrait') return;
+  const isStandard = sheet.catalogEntries.some(
+    (race) =>
+      race.detail.kind === 'race' &&
+      race.detail.racialTraits.some(
+        (id) =>
+          id === definition._id ||
+          sheet.catalogEntries.find((trait) => trait._id === id)
+            ?.ruleIdentity === definition.ruleIdentity,
+      ),
+  );
+  if (isStandard)
+    throw new ConvexError('Standard Racial Traits are granted by their race');
+}
+function requireRacialAbilityScoreChoice(
+  definition: Doc<'catalogEntry'>,
+  choice: string | null | undefined,
+) {
+  if (
+    definition.countsAsRaces &&
+    !Array.isArray(definition.countsAsRaces) &&
+    'oneOf' in definition.countsAsRaces &&
+    choice != null &&
+    !definition.countsAsRaces.oneOf.includes(choice)
+  )
+    throw new ConvexError('Choose one of the available races');
+  if (
+    definition.detail.kind === 'racialTrait' &&
+    definition.modifiers.some(
+      (modifier) => modifier.target === 'ability.$choice',
+    ) &&
+    choice != null &&
+    !abilityKeys.some((ability) => ability === choice)
+  )
+    throw new ConvexError('Choose a valid ability score');
+}
+
+export const editRaceStatistics = campaignMutation({
+  args: {
+    ...rowScope,
+    racialHpGained: v.optional(v.union(v.number(), v.null())),
+    racialSkillRanks: v.optional(v.record(v.string(), v.number())),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const previous = sheet.entries.find((entry) => entry._id === args.entryId);
+    if (previous?.kind !== 'race' || previous.grantKey)
+      throw new ConvexError('Race does not belong to this Character');
+    if (args.racialHpGained != null)
+      requireNonnegativeInteger(args.racialHpGained, 'Racial hit points');
+    if (args.racialSkillRanks !== undefined) {
+      if (Object.keys(args.racialSkillRanks).length > 256)
+        throw new ConvexError('Choose at most 256 skills');
+      for (const [skill, ranks] of Object.entries(args.racialSkillRanks)) {
+        if (!skill.trim()) throw new ConvexError('Choose a skill');
+        requireNonnegativeInteger(ranks, 'Racial skill ranks');
+      }
+    }
+    const state = {
+      ...previous.state,
+      ...(args.racialHpGained !== undefined
+        ? { racialHpGained: args.racialHpGained }
+        : {}),
+      ...(args.racialSkillRanks !== undefined
+        ? { racialSkillRanks: args.racialSkillRanks }
+        : {}),
+    };
+    if (compareValues(state, previous.state) === 0) return null;
+    await ctx.db.patch('characterSheetEntry', previous._id, { state });
+    sheet.entries = sheet.entries.map((entry) =>
+      entry._id === previous._id ? { ...previous, state } : entry,
+    );
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,

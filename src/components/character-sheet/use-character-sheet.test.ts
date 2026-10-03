@@ -11,6 +11,7 @@ import {
 } from '~/lib/character-sheet';
 import { useCharacterRecord } from '../character-manager/use-character-record';
 import { useCreateCharacterSheet } from './use-create-character-sheet';
+import { buildSheet } from './character-sheet-test-fixture';
 import {
   useCharacterSheet,
   type CharacterSheetSnapshot,
@@ -204,6 +205,76 @@ async function fixture(acceptPointBuy = false) {
 beforeEach(() => {
   calls = [];
   snapshot = undefined;
+});
+
+test('the shared controller exposes race selection and ability choices with campaign scope and separate acknowledgements', async () => {
+  snapshot = buildSheet({ race: { key: 'human' } });
+  const initial = snapshot;
+  const race = initial.catalogEntries.find(
+    (entry) => entry.detail.kind === 'race' && entry.ruleIdentity === 'human',
+  );
+  if (!race) throw new Error('Expected the Human race');
+  if (!initial.campaign) throw new Error('Expected a campaign');
+  const scope = {
+    organizationId: 'org',
+    campaignId: initial.campaign.campaignId,
+    characterId: initial.character._id,
+  };
+  const view = renderHook(() => useCharacterSheet(scope));
+  let selection: Promise<boolean> | undefined;
+  act(() => {
+    selection = view.result.current.races.selectRace(race._id);
+  });
+  expect(calls[0]).toMatchObject({
+    name: 'selectRace',
+    args: {
+      ...scope,
+      catalogEntryId: race._id,
+      operationId: expect.any(String),
+    },
+  });
+  expect(view.result.current.races.statusFor('race')).toEqual({
+    kind: 'saving',
+  });
+  expect(view.result.current.races.statusFor('ability')).toEqual({
+    kind: 'idle',
+  });
+  const grantKey = { source: 'human', entry: 'human-ability' };
+  let choice: Promise<boolean> | undefined;
+  act(() => {
+    choice = view.result.current.races.chooseAbilityScore(
+      { grantKey },
+      'constitution',
+      'ability',
+    );
+  });
+  expect(calls[1]).toMatchObject({
+    name: 'chooseRacialAbilityScore',
+    args: {
+      ...scope,
+      target: { grantKey },
+      ability: 'constitution',
+      operationId: expect.any(String),
+    },
+  });
+  await act(async () => {
+    calls[1]?.resolve(null);
+    expect(await choice).toBe(true);
+  });
+  expect(view.result.current.races.statusFor('ability')).toEqual({
+    kind: 'saved',
+  });
+  expect(view.result.current.races.statusFor('race')).toEqual({
+    kind: 'saving',
+  });
+  await act(async () => {
+    calls[0]?.resolve(race._id);
+    expect(await selection).toBe(true);
+  });
+  expect(view.result.current.races.statusFor('race')).toEqual({
+    kind: 'saved',
+  });
+  expect(view.result.current.companions.rows).toEqual([]);
 });
 
 test('the shared sheet exposes ordered stable level identities and localizes a rejected move', async () => {

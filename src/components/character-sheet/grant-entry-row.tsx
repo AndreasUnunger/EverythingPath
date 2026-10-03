@@ -1,6 +1,6 @@
 'use client';
 import { Check, SquarePen } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useMaintenanceReasonId } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
@@ -22,6 +22,8 @@ type WarningProps = {
   warningController: Controller['warnings'];
 };
 type OpenPanel = 'editor' | 'discard' | null;
+/** Structured controls a block adds under a row's details, by row. */
+export type RenderRowExtra = (row: GrantEntryView) => ReactNode;
 
 const mutedChip = cn(chip, 'text-muted-foreground');
 
@@ -93,10 +95,12 @@ export function GrantEntryRow({
   warnings,
   warningController,
   registerRow,
+  renderExtra,
 }: WarningProps & {
   row: GrantEntryView;
   actions: Actions;
   registerRow?: (rowId: string, element: HTMLDivElement | null) => void;
+  renderExtra?: RenderRowExtra;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useMaintenanceReasonId(maintenance);
@@ -148,6 +152,7 @@ export function GrantEntryRow({
             <StateChips row={row} />
           </div>
           <RowDetails row={row} />
+          {renderExtra?.(row)}
           <InlineWarnings
             warnings={listGrantEntryWarnings(warnings, row.rowId)}
             controller={warningController}
@@ -236,6 +241,7 @@ export function GrantEntryRow({
                 warnings={warnings}
                 warningController={warningController}
                 registerRow={registerRow}
+                renderExtra={renderExtra}
               />
             </li>
           ))}

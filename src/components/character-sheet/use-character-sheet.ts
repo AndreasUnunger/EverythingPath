@@ -22,6 +22,7 @@ import {
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
+import { useCharacterSheetRaces } from './use-character-sheet-races';
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
 import { useCharacterCompanions } from './use-character-companions';
 import type { SaveStatus } from './save-status';
@@ -59,6 +60,7 @@ export function useCharacterSheet(
   const entryWrites = useCharacterSheetEntries(scope, snapshot);
   const grants = useCharacterSheetGrants(scope, snapshot);
   const companions = useCharacterCompanions(scope, snapshot, origin);
+  const races = useCharacterSheetRaces(scope, snapshot);
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);
   const addClassLevel = useMutation(api.characterSheet.addClassLevel);
@@ -215,6 +217,7 @@ export function useCharacterSheet(
     ...entryWrites,
     grants,
     companions,
+    races,
     sheet,
     buildOut: {
       ...buildOut,

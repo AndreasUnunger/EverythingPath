@@ -141,16 +141,22 @@ function classModifiersFor(
       entryId: `builtin:class:${catalog.ruleIdentity}`,
       name: `${catalog.name ?? 'Class'} ${count}`,
     }),
-    ...catalog.modifiers.map(
-      (modifier, modifierIndex): InputSourcedModifier => ({
-        modifierIndex,
-        ...modifier,
-        sheetEntryId: `class:${catalog.ruleIdentity}`,
-        entryName: catalog.name ?? 'Class',
-        source: catalog.sourceKey ?? catalog.ruleIdentity,
-        builtIn: false,
-        stacksWithItself: catalog.stacksWithItself,
-      }),
+    ...catalog.modifiers.flatMap(
+      (modifier, modifierIndex): InputSourcedModifier[] =>
+        modifier.target === 'ability.$choice'
+          ? []
+          : [
+              {
+                modifierIndex,
+                ...modifier,
+                target: modifier.target,
+                sheetEntryId: `class:${catalog.ruleIdentity}`,
+                entryName: catalog.name ?? 'Class',
+                source: catalog.sourceKey ?? catalog.ruleIdentity,
+                builtIn: false,
+                stacksWithItself: catalog.stacksWithItself,
+              },
+            ],
     ),
   ]);
 }
@@ -163,12 +169,14 @@ function resolveRacialProgression(
   const racialModifiers =
     racial && racialHitDice > 0
       ? [
-          ...progressionModifiers({
-            progression: racial.progression,
-            count: racialHitDice,
-            entryId: 'builtin:racial',
-            name: `Racial Hit Dice ${racialHitDice}`,
-          }),
+          ...(racial.progression
+            ? progressionModifiers({
+                progression: racial.progression,
+                count: racialHitDice,
+                entryId: 'builtin:racial',
+                name: `Racial Hit Dice ${racialHitDice}`,
+              })
+            : []),
           ...(racial.hpGained === null
             ? []
             : [
@@ -185,7 +193,8 @@ function resolveRacialProgression(
     racialHitDice,
     missingRacialHp,
     modifiers: racialModifiers,
-    racialSkillRanksPerHitDie: racial?.progression.skillRanksPerHitDie ?? 0,
+    missingRacialProgression: racialHitDice > 0 && !racial?.progression,
+    racialSkillRanksPerHitDie: racial?.progression?.skillRanksPerHitDie ?? 0,
   };
 }
 
@@ -258,6 +267,10 @@ export function resolveAdvancement(input: CharacterSheetInput) {
     racialHitDice: racial.racialHitDice,
     hitDice: racial.racialHitDice + levels.length,
     missingRacialHp: racial.missingRacialHp,
+    missingRacialProgression: racial.missingRacialProgression,
+    racialRecordedRanks: input.entries
+      .filter((entry) => entry.kind === 'race')
+      .flatMap((entry) => Object.entries(entry.state.racialSkillRanks ?? {})),
     racialSkillRanksPerHitDie: racial.racialSkillRanksPerHitDie,
     modifiers: [
       ...classModifiersFor(classes),
@@ -273,9 +286,11 @@ const milestones = new Set([4, 8, 12, 16, 20]);
 export function advancementBudgets({
   advancement,
   intelligence,
+  bonusSkillRanksPerLevel = 0,
 }: {
   advancement: ReturnType<typeof resolveAdvancement>;
   intelligence: number;
+  bonusSkillRanksPerLevel?: number;
 }) {
   const cumulativeRanks = new Map<string, number>();
   function addRanks(ranks: Record<string, number>) {
@@ -286,12 +301,14 @@ export function advancementBudgets({
       );
   }
 
-  const racialSkillRanks =
-    advancement.racialHitDice *
-    ordinarySkillRanksPerLevel({
-      baseRanks: advancement.racialSkillRanksPerHitDie,
-      intelligence,
-    });
+  const racialSkillRanks = advancement.missingRacialProgression
+    ? null
+    : advancement.racialHitDice *
+      ordinarySkillRanksPerLevel({
+        baseRanks: advancement.racialSkillRanksPerHitDie,
+        intelligence,
+      });
+  addRanks(Object.fromEntries(advancement.racialRecordedRanks));
   const classLevels = advancement.rows.map(({ entry, detail, classLevel }) => {
     addRanks(entry.state.skillRanks ?? {});
     const hitDice = advancement.racialHitDice + entry.state.position;
@@ -304,6 +321,7 @@ export function advancementBudgets({
       ? ordinarySkillRanksPerLevel({
           baseRanks: detail.skillRanksPerLevel,
           intelligence,
+          racialRanks: bonusSkillRanksPerLevel,
           favoredClassRanks:
             entry.state.favoredClassBonus?.choice === 'skill' ? 1 : 0,
         })

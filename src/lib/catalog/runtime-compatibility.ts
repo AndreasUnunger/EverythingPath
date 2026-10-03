@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:9d344aad2243872a124350f8179235851552a893061dbe13528623d4ce2840a3',
+    'sha256:07ff30d26f7390adf23ce462d28f99d90eafb653dc510e7938d56430ebde1a39',
 } as const;
 
 export const catalogCalculationV1Files = [
@@ -23,4 +23,5 @@ export const catalogCalculationV1Files = [
   'src/lib/character-sheet-permanent-statistics.ts',
   'scripts/catalog/reviewed-casting-tables.json',
   'src/lib/character-sheet-abilities.ts',
+  'src/lib/character-sheet-racial.ts',
 ] as const;

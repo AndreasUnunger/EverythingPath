@@ -10,6 +10,10 @@ import {
 import { calculateSpellcastings } from './character-sheet-spellcasting';
 import type { Casting } from './character-sheet-casting-tables';
 import {
+  racialTraitWarnings,
+  resolveCharacterSheetRacialFacts,
+} from './character-sheet-racial';
+import {
   advancementBudgets,
   advancementWarnings,
   resolveAdvancement,
@@ -89,6 +93,13 @@ export const warningChecks = [
   'armorCheckPenaltyUnresolved',
   'classVersions',
   'keptDormant',
+  'racialAbilityScoreChoice',
+  'racialReplacementUnresolved',
+  'racialReplacementDuplicate',
+  'racialTraitRace',
+  'racialProgressionMissing',
+  'racialSkillRankCap',
+  'racialSkillRankBudget',
 ] as const;
 export const characterSheetWarningSchema = z.object({
   kind: z.enum(['incomplete', 'unresolved', 'rules']),
@@ -176,7 +187,9 @@ export type CharacterSheetCatalogEntry = {
   ruleIdentity: string;
   sourceKey?: string;
   stacksWithItself?: boolean;
-  modifiers: readonly Modifier[];
+  countsAsRaces?: readonly string[] | { oneOf: readonly string[] };
+  proficiencies?: readonly ProficiencyGrant[];
+  modifiers: readonly CatalogModifier[];
   detail?: SheetCatalogEntryDetail;
   grants?: readonly { catalogEntryId: string }[];
   grantsSlots?: readonly {
@@ -187,6 +200,33 @@ export type CharacterSheetCatalogEntry = {
     ignoresPrerequisites?: boolean;
   }[];
 };
+export const creatureSizes = [
+  'fine',
+  'diminutive',
+  'tiny',
+  'small',
+  'medium',
+  'large',
+  'huge',
+  'gargantuan',
+  'colossal',
+] as const;
+export type CreatureSize = (typeof creatureSizes)[number];
+export const proficiencyCategories = [
+  'simple',
+  'martial',
+  'firearm',
+  'light',
+  'medium',
+  'heavy',
+  'shield',
+  'towerShield',
+] as const;
+export type ProficiencyGrant =
+  | { category: (typeof proficiencyCategories)[number] }
+  | { baseType: string; asMartial?: true }
+  | { group: string }
+  | { choice: true };
 // The resolver uses synthetic row identities, while stored references retain the
 // schema's exact discriminated state and metadata fields.
 type ResolveSheetIds<Value> =
@@ -217,11 +257,31 @@ export function creationSettingsFor(
 }
 
 export type SheetCatalogEntryDetail =
-  | { kind: 'race'; racialTraits: readonly string[] }
+  | {
+      kind: 'race';
+      racialTraits: readonly string[];
+      allowedAlternateRaces?: readonly string[];
+      size?: CreatureSize;
+      creatureTypes?: readonly string[];
+      creatureSubtypes?: readonly string[];
+      racialHitDice?: number;
+      racialProgression?: {
+        creatureType: string;
+        hitDie: number;
+        bab: CharacterSheetClassDetail['bab'];
+        saves: CharacterSheetClassDetail['saves'];
+        skillRanksPerHitDie: number;
+        classSkills: readonly string[];
+      };
+    }
   | {
       kind: 'racialTrait';
       raceEntryIds: readonly string[];
       replaces: readonly string[];
+      favoredClassCount?: 2;
+      bonusSkillRanksPerLevel?: number;
+      unresolvedReplacements?: readonly string[];
+      subrace?: string;
     }
   | {
       kind: 'archetype';
@@ -282,7 +342,7 @@ export type CharacterSheetInput = {
   racialHitDice?: {
     count: number;
     hpGained: number | null;
-    progression: Pick<CharacterSheetClassDetail, 'bab' | 'saves'> & {
+    progression?: Pick<CharacterSheetClassDetail, 'bab' | 'saves'> & {
       skillRanksPerHitDie: number;
     };
   };
@@ -338,35 +398,50 @@ function sourceCatalogModifiers(
     if (options.permanentOnly && isTemporaryEffect(entry, catalog.detail))
       return [];
     const choice = 'choice' in entry.state ? entry.state.choice : undefined;
-    return catalog.modifiers.map((modifier, modifierIndex) => ({
-      modifierIndex,
-      ...(entry.state.kind === 'spellEffect'
-        ? { effectCasterLevel: entry.state.casterLevel }
-        : {}),
-      ...modifier,
-      ...(modifier.condition
-        ? {
-            condition: {
-              ...modifier.condition,
-              ...(modifier.condition.castingClass === '$choice' &&
-              typeof choice === 'string'
-                ? { castingClass: choice }
-                : {}),
-              ...(modifier.condition.school === '$choice' &&
-              typeof choice === 'string'
-                ? { school: choice }
-                : {}),
-            },
-          }
-        : {}),
-      sheetEntryId: entry._id,
-      entryName:
-        catalog.name ??
-        (entry.kind === 'base' ? 'Base scores' : 'Personal adjustment'),
-      source: catalog.sourceKey ?? catalog.ruleIdentity,
-      builtIn: entry.kind === 'base',
-      stacksWithItself: catalog.stacksWithItself,
-    }));
+    return catalog.modifiers.flatMap(
+      (modifier, modifierIndex): InputSourcedModifier[] => {
+        const ability = abilityKeys.find((ability) => ability === choice);
+        const target =
+          modifier.target === 'ability.$choice'
+            ? ability
+              ? abilityTargets[ability]
+              : undefined
+            : modifier.target;
+        if (!target) return [];
+        return [
+          {
+            modifierIndex,
+            ...(entry.state.kind === 'spellEffect'
+              ? { effectCasterLevel: entry.state.casterLevel }
+              : {}),
+            ...modifier,
+            target,
+            ...(modifier.condition
+              ? {
+                  condition: {
+                    ...modifier.condition,
+                    ...(modifier.condition.castingClass === '$choice' &&
+                    typeof choice === 'string'
+                      ? { castingClass: choice }
+                      : {}),
+                    ...(modifier.condition.school === '$choice' &&
+                    typeof choice === 'string'
+                      ? { school: choice }
+                      : {}),
+                  },
+                }
+              : {}),
+            sheetEntryId: entry._id,
+            entryName:
+              catalog.name ??
+              (entry.kind === 'base' ? 'Base scores' : 'Personal adjustment'),
+            source: catalog.sourceKey ?? catalog.ruleIdentity,
+            builtIn: entry.kind === 'base',
+            stacksWithItself: catalog.stacksWithItself,
+          },
+        ];
+      },
+    );
   });
 }
 
@@ -693,14 +768,39 @@ function calculateDerivedStatistics(
 
 function calculateSheetProjection(
   recordedInput: CharacterSheetInput,
-  options: ResolveOptions,
+  resolveOptions: ResolveOptions,
   formulaCache: FormulaCache,
   { base, baseModifiers } = baseScoresFor(recordedInput),
   permanentIntelligence?: number,
   permanentAbilities?: Record<Ability, { score: number; modifier: number }>,
 ) {
-  const grants = resolveCharacterSheetGrants(recordedInput, options);
-  const input = { ...recordedInput, entries: grants.countingEntries };
+  const grants = resolveCharacterSheetGrants(recordedInput, resolveOptions);
+  const countingInput = { ...recordedInput, entries: grants.countingEntries };
+  const racial = resolveCharacterSheetRacialFacts(countingInput);
+  const options = {
+    ...resolveOptions,
+    size: resolveOptions.size ?? racial.size ?? undefined,
+  };
+  const race = countingInput.entries.find((entry) => entry.kind === 'race');
+  const raceDefinition =
+    race && 'catalogEntryId' in race
+      ? recordedInput.catalogEntries.find(
+          (entry) => entry._id === race.catalogEntryId,
+        )
+      : undefined;
+  const raceDetail =
+    raceDefinition?.detail?.kind === 'race' ? raceDefinition.detail : undefined;
+  const input = {
+    ...countingInput,
+    racialHitDice:
+      raceDetail && race?.state.kind === 'race'
+        ? {
+            count: raceDetail.racialHitDice ?? 0,
+            hpGained: race.state.racialHpGained ?? null,
+            progression: raceDetail.racialProgression,
+          }
+        : recordedInput.racialHitDice,
+  };
   const conditions = resolveSheetConditions({
     input,
     permanentOnly: options.permanentOnly,
@@ -812,6 +912,7 @@ function calculateSheetProjection(
   });
   const advancementResult = advancementBudgets({
     advancement,
+    bonusSkillRanksPerLevel: racial.bonusSkillRanksPerLevel,
     intelligence:
       permanentIntelligence ??
       (options.permanentOnly
@@ -838,12 +939,17 @@ function calculateSheetProjection(
       advancement,
       classLevels: advancementResult.classLevels,
       favoredClassIds: base.state.favoredClassIds ?? [],
-      favoredClassCount: input.favoredClassCount ?? 1,
+      favoredClassCount: input.favoredClassCount ?? racial.favoredClassCount,
       catalogEntries: input.catalogEntries,
     }),
     ...formulaWarnings,
     ...skillProjection.warnings,
     ...grants.warnings,
+    ...racialTraitWarnings(
+      recordedInput,
+      grants.allEntries,
+      advancementResult.budgets.racialSkillRanks,
+    ),
   ].filter(
     (warning) =>
       input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
@@ -875,6 +981,7 @@ function calculateSheetProjection(
     abilities,
     spellcastings,
     spellcastingUnresolved,
+    racial,
     resolvedEntries: grants.entries.filter(
       ({ entry }) =>
         entry.kind !== 'base' &&
@@ -895,7 +1002,11 @@ function calculateSheetProjection(
     creationSettings,
     pointBuy,
     warnings,
-    warningsForAcceptance: [...warnings, ...dormantWarnings],
+    warningsForAcceptance: [
+      ...warnings,
+      ...dormantWarnings,
+      ...grants.warningsForAcceptance,
+    ],
     breakdowns: { ...breakdowns, ...skillProjection.breakdowns },
     derivedStatistics: calculateDerivedStatistics(
       breakdowns,
@@ -1170,6 +1281,13 @@ export const modifierTargets = [
   'attack',
   'damage',
 ] as const;
+export const catalogModifierTargets = [
+  ...modifierTargets,
+  'ability.$choice',
+] as const;
+export type CatalogModifier = Omit<Modifier, 'target'> & {
+  target: (typeof catalogModifierTargets)[number];
+};
 export type ModifierTarget = (typeof modifierTargets)[number];
 export type LeafTarget = (typeof leafTargets)[number];
 const situationSchema = z.union([
@@ -1376,7 +1494,7 @@ const specialSizeModifiers = {
   colossal: 8,
 };
 export type ResolveOptions = {
-  size?: keyof typeof specialSizeModifiers;
+  size?: CreatureSize;
   armorMaxDexterityBonus?: number;
   deniedDexterityBy?: string;
   flatFootedBy?: string;

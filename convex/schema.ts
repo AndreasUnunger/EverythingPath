@@ -17,6 +17,9 @@ import {
   bonusTypes,
   modifierConditionSchema,
   modifierTargets,
+  catalogModifierTargets,
+  creatureSizes,
+  proficiencyCategories,
 } from '../src/lib/character-sheet';
 import { conditionKeys } from '../src/lib/character-sheet-conditions';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
@@ -162,6 +165,9 @@ export const modifierValidator = v.object({
   condition: v.optional(modifierConditionValidator),
   stacksWithinEntry: v.optional(v.literal(true)),
 });
+const catalogModifierValidator = modifierValidator.omit('target').extend({
+  target: v.union(...catalogModifierTargets.map((target) => v.literal(target))),
+});
 const baseModifierValidator = modifierValidator
   .pick('target', 'bonusType', 'value')
   .extend({
@@ -240,6 +246,26 @@ export const selectionKindValidator = v.union(
 const catalogEntryFields = v.object({
   scope: v.literal('character'),
   characterId: v.id('character'),
+  countsAsRaces: v.optional(
+    v.union(v.array(v.string()), v.object({ oneOf: v.array(v.string()) })),
+  ),
+  proficiencies: v.optional(
+    v.array(
+      v.union(
+        v.object({
+          category: v.union(
+            ...proficiencyCategories.map((value) => v.literal(value)),
+          ),
+        }),
+        v.object({
+          baseType: v.string(),
+          asMartial: v.optional(v.literal(true)),
+        }),
+        v.object({ group: v.string() }),
+        v.object({ choice: v.literal(true) }),
+      ),
+    ),
+  ),
   grants: v.optional(
     v.array(v.object({ catalogEntryId: v.id('catalogEntry') })),
   ),
@@ -297,16 +323,45 @@ export const abilityChangeKindValidator = v.union(
 );
 export const catalogEntryValidator = v.union(
   catalogEntryFields.extend({
-    modifiers: v.array(modifierValidator),
+    modifiers: v.array(catalogModifierValidator),
     detail: v.union(
       v.object({
         kind: v.literal('race'),
         racialTraits: v.array(v.id('catalogEntry')),
+        allowedAlternateRaces: v.optional(v.array(v.string())),
+        size: v.optional(
+          v.union(...creatureSizes.map((size) => v.literal(size))),
+        ),
+        creatureTypes: v.optional(v.array(v.string())),
+        creatureSubtypes: v.optional(v.array(v.string())),
+        racialHitDice: v.optional(v.number()),
+        racialProgression: v.optional(
+          v.object({
+            creatureType: v.string(),
+            hitDie: v.number(),
+            bab: v.union(
+              v.literal('full'),
+              v.literal('threeQuarters'),
+              v.literal('half'),
+            ),
+            saves: v.object({
+              fort: v.union(v.literal('good'), v.literal('poor')),
+              ref: v.union(v.literal('good'), v.literal('poor')),
+              will: v.union(v.literal('good'), v.literal('poor')),
+            }),
+            skillRanksPerHitDie: v.number(),
+            classSkills: v.array(v.string()),
+          }),
+        ),
       }),
       v.object({
         kind: v.literal('racialTrait'),
         raceEntryIds: v.array(v.id('catalogEntry')),
         replaces: v.array(v.id('catalogEntry')),
+        favoredClassCount: v.optional(v.literal(2)),
+        bonusSkillRanksPerLevel: v.optional(v.number()),
+        unresolvedReplacements: v.optional(v.array(v.string())),
+        subrace: v.optional(v.string()),
       }),
       v.object({
         kind: v.literal('archetype'),
@@ -414,6 +469,8 @@ export const characterSheetEntryValidator = v.union(
     state: v.object({
       kind: v.literal('race'),
       choice: v.optional(v.union(v.string(), v.null())),
+      racialHpGained: v.optional(v.union(v.number(), v.null())),
+      racialSkillRanks: v.optional(v.record(v.string(), v.number())),
     }),
   }),
   v.object({
@@ -425,6 +482,7 @@ export const characterSheetEntryValidator = v.union(
     state: v.object({
       kind: v.literal('racialTrait'),
       choice: v.optional(v.union(v.string(), v.null())),
+      replaces: v.optional(v.array(v.id('catalogEntry'))),
     }),
   }),
   v.object({

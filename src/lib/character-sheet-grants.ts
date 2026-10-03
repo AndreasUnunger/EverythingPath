@@ -1,4 +1,5 @@
 import { isTemporaryEffect } from './character-sheet';
+import { racialReplacementDuplicateWarning } from './character-sheet-racial';
 import {
   createCatalogSheetEntryState,
   isSelectableCatalogSheetEntryKind,
@@ -415,11 +416,89 @@ function addNestedGrants(graph: GrantGraph) {
   }
 }
 
+function collectEquivalenceParents(
+  graph: GrantGraph,
+  candidateId: string,
+  eligibleIdentities: readonly string[],
+) {
+  return [...graph.nodes.values()].flatMap(({ row }): string[] => {
+    const entry = row.entry;
+    if (entry._id === candidateId) return [];
+    const catalogId =
+      'catalogEntryId' in entry
+        ? entry.catalogEntryId
+        : entry.kind === 'classLevel'
+          ? entry.state.classEntryId
+          : undefined;
+    const equivalent = catalogId
+      ? graph.catalog.get(catalogId)?.countsAsRaces
+      : undefined;
+    const choice = 'choice' in entry.state ? entry.state.choice : undefined;
+    const identities =
+      equivalent && 'oneOf' in equivalent
+        ? choice && equivalent.oneOf.includes(choice)
+          ? [choice]
+          : []
+        : (equivalent ?? []);
+    return identities.some((identity) => eligibleIdentities.includes(identity))
+      ? [entry._id]
+      : [];
+  });
+}
+
+function collectAllowedRaceParents(
+  graph: GrantGraph,
+  eligibleIdentities: readonly string[],
+) {
+  return [...graph.nodes.values()].flatMap(({ row }): string[] => {
+    const entry = row.entry;
+    if (entry.kind !== 'race') return [];
+    const race = graph.catalog.get(entry.catalogEntryId);
+    return eligibleIdentities.includes(
+      race?.ruleIdentity ?? entry.catalogEntryId,
+    ) ||
+      (race?.detail?.kind === 'race' &&
+        race.detail.allowedAlternateRaces?.some((identity) =>
+          eligibleIdentities.includes(identity),
+        ))
+      ? [entry._id]
+      : [];
+  });
+}
+
+function matchesReplacement(
+  graph: GrantGraph,
+  replaced: GrantNode,
+  replacementIds: readonly string[],
+) {
+  const entry = replaced.row.entry;
+  if (
+    replaced.row.origin !== 'grant' ||
+    !('catalogEntryId' in entry) ||
+    !('grantKey' in entry) ||
+    !entry.grantKey
+  )
+    return false;
+  const source = entry.grantKey.source;
+  const raceSource = [...graph.nodes.values()].some(
+    ({ row }) =>
+      row.entry.kind === 'race' &&
+      getCatalogRuleIdentity(graph, row.entry.catalogEntryId) === source,
+  );
+  // The importer/curation resolves replacement names. Runtime uses identities,
+  // including a Catalog Copy's preserved identity, without guessing across races.
+  return (
+    raceSource &&
+    replacementIds.some(
+      (id) =>
+        getCatalogRuleIdentity(graph, id) ===
+        getCatalogRuleIdentity(graph, entry.catalogEntryId),
+    )
+  );
+}
+
 function applyRacialTraitReplacements(graph: GrantGraph) {
   const { catalog, nodes } = graph;
-  const races = [...nodes.values()].filter(
-    ({ row }) => row.entry.kind === 'race',
-  );
   for (const node of nodes.values()) {
     const entry = node.row.entry;
     if (node.row.origin !== 'selection' || entry.kind !== 'racialTrait')
@@ -427,49 +506,60 @@ function applyRacialTraitReplacements(graph: GrantGraph) {
     const detail = catalog.get(entry.catalogEntryId)?.detail;
     if (detail?.kind !== 'racialTrait') continue;
     node.sourcePresent = false;
-    node.parents = races
-      .filter(
-        ({ row }) =>
-          'catalogEntryId' in row.entry &&
-          detail.raceEntryIds.some(
-            (id) =>
-              getCatalogRuleIdentity(graph, id) ===
-              getCatalogRuleIdentity(
-                graph,
-                'catalogEntryId' in row.entry ? row.entry.catalogEntryId : '',
-              ),
-          ),
-      )
-      .map(({ row }) => row.entry._id);
+    const eligibleIdentities = detail.raceEntryIds.map((id) =>
+      getCatalogRuleIdentity(graph, id),
+    );
+    node.parents = [
+      ...collectAllowedRaceParents(graph, eligibleIdentities),
+      ...collectEquivalenceParents(graph, entry._id, eligibleIdentities),
+    ];
     for (const replaced of nodes.values()) {
-      const grantKey =
-        'grantKey' in replaced.row.entry
-          ? replaced.row.entry.grantKey
-          : undefined;
       if (
-        !grantKey ||
-        !detail.raceEntryIds.some(
-          (id) => getCatalogRuleIdentity(graph, id) === grantKey.source,
+        matchesReplacement(
+          graph,
+          replaced,
+          entry.state.replaces ?? detail.replaces,
         )
       )
-        continue;
-      if (
-        replaced.row.origin !== 'grant' ||
-        !('catalogEntryId' in replaced.row.entry) ||
-        !detail.replaces.some(
-          (id) =>
-            getCatalogRuleIdentity(graph, id) ===
-            getCatalogRuleIdentity(
-              graph,
-              'catalogEntryId' in replaced.row.entry
-                ? replaced.row.entry.catalogEntryId
-                : '',
-            ),
-        )
-      )
-        continue;
-      replaced.replacedBy.push(entry._id);
+        replaced.replacedBy.push(entry._id);
     }
+  }
+  function dependsOn(
+    sourceId: string,
+    candidateId: string,
+    visited = new Set<string>(),
+  ): boolean {
+    if (sourceId === candidateId) return true;
+    if (visited.has(sourceId)) return false;
+    visited.add(sourceId);
+    const source = nodes.get(sourceId);
+    if (
+      source?.row.entry.active &&
+      'kept' in source.row.entry &&
+      source.row.entry.kept
+    )
+      return false;
+    return [...(source?.parents ?? []), ...(source?.replacedBy ?? [])].some(
+      (id) => dependsOn(id, candidateId, visited),
+    );
+  }
+  // An alternate cannot grant, preserve, or replace the equivalence it needs
+  // to make itself eligible. Removing those edges keeps evaluation acyclic.
+  const eligibleParents = new Map(
+    [...nodes.values()]
+      .filter(
+        (node) =>
+          node.row.origin === 'selection' &&
+          node.row.entry.kind === 'racialTrait',
+      )
+      .map((node) => [
+        node.row.entry._id,
+        node.parents.filter((id) => !dependsOn(id, node.row.entry._id)),
+      ]),
+  );
+  for (const [id, parents] of eligibleParents) {
+    const node = nodes.get(id);
+    if (node) node.parents = parents;
   }
 }
 
@@ -644,5 +734,23 @@ export function resolveCharacterSheetGrants(
       .filter((row) => row.counting)
       .map(({ entry }) => entry),
     warnings: buildGrantWarnings(graph),
+    warningsForAcceptance: [...graph.nodes.values()].flatMap(
+      (node): SheetWarning[] => {
+        const entry = node.row.entry;
+        if (
+          entry.kind !== 'racialTrait' ||
+          !node.row.dormant ||
+          node.row.reason?.kind !== 'sourceMissing'
+        )
+          return [];
+        const definition = graph.catalog.get(entry.catalogEntryId);
+        const replacements = node.replacedBy.filter(
+          (id) => graph.nodes.get(id)?.row.entry.active,
+        );
+        return definition && replacements.length > 1
+          ? [racialReplacementDuplicateWarning(entry, definition, replacements)]
+          : [];
+      },
+    ),
   };
 }

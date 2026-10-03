@@ -286,7 +286,7 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(5);
+    expect(sheet?.catalogEntries).toHaveLength(32);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'base'),
     ).toEqual([sheet?.baseScoresEntry]);
@@ -301,6 +301,28 @@ describe('internal fixture boundary', () => {
       { name: 'Rogue', ruleIdentity: 'rogue' },
       { name: 'Wizard', ruleIdentity: 'wizard' },
     ]);
+    expect(
+      sheet?.catalogEntries
+        .filter((entry) => entry.detail.kind === 'race')
+        .map((entry) => ({ name: entry.name, ruleIdentity: entry.ruleIdentity }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    ).toEqual([
+      { name: 'Dwarf', ruleIdentity: 'dwarf' },
+      { name: 'Elf', ruleIdentity: 'elf' },
+      { name: 'Half-Elf', ruleIdentity: 'half-elf' },
+      { name: 'Half-Orc', ruleIdentity: 'half-orc' },
+      { name: 'Human', ruleIdentity: 'human' },
+    ]);
+    expect(
+      sheet?.catalogEntries.filter(
+        (entry) => entry.detail.kind === 'racialTrait',
+      ),
+    ).toHaveLength(21);
+    expect(
+      sheet?.catalogEntries
+        .filter((entry) => entry.detail.kind === 'feat')
+        .map((entry) => ({ name: entry.name, ruleIdentity: entry.ruleIdentity })),
+    ).toEqual([{ name: 'Skill Focus', ruleIdentity: 'skill-focus' }]);
     for (const entry of sheet?.catalogEntries ?? []) {
       expect(entry).toMatchObject({
         scope: 'character',
@@ -400,7 +422,7 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
-    expect(sheet?.catalogEntries).toHaveLength(5);
+    expect(sheet?.catalogEntries).toHaveLength(32);
     for (const entry of sheet?.catalogEntries ?? []) {
       expect(entry).toMatchObject({
         scope: 'character',
@@ -416,7 +438,7 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 5, acceptedWarnings: 0 });
+    ).toEqual({ entries: 2, catalogEntries: 32, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

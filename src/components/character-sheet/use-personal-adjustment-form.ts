@@ -15,7 +15,7 @@ import type { SaveStatus } from './save-status';
 import { useSheetFormState } from './use-sheet-form-state';
 import type { PersonalAdjustmentInput } from './use-character-sheet';
 
-const numberPattern = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i;
+import { numberPattern } from './numeric-form-fields';
 const catalogEntryId = z.custom<Id<'catalogEntry'>>(
   (value) => typeof value === 'string' && value.length > 0,
 );

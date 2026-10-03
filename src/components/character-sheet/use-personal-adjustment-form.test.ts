@@ -527,3 +527,27 @@ test.each(['9007199254740992', '-9007199254740992'])(
     expect(saved[0]?.modifiers[0]?.value).toEqual({ formula: value });
   },
 );
+
+test('personal adjustments reject a catalog ability score choice target', async () => {
+  const saved: PersonalAdjustmentInput[] = [];
+  const view = renderHook(() =>
+    usePersonalAdjustmentForm({
+      save: async (input) => {
+        saved.push(input);
+      },
+    }),
+  );
+  act(() => {
+    view.result.current.form.setValue('name', 'Invalid choice');
+    view.result.current.form.setValue('modifiers.0.value', '2');
+    // @ts-expect-error Deliberately submit a catalog-only target through the form.
+    view.result.current.form.setValue('modifiers.0.target', 'ability.$choice');
+  });
+  await act(async () => {
+    expect(await view.result.current.save()).toBe('failed');
+  });
+  expect(saved).toEqual([]);
+  expect(
+    view.result.current.form.getFieldState('modifiers.0.target').error,
+  ).toBeDefined();
+});

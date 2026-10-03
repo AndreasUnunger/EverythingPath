@@ -43,6 +43,11 @@ const defaultApi = {
     discardDormantEntry: 'discardDormantEntry',
     editGrantState: 'editGrantState',
     editSelection: 'editSelection',
+    selectRace: 'selectRace',
+    chooseRacialAbilityScore: 'chooseRacialAbilityScore',
+    setRacialTraitSelected: 'setRacialTraitSelected',
+    setRacialTraitReplacements: 'setRacialTraitReplacements',
+    editRaceStatistics: 'editRaceStatistics',
   },
 };
 

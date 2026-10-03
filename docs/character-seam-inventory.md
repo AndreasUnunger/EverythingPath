@@ -111,3 +111,12 @@ Public seams are covered by `campaign-routes.test.ts`, `app-navigation.test.ts`,
 ## Minimal-sheet warnings and shared operation tracking (#261, #262)
 
 Warnings remain structured calculation results with a closed check union and explicit inline targets. The shared calculation and sheet view show only `levelZero` for Militia-only sheets; Full sheets expose missing class/HP choices, unresolved total HP and point-buy rules. Acceptance matching retains check, subject and semantic fingerprint. Every prepared sheet writer prunes obsolete acceptances against the edited in-memory sheet, including ledger statistics and permanent Build out. Build out and other local writers use shared session operation IDs, so their echoes do not report another player; remote warning expansion or acceptance changes remain visible. Hook regressions cover minimal warnings and own/remote Build out transitions while retaining #262's acceptance and coalesced-operation tests.
+
+
+## Race selections and Racial Traits (#304)
+
+`characterSheet.selectRace`, `chooseRacialAbilityScore`, `setRacialTraitSelected`, `setRacialTraitReplacements` and `editRaceStatistics` use the legacy-Character Write Gate class and reconcile warning acceptances in the same transaction. Standard Racial Traits are Grants; the dedicated trait writer and generic `selectEntry`/`editSelection` writers reject their selections by Rule Identity, including Catalog Copies. Only alternates are chosen as Selections. Manual adjustments cannot use the catalog-only `ability.$choice` target.
+
+`calculateCharacterSheetProjections` resolves race facts, standard Grants, alternate replacements, recorded score choices and racial Hit Dice budgets alongside skills and conditions. Replacement names are resolved by import/curation into catalog references; runtime matches preserved Rule Identities without guessing from names or from alternate eligibility. Racial rank budget and rank cap mismatches remain advisory.
+
+`resolveCharacterSheetRacialFacts` and the tested pure `satisfiesRacialPrerequisite` prepare both `race` and `racialTrait` prerequisite clauses. There is no prerequisite-engine caller yet: #313 must consume these facts in current and recorded-level checks, preserving the exclusion of dormant and replaced entries. This slice does not implement prerequisite warnings.

@@ -1,4 +1,5 @@
 import reviewedCastingTables from './reviewed-casting-tables.json' with { type: 'json' };
+import { representativeRaceCatalog } from '../../convex/lib/representativeRaceCatalog.ts';
 import { representativeClassCatalog } from '../../convex/lib/representativeClassCatalog.ts';
 import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -161,6 +162,13 @@ async function readAuthoredRuleResources() {
         'utf8',
       ),
       definitions: reviewedCastingTables,
+    },
+    representativeRaceCatalog: {
+      source: await readFile(
+        resolve(projectRoot, 'convex/lib/representativeRaceCatalog.ts'),
+        'utf8',
+      ),
+      definitions: representativeRaceCatalog,
     },
   };
 }

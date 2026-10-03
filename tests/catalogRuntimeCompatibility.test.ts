@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:9d344aad2243872a124350f8179235851552a893061dbe13528623d4ce2840a3';
+    'sha256:07ff30d26f7390adf23ce462d28f99d90eafb653dc510e7938d56430ebde1a39';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -36,6 +36,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-permanent-statistics.ts',
     'scripts/catalog/reviewed-casting-tables.json',
     'src/lib/character-sheet-abilities.ts',
+    'src/lib/character-sheet-racial.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -54,6 +55,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-skills',
       './character-sheet-conditions',
       './character-sheet-spellcasting',
+      './character-sheet-racial',
       './character-sheet-advancement',
       './character-sheet-formulas',
       './character-sheet-abilities',
@@ -65,7 +67,11 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       '../../src/lib/character-sheet',
       './preparedCharacterSheet',
     ],
-    ['./character-sheet', './character-sheet-entries'],
+    [
+      './character-sheet',
+      './character-sheet-racial',
+      './character-sheet-entries',
+    ],
     [],
     ['./character-sheet'],
     ['zod', './catalog/data/reviewed-conditions.json'],
@@ -83,6 +89,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ['./character-sheet'],
     [],
     [],
+    ['./character-sheet', './character-sheet-skills'],
   ];
   const exportsByFile: Record<string, string[]> = {
     'src/lib/character-sheet.ts': ['./character-sheet-abilities'],

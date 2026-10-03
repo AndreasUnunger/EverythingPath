@@ -14,6 +14,15 @@ export function isCatalogSheetEntry<Entry extends { kind: string }>(
   return catalogSheetEntryKinds.some((kind) => kind === entry?.kind);
 }
 
+/** Narrows the entire definition, including its editable Modifier targets. */
+export function isCatalogSheetDefinition<
+  Entry extends { detail: { kind: string } },
+>(
+  entry: Entry | null | undefined,
+): entry is Extract<Entry, { detail: { kind: CatalogSheetEntryKind } }> {
+  return !!entry && isCatalogSheetEntry(entry.detail);
+}
+
 /** The catalog kinds that can be selected or supply a Grant. */
 export const selectableCatalogSheetEntryKinds = [
   'manual',

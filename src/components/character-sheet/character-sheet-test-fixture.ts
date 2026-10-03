@@ -6,10 +6,12 @@ import {
   defaultAbilityScores,
   type Ability,
   type AbilityScores,
+  type CharacterSheetCatalogEntry,
   type FavoredClassBonus,
   type Modifier,
   type SheetWarning,
 } from '~/lib/character-sheet';
+import { representativeRaceCatalog } from '@convex/lib/representativeRaceCatalog';
 import { representativeClassCatalog } from '../../../tests/fixtures/catalog/representative-class-progressions';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
@@ -55,6 +57,11 @@ export type AbilityChange = {
 };
 type Entry = CharacterSheetSnapshot['entries'][number];
 type CatalogEntry = CharacterSheetSnapshot['catalogEntries'][number];
+export function isClassCatalogEntry(
+  entry: CatalogEntry,
+): entry is Extract<CatalogEntry, { detail: { kind: 'class' } }> {
+  return entry.detail.kind === 'class';
+}
 export type SheetEntryDetail = Extract<
   CatalogEntry['detail'],
   { kind: 'spellEffect' | 'condition' | 'item' | 'spell' }
@@ -69,6 +76,28 @@ export type CatalogSheetEntry = {
   active?: boolean;
 };
 export type Accepted = Pick<SheetWarning, 'check' | 'subject' | 'fingerprint'>;
+export type RaceKey = (typeof representativeRaceCatalog)[number]['_id'];
+export type Race = {
+  key: RaceKey;
+  id?: string;
+  active?: boolean;
+  /** Racial Hit Dice on the definition; the representative races have none. */
+  hitDice?: number;
+  racialHpGained?: number | null;
+  racialSkillRanks?: Record<string, number>;
+};
+export type RacialTrait = {
+  id: string;
+  /** A representative trait, or one from `extraCatalog`. */
+  key: string;
+  active?: boolean;
+  /** Recorded state of a race-granted trait rather than a Selection. */
+  grantKey?: { source: string; entry: string };
+  choice?: string | null;
+  replaces?: string[];
+  notes?: string;
+  kept?: boolean;
+};
 
 function entryState(entry: CatalogSheetEntry) {
   if (entry.detail.kind !== 'spellEffect') return { kind: entry.detail.kind };
@@ -104,6 +133,10 @@ export function buildSheet({
   accepted = [],
   lastOperationId = 'seed',
   name = 'Kesh',
+  race,
+  racialTraits = [],
+  extraCatalog = [],
+  hasRaces = race !== undefined || racialTraits.length > 0,
 }: {
   scores?: AbilityScores;
   levels?: Level[];
@@ -115,6 +148,11 @@ export function buildSheet({
   accepted?: Accepted[];
   lastOperationId?: string;
   name?: string;
+  race?: Race;
+  racialTraits?: RacialTrait[];
+  /** Further definitions keyed like the representative ones. */
+  extraCatalog?: CharacterSheetCatalogEntry[];
+  hasRaces?: boolean;
 } = {}): CharacterSheetSnapshot {
   const campaignId = 'campaign-1' as Id<'campaign'>;
   const baseCatalog: CharacterSheetSnapshot['baseScoresEntry'] = {
@@ -143,6 +181,21 @@ export function buildSheet({
             characterId,
             stacksWithItself: false,
             sources: [],
+          }) as unknown as CatalogEntry,
+      )
+    : [];
+  const raceCatalogs = hasRaces
+    ? [...representativeRaceCatalog, ...extraCatalog].map(
+        (entry) =>
+          ({
+            ...entry,
+            ...(entry._id === race?.key && race.hitDice !== undefined
+              ? { detail: { ...entry.detail, racialHitDice: race.hitDice } }
+              : {}),
+            _creationTime: 4,
+            scope: 'character',
+            characterId,
+            stacksWithItself: false,
           }) as unknown as CatalogEntry,
       )
     : [];
@@ -247,6 +300,46 @@ export function buildSheet({
           },
         }) as Entry,
     ),
+    ...(race
+      ? [
+          {
+            _id: (race.id ?? 'race-entry') as Id<'characterSheetEntry'>,
+            _creationTime: 40,
+            characterId,
+            kind: 'race',
+            active: race.active ?? true,
+            catalogEntryId: race.key as Id<'catalogEntry'>,
+            state: {
+              kind: 'race',
+              ...(race.racialHpGained !== undefined
+                ? { racialHpGained: race.racialHpGained }
+                : {}),
+              ...(race.racialSkillRanks
+                ? { racialSkillRanks: race.racialSkillRanks }
+                : {}),
+            },
+          } as Entry,
+        ]
+      : []),
+    ...racialTraits.map(
+      (trait, index) =>
+        ({
+          _id: trait.id as Id<'characterSheetEntry'>,
+          _creationTime: 50 + index,
+          characterId,
+          kind: 'racialTrait',
+          active: trait.active ?? true,
+          catalogEntryId: trait.key as Id<'catalogEntry'>,
+          ...(trait.grantKey ? { grantKey: trait.grantKey } : {}),
+          ...(trait.notes !== undefined ? { notes: trait.notes } : {}),
+          ...(trait.kept ? { kept: true } : {}),
+          state: {
+            kind: 'racialTrait',
+            ...(trait.choice !== undefined ? { choice: trait.choice } : {}),
+            ...(trait.replaces ? { replaces: trait.replaces } : {}),
+          },
+        }) as Entry,
+    ),
     ...sheetEntries.map(
       (entry, index) =>
         ({
@@ -263,6 +356,7 @@ export function buildSheet({
   const catalogEntries = [
     baseCatalog,
     ...classCatalogs,
+    ...raceCatalogs,
     ...adjustmentCatalogs,
     ...entryCatalogs,
   ];

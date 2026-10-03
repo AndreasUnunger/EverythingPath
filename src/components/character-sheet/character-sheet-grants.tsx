@@ -11,7 +11,7 @@ import type {
   GrantEntryView,
   GrantSectionView,
 } from './character-sheet-grants-view-model';
-import { GrantEntryRow } from './grant-entry-row';
+import { GrantEntryRow, type RenderRowExtra } from './grant-entry-row';
 import { action, Block, RemoteNotice } from './sheet-parts';
 import { useFocusAfterGrantDiscard } from './use-focus-after-grant-discard';
 import type {
@@ -28,9 +28,10 @@ type WarningProps = {
 type RowProps = WarningProps & {
   actions: Actions;
   registerRow: (rowId: string, element: HTMLDivElement | null) => void;
+  renderExtra?: RenderRowExtra;
 };
 
-function GrantEntryList({
+export function GrantEntryList({
   rows,
   className,
   ...props
@@ -49,7 +50,7 @@ function GrantEntryList({
 // Entries whose source is gone, collapsed under their count at the end of
 // the section. Only the player opens it; a change from another player never
 // does. Its rows render only while open, so nothing hidden can be reached.
-function DormantGroup({
+export function DormantGroup({
   rows,
   label,
   ...props

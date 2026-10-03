@@ -1,8 +1,16 @@
 import { parseCharacterSheetBreakdowns } from '~/lib/character-sheet-breakdowns';
 import { abilityTargets, type Ability } from '~/lib/character-sheet';
 import { characterLedgerDetails } from '~/lib/character-ledger';
-import { isCatalogSheetEntry } from '~/lib/character-sheet-entries';
+import {
+  isCatalogSheetEntry,
+  isCatalogSheetDefinition,
+} from '~/lib/character-sheet-entries';
 import { buildCharacterSheetGrantsView } from './character-sheet-grants-view-model';
+import {
+  buildCharacterSheetRacesView,
+  buildRaceStatisticsView,
+  listRaceNames,
+} from './character-sheet-races-view-model';
 import type {
   CharacterSheetSnapshot,
   SheetWarningView,
@@ -63,6 +71,9 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
       snapshot.catalogEntries,
       classLevelIds,
     ),
+    races: buildCharacterSheetRacesView(snapshot),
+    raceStatistics: buildRaceStatisticsView(snapshot),
+    raceNames: listRaceNames(snapshot),
     abilityChanges: currentEntries.filter(
       (entry) =>
         entry.kind === 'abilityDamage' || entry.kind === 'abilityDrain',
@@ -71,7 +82,7 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
       const catalog = snapshot.catalogEntries.find(
         (row) => row._id === entry.catalogEntryId,
       );
-      if (!catalog || !isCatalogSheetEntry(catalog.detail))
+      if (!isCatalogSheetDefinition(catalog))
         throw new Error('Character Sheet Entry is unavailable.');
       return {
         entryId: entry._id,
@@ -94,7 +105,10 @@ export function buildCharacterSheetView(snapshot: CharacterSheetSnapshot) {
       .filter((entry) => entry.kind === 'manual')
       .map((entry) => {
         const catalogEntry = snapshot.catalogEntries.find(
-          (item) => item._id === entry.catalogEntryId,
+          (
+            item,
+          ): item is Extract<typeof item, { detail: { kind: 'manual' } }> =>
+            item._id === entry.catalogEntryId && item.detail.kind === 'manual',
         );
         if (!catalogEntry)
           throw new Error('Personal adjustment is unavailable.');

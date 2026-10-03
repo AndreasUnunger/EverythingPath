@@ -131,6 +131,19 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
     compatibility: { schema: 'character-sheet-v1', calculation: 'facts-v1' },
   });
   expect(
+    artifact.batches
+      .flat()
+      .find((row) => row.key === 'builtin:representative-race-catalog')
+      ?.payload,
+  ).toMatchObject({
+    definitions: expect.arrayContaining([
+      expect.objectContaining({ name: 'Human' }),
+      expect.objectContaining({ name: 'Elf Blood' }),
+    ]),
+    sourceFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    compatibility: { schema: 'character-sheet-v1', calculation: 'facts-v1' },
+  });
+  expect(
     artifact.batches.flat().find((row) => row.key === 'holds')?.payload,
   ).toMatchObject({ held: 1, gatePassed: true });
   expect(run(input.args).status).toBe(0);

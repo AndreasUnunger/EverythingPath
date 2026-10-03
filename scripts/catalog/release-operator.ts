@@ -426,6 +426,17 @@ async function buildReleaseArtifact(
           compatibility,
         },
       },
+      {
+        key: 'builtin:representative-race-catalog',
+        payload: {
+          definitions:
+            implementation.ruleResources.representativeRaceCatalog.definitions,
+          sourceFingerprint: await releaseFingerprint(
+            implementation.ruleResources.representativeRaceCatalog.source,
+          ),
+          compatibility,
+        },
+      },
     ],
     inputValues: {
       ...implementation,

@@ -1,5 +1,9 @@
 import { resolveCharacterSheetGrants } from '../../src/lib/character-sheet-grants';
 import { ConvexError } from 'convex/values';
+import {
+  representativeRaceCatalog,
+  materializeRepresentativeRaceCatalog,
+} from './representativeRaceCatalog';
 import { representativeClassCatalog } from './representativeClassCatalog';
 import {
   getCompanionSupportingEntryKeys,
@@ -121,6 +125,36 @@ export async function initializeCharacterSheet(
       ...definition,
       characterId,
       scope: 'character',
+    });
+  }
+  const raceCatalogIds = new Map<string, Id<'catalogEntry'>>();
+  for (const definition of representativeRaceCatalog) {
+    const id = await ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId,
+      name: definition.name ?? definition._id,
+      ruleIdentity: definition.ruleIdentity,
+      stacksWithItself: false,
+      sources: definition.sources,
+      modifiers: [],
+      detail: { kind: 'manual' },
+    });
+    raceCatalogIds.set(definition._id, id);
+  }
+  for (const { key, definition } of materializeRepresentativeRaceCatalog(
+    (key) => {
+      const id = raceCatalogIds.get(key);
+      if (!id)
+        throw new ConvexError('Representative race reference is unavailable');
+      return id;
+    },
+  )) {
+    const id = raceCatalogIds.get(key);
+    if (!id) throw new ConvexError('Representative race is unavailable');
+    await ctx.db.replace('catalogEntry', id, {
+      ...definition,
+      scope: 'character',
+      characterId,
     });
   }
   for (let position = 1; position <= level; position++)

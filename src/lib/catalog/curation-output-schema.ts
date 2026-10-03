@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { modifierTargets, personalBonusTypes } from '../character-sheet.ts';
+import {
+  catalogModifierTargets,
+  personalBonusTypes,
+} from '../character-sheet.ts';
 
 const situationSchema = z.union([
   z.string().min(1),
@@ -39,7 +42,7 @@ export const abilitySchema = z.strictObject({
 export const outputSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('modifier'),
-    target: z.enum(modifierTargets),
+    target: z.enum(catalogModifierTargets),
     bonusType: z.enum(personalBonusTypes),
     value: z.union([
       z.number().finite(),
@@ -50,7 +53,7 @@ export const outputSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('note'),
-    target: z.enum(modifierTargets).optional(),
+    target: z.enum(catalogModifierTargets).optional(),
     situation: situationSchema.optional(),
     text: z.string().min(1),
   }),

@@ -430,9 +430,11 @@ it('uses reviewed shared Situations and resolves imported numeric output through
   const artifact = await importCatalog({ ...input, curation: draft });
   const record = artifact.curation.applied[0];
   const output = record?.outputs[0];
-  if (output?.kind !== 'modifier') throw new Error('Fixture Modifier missing');
+  if (output?.kind !== 'modifier' || output.target !== 'save.will')
+    throw new Error('Fixture Will Modifier missing');
   const modifier = {
     ...output,
+    target: output.target,
     sheetEntryId: 'poison-trait',
     entryName: 'Poison trait',
     source: 'poison-trait',

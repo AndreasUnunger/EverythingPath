@@ -52,6 +52,8 @@ The gate distinguishes **legacy Character** writers from **general** writers. Wi
 
 Prepared Character and Character Sheet writers still update the legacy flat statistics and remain in the legacy Character class until the activation implementation migrates that behavior. Spell import/aggregate writers maintain legacy spell data. Fixture reset/cleanup and accepted-campaign construction write or remove flat Characters and therefore retain that fence. Fixture writes limited to canonical drafts, snapshots or history, including Upkeep initialization that only reads Characters, are general. Draft retirement's closed-only housekeeping gate remains the reviewed epoch-exempt general writer.
 
+The #304 race writers (`selectRace`, `chooseRacialAbilityScore`, `setRacialTraitSelected`, `setRacialTraitReplacements` and `editRaceStatistics`) use the legacy Character class. `convex/characterSheetRaces.integration.test.ts` exercises every writer against maintenance closure, stale or missing epochs after reopening, and sheet authority with the current epoch; all refuse before changing the saved sheet. The same test covers membership and Character/campaign-scoped references. The inventory and `tests/initial-migration-writers.test.ts` verify their registrations and class assignments.
+
 The #261 `characterSheet:buildOut` writer uses the composed campaign gate. Ledger level and permanent-score edits enter through the inventoried `character:updateCharacter` writer; roster Hit Dice override edits, including zero, enter through `canonicalLedger:save`. All use the same maintenance and Write Epoch checks as their other edits. Prepared ledger edits and sheet persistence also refresh current Militia Character Facts within their already-gated transaction. Every prepared sheet writer, including ledger level/score edits and Build out, prunes Accepted Warnings against the in-memory sheet after the edit via `pruneWarningAcceptancesAndRecordChange`; the Hit Dice override remains a militia snapshot correction rather than a sheet edit. This isolated fixture behavior does not activate production sheets. `convex/characterMilitiaSheet.integration.test.ts` proves Build out and ledger edits reject while the gate is closed, preserve saved reads, reject stale commands after abort, and accept a fresh command carrying the reopened epoch.
 
 ## Inventory and completeness check
@@ -60,7 +62,7 @@ The #261 `characterSheet:buildOut` writer uses the composed campaign gate. Ledge
 
 The additive `organizationMembership` table indexes `(organizationId, userId)` and `(userId, organizationId)` for member directories. `user.orgIds` remains the source of authorization; the directory query rechecks each surviving user before returning a profile. Accepted ordered profile/membership webhooks and the real fixture seed/replace paths synchronize directory rows in the same gated transaction. Older/repeated deliveries do not overwrite newer source state. Fixture replacement removes rows for memberships it no longer retains. Removed accounts or access cannot leak a candidate through a stale row.
 
-To prepare the membership directory for existing accounts, an operator must invoke the internal `organizationMembership:backfill` with `{ cursor: null, writeEpoch: <current epoch> }`, then pass each returned `continueCursor` into the next call until `isDone` is true. Each transaction pages at most one existing account and reconciles its current memberships; an empty page can still require continuation. Repeating from null is idempotent. No external scheduler, ungated writer or public account-scan fallback is added. The ordinary Write Gate rejects this backfill during maintenance, after activation and for an obsolete epoch. After reopening, issue a new command with the current epoch; never automatically replay a rejected batch. This backfill prepares only the membership directory: it enables neither production ownership reassignment nor the production member picker. Both remain restricted to prepared fixture campaigns, including legacy flat Characters, until an explicit release cutover. The deployment's schema/codegen verification and this operator backfill remain orchestrator work outside the sandbox.
+To prepare the membership directory for existing accounts, an operator must invoke the internal `organizationMembership:backfill` with `{ cursor: null, writeEpoch: <current epoch> }`, then pass each returned `continueCursor` into the next call until `isDone` is true. Each transaction pages at most one existing account and reconciles its current memberships; an empty page can still require continuation. Repeating from null is idempotent. No external scheduler, ungated writer or public account-scan fallback is added. The general Write Gate rejects this backfill during maintenance and for an obsolete epoch; an open gate under sheet authority allows it. After reopening, issue a new command with the current epoch; never automatically replay a rejected batch. This backfill prepares only the membership directory: it enables neither production ownership reassignment nor the production member picker. Both remain restricted to prepared fixture campaigns, including legacy flat Characters, until an explicit release cutover. The deployment's schema/codegen verification and this operator backfill remain orchestrator work outside the sandbox.
 
 ### Registration audit
 
@@ -105,6 +107,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:addClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:archive` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:buildOut` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:chooseRacialAbilityScore` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:create` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:createAbilityChange` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:createPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
@@ -118,6 +121,7 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:editCreationSettings` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editGrantState` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editPersonalAdjustment` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:editRaceStatistics` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editSelection` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:editSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:moveClassLevel` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
@@ -126,7 +130,10 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/characterSheet.ts:removeSheetEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:reopenWarning` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:selectEntry` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:selectRace` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/characterSheet.ts:setDormantEntryKept` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:setRacialTraitReplacements` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
+| `convex/characterSheet.ts:setRacialTraitSelected` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/clerk.ts:fulfill` | readOnly | Signature verification only; no writes or scheduling |
 | `convex/companionRelationships.ts:addSource` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |
 | `convex/companionRelationships.ts:create` | legacyCharacter | Shared write gate (epoch + maintenance + legacy Character authority) |

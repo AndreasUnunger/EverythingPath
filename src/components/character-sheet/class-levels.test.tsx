@@ -17,6 +17,7 @@ import {
   buildSheet,
   emptyOwnerCandidates,
   findCalculatedWarning,
+  isClassCatalogEntry,
   type Adjustment,
   type Level,
 } from './character-sheet-test-fixture';
@@ -726,7 +727,7 @@ test('"Other…" with an empty or blank note is refused at the note field with t
 /** The fixture's Rogue as a prestige class, with the sheet recalculated. */
 function withPrestigeRogue(input: CharacterSheetSnapshot) {
   const catalogEntries = input.catalogEntries.map((entry) =>
-    entry._id === 'rogue' && entry.detail.kind === 'class'
+    entry._id === 'rogue' && isClassCatalogEntry(entry)
       ? {
           ...entry,
           detail: { ...entry.detail, classKind: 'prestige' as const },
@@ -834,7 +835,7 @@ test.each(['deleted', 'legacy'])(
     });
     if (kind === 'legacy') {
       const catalogEntries = input.catalogEntries.map((entry) =>
-        entry._id === 'fighter'
+        entry._id === 'fighter' && isClassCatalogEntry(entry)
           ? { ...entry, detail: { kind: 'class' as const } }
           : entry,
       );

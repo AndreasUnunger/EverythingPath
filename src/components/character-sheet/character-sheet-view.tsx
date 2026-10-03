@@ -9,6 +9,7 @@ import { CharacterCompanions } from './character-companions';
 import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
+import { CharacterSheetRaces } from './character-sheet-races';
 import { ClassLevels } from './class-levels';
 import { DefensesBlock } from './defenses-block';
 import { FavoredClassesEditor } from './favored-classes-editor';
@@ -27,6 +28,13 @@ import {
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type ReadySheet = NonNullable<Controller['sheet']>;
+
+// The race block renders the racial sections itself; the Grants block keeps
+// every other kind.
+const racialKinds = new Set(['race', 'racialTrait']);
+function listNonRacialSections(sections: ReadySheet['grants']) {
+  return sections.filter((section) => !racialKinds.has(section.kind));
+}
 
 // Existing metadata, shown; this slice has no sheet-side identity editor.
 // The name is in the summary row, so it is not repeated here. A minimal
@@ -125,7 +133,7 @@ function CampaignRow({
 
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
- * campaign row that scrolls with the body, then Character, Class Levels,
+ * campaign row that scrolls with the body, then Character, Race, Class Levels,
  * and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns, with the skills, personal adjustments, sheet entries,
  * granted and dormant entries, Companions and the creation settings beside them,
@@ -189,6 +197,18 @@ export function CharacterSheetView({
             />
           </div>
           <div className="min-w-0 lg:col-span-12">
+            <CharacterSheetRaces
+              races={sheet.races}
+              statistics={sheet.raceStatistics}
+              raceNames={sheet.raceNames}
+              calculated={sheet.calculated}
+              actions={controller.races}
+              grants={controller.grants}
+              warnings={sheet.warnings}
+              warningController={controller.warnings}
+            />
+          </div>
+          <div className="min-w-0 lg:col-span-12">
             <ClassLevels
               rows={sheet.levels}
               metadata={sheet.calculated.classLevels}
@@ -239,7 +259,7 @@ export function CharacterSheetView({
               warningController={controller.warnings}
             />
             <CharacterSheetGrants
-              sections={sheet.grants}
+              sections={listNonRacialSections(sheet.grants)}
               actions={controller.grants}
               warnings={sheet.warnings}
               warningController={controller.warnings}

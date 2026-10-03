@@ -19,44 +19,19 @@ import {
 } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { SaveStatus } from './save-status';
-
-const numberPattern = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i;
-
-function buildNumberField(label: string, isOptional = false) {
-  return z.string().superRefine((raw, context) => {
-    const value = raw.trim();
-    if (!value) {
-      if (!isOptional)
-        context.addIssue({ code: 'custom', message: `${label} is required` });
-      return;
-    }
-    if (!numberPattern.test(value) || !Number.isFinite(Number(value))) {
-      context.addIssue({
-        code: 'custom',
-        message: `${label} must be a number`,
-      });
-    }
-  });
-}
+import {
+  numberField,
+  nonnegativeIntegerField,
+  numberPattern,
+} from './numeric-form-fields';
 
 function buildIntegerField(label: string) {
-  return buildNumberField(label).pipe(
+  return numberField(label).pipe(
     z
       .string()
       .refine(
         (value) => Number.isSafeInteger(Number(value)),
         `${label} must be a whole number`,
-      ),
-  );
-}
-
-function buildNonnegativeIntegerField(label: string) {
-  return buildNumberField(label).pipe(
-    z
-      .string()
-      .refine(
-        (value) => Number.isInteger(Number(value)) && Number(value) >= 0,
-        `${label} must be a whole number of 0 or more`,
       ),
   );
 }
@@ -91,7 +66,7 @@ function resetToAccepted<T extends FieldValues>(
   });
 }
 
-const hpSchema = z.object({ hpGained: buildNumberField('Hit points', true) });
+const hpSchema = z.object({ hpGained: numberField('Hit points', true) });
 
 // A mounted editor belongs to one stable sheet entry. Reactive values refresh
 // pristine fields; react-hook-form retains dirty fields and their errors.
@@ -265,12 +240,12 @@ const creationSettingsSchema = z
   .object({
     abilityMethod: z.enum(['pointBuy', 'rolled']),
     pointBuyBudget: z.string(),
-    traitCount: buildNonnegativeIntegerField('Trait count'),
+    traitCount: nonnegativeIntegerField('Trait count'),
     campaignTraitRequired: z.boolean(),
   })
   .superRefine((values, context) => {
     if (values.abilityMethod !== 'pointBuy') return;
-    const budget = buildNonnegativeIntegerField('Point-buy budget').safeParse(
+    const budget = nonnegativeIntegerField('Point-buy budget').safeParse(
       values.pointBuyBudget,
     );
     if (!budget.success) {
@@ -309,7 +284,7 @@ export function useCreationSettingsForm({
         changes.pointBuyBudget !== undefined
       ) {
         const kind = submitted.abilityMethod;
-        const validBudget = buildNonnegativeIntegerField(
+        const validBudget = nonnegativeIntegerField(
           'Point-buy budget',
         ).safeParse(submitted.pointBuyBudget);
         patch.abilityMethod =

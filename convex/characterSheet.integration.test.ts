@@ -1325,9 +1325,9 @@ test('members edit and deactivate adjustments without changing their rule identi
   });
   const removed = await owner.query(api.characterSheet.read, scope);
   expect(removed?.entries).toHaveLength(2);
-  expect(
-    removed?.catalogEntries.filter((entry) => entry.detail.kind !== 'class'),
-  ).toHaveLength(1);
+  expect(removed?.catalogEntries).toEqual(
+    before?.catalogEntries.filter((entry) => entry._id !== catalog._id),
+  );
   expect(removed).toMatchObject({ revision: 4, lastOperationId: 'remove' });
 });
 
