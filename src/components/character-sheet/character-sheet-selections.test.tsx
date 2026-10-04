@@ -1,4 +1,5 @@
 import type { Id } from '@convex/_generated/dataModel';
+import { representativeArchetypeCatalog } from '@convex/lib/representativeArchetypeCatalog';
 import { representativeSelectionCatalog } from '@convex/lib/representativeSelectionCatalog';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ConvexError } from 'convex/values';
@@ -84,6 +85,20 @@ const selectionCatalog = representativeSelectionCatalog.map(
       characterId,
     }) as unknown as CatalogEntry,
 );
+const bonusFeatId = (classLevel: number) => `fighter-bonus-feat-${classLevel}`;
+const fighterBonusFeats = (classLevels: number[]) =>
+  classLevels.map((classLevel) => {
+    const seed = representativeArchetypeCatalog.find(
+      (entry) => entry._id === bonusFeatId(classLevel),
+    );
+    if (!seed) throw new Error(`No Fighter Bonus Feat at level ${classLevel}`);
+    return {
+      ...seed,
+      _creationTime: 7,
+      scope: 'character',
+      characterId,
+    } as unknown as CatalogEntry;
+  });
 const faithful = {
   ...selectionCatalog[0]!,
   _id: 'faithful-strike',
@@ -166,7 +181,7 @@ function selectionSheet({
     ...(grantedFeat ? [{ classLevel: 1, catalogEntryId: 'skill-focus' }] : []),
     ...bonusFeatLevels.map((classLevel) => ({
       classLevel,
-      catalogEntryId: 'fighter-bonus-feat',
+      catalogEntryId: bonusFeatId(classLevel),
     })),
   ];
   const catalogEntries = [
@@ -192,6 +207,7 @@ function selectionSheet({
           } as CatalogEntry)
         : entry,
     ),
+    ...fighterBonusFeats(bonusFeatLevels),
     ...selectionCatalog,
     faithful,
   ];
@@ -361,12 +377,10 @@ test('budget copy is singular for one open choice, and Fighter bonus feats from 
     slot('General feats').getByText('1 general feat remains to select.'),
   ).toHaveClass('text-sky-300');
   for (const level of [1, 2]) {
-    const bonus = slot(`Fighter Bonus Feat (level ${level})`);
+    const bonus = slot(`Bonus Feat (level ${level})`);
     expect(bonus.getByText('0/1')).toBeVisible();
     expect(
-      bonus.getByText(
-        `1 fighter bonus feat (level ${level}) remains to select.`,
-      ),
+      bonus.getByText(`1 bonus feat (level ${level}) remains to select.`),
     ).toBeVisible();
   }
 });
