@@ -10,7 +10,7 @@ import type { GrantEntryView } from './character-sheet-grants-view-model';
 import { listEquipmentWarnings } from './equipment-statistics';
 import { EntryStateEditor } from './entry-state-editor';
 import { InlineDeleteQuestion } from './inline-delete-question';
-import { InlineWarnings } from './inline-warning';
+import { SelectionChecks } from './selection-checks';
 import { entryFocusAttribute } from './sheet-catalog-context';
 import { action, chip, SaveFeedback } from './sheet-parts';
 import type {
@@ -96,8 +96,9 @@ function RowDetails({ row }: { row: GrantEntryView }) {
 
 /**
  * One Grant or dormant Selection (approved variant B's list rows): its on/off
- * switch, name, source and state in words, then Keep or Unkeep, Edit and
- * Discard as the entry allows. Dormant rows are muted but their controls
+ * switch, name, source and state in words, its prerequisites now and at its
+ * recorded level, a stored Selection's order within that level, then Keep or
+ * Unkeep, Edit and Discard as the entry allows. Dormant rows are muted but their controls
  * stay readable. Replaced entries sit once beneath the row that replaced
  * them. A row's writes wait on its own save; other rows stay usable.
  */
@@ -179,13 +180,15 @@ export function GrantEntryRow({
               Equipped and enhanced in Equipment.
             </p>
           ) : null}
-          <InlineWarnings
+          <SelectionChecks
+            selection={row.selection}
             warnings={listGrantEntryWarnings({
               warnings,
               rowId: row.rowId,
               isGear,
             })}
-            controller={warningController}
+            warningController={warningController}
+            showsGroups={!isMuted}
             className="mt-1"
           />
           <RowCatalogDefinition

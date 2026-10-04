@@ -7,16 +7,15 @@ import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import { ChoiceSelect } from './choice-select';
 import { InlineWarnings } from './inline-warning';
-import {
-  PrerequisiteProse,
-  PrerequisiteStatusChip,
-} from './prerequisite-status';
+import { PrerequisiteGroups } from './prerequisite-groups';
+import { PrerequisiteProse } from './prerequisite-status';
 import { RowCatalogDefinition } from './row-catalog-definition';
 import { entryFocusAttribute } from './sheet-catalog-context';
 import { SelectionDescription } from './selection-description';
 import { SelectionGuidance } from './selection-guidance';
+import { SelectionOrderControls } from './selection-order-controls';
 import { SelectionRowEditor } from './selection-row-editor';
-import { action, chip, fieldLabel, SaveFeedback } from './sheet-parts';
+import { action, chip, SaveFeedback } from './sheet-parts';
 import {
   findRecordedLevel,
   type SelectionControls,
@@ -31,51 +30,14 @@ type StoredRow = SelectionRowView & {
 
 const mutedChip = cn(chip, 'text-muted-foreground');
 
-/** The row's other warnings: repeats, slot types and allowances. */
-function listOtherWarnings(row: SelectionRowView) {
-  const shown = new Set([...row.currentWarnings, ...row.recordedWarnings]);
-  return row.warnings.filter((warning) => !shown.has(warning));
-}
-
-/**
- * The checks against the recorded build up to the level gained, read with
- * the Character's current facts, apart from the checks now.
- */
-function RecordedPrerequisites({
-  row,
-  warningController,
-}: {
-  row: SelectionRowView;
-  warningController: WarningController;
-}) {
-  if (!row.recordedLevelLabel || row.recordedStatus === null) return null;
-  return (
-    <div
-      role="group"
-      aria-label={row.recordedLevelLabel}
-      className="border-foreground/15 mt-1 flex flex-col gap-1 border-l-2 pl-2"
-    >
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        <span className={fieldLabel}>{row.recordedLevelLabel}</span>
-        <PrerequisiteStatusChip status={row.recordedStatus} />
-      </p>
-      <InlineWarnings
-        warnings={row.recordedWarnings}
-        controller={warningController}
-        isNamedByMessage
-      />
-    </div>
-  );
-}
-
 /**
  * One saved feat or trait in its slot (approved variant B's feat rows). The
  * first line holds its on/off switch, name and state, the level gained for a
  * feat, and Remove; the description sits below it, then the choice and
  * notes, guidance, and the prerequisites now and at the recorded level, each
- * warning with its own Accept. Order, Edit and Replace follow on their own
- * line. Replace reopens the slot's picker; Remove clears the slot. The row
- * waits only on its own save.
+ * group with its own warnings and Accept. Its order among the level's
+ * Selections, Edit and Replace follow on their own line. Replace reopens the
+ * slot's picker; Remove clears the slot. The row waits only on its own save.
  */
 export function SelectionRow({
   row,
@@ -158,7 +120,6 @@ export function SelectionRow({
                   Not tied to a level
                 </span>
               ) : null}
-              <PrerequisiteStatusChip status={row.currentStatus} />
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {row.kind === 'feat' ? (
@@ -210,21 +171,23 @@ export function SelectionRow({
           ) : null}
           <SelectionGuidance text={row.guidanceText} />
           <PrerequisiteProse text={row.prerequisiteText} />
+          <PrerequisiteGroups
+            groups={row}
+            warningController={warningController}
+          />
           <InlineWarnings
-            warnings={[...row.currentWarnings, ...listOtherWarnings(row)]}
+            warnings={row.otherWarnings}
             controller={warningController}
             isNamedByMessage
           />
-          <RecordedPrerequisites
-            row={row}
-            warningController={warningController}
-          />
           <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
-            {level && row.choiceOrder !== null ? (
-              <span className="text-muted-foreground mr-1 font-mono text-xs whitespace-nowrap">
-                Order {row.choiceOrder + 1}
-              </span>
-            ) : null}
+            <SelectionOrderControls
+              row={row}
+              levels={levels}
+              controls={controls}
+              showsFeedback={false}
+              className="mr-1"
+            />
             <Button
               ref={editButton}
               type="button"
@@ -262,7 +225,6 @@ export function SelectionRow({
       {isEditing ? (
         <SelectionRowEditor
           row={row}
-          hasLevel={level !== undefined}
           controls={controls}
           onClose={closeEditor}
         />

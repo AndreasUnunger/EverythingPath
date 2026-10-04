@@ -269,9 +269,6 @@ export function SelectionPicker({
         candidate.name.toLowerCase().includes(search),
       )
     : kindCandidates;
-  const recordedLevel = isFeat
-    ? findRecordedLevel(levels, values.level || null)
-    : undefined;
 
   async function save(submitted: SelectionValues) {
     if (!staged || isDisabled) return;
@@ -427,14 +424,7 @@ export function SelectionPicker({
                 <SelectionDescription text={staged.description} />
                 <SelectionGuidance text={staged.guidanceText} />
                 {preview?.kind === 'ready' ? (
-                  <SelectionPreviewDetails
-                    preview={preview.preview}
-                    recordedLevelLabel={
-                      recordedLevel
-                        ? `Prerequisites at recorded level ${recordedLevel.position}`
-                        : null
-                    }
-                  />
+                  <SelectionPreviewDetails preview={preview.preview} />
                 ) : preview?.kind === 'failed' ? (
                   <p className="text-muted-foreground text-xs">
                     Prerequisites can’t be shown right now. You can still add

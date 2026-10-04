@@ -193,7 +193,7 @@ async function readCharacterSheetDataWithBudget(
     localDefinitions.length > maxCharacterChildRows
   )
     throw new ConvexError('Character sheet is too large to load');
-  const definitions = await readReferencedCatalogDefinitions(
+  const referencedDefinitions = await readReferencedCatalogDefinitions(
     ctx,
     character,
     localDefinitions,
@@ -221,6 +221,56 @@ async function readCharacterSheetDataWithBudget(
     ],
     readBudget,
   );
+  const requiredSpellIdentities = new Set<string>();
+  function collectRequiredSpells(
+    requirement: NonNullable<Doc<'catalogEntry'>['prerequisites']>[number],
+  ) {
+    if ('anyOf' in requirement) {
+      for (const alternative of requirement.anyOf)
+        collectRequiredSpells(alternative);
+    } else if ('castsSpell' in requirement) {
+      requiredSpellIdentities.add(requirement.castsSpell);
+    }
+  }
+  for (const definition of referencedDefinitions)
+    for (const requirement of definition.prerequisites ?? [])
+      collectRequiredSpells(requirement);
+  if (requiredSpellIdentities.size > maxCharacterChildRows)
+    throw new ConvexError('Character has too many required Spells');
+  const spellReferences: CatalogLoadReference[] = [];
+  for (const identity of requiredSpellIdentities) {
+    if (
+      referencedDefinitions.some(
+        (definition) => definition.ruleIdentity === identity,
+      )
+    )
+      continue;
+    const spellRows = await readRows(
+      ctx.db
+        .query('spellCatalogIndex')
+        .withIndex('by_characterId_and_ruleIdentity', (q) =>
+          q.eq('characterId', character._id).eq('ruleIdentity', identity),
+        ),
+      64,
+    );
+    if (spellRows.length > 64)
+      throw new ConvexError('Spell has too many casting lists');
+    for (const row of spellRows)
+      spellReferences.push({
+        id: row.catalogEntryId,
+        kind: 'definition',
+        refusalMessage: 'Spell does not belong to this Character',
+      });
+  }
+  const definitions = spellReferences.length
+    ? await readReferencedCatalogDefinitions(
+        ctx,
+        character,
+        referencedDefinitions,
+        spellReferences,
+        readBudget,
+      )
+    : referencedDefinitions;
   if (acceptedWarnings.length > maxAcceptedWarnings)
     throw new ConvexError('Character has too many accepted warnings');
   const base = entries.find((entry) => entry.kind === 'base');

@@ -12,10 +12,7 @@ import type {
 } from './character-sheet-grants-view-model';
 import { InlineWarnings } from './inline-warning';
 import { PrerequisiteFacts } from './prerequisite-facts';
-import {
-  PrerequisiteProse,
-  PrerequisiteStatusChip,
-} from './prerequisite-status';
+import { PrerequisiteProse } from './prerequisite-status';
 import { SelectionDescription } from './selection-description';
 import { SelectionGuidance } from './selection-guidance';
 import { SelectionRow } from './selection-row';
@@ -129,15 +126,8 @@ export function CharacterSheetSelections({
     renderExtra: (row: GrantEntryView) => {
       const selection = rowsById.get(row.rowId);
       if (!selection) return null;
-      const isQualifying = !(row.dormant && !row.counting);
       return (
         <>
-          {isQualifying ? (
-            <PrerequisiteStatusChip
-              status={selection.currentStatus}
-              className="mt-0.5"
-            />
-          ) : null}
           <SelectionDescription text={selection.description} />
           <SelectionGuidance text={selection.guidanceText} />
           <PrerequisiteProse text={selection.prerequisiteText} />

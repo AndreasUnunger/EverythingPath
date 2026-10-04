@@ -6,7 +6,7 @@ import {
 import { catalogRuntimeCompatibility } from './runtime-compatibility';
 
 const priorCalculationIdentity =
-  'sha256:7a6006e58cfc1d2ed3c438033e53b82ef1d70cc9569449ecb6d6f00d8cc3f366';
+  'sha256:10de1531a3f695d0eb5a42a632047548ca7f1afd4c8b59e48d9804ec940dbc07';
 
 export function isSupportedCatalogCalculation(identity: string) {
   return (
@@ -18,11 +18,9 @@ export function isSupportedCatalogCalculation(identity: string) {
 function calculationInput(identity: string, input: CharacterSheetInput) {
   if (!isSupportedCatalogCalculation(identity))
     throw new Error('Unavailable Catalog Release calculation behavior');
-  // The prior calculator uses the unchanged bundled tables and ignores release resources.
+  // Both supported calculators consume reviewed release resources over the bundled tables.
   // Future changes to those defaults require retaining their implementation separately.
-  return identity === priorCalculationIdentity
-    ? { ...input, resources: undefined }
-    : input;
+  return input;
 }
 
 export function calculateCharacterSheetForRelease(

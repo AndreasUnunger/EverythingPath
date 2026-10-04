@@ -13,13 +13,14 @@ import type {
   RacialTraitOptionView,
 } from './character-sheet-races-view-model';
 import { listGrantEntryWarnings } from './grant-entry-row';
-import { InlineWarnings } from './inline-warning';
 import { RacePicker } from './race-picker';
 import { RacialAbilityScoreSummary } from './racial-ability-score-summary';
 import { RaceEquivalenceChoice } from './race-equivalence-choice';
 import { RacialRowChoices } from './racial-row-choices';
 import { RacialStatisticsEditor } from './racial-statistics-editor';
 import { RacialTraitOptions } from './racial-trait-options';
+import { SelectionChecks } from './selection-checks';
+import { useSelectionRow } from './selection-order-context';
 import { Block, fieldLabel, RemoteNotice } from './sheet-parts';
 import type {
   SheetWarningView,
@@ -109,6 +110,7 @@ export function CharacterSheetRaces({
     (choice) => !traitRowIds.has(choice.rowId) && choice.raceChoices.length > 0,
   );
   const hasRace = races.selectedRaceId !== null;
+  const raceSelection = useSelectionRow(calculated.racial.raceEntryId);
   const raceWarnings = calculated.racial.raceEntryId
     ? listGrantEntryWarnings({
         warnings,
@@ -150,12 +152,11 @@ export function CharacterSheetRaces({
             racial={calculated.racial}
             actions={actions}
           />
-          {showsStatistics ? null : (
-            <InlineWarnings
-              warnings={raceWarnings}
-              controller={warningController}
-            />
-          )}
+          <SelectionChecks
+            selection={raceSelection}
+            warnings={showsStatistics ? [] : raceWarnings}
+            warningController={warningController}
+          />
           {hasRace ? (
             <RacialAbilityScoreSummary breakdowns={calculated.breakdowns} />
           ) : null}

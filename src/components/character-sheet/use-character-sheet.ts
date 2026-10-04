@@ -121,9 +121,11 @@ export function useCharacterSheet(
   const [appendedEntryId, setAppendedEntryId] =
     useState<Id<'characterSheetEntry'> | null>(null);
   const [hasRemoteChange, setHasRemoteChange] = useState(false);
-  const sheet = snapshot
-    ? buildCharacterSheetView(snapshot, catalogChoices)
-    : snapshot;
+  const sheet = useMemo(
+    () =>
+      snapshot ? buildCharacterSheetView(snapshot, catalogChoices) : snapshot,
+    [snapshot, catalogChoices],
+  );
   const warningStates = sheet
     ? Object.fromEntries(
         sheet.warnings.map((warning) => [

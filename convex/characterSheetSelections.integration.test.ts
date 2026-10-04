@@ -3,6 +3,7 @@ import { convexTest } from 'convex-test';
 import { expect, test } from 'vitest';
 import { prerequisiteLabel } from '../src/lib/character-sheet-prerequisite-evaluation';
 import { api } from './_generated/api';
+import type { Doc } from './_generated/dataModel';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -80,6 +81,391 @@ async function fixture() {
   });
   return { t, owner, member, outsider, scope, catalog };
 }
+
+test('members move Selections earlier and later within their recorded level across kinds', async () => {
+  const { t, owner, member, scope, catalog } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', catalog.replacement, {
+      detail: { kind: 'classFeature' },
+      prerequisites: [{ feat: 'test-toughness' }],
+    }),
+  );
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!level) throw new Error('Missing Class Level');
+  const feature = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.replacement,
+    gainedAtClassLevel: level._id,
+    operationId: 'feature-first',
+  });
+  const feat = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: level._id,
+    operationId: 'feat-second',
+  });
+  const checks = async () =>
+    (
+      await owner.query(api.characterSheet.read, scope)
+    )?.calculated.prerequisites.filter((check) => check.entryId === feature);
+  expect(await checks()).toMatchObject([
+    { view: 'current', met: true },
+    { view: 'recorded', met: false },
+  ]);
+  await member.mutation(api.characterSheet.moveSelection, {
+    ...scope,
+    entryId: feat,
+    direction: 'earlier',
+    operationId: 'feat-before-feature',
+  });
+  const moved = await owner.query(api.characterSheet.read, scope);
+  expect(moved?.entries.find((entry) => entry._id === feat)).toMatchObject({
+    gainedAtClassLevel: level._id,
+    choiceOrder: 0,
+  });
+  expect(moved?.entries.find((entry) => entry._id === feature)).toMatchObject({
+    gainedAtClassLevel: level._id,
+    choiceOrder: 1,
+  });
+  expect(await checks()).toMatchObject([
+    { view: 'current', met: true },
+    { view: 'recorded', met: true },
+  ]);
+  await member.mutation(api.characterSheet.moveSelection, {
+    ...scope,
+    entryId: feat,
+    direction: 'later',
+    operationId: 'feat-after-feature',
+  });
+  expect(await checks()).toMatchObject([
+    { view: 'current', met: true },
+    { view: 'recorded', met: false },
+  ]);
+});
+
+test('sheet reads resolve a whole-list spell prerequisite through the Character spell index', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  await t.run(async (ctx) => {
+    await ctx.db.patch('catalogEntry', catalog.feat, {
+      prerequisites: [{ castsSpell: 'global-required-bless' }],
+    });
+    const spellId = await ctx.db.insert('catalogEntry', {
+      scope: 'global',
+      name: 'Required Bless',
+      ruleIdentity: 'global-required-bless',
+      stacksWithItself: false,
+      sources: [],
+      modifiers: [],
+      browseOnly: true,
+      detail: { kind: 'spell', levels: { cleric: 1 } },
+    });
+    const classes = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId_and_ruleIdentity', (q) =>
+        q.eq('characterId', scope.characterId).eq('ruleIdentity', 'cleric'),
+      )
+      .take(1);
+    const cleric = classes[0];
+    if (!cleric) throw new Error('Missing Cleric');
+    await ctx.db.insert('spellCatalogIndex', {
+      characterId: scope.characterId,
+      ruleIdentity: 'global-required-bless',
+      catalogEntryId: spellId,
+      castingClassId: cleric._id,
+      levels: { cleric: 1 },
+      level: 1,
+      school: 'enchantment',
+      name: 'Required Bless',
+      available: true,
+    });
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const cleric = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'cleric',
+  );
+  const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!cleric || !level)
+    throw new Error('Missing prepared Cleric and Class Level');
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: level._id,
+    classEntryId: cleric._id,
+    operationId: 'cleric-casting',
+  });
+  const feat = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: level._id,
+    operationId: 'spell-prerequisite',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(saved?.calculated.spellcastings).toMatchObject([
+    { classTag: 'cleric', record: 'none' },
+  ]);
+  expect(
+    saved?.catalogEntries.some(
+      (entry) => entry.ruleIdentity === 'global-required-bless',
+    ),
+  ).toBe(true);
+  expect(
+    saved?.calculated.prerequisites.filter((check) => check.entryId === feat),
+  ).toMatchObject([
+    { view: 'current', met: true },
+    { view: 'recorded', met: true },
+  ]);
+  expect(
+    saved?.calculated.warnings.filter(
+      (warning) =>
+        warning.target.kind === 'entry' &&
+        warning.target.entryId === feat &&
+        warning.check.startsWith('prerequisites.'),
+    ),
+  ).toEqual([]);
+});
+
+test.each([
+  { detail: { kind: 'race', racialTraits: [] }, modifiers: [] },
+  {
+    detail: { kind: 'racialTrait', raceEntryIds: [], replaces: [] },
+    modifiers: [],
+  },
+  {
+    detail: { kind: 'archetype', classEntryIds: [], replaces: [], adds: [] },
+    modifiers: [],
+  },
+  { detail: { kind: 'classFeature' }, modifiers: [] },
+  { detail: { kind: 'feat' }, modifiers: [] },
+  { detail: { kind: 'trait' }, modifiers: [] },
+  { detail: { kind: 'manual' }, modifiers: [] },
+  { detail: { kind: 'item', consumable: false }, modifiers: [] },
+  { detail: { kind: 'spell' }, modifiers: [] },
+  {
+    detail: {
+      kind: 'spellEffect',
+      lastsOverOneDay: false,
+      defaultCasterLevel: 3,
+    },
+    modifiers: [],
+  },
+  { detail: { kind: 'condition' }, modifiers: [] },
+] satisfies Pick<Doc<'catalogEntry'>, 'detail' | 'modifiers'>[])(
+  'inactive $detail.kind Selections remain outside level order without changing their state or level link',
+  async (definition) => {
+    const { t, owner, scope, catalog } = await fixture();
+    const initial = await owner.query(api.characterSheet.read, scope);
+    const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+    if (!level) throw new Error('Missing Class Level');
+    await owner.mutation(api.characterSheet.selectEntry, {
+      ...scope,
+      catalogEntryId: catalog.feat,
+      gainedAtClassLevel: level._id,
+      operationId: 'first-selection',
+    });
+    const { detail } = definition;
+    const catalogEntryId = await t.run((ctx) =>
+      ctx.db.insert('catalogEntry', {
+        scope: 'character',
+        characterId: scope.characterId,
+        name: `Recorded ${detail.kind}`,
+        ruleIdentity: `recorded-${detail.kind}`,
+        stacksWithItself: false,
+        sources: [],
+        ...definition,
+      }),
+    );
+    const entryId = await owner.mutation(api.characterSheet.selectEntry, {
+      ...scope,
+      catalogEntryId,
+      active: false,
+      gainedAtClassLevel: level._id,
+      notes: 'Retain this note',
+      operationId: `select-${detail.kind}`,
+    });
+    const before = (
+      await owner.query(api.characterSheet.read, scope)
+    )?.entries.find((entry) => entry._id === entryId);
+    await owner.mutation(api.characterSheet.moveSelection, {
+      ...scope,
+      entryId,
+      direction: 'earlier',
+      operationId: `earlier-${detail.kind}`,
+    });
+    const moved = (
+      await owner.query(api.characterSheet.read, scope)
+    )?.entries.find((entry) => entry._id === entryId);
+    expect(moved).toEqual(before);
+    await owner.mutation(api.characterSheet.moveSelection, {
+      ...scope,
+      entryId,
+      direction: 'later',
+      operationId: `later-${detail.kind}`,
+    });
+    expect(
+      (await owner.query(api.characterSheet.read, scope))?.entries.find(
+        (entry) => entry._id === entryId,
+      ),
+    ).toEqual(before);
+  },
+);
+
+test('normalizing tied and sparse orders preserves an unchanged Accepted Warning', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', catalog.replacement, {
+      prerequisites: [{ feat: 'missing-foundation' }],
+    }),
+  );
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!level) throw new Error('Missing Class Level');
+  await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: level._id,
+    choiceOrder: 7,
+    operationId: 'first-tied',
+  });
+  const second = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.trait,
+    gainedAtClassLevel: level._id,
+    choiceOrder: 7,
+    operationId: 'second-tied',
+  });
+  const dependent = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.replacement,
+    gainedAtClassLevel: level._id,
+    choiceOrder: Number.MAX_SAFE_INTEGER,
+    operationId: 'dependent-last',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const warning = before?.calculated.warnings.find(
+    (row) =>
+      row.check === 'prerequisites.recordedLevel' &&
+      row.subject.startsWith(dependent),
+  );
+  if (!warning) throw new Error('Missing recorded prerequisite warning');
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+    operationId: 'accept-unchanged-prefix',
+  });
+  await owner.mutation(api.characterSheet.moveSelection, {
+    ...scope,
+    entryId: second,
+    direction: 'earlier',
+    operationId: 'swap-tied',
+  });
+  const after = await owner.query(api.characterSheet.read, scope);
+  expect(after?.entries.find((entry) => entry._id === dependent)).toMatchObject(
+    { choiceOrder: 2 },
+  );
+  expect(after?.acceptedWarnings).toMatchObject([
+    {
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+    },
+  ]);
+  await owner.mutation(api.characterSheet.moveSelection, {
+    ...scope,
+    entryId: dependent,
+    direction: 'earlier',
+    operationId: 'move-unrelated-prefix',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toMatchObject([{ fingerprint: warning.fingerprint }]);
+});
+
+test('movement stays within one usable recorded level and leaves boundary moves unchanged', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const firstLevel = initial?.entries.find(
+    (entry) => entry.kind === 'classLevel',
+  );
+  const base = initial?.entries.find((entry) => entry.kind === 'base');
+  if (!firstLevel || !base) throw new Error('Missing initial sheet rows');
+  const secondLevel = await owner.mutation(api.characterSheet.addClassLevel, {
+    ...scope,
+    operationId: 'second-level',
+  });
+  const first = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: firstLevel._id,
+    choiceOrder: null,
+    operationId: 'first-level-selection',
+  });
+  const second = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.trait,
+    gainedAtClassLevel: secondLevel,
+    operationId: 'second-level-selection',
+  });
+  const undated = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.replacement,
+    operationId: 'undated-selection',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  for (const entryId of [first, second])
+    for (const direction of ['earlier', 'later'] as const)
+      await owner.mutation(api.characterSheet.moveSelection, {
+        ...scope,
+        entryId,
+        direction,
+        operationId: `boundary-${entryId}-${direction}`,
+      });
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  for (const entryId of [base._id, firstLevel._id])
+    await expect(
+      owner.mutation(api.characterSheet.moveSelection, {
+        ...scope,
+        entryId,
+        direction: 'earlier',
+        operationId: 'non-selection',
+      }),
+    ).rejects.toThrow('Selection does not belong');
+  await expect(
+    owner.mutation(api.characterSheet.moveSelection, {
+      ...scope,
+      entryId: undated,
+      direction: 'earlier',
+      operationId: 'undated-move',
+    }),
+  ).rejects.toThrow('Record a Class Level');
+  await t.run((ctx) =>
+    ctx.db.patch('characterSheetEntry', first, {
+      gainedAtClassLevel: base._id,
+    }),
+  );
+  await expect(
+    owner.mutation(api.characterSheet.moveSelection, {
+      ...scope,
+      entryId: first,
+      direction: 'later',
+      operationId: 'broken-link-move',
+    }),
+  ).rejects.toThrow('Record a Class Level');
+  await t.run((ctx) =>
+    ctx.db.patch('characterSheetEntry', second, {
+      grantKey: { source: 'retained-source', entry: 'retained-trait' },
+    }),
+  );
+  await expect(
+    owner.mutation(api.characterSheet.moveSelection, {
+      ...scope,
+      entryId: second,
+      direction: 'earlier',
+      operationId: 'grant-move',
+    }),
+  ).rejects.toThrow('Grants cannot be reordered');
+});
 
 test('members fill and replace one feat slot while preserving other choices, then clear it', async () => {
   const { owner, member, scope, catalog } = await fixture();
@@ -501,6 +887,14 @@ test('slot writers reject foreign references, malformed positions, maintenance, 
         operationId: 'clear',
         writeEpoch,
       }),
+    () =>
+      caller.mutation(api.characterSheet.moveSelection, {
+        ...scope,
+        entryId,
+        direction: 'earlier',
+        operationId: 'move',
+        writeEpoch,
+      }),
   ];
   const before = await owner.query(api.characterSheet.read, scope);
   for (const caller of [t, outsider])
@@ -557,6 +951,15 @@ test('slot writers reject foreign references, malformed positions, maintenance, 
       characterId: other,
       entryId,
       operationId: 'foreign-selection',
+    }),
+  ).rejects.toThrow('does not belong');
+  await expect(
+    owner.mutation(api.characterSheet.moveSelection, {
+      ...scope,
+      characterId: other,
+      entryId,
+      direction: 'earlier',
+      operationId: 'foreign-move',
     }),
   ).rejects.toThrow('does not belong');
   const control = await t.run(async (ctx) => {
@@ -681,6 +1084,14 @@ test('alignment and deity are editable current facts, and private slots require 
       characterId,
       entryId: privateEntry,
       operationId: 'steal-clear',
+    }),
+  ).rejects.toThrow();
+  await expect(
+    member.mutation(api.characterSheet.moveSelection, {
+      characterId,
+      entryId: privateEntry,
+      direction: 'earlier',
+      operationId: 'steal-move',
     }),
   ).rejects.toThrow();
 });
@@ -1293,4 +1704,244 @@ test('filling a slot with a stale global choice uses the campaign customized def
   expect(sheet?.entries.find((row) => row._id === entryId)).toMatchObject({
     catalogEntryId: copyId,
   });
+});
+
+test('casting warnings reopen for relevant earlier progression while unrelated levels preserve acceptance', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  await t.run(async (ctx) => {
+    await ctx.db.patch('catalogEntry', catalog.feat, {
+      prerequisites: [
+        { canCast: { spellLevel: 3, kind: 'divine' } },
+        { castsSpell: 'required-third-level-spell' },
+      ],
+    });
+    await ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId: scope.characterId,
+      name: 'Required third-level spell',
+      ruleIdentity: 'required-third-level-spell',
+      stacksWithItself: false,
+      sources: [],
+      modifiers: [],
+      detail: { kind: 'spell', levels: { cleric: 3 } },
+    });
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const cleric = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'cleric',
+  );
+  const fighter = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'fighter',
+  );
+  const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!cleric || !fighter || !level)
+    throw new Error('Missing prepared classes and Class Level');
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: level._id,
+    classEntryId: cleric._id,
+    operationId: 'cleric',
+  });
+  const feat = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: level._id,
+    operationId: 'requires-third',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const warnings =
+    before?.calculated.warnings.filter(
+      (warning) =>
+        warning.check === 'prerequisites.recordedLevel' &&
+        warning.subject.startsWith(feat),
+    ) ?? [];
+  expect(warnings).toHaveLength(2);
+  for (const warning of warnings)
+    await owner.mutation(api.characterSheet.acceptWarning, {
+      ...scope,
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+      operationId: `accept-${warning.subject}`,
+    });
+  await owner.mutation(api.characterSheet.addClassLevel, {
+    ...scope,
+    classEntryId: fighter._id,
+    position: 1,
+    operationId: 'earlier-unrelated-fighter',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+  ).toHaveLength(2);
+  for (const operationId of ['earlier-cleric-two', 'earlier-cleric-three'])
+    await owner.mutation(api.characterSheet.addClassLevel, {
+      ...scope,
+      classEntryId: cleric._id,
+      position: 1,
+      operationId,
+    });
+  const changed = await owner.query(api.characterSheet.read, scope);
+  expect(
+    changed?.calculated.prerequisites
+      .filter((check) => check.entryId === feat)
+      .map((check) => check.met),
+  ).toEqual([false, false, false, false]);
+  expect(changed?.acceptedWarnings).toEqual([]);
+});
+
+test('specific-spell and spell-level prerequisites are both unmet without casting', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('catalogEntry', catalog.feat, {
+      prerequisites: [
+        { canCast: { spellLevel: 1 } },
+        { castsSpell: 'not-castable' },
+      ],
+    }),
+  );
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  const fighter = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'fighter',
+  );
+  if (!level || !fighter) throw new Error('Missing Fighter and Class Level');
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: level._id,
+    classEntryId: fighter._id,
+    operationId: 'noncasting-fighter',
+  });
+  const feat = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: level._id,
+    operationId: 'no-casting',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(
+    saved?.calculated.prerequisites
+      .filter((check) => check.entryId === feat)
+      .map((check) => check.met),
+  ).toEqual([false, false, false, false]);
+});
+
+test('recorded warning acceptance survives unrelated Selection removal and relinking and dated item edits', async () => {
+  const { t, owner, scope, catalog } = await fixture();
+  const itemCatalogId = await t.run(async (ctx) => {
+    await ctx.db.patch('catalogEntry', catalog.replacement, {
+      prerequisites: [{ ability: 'strength', min: 15 }],
+    });
+    await ctx.db.patch('catalogEntry', catalog.trait, {
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 1 }],
+    });
+    return ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId: scope.characterId,
+      name: 'Dated keepsake',
+      ruleIdentity: 'dated-keepsake',
+      stacksWithItself: false,
+      sources: [],
+      modifiers: [],
+      detail: { kind: 'item', consumable: false },
+    });
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const level = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!level) throw new Error('Missing Class Level');
+  const unrelated = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.feat,
+    gainedAtClassLevel: level._id,
+    operationId: 'unrelated-first',
+  });
+  const relevant = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.trait,
+    gainedAtClassLevel: level._id,
+    operationId: 'relevant-second',
+  });
+  const dependent = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: catalog.replacement,
+    gainedAtClassLevel: level._id,
+    operationId: 'dependent-third',
+  });
+  const before = await owner.query(api.characterSheet.read, scope);
+  const warning = before?.calculated.warnings.find(
+    (row) =>
+      row.check === 'prerequisites.recordedLevel' &&
+      row.subject.startsWith(dependent),
+  );
+  if (!warning) throw new Error('Missing recorded prerequisite warning');
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+    operationId: 'accept-recorded',
+  });
+  const expectAccepted = async () =>
+    expect(
+      (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings,
+    ).toMatchObject([
+      {
+        check: warning.check,
+        subject: warning.subject,
+        fingerprint: warning.fingerprint,
+      },
+    ]);
+  await owner.mutation(api.characterSheet.editSelection, {
+    ...scope,
+    entryId: unrelated,
+    gainedAtClassLevel: null,
+    operationId: 'unlink-unrelated',
+  });
+  await expectAccepted();
+  await owner.mutation(api.characterSheet.editSelection, {
+    ...scope,
+    entryId: unrelated,
+    gainedAtClassLevel: level._id,
+    operationId: 'relink-unrelated',
+  });
+  await expectAccepted();
+  await owner.mutation(api.characterSheet.clearSelectionSlot, {
+    ...scope,
+    entryId: unrelated,
+    operationId: 'remove-unrelated',
+  });
+  await expectAccepted();
+  const item = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: itemCatalogId,
+    gainedAtClassLevel: level._id,
+    choiceOrder: 0,
+    operationId: 'dated-item',
+  });
+  await expectAccepted();
+  await owner.mutation(api.characterSheet.moveSelection, {
+    ...scope,
+    entryId: item,
+    direction: 'earlier',
+    operationId: 'undated-item-no-move',
+  });
+  await expectAccepted();
+  await owner.mutation(api.characterSheet.removeSheetEntry, {
+    ...scope,
+    entryId: item,
+    operationId: 'remove-item',
+  });
+  await expectAccepted();
+  await owner.mutation(api.characterSheet.editSelection, {
+    ...scope,
+    entryId: relevant,
+    active: false,
+    operationId: 'remove-relevant-benefit',
+  });
+  const after = await owner.query(api.characterSheet.read, scope);
+  expect(
+    after?.calculated.prerequisites.find(
+      (check) => check.entryId === dependent && check.view === 'recorded',
+    )?.met,
+  ).toBe(false);
+  expect(after?.acceptedWarnings).toEqual([]);
 });

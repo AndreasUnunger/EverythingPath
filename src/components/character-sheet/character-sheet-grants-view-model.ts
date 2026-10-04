@@ -1,3 +1,4 @@
+import type { CharacterSheetSelectionRow } from './character-sheet-selections-view-model';
 import type { CharacterSheetInput, SheetEntry } from '~/lib/character-sheet';
 import type {
   GrantKey,
@@ -8,6 +9,7 @@ export type GrantEntryTarget = { grantKey: GrantKey } | { entryId: string };
 
 export type GrantEntryView = {
   rowId: string;
+  selection?: CharacterSheetSelectionRow;
   target: GrantEntryTarget;
   name: string;
   kind: SheetEntry['kind'];
@@ -82,11 +84,17 @@ const regularKinds: SheetEntry['kind'][] = [
 ];
 
 /** Existing effect panels own their regular rows; every section retains lost state here. */
-export function buildCharacterSheetGrantsView(
-  entries: readonly ResolvedSheetEntry[],
-  catalogEntries: CharacterSheetInput['catalogEntries'],
-  classLevelIds: ReadonlySet<string> = new Set(),
-): GrantSectionView[] {
+export function buildCharacterSheetGrantsView({
+  entries,
+  catalogEntries,
+  classLevelIds = new Set(),
+  selectionRows = [],
+}: {
+  entries: readonly ResolvedSheetEntry[];
+  catalogEntries: CharacterSheetInput['catalogEntries'];
+  classLevelIds?: ReadonlySet<string>;
+  selectionRows?: readonly CharacterSheetSelectionRow[];
+}): GrantSectionView[] {
   const names = new Map(
     entries.map(({ entry }) => [
       entry._id,
@@ -116,6 +124,7 @@ export function buildCharacterSheetGrantsView(
     const parentName = grantKey ? names.get(grantKey.source) : undefined;
     rows.set(entry._id, {
       rowId: entry._id,
+      selection: selectionRows.find((row) => row.rowId === entry._id),
       target: grantKey
         ? { grantKey }
         : { entryId: resolved.storedEntryId ?? entry._id },

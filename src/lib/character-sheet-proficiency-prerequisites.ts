@@ -4,7 +4,10 @@ import {
   resolveCharacterSheetGrants,
 } from './character-sheet-grants';
 import { classFamilyLevels } from './character-sheet-class-levels';
-import { selectionOrdersAtLevel } from './character-sheet-selection';
+import {
+  isUndatedSheetEntry,
+  orderedSelectionIdsAtLevel,
+} from './character-sheet-selection';
 import {
   matchesProficiency,
   normalizeProficiencyName,
@@ -154,7 +157,7 @@ type RecordedContext = {
   entryId: string;
   originId: string;
   position: RecordedPosition;
-  selectionOrders: ReturnType<typeof selectionOrdersAtLevel>;
+  selectionIds: readonly string[];
 };
 
 function entryKey(entry: SheetEntry) {
@@ -196,18 +199,10 @@ function levelInPrefix(
     : entry.state.position <= context.position.classLevel;
 }
 
-const undatedKinds = new Set<SheetEntry['kind']>([
-  'base',
-  'race',
-  'item',
-  'manual',
-  'condition',
-  'spellEffect',
-  'abilityDamage',
-  'abilityDrain',
-]);
-
-function recordedEntryEligible(entry: SheetEntry, context: RecordedContext) {
+function recordedEntryEligible(
+  entry: SheetEntry,
+  context: RecordedContext & { selectionOrders: ReadonlyMap<string, number> },
+) {
   let candidate = entry;
   const visited = new Set<string>();
   while (true) {
@@ -233,7 +228,7 @@ function recordedEntryEligible(entry: SheetEntry, context: RecordedContext) {
           );
       }
     }
-    if (undatedKinds.has(candidate.kind)) return true;
+    if (isUndatedSheetEntry(candidate)) return true;
     const gainedAt =
       'gainedAtClassLevel' in candidate
         ? candidate.gainedAtClassLevel
@@ -249,24 +244,41 @@ function recordedEntryEligible(entry: SheetEntry, context: RecordedContext) {
     if (beforeLevel) return false;
     const candidateOrder = context.selectionOrders.get(candidate._id);
     const originOrder = context.selectionOrders.get(context.originId);
-    if (!candidateOrder || !originOrder) return false;
-    return candidateOrder.order === originOrder.order
-      ? candidateOrder.index < originOrder.index
-      : candidateOrder.order < originOrder.order;
+    if (candidateOrder === undefined || originOrder === undefined) return false;
+    return candidateOrder < originOrder;
   }
 }
 
-export function recordedPrefix(
-  entry: SheetEntry,
-  input: CharacterSheetInput,
-  effectiveInput: CharacterSheetInput,
-) {
-  const sources = new Map(
+export function buildRecordedPrerequisiteSources({
+  input,
+  effectiveInput,
+}: {
+  input: CharacterSheetInput;
+  effectiveInput: CharacterSheetInput;
+}): ReadonlyMap<string, SheetEntry> {
+  return new Map(
     [...input.entries, ...effectiveInput.entries].map((candidate) => [
       entryKey(candidate),
       candidate,
     ]),
   );
+}
+
+type RecordedContextInput = {
+  entry: SheetEntry;
+  input: CharacterSheetInput;
+  effectiveInput: CharacterSheetInput;
+  sources?: ReadonlyMap<string, SheetEntry>;
+  levelOrders?: ReadonlyMap<string, readonly string[]>;
+};
+
+function recordedContext({
+  entry,
+  input,
+  effectiveInput,
+  sources = buildRecordedPrerequisiteSources({ input, effectiveInput }),
+  levelOrders,
+}: RecordedContextInput) {
   const origin = recordedOrigin(entry, sources);
   const originKey = 'grantKey' in origin ? origin.grantKey : undefined;
   const automaticLevel =
@@ -275,39 +287,59 @@ export function recordedPrefix(
       : classFamilyLevels(input, originKey.source).at(originKey.classLevel - 1);
   const gainedAt =
     'gainedAtClassLevel' in origin ? origin.gainedAtClassLevel : undefined;
+  const linkedLevel = gainedAt ? sources.get(gainedAt) : undefined;
   const level =
     origin.kind === 'classLevel'
       ? origin
       : (automaticLevel ??
-        input.entries.find(
-          (candidate) =>
-            candidate.kind === 'classLevel' &&
-            candidate.active &&
-            candidate._id === gainedAt,
-        ));
+        (linkedLevel?.kind === 'classLevel' && linkedLevel.active
+          ? linkedLevel
+          : undefined));
   if (level?.kind !== 'classLevel') return undefined;
+  const orderedSelections =
+    levelOrders?.get(level._id) ??
+    orderedSelectionIdsAtLevel(input.entries, level._id);
+  const choiceIndex = orderedSelections.indexOf(origin._id);
   const position: RecordedPosition = {
     classLevel: level.state.position,
-    choiceOrder: 'choiceOrder' in origin ? origin.choiceOrder : undefined,
+    choiceOrder: choiceIndex < 0 ? undefined : choiceIndex,
     beforeLevel: origin.kind === 'classLevel',
   };
-  const context: RecordedContext = {
+  return {
     input,
     sources,
     entryId: entry._id,
     originId: origin._id,
     position,
-    selectionOrders: selectionOrdersAtLevel(input.entries, level._id),
+    selectionIds: orderedSelections,
+  } satisfies RecordedContext;
+}
+
+export function recordedPosition(contextInput: RecordedContextInput) {
+  return recordedContext(contextInput)?.position;
+}
+
+export function recordedPrefix(contextInput: RecordedContextInput) {
+  const recording = recordedContext(contextInput);
+  if (!recording) return undefined;
+  const context = {
+    ...recording,
+    selectionOrders: new Map(
+      recording.selectionIds.map((id, index) => [id, index]),
+    ),
   };
   const eligible = (candidate: SheetEntry) =>
     recordedEntryEligible(candidate, context);
-  const prefix = { ...input, entries: input.entries.filter(eligible) };
+  const prefix = {
+    ...context.input,
+    entries: context.input.entries.filter(eligible),
+  };
   return {
     input: {
       ...prefix,
       entries:
         resolveCharacterSheetGrants(prefix).countingEntries.filter(eligible),
     },
-    position,
+    position: context.position,
   };
 }

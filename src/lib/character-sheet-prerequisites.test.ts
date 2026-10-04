@@ -2,12 +2,726 @@ import { expect, test } from 'vitest';
 import {
   calculateCharacterSheet,
   calculateCharacterSheetProjections,
+  type SheetEntry,
 } from './character-sheet';
 import { resolveCompanionLinkedInput } from './character-sheet-linked-inputs';
+import { findReviewedClassCasting } from './character-sheet-casting-tables';
 import {
   prerequisiteSheet,
   selectedFeat,
 } from './character-sheet-prerequisite-fixture';
+
+test('casting prerequisites use the recorded prefix rather than later casting levels', () => {
+  const input = prerequisiteSheet(
+    [
+      selectedFeat('casting'),
+      ...[2, 3].map(
+        (position) =>
+          ({
+            _id: `level-${position}`,
+            kind: 'classLevel' as const,
+            active: true,
+            state: {
+              kind: 'classLevel' as const,
+              position,
+              classEntryId: 'fighter',
+              hpGained: 6,
+            },
+          }) satisfies SheetEntry,
+      ),
+    ],
+    [
+      {
+        _id: 'casting',
+        ruleIdentity: 'feat/casting',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [
+          { casterLevel: 3 },
+          { canCast: { spellLevel: 2, kind: 'arcane' } },
+        ],
+      },
+    ],
+  );
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'fighter' && definition.detail?.kind === 'class'
+      ? {
+          ...definition,
+          detail: {
+            ...definition.detail,
+            casting: findReviewedClassCasting('wizard'),
+          },
+        }
+      : definition,
+  );
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ view, met }) => [
+      view,
+      met,
+    ]),
+  ).toEqual([
+    ['current', true],
+    ['recorded', false],
+    ['current', true],
+    ['recorded', false],
+  ]);
+});
+
+test('a required spell must belong to a castable collection before the recorded choice', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required', 1)],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ castsSpell: 'spell/missile' }],
+      },
+      {
+        _id: 'missile',
+        ruleIdentity: 'spell/missile',
+        modifiers: [],
+        detail: { kind: 'spell', levels: { wizard: 1 } },
+      },
+    ],
+  );
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'fighter' && definition.detail?.kind === 'class'
+      ? {
+          ...definition,
+          detail: {
+            ...definition.detail,
+            casting: findReviewedClassCasting('wizard'),
+          },
+        }
+      : definition,
+  );
+  const checks = () =>
+    calculateCharacterSheet(input).prerequisites.map(({ met }) => met);
+  expect(checks()).toEqual([false, false]);
+  input.entries = [
+    ...input.entries,
+    {
+      _id: 'recorded-spell',
+      kind: 'spell',
+      catalogEntryId: 'missile',
+      active: true,
+      gainedAtClassLevel: 'level-1',
+      choiceOrder: 0,
+      state: { kind: 'spell', castingClassId: 'fighter' },
+    },
+  ];
+  expect(checks()).toEqual([true, true]);
+  input.entries = input.entries.map((entry) =>
+    entry._id === 'recorded-spell' ? { ...entry, choiceOrder: 2 } : entry,
+  );
+  expect(checks()).toEqual([true, false]);
+});
+
+test.each(
+  ['wizard', 'sorcerer'].flatMap((className) =>
+    [undefined, null].flatMap((level) =>
+      ['recorded', 'granted'].map((source) => ({ className, level, source })),
+    ),
+  ),
+)(
+  'a $source required spell with level $level stays unresolved in $className casting',
+  ({ className, level, source }) => {
+    const input = prerequisiteSheet(
+      [
+        selectedFeat('required', 1),
+        {
+          _id: 'required-spell',
+          kind: 'spell',
+          active: true,
+          catalogEntryId: 'missile',
+          gainedAtClassLevel: 'level-1',
+          choiceOrder: 0,
+          state: { kind: 'spell', castingClassId: 'fighter', level },
+          ...(source === 'granted'
+            ? { grantKey: { source: 'source-row', entry: 'spell/missile' } }
+            : {}),
+        },
+        ...(source === 'granted'
+          ? ([
+              {
+                _id: 'source-row',
+                kind: 'classFeature',
+                active: true,
+                catalogEntryId: 'source',
+                gainedAtClassLevel: 'level-1',
+                choiceOrder: 0,
+                state: { kind: 'classFeature' },
+              },
+            ] satisfies SheetEntry[])
+          : []),
+      ],
+      [
+        {
+          _id: 'required',
+          ruleIdentity: 'feat/required',
+          modifiers: [],
+          detail: { kind: 'feat' },
+          prerequisites: [{ castsSpell: 'spell/missile' }],
+        },
+        {
+          _id: 'missile',
+          ruleIdentity: 'spell/missile',
+          modifiers: [],
+          detail: { kind: 'spell' },
+        },
+        {
+          _id: 'source',
+          ruleIdentity: 'feature/source',
+          modifiers: [],
+          detail: { kind: 'classFeature' },
+          grants: [{ catalogEntryId: 'missile' }],
+        },
+      ],
+    );
+    input.catalogEntries = input.catalogEntries.map((definition) =>
+      definition._id === 'fighter' && definition.detail?.kind === 'class'
+        ? {
+            ...definition,
+            detail: {
+              ...definition.detail,
+              casting: findReviewedClassCasting(className),
+            },
+          }
+        : definition,
+    );
+    const result = calculateCharacterSheet(input);
+    expect(result.prerequisites.map(({ met }) => met)).toEqual([null, null]);
+    expect(
+      result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+    ).toEqual([]);
+  },
+);
+
+test.each([
+  { level: 0, unknownIdentity: 'spell/missile', met: true },
+  { level: 1, unknownIdentity: 'spell/missile', met: true },
+  { level: 2, unknownIdentity: 'spell/missile', met: null },
+  { level: 2, unknownIdentity: 'spell/other', met: false },
+])(
+  'a level $level spell and incomplete $unknownIdentity evaluate to $met',
+  ({ level, unknownIdentity, met }) => {
+    const input = prerequisiteSheet(
+      [
+        selectedFeat('required', 1),
+        ...['known-level', 'unknown-level'].map(
+          (id): SheetEntry => ({
+            _id: id,
+            kind: 'spell',
+            active: true,
+            catalogEntryId: id,
+            gainedAtClassLevel: 'level-1',
+            choiceOrder: 0,
+            state: {
+              kind: 'spell',
+              castingClassId: 'fighter',
+              ...(id === 'known-level' ? { level } : {}),
+            },
+          }),
+        ),
+      ],
+      [
+        {
+          _id: 'required',
+          ruleIdentity: 'feat/required',
+          modifiers: [],
+          detail: { kind: 'feat' },
+          prerequisites: [{ castsSpell: 'spell/missile' }],
+        },
+        {
+          _id: 'known-level',
+          ruleIdentity: 'spell/missile',
+          modifiers: [],
+          detail: { kind: 'spell' },
+        },
+        {
+          _id: 'unknown-level',
+          ruleIdentity: unknownIdentity,
+          modifiers: [],
+          detail: { kind: 'spell' },
+        },
+      ],
+    );
+    input.catalogEntries = input.catalogEntries.map((definition) =>
+      definition._id === 'fighter' && definition.detail?.kind === 'class'
+        ? {
+            ...definition,
+            detail: {
+              ...definition.detail,
+              casting: findReviewedClassCasting('wizard'),
+            },
+          }
+        : definition,
+    );
+    const result = calculateCharacterSheet(input);
+    expect(result.prerequisites.map((check) => check.met)).toEqual([met, met]);
+    expect(
+      result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+    ).toHaveLength(met === false ? 2 : 0);
+  },
+);
+
+test('normalizing and moving unrelated Selections preserves warning fingerprints', () => {
+  const input = prerequisiteSheet(
+    [
+      selectedFeat('first', 10),
+      selectedFeat('second', 20),
+      selectedFeat('required', 30),
+    ],
+    [
+      ...['first', 'second'].map((id) => ({
+        _id: id,
+        ruleIdentity: `feat/${id}`,
+        modifiers: [],
+        detail: { kind: 'feat' as const },
+      })),
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ ability: 'strength', min: 13 }],
+      },
+    ],
+  );
+  const warnings = () =>
+    calculateCharacterSheet(input).warnings.filter(({ check }) =>
+      check.startsWith('prerequisites.'),
+    );
+  const before = warnings().map(({ fingerprint }) => fingerprint);
+  input.entries = input.entries.map((entry) =>
+    entry.kind === 'feat'
+      ? {
+          ...entry,
+          choiceOrder:
+            entry._id === 'required' ? 2 : entry._id === 'first' ? 1 : 0,
+        }
+      : entry,
+  );
+  expect(warnings().map(({ fingerprint }) => fingerprint)).toEqual(before);
+  input.entries = input.entries.map((entry) =>
+    entry.kind === 'feat'
+      ? {
+          ...entry,
+          choiceOrder:
+            entry._id === 'required' ? 1 : entry._id === 'first' ? 2 : 0,
+        }
+      : entry,
+  );
+  expect(warnings()[0]?.fingerprint).toBe(before[0]);
+  expect(warnings()[1]?.fingerprint).toBe(before[1]);
+});
+
+test('whole-list casting supplies a required spell without recording a selection', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ castsSpell: 'spell/bless' }],
+      },
+      {
+        _id: 'bless',
+        ruleIdentity: 'spell/bless',
+        modifiers: [],
+        detail: { kind: 'spell', levels: { cleric: 1 } },
+      },
+    ],
+  );
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'fighter' && definition.detail?.kind === 'class'
+      ? {
+          ...definition,
+          detail: {
+            ...definition.detail,
+            casting: findReviewedClassCasting('cleric'),
+          },
+        }
+      : definition,
+  );
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ met }) => met),
+  ).toEqual([true, true]);
+});
+
+test('a whole-list spell prerequisite stays unresolved without accessible spell-list facts', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ castsSpell: 'spell/bless' }],
+      },
+    ],
+  );
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'fighter' && definition.detail?.kind === 'class'
+      ? {
+          ...definition,
+          detail: {
+            ...definition.detail,
+            casting: findReviewedClassCasting('cleric'),
+          },
+        }
+      : definition,
+  );
+  const result = calculateCharacterSheet(input);
+  expect(result.prerequisites.map(({ met }) => met)).toEqual([null, null]);
+  expect(
+    result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+  ).toEqual([]);
+});
+
+test('a named spell prerequisite is unmet when the Character has no casting', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ castsSpell: 'spell/example' }],
+      },
+    ],
+  );
+  const result = calculateCharacterSheet(input);
+  expect(result.prerequisites.map(({ met }) => met)).toEqual([false, false]);
+  expect(
+    result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+  ).toHaveLength(2);
+});
+
+test('an unresolved caster-level formula stays silent while its castable levels still qualify', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [
+          { casterLevel: 2 },
+          { canCast: { spellLevel: 1, kind: 'arcane' } },
+        ],
+      },
+    ],
+  );
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'fighter' && definition.detail?.kind === 'class'
+      ? {
+          ...definition,
+          modifiers: [
+            {
+              target: 'casterLevel',
+              bonusType: 'untyped',
+              value: { formula: '@missing' },
+            },
+          ],
+          detail: {
+            ...definition.detail,
+            casting: findReviewedClassCasting('wizard'),
+          },
+        }
+      : definition,
+  );
+  const result = calculateCharacterSheet(input);
+  expect(result.prerequisites.map(({ met }) => met)).toEqual([
+    null,
+    null,
+    true,
+    true,
+  ]);
+  expect(
+    result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+  ).toEqual([]);
+});
+
+test('retained racial ranks contribute to prerequisites only while racial Hit Dice support them', () => {
+  const input = prerequisiteSheet(
+    [
+      {
+        _id: 'race-row',
+        kind: 'race',
+        active: true,
+        catalogEntryId: 'race',
+        state: { kind: 'race', racialSkillRanks: { per: 3 } },
+      },
+      selectedFeat('required'),
+    ],
+    [
+      {
+        _id: 'race',
+        ruleIdentity: 'race/elf',
+        modifiers: [],
+        detail: { kind: 'race', racialTraits: [], racialHitDice: 0 },
+      },
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ skillRanks: 'per', min: 3 }],
+      },
+    ],
+  );
+  const result = calculateCharacterSheet(input);
+  expect(result.skills.find(({ key }) => key === 'skill.per')?.ranks).toBe(0);
+  expect(result.prerequisites.map(({ met }) => met)).toEqual([false, false]);
+});
+
+test('current temporary effects and later equipment use prefix Hit Dice while ordinary advancement remains visible', () => {
+  const input = prerequisiteSheet(
+    [
+      ...[2, 3, 4, 5].map(
+        (position) =>
+          ({
+            _id: `level-${position}`,
+            kind: 'classLevel' as const,
+            active: true,
+            state: {
+              kind: 'classLevel' as const,
+              position,
+              classEntryId: 'fighter',
+              hpGained: 6,
+              ...(position === 4
+                ? { abilityIncrease: 'strength' as const }
+                : {}),
+            },
+          }) satisfies SheetEntry,
+      ),
+      {
+        _id: 'race-row',
+        kind: 'race',
+        active: true,
+        catalogEntryId: 'race',
+        state: { kind: 'race' },
+      },
+      { ...selectedFeat('required'), gainedAtClassLevel: 'level-4' },
+      {
+        _id: 'effect-row',
+        kind: 'spellEffect',
+        active: true,
+        catalogEntryId: 'effect',
+        gainedAtClassLevel: 'level-5',
+        state: { kind: 'spellEffect', casterLevel: 1 },
+      },
+      {
+        _id: 'item-row',
+        kind: 'item',
+        active: true,
+        catalogEntryId: 'item',
+        gainedAtClassLevel: 'level-5',
+        state: { kind: 'item' },
+      },
+    ],
+    [
+      {
+        _id: 'race',
+        ruleIdentity: 'race/example',
+        modifiers: [],
+        detail: { kind: 'race', racialTraits: [], racialHitDice: 2 },
+      },
+      {
+        _id: 'effect',
+        ruleIdentity: 'effect/strength',
+        modifiers: [
+          { target: 'ability.str', bonusType: 'enhancement', value: 2 },
+        ],
+        detail: { kind: 'spellEffect', lastsOverOneDay: false },
+      },
+      {
+        _id: 'item',
+        ruleIdentity: 'item/strength',
+        modifiers: [
+          {
+            target: 'ability.str',
+            bonusType: 'untyped',
+            value: { formula: '@level' },
+          },
+          {
+            target: 'casterLevel',
+            bonusType: 'untyped',
+            value: { formula: '@hitDice' },
+          },
+        ],
+        detail: { kind: 'item' },
+      },
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ ability: 'strength', min: 17 }, { casterLevel: 10 }],
+      },
+    ],
+  );
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'fighter' && definition.detail?.kind === 'class'
+      ? {
+          ...definition,
+          detail: {
+            ...definition.detail,
+            casting: findReviewedClassCasting('wizard'),
+          },
+        }
+      : definition,
+  );
+  // Strength 10 + increase 1 + effect 2 + prefix level 4 = 17; caster level 4 + HD 6 = 10.
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ met }) => met),
+  ).toEqual([true, true, true, true]);
+  input.catalogEntries = input.catalogEntries.map((definition) =>
+    definition._id === 'required'
+      ? {
+          ...definition,
+          prerequisites: [
+            { ability: 'strength', min: 18 },
+            { casterLevel: 11 },
+          ],
+        }
+      : definition,
+  );
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ met }) => met),
+  ).toEqual([true, false, true, false]);
+  input.entries = input.entries.map((entry) =>
+    entry.kind === 'spellEffect' && entry._id === 'effect-row'
+      ? { ...entry, active: false }
+      : entry,
+  );
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ met }) => met),
+  ).toEqual([false, false, true, false]);
+});
+
+test('nested Grants share their selected source position and cannot qualify that source', () => {
+  const input = prerequisiteSheet(
+    [
+      {
+        _id: 'source-row',
+        kind: 'classFeature',
+        active: true,
+        catalogEntryId: 'source',
+        gainedAtClassLevel: 'level-1',
+        choiceOrder: 0,
+        state: { kind: 'classFeature' },
+      },
+      selectedFeat('required', 1),
+    ],
+    [
+      {
+        _id: 'source',
+        ruleIdentity: 'feature/source',
+        modifiers: [],
+        detail: { kind: 'classFeature' },
+        grants: [{ catalogEntryId: 'middle' }],
+        prerequisites: [{ ability: 'strength', min: 13 }],
+      },
+      {
+        _id: 'middle',
+        ruleIdentity: 'feature/middle',
+        modifiers: [],
+        detail: { kind: 'classFeature' },
+        grants: [{ catalogEntryId: 'benefit' }],
+      },
+      {
+        _id: 'benefit',
+        ruleIdentity: 'feature/benefit',
+        modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 3 }],
+        detail: { kind: 'classFeature' },
+      },
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ ability: 'strength', min: 13 }],
+      },
+    ],
+  );
+  const checks = () =>
+    calculateCharacterSheet(input).prerequisites.map(
+      ({ entryId, view, met }) => [entryId, view, met],
+    );
+  expect(checks()).toEqual([
+    ['source-row', 'current', true],
+    ['source-row', 'recorded', false],
+    ['required', 'current', true],
+    ['required', 'recorded', true],
+  ]);
+  input.entries = input.entries.map((entry) =>
+    entry._id === 'source-row' ? { ...entry, choiceOrder: 2 } : entry,
+  );
+  expect(checks()).toEqual([
+    ['source-row', 'current', true],
+    ['source-row', 'recorded', false],
+    ['required', 'current', true],
+    ['required', 'recorded', false],
+  ]);
+});
+
+test('prestige casting qualifications precede the first level and its casting grants', () => {
+  const input = prerequisiteSheet(
+    [
+      {
+        _id: 'prestige-row',
+        kind: 'classLevel',
+        active: true,
+        state: {
+          kind: 'classLevel',
+          position: 2,
+          classEntryId: 'prestige',
+          hpGained: 6,
+        },
+      },
+    ],
+    [
+      {
+        _id: 'prestige',
+        ruleIdentity: 'class/prestige',
+        modifiers: [],
+        prerequisites: [
+          { casterLevel: 1 },
+          { canCast: { spellLevel: 1, kind: 'arcane' } },
+        ],
+        detail: {
+          kind: 'class',
+          classKind: 'prestige',
+          hitDie: 6,
+          bab: 'half',
+          saves: { fort: 'poor', ref: 'poor', will: 'good' },
+          skillRanksPerLevel: 2,
+          casting: findReviewedClassCasting('wizard'),
+        },
+      },
+    ],
+  );
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ view, met }) => [
+      view,
+      met,
+    ]),
+  ).toEqual([
+    ['current', true],
+    ['recorded', false],
+    ['current', true],
+    ['recorded', false],
+  ]);
+});
 
 test('missing linked BAB leaves current and recorded prerequisites unresolved without changing other clauses', () => {
   const input = prerequisiteSheet(
@@ -1353,4 +2067,130 @@ test('racial Hit Dice feed BAB, ranks and feat slots while character-level claus
     budgets: { generalFeats: 1 },
     selectionRules: { budgets: { generalFeats: 1 } },
   });
+});
+
+test.each(['remove', 'relink'])(
+  'unrelated earlier Selection %s preserves recorded warning acceptance',
+  (edit) => {
+    const input = prerequisiteSheet(
+      [selectedFeat('unrelated', 0), selectedFeat('required', 1)],
+      [
+        {
+          _id: 'unrelated',
+          ruleIdentity: 'feat/unrelated',
+          modifiers: [],
+          detail: { kind: 'feat' },
+        },
+        {
+          _id: 'required',
+          ruleIdentity: 'feat/required',
+          modifiers: [],
+          detail: { kind: 'feat' },
+          prerequisites: [{ ability: 'strength', min: 13 }],
+        },
+      ],
+    );
+    const warning = () =>
+      calculateCharacterSheet(input).warnings.find(
+        ({ check }) => check === 'prerequisites.recordedLevel',
+      );
+    const accepted = warning();
+    expect(accepted).toBeDefined();
+    input.entries =
+      edit === 'remove'
+        ? input.entries.filter((entry) => entry._id !== 'unrelated')
+        : input.entries.map((entry) =>
+            entry._id === 'unrelated'
+              ? { ...entry, gainedAtClassLevel: undefined }
+              : entry,
+          );
+    expect(warning()?.fingerprint).toBe(accepted?.fingerprint);
+  },
+);
+
+test.each(['item', 'manual', 'condition'] as const)(
+  'a dated %s stays outside Selection ordering and preserves recorded warning acceptance',
+  (kind) => {
+    const input = prerequisiteSheet(
+      [selectedFeat('required', 1)],
+      [
+        {
+          _id: 'required',
+          ruleIdentity: 'feat/required',
+          modifiers: [],
+          detail: { kind: 'feat' },
+          prerequisites: [{ ability: 'strength', min: 13 }],
+        },
+        {
+          _id: 'undated',
+          ruleIdentity: `${kind}/undated`,
+          modifiers: [],
+          detail: { kind },
+        },
+      ],
+    );
+    const warning = () =>
+      calculateCharacterSheet(input).warnings.find(
+        ({ check }) => check === 'prerequisites.recordedLevel',
+      );
+    const accepted = warning();
+    expect(accepted).toBeDefined();
+    const common = {
+      _id: 'undated-row',
+      active: true,
+      catalogEntryId: 'undated',
+      gainedAtClassLevel: 'level-1',
+      choiceOrder: 0,
+    };
+    const undated: SheetEntry =
+      kind === 'item'
+        ? { ...common, kind, state: { kind } }
+        : kind === 'manual'
+          ? { ...common, kind, state: { kind } }
+          : { ...common, kind, state: { kind } };
+    input.entries = [...input.entries, undated];
+    expect(warning()?.fingerprint).toBe(accepted?.fingerprint);
+    input.entries = input.entries.map((entry) =>
+      entry._id === 'undated-row' ? { ...entry, choiceOrder: 2 } : entry,
+    );
+    expect(warning()?.fingerprint).toBe(accepted?.fingerprint);
+    input.entries = input.entries.filter(
+      (entry) => entry._id !== 'undated-row',
+    );
+    expect(warning()?.fingerprint).toBe(accepted?.fingerprint);
+  },
+);
+
+test('reordering a relevant earlier Selection reopens only its recorded warning acceptance', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('benefit', 0), selectedFeat('required', 1)],
+    [
+      {
+        _id: 'benefit',
+        ruleIdentity: 'feat/benefit',
+        modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 1 }],
+        detail: { kind: 'feat' },
+      },
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ ability: 'strength', min: 13 }],
+      },
+    ],
+  );
+  const warnings = () =>
+    calculateCharacterSheet(input).warnings.filter(({ check }) =>
+      check.startsWith('prerequisites.'),
+    );
+  const accepted = warnings();
+  expect(accepted).toHaveLength(2);
+  input.entries = input.entries.map((entry) =>
+    entry._id === 'benefit' ? { ...entry, choiceOrder: 2 } : entry,
+  );
+  const changed = warnings();
+  expect(changed).toHaveLength(2);
+  expect(changed[0]?.fingerprint).toBe(accepted[0]?.fingerprint);
+  expect(changed[1]?.fingerprint).not.toBe(accepted[1]?.fingerprint);
 });

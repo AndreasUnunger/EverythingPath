@@ -18,6 +18,7 @@ import { FavoredClassesEditor } from './favored-classes-editor';
 import { OffenseBlock } from './offense-block';
 import { PersonalAdjustments } from './personal-adjustments';
 import { Proficiencies } from './proficiencies';
+import { SelectionOrderProvider } from './selection-order-context';
 import { SheetCatalogProvider } from './sheet-catalog-context';
 import { Block, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
@@ -96,202 +97,209 @@ function SheetBlocks({
       previewSituation={controller.previewSituation}
       adjustments={sheet.adjustments}
     >
-      <RemoteNotice
-        isShown={controller.warnings.hasRemoteChange}
-        message="Warnings updated by another player."
-        subject="warnings"
-        onDismiss={controller.warnings.dismissRemoteChange}
-      />
-      {blocks.map((block) => {
-        switch (block) {
-          case 'races':
-            return (
-              <CharacterSheetRaces
-                key={block}
-                races={sheet.races}
-                statistics={sheet.raceStatistics}
-                raceNames={sheet.raceNames}
-                calculated={sheet.calculated}
-                actions={controller.races}
-                grants={controller.grants}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-          case 'skills':
-            return <Skills key={block} controller={controller} />;
-          case 'equipment':
-            return (
-              <Equipment
-                key={block}
-                equipment={controller.equipment}
-                attacks={controller.attacks}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-          case 'attacks':
-            return (
-              <AttackRoutines
-                key={block}
-                attacks={controller.attacks}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-          case 'selections':
-            return (
-              <CharacterSheetSelections
-                key={`${block}:${sheet.character._id}`}
-                view={sheet.selections}
-                controls={controller.selections}
-                warnings={controller.warnings}
-                grantSections={sheet.grants.filter(
-                  (section) =>
-                    section.kind === 'feat' || section.kind === 'trait',
-                )}
-                grants={controller.grants}
-                sheetWarnings={sheet.warnings}
-              />
-            );
-          case 'proficiencies':
-            return (
-              <Proficiencies
-                key={block}
-                proficiencies={controller.proficiencies}
-              />
-            );
-          case 'archetypes':
-            return (
-              <CharacterSheetArchetypes
-                key={block}
-                archetypes={controller.archetypes}
-                section={findArchetypeSection(sheet.grants)}
-                featureNames={sheet.classFeatureNames}
-                grants={controller.grants}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-          case 'scores':
-            return (
-              <BaseScoresEditor
-                key={block}
-                scores={sheet.baseScores}
-                abilities={sheet.calculated.abilities}
-                creationSettings={sheet.calculated.creationSettings}
-                pointBuy={sheet.calculated.pointBuy}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-                breakdowns={sheet.calculated.breakdowns}
-                modifierBreakdowns={sheet.calculated.abilityModifierBreakdowns}
-                permanent={sheet.permanentCalculated.abilities}
-                save={controller.saveBaseScores}
-              />
-            );
-          case 'adjustments':
-            return (
-              <PersonalAdjustments
-                key={block}
-                rows={sheet.adjustments}
-                actions={controller.adjustments}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-          case 'abilityChanges':
-            return (
-              <AbilityChanges
-                key={block}
-                rows={sheet.abilityChanges}
-                actions={controller.abilityChanges}
-              />
-            );
-          case 'levels':
-            return (
-              <ClassLevels
-                key={block}
-                rows={sheet.levels}
-                metadata={sheet.calculated.classLevels}
-                classChoices={sheet.classChoices}
-                unplacedSelections={listUnplacedSelections(sheet)}
-                warnings={sheet.warnings}
-                advisory={sheet.warning}
-                showMissingChoices={sheet.showMissingChoices}
-                warningController={controller.warnings}
-                levels={controller.levels}
-                saveHitPoints={controller.saveHitPoints}
-                saveClassLevel={controller.saveClassLevel}
-              />
-            );
-          case 'settings':
-            return (
-              <CreationSettingsEditor
-                key={block}
-                settings={sheet.calculated.creationSettings}
-                save={controller.saveCreationSettings}
-              />
-            );
-          case 'favoredClasses':
-            return (
-              <Block key={block} title="Character">
-                <FavoredClassesEditor
-                  classChoices={sheet.classChoices}
-                  favoredClassIds={sheet.favoredClassIds}
+      <SelectionOrderProvider
+        controls={controller.selections}
+        view={sheet.selections}
+      >
+        <RemoteNotice
+          isShown={controller.warnings.hasRemoteChange}
+          message="Warnings updated by another player."
+          subject="warnings"
+          onDismiss={controller.warnings.dismissRemoteChange}
+        />
+        {blocks.map((block) => {
+          switch (block) {
+            case 'races':
+              return (
+                <CharacterSheetRaces
+                  key={block}
+                  races={sheet.races}
+                  statistics={sheet.raceStatistics}
+                  raceNames={sheet.raceNames}
+                  calculated={sheet.calculated}
+                  actions={controller.races}
+                  grants={controller.grants}
                   warnings={sheet.warnings}
                   warningController={controller.warnings}
-                  save={controller.saveFavoredClasses}
                 />
-              </Block>
-            );
-          case 'defenses':
-            return (
-              <DefensesBlock
-                key={block}
-                statistics={sheet.calculated.derivedStatistics}
-              />
-            );
-          case 'offense':
-            return (
-              <OffenseBlock
-                key={block}
-                statistics={sheet.calculated.derivedStatistics}
-              />
-            );
-          case 'summary':
-            return (
-              <SheetSummary
-                key={block}
-                name={sheet.character.name}
-                calculated={sheet.calculated}
-                incompleteHpReason={incompleteHpReason}
-              />
-            );
-          case 'catalog':
-            return <CharacterSheetCatalog key={block} />;
-          case 'grants':
-            return (
-              <CharacterSheetGrants
-                key={block}
-                sections={listGrantBlockSections(sheet.grants)}
-                actions={controller.grants}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-          case 'entries':
-            return (
-              <CharacterSheetEntries
-                key={block}
-                rows={sheet.sheetEntries}
-                conditionEffects={sheet.calculated.conditionEffects}
-                actions={controller.sheetEntries}
-                warnings={sheet.warnings}
-                warningController={controller.warnings}
-              />
-            );
-        }
-      })}
+              );
+            case 'skills':
+              return <Skills key={block} controller={controller} />;
+            case 'equipment':
+              return (
+                <Equipment
+                  key={block}
+                  equipment={controller.equipment}
+                  attacks={controller.attacks}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                />
+              );
+            case 'attacks':
+              return (
+                <AttackRoutines
+                  key={block}
+                  attacks={controller.attacks}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                />
+              );
+            case 'selections':
+              return (
+                <CharacterSheetSelections
+                  key={`${block}:${sheet.character._id}`}
+                  view={sheet.selections}
+                  controls={controller.selections}
+                  warnings={controller.warnings}
+                  grantSections={sheet.grants.filter(
+                    (section) =>
+                      section.kind === 'feat' || section.kind === 'trait',
+                  )}
+                  grants={controller.grants}
+                  sheetWarnings={sheet.warnings}
+                />
+              );
+            case 'proficiencies':
+              return (
+                <Proficiencies
+                  key={block}
+                  proficiencies={controller.proficiencies}
+                />
+              );
+            case 'archetypes':
+              return (
+                <CharacterSheetArchetypes
+                  key={block}
+                  archetypes={controller.archetypes}
+                  section={findArchetypeSection(sheet.grants)}
+                  featureNames={sheet.classFeatureNames}
+                  grants={controller.grants}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                />
+              );
+            case 'scores':
+              return (
+                <BaseScoresEditor
+                  key={block}
+                  scores={sheet.baseScores}
+                  abilities={sheet.calculated.abilities}
+                  creationSettings={sheet.calculated.creationSettings}
+                  pointBuy={sheet.calculated.pointBuy}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                  breakdowns={sheet.calculated.breakdowns}
+                  modifierBreakdowns={
+                    sheet.calculated.abilityModifierBreakdowns
+                  }
+                  permanent={sheet.permanentCalculated.abilities}
+                  save={controller.saveBaseScores}
+                />
+              );
+            case 'adjustments':
+              return (
+                <PersonalAdjustments
+                  key={block}
+                  rows={sheet.adjustments}
+                  actions={controller.adjustments}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                />
+              );
+            case 'abilityChanges':
+              return (
+                <AbilityChanges
+                  key={block}
+                  rows={sheet.abilityChanges}
+                  actions={controller.abilityChanges}
+                />
+              );
+            case 'levels':
+              return (
+                <ClassLevels
+                  key={block}
+                  rows={sheet.levels}
+                  metadata={sheet.calculated.classLevels}
+                  classChoices={sheet.classChoices}
+                  unplacedSelections={listUnplacedSelections(sheet)}
+                  warnings={sheet.warnings}
+                  advisory={sheet.warning}
+                  showMissingChoices={sheet.showMissingChoices}
+                  warningController={controller.warnings}
+                  levels={controller.levels}
+                  saveHitPoints={controller.saveHitPoints}
+                  saveClassLevel={controller.saveClassLevel}
+                />
+              );
+            case 'settings':
+              return (
+                <CreationSettingsEditor
+                  key={block}
+                  settings={sheet.calculated.creationSettings}
+                  save={controller.saveCreationSettings}
+                />
+              );
+            case 'favoredClasses':
+              return (
+                <Block key={block} title="Character">
+                  <FavoredClassesEditor
+                    classChoices={sheet.classChoices}
+                    favoredClassIds={sheet.favoredClassIds}
+                    warnings={sheet.warnings}
+                    warningController={controller.warnings}
+                    save={controller.saveFavoredClasses}
+                  />
+                </Block>
+              );
+            case 'defenses':
+              return (
+                <DefensesBlock
+                  key={block}
+                  statistics={sheet.calculated.derivedStatistics}
+                />
+              );
+            case 'offense':
+              return (
+                <OffenseBlock
+                  key={block}
+                  statistics={sheet.calculated.derivedStatistics}
+                />
+              );
+            case 'summary':
+              return (
+                <SheetSummary
+                  key={block}
+                  name={sheet.character.name}
+                  calculated={sheet.calculated}
+                  incompleteHpReason={incompleteHpReason}
+                />
+              );
+            case 'catalog':
+              return <CharacterSheetCatalog key={block} />;
+            case 'grants':
+              return (
+                <CharacterSheetGrants
+                  key={block}
+                  sections={listGrantBlockSections(sheet.grants)}
+                  actions={controller.grants}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                />
+              );
+            case 'entries':
+              return (
+                <CharacterSheetEntries
+                  key={block}
+                  rows={sheet.sheetEntries}
+                  conditionEffects={sheet.calculated.conditionEffects}
+                  actions={controller.sheetEntries}
+                  warnings={sheet.warnings}
+                  warningController={controller.warnings}
+                />
+              );
+          }
+        })}
+      </SelectionOrderProvider>
     </BreakdownResolverProvider>
   );
 }

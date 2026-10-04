@@ -1146,6 +1146,10 @@ function calculateSheetProjection({
       abilities,
       bab: breakdowns.bab.total,
       companionLinkedInputs: options.companionLinkedInputs,
+      skillRanks: Object.fromEntries(
+        skillProjection.skills.map(({ key, ranks }) => [key, ranks]),
+      ),
+      casting,
     },
     (prefix): PrerequisiteFacts => {
       // Plain feats/traits do not change numeric facts. Preserve every numeric
@@ -1178,13 +1182,24 @@ function calculateSheetProjection({
         prepared.levels,
         { input: prepared.input, abilityDamage: prepared.abilityDamage },
       );
+      const prefixAbilities = calculateAbilities(
+        result.breakdowns,
+        prepared.abilityDamage,
+      );
+      const prefixSkills = resolveSkills({
+        advancement: prepared.advancement,
+        abilities: prefixAbilities,
+        breakdowns: result.breakdowns,
+        equipment: prepared.equipment,
+      });
       const facts = {
-        abilities: calculateAbilities(
-          result.breakdowns,
-          prepared.abilityDamage,
-        ),
+        abilities: prefixAbilities,
         bab: result.breakdowns.bab.total,
         companionLinkedInputs: options.companionLinkedInputs,
+        skillRanks: Object.fromEntries(
+          prefixSkills.skills.map(({ key, ranks }) => [key, ranks]),
+        ),
+        casting: result.casting,
       };
       recordedFacts.set(key, facts);
       return facts;

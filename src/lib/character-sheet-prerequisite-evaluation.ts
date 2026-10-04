@@ -3,12 +3,12 @@ import type {
   CharacterSheetInput,
   SheetEntry,
 } from './character-sheet';
-import {
-  canonicalSkillKey,
-  sumRanksBySkill,
-  skillDefinitions,
-} from './character-sheet-skills';
+import { canonicalSkillKey, skillDefinitions } from './character-sheet-skills';
 import { classFamilyLevels } from './character-sheet-class-levels';
+import {
+  evaluateCastingPrerequisite,
+  type CastingPrerequisiteInputs,
+} from './character-sheet-spellcasting';
 import {
   resolveCharacterSheetRacialFacts,
   satisfiesRacialPrerequisite,
@@ -44,6 +44,8 @@ export type PrerequisiteFacts = {
   abilities: Record<Ability, { score: number }>;
   bab: number;
   companionLinkedInputs?: readonly CompanionLinkedInputResolution[];
+  skillRanks: Readonly<Record<string, number>>;
+  casting: CastingPrerequisiteInputs;
 };
 type Evaluation = { met: boolean | null; facts: unknown };
 type EvaluationContext = {
@@ -57,6 +59,9 @@ const numeric = (value: number, minimum: number): Evaluation => ({
   facts: value,
 });
 const possession = (held: boolean): Evaluation => ({ met: held, facts: held });
+const prerequisiteMet = (
+  result: 'met' | 'unmet' | 'unresolved',
+): boolean | null => (result === 'unresolved' ? null : result === 'met');
 function linkedNumeric(
   input: CompanionLinkedInput,
   minimum: number,
@@ -75,12 +80,75 @@ function linkedNumeric(
     evaluate: (value) => (value >= minimum ? 'met' : 'unmet'),
   });
   return {
-    met: status === 'unresolved' ? null : status === 'met',
+    met: prerequisiteMet(status),
     facts: resolution.value,
   };
 }
 const featureName = (value: string) =>
   normalize(value).replace(/\s*\(uc\)$/, '');
+
+function castingSpells(
+  input: CharacterSheetInput,
+  facts: PrerequisiteFacts,
+  requiredIdentity: string,
+) {
+  const recorded = input.entries.flatMap((entry) => {
+    if (!entry.active || entry.kind !== 'spell') return [];
+    const casting = facts.casting.spellcastings.find(
+      (candidate) => candidate.classEntryId === entry.state.castingClassId,
+    );
+    const definition = definitionFor(entry, input);
+    if (!casting || !definition) return [];
+    const level =
+      definition.detail?.kind === 'spell'
+        ? (definition.detail.levels?.[casting.classTag] ?? entry.state.level)
+        : entry.state.level;
+    return [
+      {
+        ruleIdentity: definition.ruleIdentity,
+        classEntryId: casting.classEntryId,
+        spellLevel: level,
+        source: entry.grantKey ? ('granted' as const) : ('recorded' as const),
+      },
+    ];
+  });
+  const unresolvedLevel = recorded.some(
+    (spell) =>
+      spell.ruleIdentity === requiredIdentity &&
+      typeof spell.spellLevel !== 'number',
+  );
+  const classLists = facts.casting.spellcastings.flatMap((casting) =>
+    casting.record !== 'none'
+      ? []
+      : input.catalogEntries.flatMap((definition) => {
+          const level =
+            definition.detail?.kind === 'spell'
+              ? definition.detail.levels?.[casting.classTag]
+              : undefined;
+          return level === undefined
+            ? []
+            : [
+                {
+                  ruleIdentity: definition.ruleIdentity,
+                  classEntryId: casting.classEntryId,
+                  spellLevel: level,
+                  source: 'classList' as const,
+                },
+              ];
+        }),
+  );
+  return {
+    spells: [
+      ...recorded.flatMap((spell) =>
+        typeof spell.spellLevel === 'number'
+          ? [{ ...spell, spellLevel: spell.spellLevel }]
+          : [],
+      ),
+      ...classLists,
+    ],
+    unresolvedLevel,
+  };
+}
 function assertNever(value: never): never {
   throw new Error(`Unsupported prerequisite: ${JSON.stringify(value)}`);
 }
@@ -132,19 +200,7 @@ export function evaluatePrerequisite(
         clause.min,
         facts,
       );
-      if (linked) return linked;
-      const ranks = input.entries
-        .filter((row) => row.active)
-        .reduce((sum, row) => {
-          const values =
-            row.kind === 'classLevel'
-              ? row.state.skillRanks
-              : row.kind === 'race'
-                ? row.state.racialSkillRanks
-                : undefined;
-          return sum + (sumRanksBySkill(values ?? {})[key] ?? 0);
-        }, 0);
-      return numeric(ranks, clause.min);
+      return linked ?? numeric(facts.skillRanks[key] ?? 0, clause.min);
     }
     case 'feat': {
       const held = input.entries.filter(
@@ -272,9 +328,82 @@ export function evaluatePrerequisite(
         facts: relevantProficiencyFacts(proficiency, resolved, input),
       };
     }
-    case 'casterLevel':
-    case 'canCast':
-    case 'castsSpell':
+    case 'casterLevel': {
+      const result = evaluateCastingPrerequisite(clause, facts.casting);
+      const levels = facts.casting.spellcastings.filter(
+        (casting) => !casting.unresolved.includes('casterLevel'),
+      );
+      return {
+        met: prerequisiteMet(result),
+        facts: Math.max(
+          0,
+          ...levels.map((casting) => casting.casterLevel?.total ?? 0),
+        ),
+      };
+    }
+    case 'canCast': {
+      const result = evaluateCastingPrerequisite(clause, facts.casting);
+      return {
+        met: prerequisiteMet(result),
+        facts: [
+          ...new Set(
+            facts.casting.spellcastings
+              .filter(
+                (casting) =>
+                  !clause.canCast.kind ||
+                  casting.spellKind === clause.canCast.kind,
+              )
+              .flatMap((casting) =>
+                casting.castableSpellLevels.filter(
+                  (level) => level <= clause.canCast.spellLevel,
+                ),
+              ),
+          ),
+        ].sort((left, right) => left - right),
+      };
+    }
+    case 'castsSpell': {
+      const spells = castingSpells(input, facts, clause.castsSpell);
+      const requiredSpell = input.catalogEntries.find(
+        (definition) => definition.ruleIdentity === clause.castsSpell,
+      );
+      const unavailableList =
+        facts.casting.spellcastings.some(
+          (casting) => casting.record === 'none',
+        ) &&
+        (requiredSpell?.detail?.kind !== 'spell' ||
+          !requiredSpell.detail.levels);
+      const result = evaluateCastingPrerequisite(clause, {
+        ...facts.casting,
+        spellcastingUnresolved: [
+          ...(facts.casting.spellcastingUnresolved ?? []),
+          ...(unavailableList ? ['spellList'] : []),
+          ...(spells.unresolvedLevel ? ['spellLevel'] : []),
+        ],
+        spells: spells.spells,
+      });
+      return {
+        met: prerequisiteMet(result),
+        facts: [
+          ...new Set(
+            spells.spells
+              .filter((spell) => spell.ruleIdentity === clause.castsSpell)
+              .map((spell) =>
+                JSON.stringify({
+                  spellLevel: spell.spellLevel,
+                  castableSpellLevels: facts.casting.spellcastings
+                    .find(
+                      (casting) => casting.classEntryId === spell.classEntryId,
+                    )
+                    ?.castableSpellLevels.filter(
+                      (level) => level <= spell.spellLevel,
+                    ),
+                }),
+              ),
+          ),
+        ].sort(),
+      };
+    }
     case 'unchecked':
       return unresolved;
     default:

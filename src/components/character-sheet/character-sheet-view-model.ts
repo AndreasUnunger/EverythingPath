@@ -6,7 +6,10 @@ import {
   isCatalogSheetDefinition,
 } from '~/lib/character-sheet-entries';
 import { buildCharacterSheetGrantsView } from './character-sheet-grants-view-model';
-import { buildCharacterSheetSelectionsView } from './character-sheet-selections-view-model';
+import {
+  buildCharacterSheetSelectionsView,
+  buildEntryPrerequisiteView,
+} from './character-sheet-selections-view-model';
 import {
   buildCharacterSheetRacesView,
   buildRaceStatisticsView,
@@ -25,6 +28,10 @@ export function buildCharacterSheetView(
     ...snapshot.calculated,
     breakdowns: parseCharacterSheetBreakdowns(snapshot.calculated.breakdowns),
   };
+  const selections = buildCharacterSheetSelectionsView(snapshot);
+  const selectionsById = new Map(
+    selections.allRows.map((row) => [row.rowId, row]),
+  );
   const resolvedByStoredId = new Map(
     calculated.resolvedEntries.map((resolved) => [
       resolved.storedEntryId,
@@ -70,13 +77,18 @@ export function buildCharacterSheetView(
         snapshot.permanentCalculated.breakdowns,
       ),
     },
-    grants: buildCharacterSheetGrantsView(
-      calculated.resolvedEntries,
-      snapshot.catalogEntries,
+    grants: buildCharacterSheetGrantsView({
+      entries: calculated.resolvedEntries,
+      catalogEntries: snapshot.catalogEntries,
       classLevelIds,
+      selectionRows: selections.allRows,
+    }),
+    races: buildCharacterSheetRacesView(
+      snapshot,
+      catalogChoices,
+      selections.allRows,
     ),
-    races: buildCharacterSheetRacesView(snapshot, catalogChoices),
-    selections: buildCharacterSheetSelectionsView(snapshot),
+    selections,
     raceStatistics: buildRaceStatisticsView(snapshot),
     raceNames: listRaceNames(snapshot),
     classFeatureNames: Object.fromEntries(
@@ -96,6 +108,7 @@ export function buildCharacterSheetView(
         throw new Error('Character Sheet Entry is unavailable.');
       return {
         entryId: entry._id,
+        selection: selectionsById.get(entry._id),
         active: entry.active,
         name: catalog.name,
         modifiers: catalog.modifiers,
@@ -124,6 +137,7 @@ export function buildCharacterSheetView(
           throw new Error('Personal adjustment is unavailable.');
         return {
           entryId: entry._id,
+          selection: selectionsById.get(entry._id),
           catalogEntryId: catalogEntry._id,
           active: entry.active,
           name: catalogEntry.name,
@@ -159,6 +173,16 @@ export function buildCharacterSheetView(
         );
         return {
           ...entry,
+          prerequisites: buildEntryPrerequisiteView({
+            snapshot,
+            entryId: entry._id,
+            recordedLevelPosition: snapshot.calculated.prerequisites.some(
+              (check) =>
+                check.entryId === entry._id && check.view === 'recorded',
+            )
+              ? entry.state.position
+              : null,
+          }),
           className: selected?.name ?? 'Unspecified',
           isUnspecified: selected === undefined,
         };

@@ -1,11 +1,29 @@
 import type { SelectionReference } from './character-sheet-grants';
+import type { SheetEntry } from './character-sheet';
 
 type RecordedSelection<LevelId extends string> = {
   _id: string;
+  kind: SheetEntry['kind'];
+  active: boolean;
   gainedAtClassLevel?: LevelId;
   choiceOrder?: number;
   notes?: string;
 };
+
+const undatedKinds = new Set<SheetEntry['kind']>([
+  'base',
+  'race',
+  'item',
+  'manual',
+  'condition',
+  'spellEffect',
+  'abilityDamage',
+  'abilityDrain',
+]);
+
+export function isUndatedSheetEntry(entry: Pick<SheetEntry, 'kind'>) {
+  return undatedKinds.has(entry.kind);
+}
 
 /** Missing orders use the recorded row's place within its level. */
 export function selectionOrdersAtLevel<LevelId extends string>(
@@ -16,6 +34,8 @@ export function selectionOrdersAtLevel<LevelId extends string>(
   for (const entry of entries) {
     if (
       entry.gainedAtClassLevel !== levelId ||
+      !entry.active ||
+      isUndatedSheetEntry(entry) ||
       ('grantKey' in entry && entry.grantKey)
     )
       continue;
@@ -23,6 +43,15 @@ export function selectionOrdersAtLevel<LevelId extends string>(
     positions.set(entry._id, { order: entry.choiceOrder ?? index, index });
   }
   return positions;
+}
+
+export function orderedSelectionIdsAtLevel<LevelId extends string>(
+  entries: readonly RecordedSelection<LevelId>[],
+  levelId: LevelId,
+): string[] {
+  return [...selectionOrdersAtLevel(entries, levelId)]
+    .sort(([, a], [, b]) => a.order - b.order || a.index - b.index)
+    .map(([id]) => id);
 }
 
 /** New recorded levels append in the order Selections are added. */

@@ -11,11 +11,9 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import { Textarea } from '~/components/ui/textarea';
-import { numberPattern } from './numeric-form-fields';
 import { action, fieldLabel } from './sheet-parts';
 import type {
   SelectionControls,
@@ -23,38 +21,12 @@ import type {
 } from './selection-view-types';
 import type { SelectionEditInput } from './use-character-sheet-selections';
 
-/**
- * Choice order is shown counting from 1. Empty is required once an order is
- * recorded, and reads differently from text that is not a whole number.
- */
-function orderField(isRequired: boolean) {
-  return z.string().superRefine((raw, context) => {
-    const value = raw.trim();
-    if (!value) {
-      if (isRequired)
-        context.addIssue({ code: 'custom', message: 'Enter a choice order.' });
-      return;
-    }
-    if (!numberPattern.test(value) || !Number.isFinite(Number(value)))
-      context.addIssue({
-        code: 'custom',
-        message: 'Choice order must be a number.',
-      });
-    else if (!Number.isSafeInteger(Number(value)) || Number(value) < 1)
-      context.addIssue({
-        code: 'custom',
-        message: 'Choice order must be a whole number of 1 or more.',
-      });
-  });
-}
-
-type Values = { choice: string; notes: string; order: string };
+type Values = { choice: string; notes: string };
 
 function toValues(row: SelectionRowView): Values {
   return {
     choice: row.choice ?? '',
     notes: row.notes,
-    order: row.choiceOrder === null ? '' : String(row.choiceOrder + 1),
   };
 }
 
@@ -64,25 +36,20 @@ function listChanges(row: SelectionRowView, values: Values) {
   const choice = values.choice.trim() || null;
   if (choice !== row.choice) changes.choice = choice;
   if (values.notes !== row.notes) changes.notes = values.notes;
-  const order = values.order.trim() ? Number(values.order) - 1 : null;
-  if (order !== row.choiceOrder) changes.choiceOrder = order;
   return changes;
 }
 
 /**
- * A saved feat or trait's own record, edited in place: its choice, notes
- * and, while it is tied to a level, its order among that level's Selections.
- * The editor stays open with the player's input until the save succeeds.
+ * A saved feat or trait's own record, edited in place: its choice and notes.
+ * Its order within its level moves with the row's Earlier and Later. The
+ * editor stays open with the player's input until the save succeeds.
  */
 export function SelectionRowEditor({
   row,
-  hasLevel,
   controls,
   onClose,
 }: {
   row: SelectionRowView & { entryId: NonNullable<SelectionRowView['entryId']> };
-  /** Whether the row is tied to a Class Level, so its order matters. */
-  hasLevel: boolean;
   controls: SelectionControls;
   onClose: () => void;
 }) {
@@ -93,7 +60,6 @@ export function SelectionRowEditor({
       z.object({
         choice: z.string(),
         notes: z.string(),
-        order: orderField(hasLevel && row.choiceOrder !== null),
       }),
     ),
     values: toValues(row),
@@ -104,7 +70,6 @@ export function SelectionRowEditor({
 
   async function save(values: Values) {
     const changes = listChanges(row, values);
-    if (!hasLevel) delete changes.choiceOrder;
     if (Object.keys(changes).length === 0) {
       onClose();
       return;
@@ -124,51 +89,25 @@ export function SelectionRowEditor({
           void form.handleSubmit(save)();
         }}
       >
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-          <FormField
-            control={form.control}
-            name="choice"
-            render={({ field }) => (
-              <FormItem className="min-w-0 flex-1 basis-40 gap-0.5">
-                <FormLabel className={fieldLabel}>
-                  Choice <span className="sr-only">for {row.name}</span>
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoFocus
-                    autoComplete="off"
-                    className="h-11 md:h-8"
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          {hasLevel ? (
-            <FormField
-              control={form.control}
-              name="order"
-              render={({ field, fieldState }) => (
-                <FormItem className="w-36 gap-0.5">
-                  <FormLabel className={fieldLabel}>Choice order</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      className="h-11 font-mono md:h-8"
-                    />
-                  </FormControl>
-                  <FormMessage
-                    role={fieldState.error ? 'alert' : undefined}
-                    className="text-xs [overflow-wrap:anywhere]"
-                  />
-                </FormItem>
-              )}
-            />
-          ) : null}
-        </div>
+        <FormField
+          control={form.control}
+          name="choice"
+          render={({ field }) => (
+            <FormItem className="gap-0.5">
+              <FormLabel className={fieldLabel}>
+                Choice <span className="sr-only">for {row.name}</span>
+              </FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  autoFocus
+                  autoComplete="off"
+                  className="h-11 md:h-8"
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="notes"

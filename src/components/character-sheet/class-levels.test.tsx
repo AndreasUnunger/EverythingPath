@@ -895,3 +895,53 @@ test('racial Hit Dice count toward Hit Dice but not Level, ability increases acc
     ),
   ).toBeVisible();
 });
+
+test('a Prestige Class shows its entry prerequisites now and at its first level apart, each accepted alone, and its later levels show none', () => {
+  const input = withPrestigeRogue(
+    buildSheet({
+      levels: [
+        { id: 'a', hp: 8, classId: 'rogue' },
+        { id: 'b', hp: 8, classId: 'rogue' },
+      ],
+    }),
+  );
+  const catalogEntries = input.catalogEntries.map((entry) =>
+    entry._id === 'rogue'
+      ? { ...entry, prerequisites: [{ ability: 'strength' as const, min: 13 }] }
+      : entry,
+  );
+  const calculated = calculateCharacterSheetProjections({
+    characterKind: 'pc',
+    entries: input.entries,
+    catalogEntries,
+  });
+  renderSheet({
+    ...input,
+    catalogEntries,
+    calculated: calculated.current,
+    permanentCalculated: calculated.permanent,
+  });
+  const first = within(row(1));
+  const now = within(first.getByRole('group', { name: 'Prerequisites now' }));
+  const atLevel = within(
+    first.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  );
+  expect(now.getByText('Prerequisites not met')).toBeVisible();
+  expect(
+    now.getByRole('list', { name: 'Prerequisites now' }),
+  ).toHaveTextContent('Strength 13 not met');
+  expect(atLevel.getByText('Prerequisites not met')).toBeVisible();
+  const accept = now.getByRole('button', { name: /^Accept / });
+  fireEvent.click(accept);
+  expect(calls.at(-1)).toMatchObject({
+    name: 'accept',
+    args: { check: 'prerequisites.current' },
+  });
+  expect(atLevel.getByRole('button', { name: /^Accept / })).toBeEnabled();
+  expect(
+    within(row(2)).queryByRole('group', { name: /^Prerequisites/ }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: /(earlier|later) at level/ }),
+  ).toBeNull();
+});

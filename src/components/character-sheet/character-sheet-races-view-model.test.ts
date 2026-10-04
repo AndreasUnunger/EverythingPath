@@ -162,15 +162,17 @@ test('a Catalog Copy offers the original race’s independent subrace options wi
 test('race equivalence choices on a feat are available through its Selection target', () => {
   const snapshot = fixture();
   const view = buildCharacterSheetRacesView(snapshot);
-  expect(view.choiceRows).toContainEqual({
-    rowId: 'heritage-row',
-    name: 'Heritage',
-    target: { entryId: 'heritage-row' },
-    counting: true,
-    abilityScoreChoice: false,
-    raceChoices: ['human', 'orc'],
-    choice: 'human',
-  });
+  expect(view.choiceRows).toContainEqual(
+    expect.objectContaining({
+      rowId: 'heritage-row',
+      name: 'Heritage',
+      target: { entryId: 'heritage-row' },
+      counting: true,
+      abilityScoreChoice: false,
+      raceChoices: ['human', 'orc'],
+      choice: 'human',
+    }),
+  );
 });
 
 test.each([true, false])(
@@ -233,4 +235,48 @@ test('the alternate picker excludes all known standards even when a Catalog Copy
       (option) => option.catalogEntryId === snapshot.ids.standard,
     ),
   ).toBe(false);
+});
+
+test('a racial Grant exposes separate current prerequisite warnings without inventing a recorded level', () => {
+  const snapshot = fixture();
+  const catalogEntries = snapshot.catalogEntries.map((definition) =>
+    definition._id === snapshot.ids.standard
+      ? {
+          ...definition,
+          prerequisites: [{ ability: 'strength' as const, min: 13 }],
+        }
+      : definition,
+  );
+  const entries = snapshot.entries.map((entry) =>
+    entry.kind === 'race'
+      ? {
+          ...entry,
+          catalogEntryId: catalogEntries.find(
+            (definition) => definition.name === 'Elf',
+          )!._id,
+        }
+      : entry,
+  );
+  const calculated = calculateCharacterSheet({
+    entries,
+    catalogEntries,
+    characterKind: 'pc',
+  });
+  const view = buildCharacterSheetRacesView({
+    ...snapshot,
+    entries,
+    catalogEntries,
+    calculated,
+  });
+  const row = view.rows.find((row) => row.name === 'Elf standard')!;
+  expect(row.selection).toMatchObject({
+    currentStatus: 'unmet',
+    recordedStatus: null,
+    recordedLevelLabel: null,
+    recordedChecks: [],
+    recordedWarnings: [],
+    canMoveEarlier: false,
+    canMoveLater: false,
+  });
+  expect(row.selection?.currentWarnings).toHaveLength(1);
 });

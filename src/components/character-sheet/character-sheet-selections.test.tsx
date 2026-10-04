@@ -6,6 +6,10 @@ import { ConvexError } from 'convex/values';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { calculateCharacterSheet } from '~/lib/character-sheet';
+import {
+  createCatalogSheetEntryState,
+  type SelectableCatalogSheetEntryKind,
+} from '~/lib/character-sheet-entries';
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import {
   buildSheet,
@@ -83,7 +87,7 @@ const selectionCatalog = representativeSelectionCatalog.map(
       _creationTime: 7,
       scope: 'character',
       characterId,
-    }) as unknown as CatalogEntry,
+    }) as CatalogEntry,
 );
 const bonusFeatId = (classLevel: number) => `fighter-bonus-feat-${classLevel}`;
 const fighterBonusFeats = (classLevels: number[]) =>
@@ -97,7 +101,7 @@ const fighterBonusFeats = (classLevels: number[]) =>
       _creationTime: 7,
       scope: 'character',
       characterId,
-    } as unknown as CatalogEntry;
+    } as CatalogEntry;
   });
 const faithful = {
   ...selectionCatalog[0]!,
@@ -106,7 +110,7 @@ const faithful = {
   ruleIdentity: 'faithful-strike',
   prerequisites: [{ alignment: ['LG'] }],
   prerequisiteText: 'Lawful good.',
-} as unknown as CatalogEntry;
+} as CatalogEntry;
 
 function selectionEntry(selection: Selection): Entry {
   const catalog =
@@ -209,6 +213,15 @@ function selectionSheet({
     ),
     ...fighterBonusFeats(bonusFeatLevels),
     ...selectionCatalog,
+    ...bonusFeatLevels.map((classLevel) => ({
+      ...sheet.baseScoresEntry,
+      _id: `fighter-bonus-feat-${classLevel}` as Id<'catalogEntry'>,
+      name: 'Fighter Bonus Feat',
+      ruleIdentity: `fighter-bonus-feat-${classLevel}`,
+      modifiers: [],
+      detail: { kind: 'classFeature' as const },
+      grantsSlots: [{ kind: 'feat' as const, count: 1, featTypes: ['combat'] }],
+    })),
     faithful,
   ];
   const entries = [
@@ -408,6 +421,12 @@ test('the picker shows unmet supported prerequisites, still adds the feat, and r
   expect(
     staged.getByRole('list', { name: 'Prerequisites at recorded level 1' }),
   ).toBeVisible();
+  expect(
+    staged.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  ).not.toContainElement(
+    staged.getByRole('list', { name: 'Prerequisites now' }),
+  );
+  expect(staged.queryByRole('button', { name: /^Accept/ })).toBeNull();
   await submit(choose.getByRole('button', { name: 'Add Power Attack' }));
   expect(lastCall('fillSelectionSlot').args).toMatchObject({
     slotId: 'feat:general',
@@ -537,7 +556,7 @@ test('an ordinary trait in the Drawback slot is allowed and its advisory can be 
   });
 });
 
-test('a saved feat keeps its name, Level gained and Remove on the first line, with its description below and Order, Edit and Replace after', () => {
+test('a saved feat keeps its name, Level gained and Remove on the first line, with its description below and its order, Edit and Replace after', () => {
   const description = 'Trade melee accuracy for bonus damage.';
   renderSelections(
     withCatalogText(
@@ -558,7 +577,7 @@ test('a saved feat keeps its name, Level gained and Remove on the first line, wi
   const below = [
     saved.getByText(description),
     saved.getByText('Prerequisites: Str 13, base attack bonus +1.'),
-    saved.getByText('Order 1'),
+    saved.getByText('Order 1 of 1'),
     saved.getByRole('button', { name: 'Edit Power Attack' }),
     saved.getByRole('button', { name: 'Replace Power Attack' }),
   ];
@@ -653,28 +672,26 @@ test('current and recorded-level warnings are separate and each Accept or Reopen
   });
 });
 
-test('a saved feat edits its choice and same-level order, and undoing its level keeps only the current check', async () => {
+test('a saved feat edits its choice without an order field, and undoing its level keeps only the current check', async () => {
   const view = renderSelections(selectionSheet({ selections: [powerAttack] }));
   const saved = row('Power Attack');
-  expect(saved.getByText('Order 1')).toBeVisible();
+  expect(saved.getByText('Order 1 of 1')).toBeVisible();
   fireEvent.click(saved.getByRole('button', { name: 'Edit Power Attack' }));
   const editor = within(
     screen.getByRole('form', { name: 'Edit Power Attack' }),
   );
+  expect(editor.queryByRole('textbox', { name: /order/i })).toBeNull();
   fireEvent.change(editor.getByRole('textbox', { name: /Choice for/ }), {
     target: { value: ' Longsword ' },
-  });
-  fireEvent.change(editor.getByRole('textbox', { name: 'Choice order' }), {
-    target: { value: '2' },
   });
   fireEvent.click(editor.getByRole('button', { name: 'Save Power Attack' }));
   await act(async () => undefined);
   expect(lastCall('editSelection').args).toMatchObject({
     entryId: 'power-attack-entry',
     choice: 'Longsword',
-    choiceOrder: 1,
   });
   expect(lastCall('editSelection').args).not.toHaveProperty('notes');
+  expect(lastCall('editSelection').args).not.toHaveProperty('choiceOrder');
   await settle(lastCall('editSelection'));
   expect(screen.queryByRole('form', { name: 'Edit Power Attack' })).toBeNull();
   expect(
@@ -696,34 +713,14 @@ test('a saved feat edits its choice and same-level order, and undoing its level 
     saved.queryByRole('group', { name: /Prerequisites at recorded level/ }),
   ).toBeNull();
   expect(
-    saved.getByText('Power Attack: Strength 13 not met now.'),
+    within(saved.getByRole('group', { name: 'Prerequisites now' })).getByText(
+      'Power Attack: Strength 13 not met now.',
+    ),
   ).toBeVisible();
-  expect(saved.queryByText(/^Order/)).toBeNull();
-});
-
-test('choice order is required once recorded and must be a whole number, in the field, without a write', async () => {
-  renderSelections(selectionSheet({ selections: [powerAttack] }));
-  fireEvent.click(
-    row('Power Attack').getByRole('button', { name: 'Edit Power Attack' }),
-  );
-  const editor = within(
-    screen.getByRole('form', { name: 'Edit Power Attack' }),
-  );
-  const order = editor.getByRole('textbox', { name: 'Choice order' });
-  const save = editor.getByRole('button', { name: 'Save Power Attack' });
-  for (const [value, message] of [
-    ['', 'Enter a choice order.'],
-    ['first', 'Choice order must be a number.'],
-    ['1.5', 'Choice order must be a whole number of 1 or more.'],
-    ['0', 'Choice order must be a whole number of 1 or more.'],
-  ] as const) {
-    fireEvent.change(order, { target: { value } });
-    fireEvent.click(save);
-    await act(async () => undefined);
-    expect(editor.getByRole('alert')).toHaveTextContent(message);
-    expect(order).toHaveAttribute('aria-invalid', 'true');
-  }
-  expect(calls.filter((call) => call.name === 'editSelection')).toEqual([]);
+  expect(saved.queryByText(/^Order \d+ of/)).toBeNull();
+  expect(
+    saved.queryByRole('button', { name: /^Move Power Attack/ }),
+  ).toBeNull();
 });
 
 test('Remove clears one slot and keeps the other rows, Replace refills a trait in place, and a Grant offers no ordinary removal', async () => {
@@ -988,4 +985,575 @@ test('dense rows wrap long names and prose, keep touch-sized controls on the pho
   expect(screen.queryByRole('group', { name: /Choose a trait/ })).toBeNull();
   expect(add).toHaveFocus();
   expect(add).toHaveAttribute('aria-expanded', 'false');
+});
+
+// Within-level order and the separate prerequisite groups on every
+// Selection row (#320): feats here, the other kinds in their own blocks.
+
+type DatedKind = SelectableCatalogSheetEntryKind;
+type DatedSelection = {
+  id: string;
+  kind: DatedKind;
+  name: string;
+  level?: string;
+  order?: number;
+  active?: boolean;
+  prerequisites?: CatalogEntry['prerequisites'];
+  /** Definitions this one grants, by catalog ID. */
+  grants?: string[];
+};
+
+const raceCatalogId = 'sky-folk-catalog' as Id<'catalogEntry'>;
+function datedDefinition(selection: DatedSelection): CatalogEntry {
+  const details: Record<DatedKind, CatalogEntry['detail']> = {
+    race: { kind: 'race', racialTraits: [] },
+    racialTrait: {
+      kind: 'racialTrait',
+      raceEntryIds: [raceCatalogId],
+      replaces: [],
+    },
+    archetype: { kind: 'archetype', classEntryIds: [], replaces: [], adds: [] },
+    classFeature: { kind: 'classFeature' },
+    feat: { kind: 'feat' },
+    trait: { kind: 'trait' },
+    manual: { kind: 'manual' },
+    item: { kind: 'item', consumable: false },
+    spell: { kind: 'spell' },
+    spellEffect: {
+      kind: 'spellEffect',
+      lastsOverOneDay: false,
+      defaultCasterLevel: 1,
+    },
+    condition: { kind: 'condition' },
+  };
+  return {
+    ...selectionCatalog[0]!,
+    _id: (selection.kind === 'race'
+      ? raceCatalogId
+      : `${selection.id}-catalog`) as Id<'catalogEntry'>,
+    name: selection.name,
+    ruleIdentity: `${selection.id}-rule`,
+    modifiers: [],
+    detail: details[selection.kind],
+    prerequisites: selection.prerequisites ?? [],
+    prerequisiteText: undefined,
+    ...(selection.grants
+      ? {
+          grants: selection.grants.map((catalogEntryId) => ({
+            catalogEntryId,
+          })),
+        }
+      : {}),
+  } as CatalogEntry;
+}
+
+function datedEntry(selection: DatedSelection): Entry {
+  return {
+    _id: selection.id as Id<'characterSheetEntry'>,
+    _creationTime: 80,
+    characterId,
+    ...createCatalogSheetEntryState(selection.kind),
+    active: selection.active ?? true,
+    catalogEntryId: datedDefinition(selection)._id,
+    ...(selection.level ? { gainedAtClassLevel: selection.level } : {}),
+    ...(selection.order !== undefined ? { choiceOrder: selection.order } : {}),
+  } as Entry;
+}
+
+/** Feats and traits from `selectionSheet`, with other dated Selections. */
+function mixedSheet({
+  dated,
+  definitions = [],
+  ...options
+}: Parameters<typeof selectionSheet>[0] & {
+  dated: DatedSelection[];
+  /** Definitions without an entry of their own, such as granted ones. */
+  definitions?: CatalogEntry[];
+}): CharacterSheetSnapshot {
+  const sheet = selectionSheet(options);
+  const entries = [...sheet.entries, ...dated.map(datedEntry)];
+  const catalogEntries = [
+    ...sheet.catalogEntries,
+    ...dated.map(datedDefinition),
+    ...definitions,
+  ];
+  const input = { entries, catalogEntries, characterKind: 'pc' as const };
+  return {
+    ...sheet,
+    entries,
+    catalogEntries,
+    calculated: calculateCharacterSheet(input),
+    permanentCalculated: calculateCharacterSheet(input, {
+      permanentOnly: true,
+    }),
+  };
+}
+
+function renderBlocks(
+  initial: CharacterSheetSnapshot,
+  blocks: Parameters<typeof CharacterSheetBlocks>[0]['blocks'],
+) {
+  snapshot = initial;
+  const view = render(<CharacterSheetBlocks blocks={blocks} />);
+  return (next: CharacterSheetSnapshot) => {
+    snapshot = next;
+    view.rerender(<CharacterSheetBlocks blocks={blocks} />);
+  };
+}
+
+const region = (name: string) => within(screen.getByRole('region', { name }));
+const moveButton = (name: string, direction: 'earlier' | 'later') =>
+  screen.getByRole('button', {
+    name: `Move ${name} ${direction} at level 1`,
+  });
+
+const strength13 = [{ ability: 'strength' as const, min: 13 }];
+const skyFolk: DatedSelection = {
+  id: 'race-entry',
+  kind: 'race',
+  name: 'Sky folk',
+};
+const talent: DatedSelection = {
+  id: 'talent-entry',
+  kind: 'classFeature',
+  name: 'Combat talent',
+  level: 'level-1',
+  order: 1,
+  prerequisites: strength13,
+};
+const senses: DatedSelection = {
+  id: 'senses-entry',
+  kind: 'racialTrait',
+  name: 'Keen senses',
+  level: 'level-1',
+  order: 2,
+};
+
+test('feat, class feature and racial trait rows at one level move earlier or later among each other, by button or Alt+Arrow, and keep focus', async () => {
+  const sheet = (orders: [number, number, number]) =>
+    mixedSheet({
+      selections: [{ ...powerAttack, order: orders[0] }],
+      dated: [
+        skyFolk,
+        { ...talent, order: orders[1] },
+        { ...senses, order: orders[2] },
+      ],
+    });
+  const rerender = renderBlocks(sheet([0, 1, 2]), [
+    'races',
+    'selections',
+    'grants',
+  ]);
+  expect(moveButton('Power Attack', 'earlier')).toBeDisabled();
+  expect(moveButton('Power Attack', 'later')).toBeEnabled();
+  expect(row('Power Attack').getByText('Order 1 of 3')).toBeVisible();
+  const talentRow = within(
+    region('Class features').getByRole('listitem', { name: 'Combat talent' }),
+  );
+  expect(talentRow.getByText('Order 2 of 3')).toBeVisible();
+  expect(moveButton('Combat talent', 'earlier')).toBeEnabled();
+  expect(moveButton('Combat talent', 'later')).toBeEnabled();
+  expect(
+    region('Race').getByRole('button', {
+      name: 'Move Keen senses earlier at level 1',
+    }),
+  ).toBeEnabled();
+  expect(moveButton('Keen senses', 'later')).toBeDisabled();
+
+  // Native buttons: touch, Enter and Space all activate them.
+  const later = moveButton('Combat talent', 'later');
+  expect(later.tagName).toBe('BUTTON');
+  expect(later).toHaveAttribute('type', 'button');
+  expect(later).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
+  expect(later.className).toContain('size-11');
+  expect(later.parentElement?.className).toContain('flex-wrap');
+  later.focus();
+  fireEvent.click(later);
+  await act(async () => undefined);
+  expect(calls.filter((call) => call.name === 'moveSelection')).toHaveLength(1);
+  expect(lastCall('moveSelection').args).toMatchObject({
+    entryId: 'talent-entry',
+    direction: 'later',
+  });
+  await settle(lastCall('moveSelection'));
+  rerender(sheet([0, 2, 1]));
+  expect(talentRow.getByText('Order 3 of 3')).toBeVisible();
+  expect(moveButton('Combat talent', 'later')).toBeDisabled();
+  // The direction used is spent, so focus stays on the row's other button.
+  expect(moveButton('Combat talent', 'earlier')).toHaveFocus();
+  expect(region('Race').getByText('Order 2 of 3')).toBeVisible();
+
+  const earlier = moveButton('Combat talent', 'earlier');
+  fireEvent.keyDown(earlier, { key: 'ArrowUp' });
+  fireEvent.keyDown(earlier, { key: 'ArrowDown', altKey: true });
+  expect(calls.filter((call) => call.name === 'moveSelection')).toHaveLength(1);
+  fireEvent.keyDown(earlier, { key: 'ArrowUp', altKey: true });
+  await act(async () => undefined);
+  expect(lastCall('moveSelection').args).toMatchObject({
+    entryId: 'talent-entry',
+    direction: 'earlier',
+  });
+  await settle(lastCall('moveSelection'));
+  rerender(sheet([0, 1, 2]));
+  expect(talentRow.getByText('Order 2 of 3')).toBeVisible();
+  expect(moveButton('Combat talent', 'earlier')).toHaveFocus();
+});
+
+test('dated prerequisite inputs have order controls in their block while current undated facts and Grants have none', () => {
+  const kinds = (
+    [
+      { ...skyFolk, level: 'level-1', order: 1 },
+      { ...senses, order: 2 },
+      { id: 'archetype-entry', kind: 'archetype', name: 'Sky warden' },
+      talent,
+      { id: 'manual-entry', kind: 'manual', name: 'Blessing' },
+      { id: 'item-entry', kind: 'item', name: 'Lantern' },
+      { id: 'spell-entry', kind: 'spell', name: 'Light' },
+      { id: 'effect-entry', kind: 'spellEffect', name: 'Bless effect' },
+      { id: 'condition-entry', kind: 'condition', name: 'Inspired' },
+    ] satisfies DatedSelection[]
+  ).map((selection, index) => ({
+    level: 'level-1',
+    order: index + 3,
+    ...selection,
+  }));
+  const granted = {
+    ...datedDefinition({
+      id: 'granted',
+      kind: 'classFeature',
+      name: 'Granted training',
+      prerequisites: strength13,
+    }),
+  };
+  renderBlocks(
+    mixedSheet({
+      grantedFeat: true,
+      selections: [
+        { ...powerAttack, key: 'cleave', order: 0 },
+        {
+          id: 'reactionary-entry',
+          key: 'reactionary',
+          slot: ['trait:general', 0],
+          level: 'level-1',
+          order: 12,
+        },
+      ],
+      dated: [
+        ...kinds,
+        {
+          id: 'source-entry',
+          kind: 'feat',
+          name: 'Training source',
+          level: 'level-1',
+          order: 13,
+          grants: [granted._id],
+        },
+      ],
+      definitions: [granted],
+    }),
+    ['races', 'archetypes', 'selections', 'adjustments', 'entries', 'grants'],
+  );
+  for (const toggle of screen.queryAllByRole('button', {
+    name: /^Not counting now/,
+    expanded: false,
+  }))
+    fireEvent.click(toggle);
+  const blocks: Record<string, string[]> = {
+    Race: ['Keen senses'],
+    Archetypes: ['Sky warden'],
+    'Class features': ['Combat talent'],
+    'Feats & traits': ['Cleave', 'Reactionary', 'Training source'],
+    'Sheet entries': ['Light'],
+  };
+  for (const [block, names] of Object.entries(blocks)) {
+    for (const name of names)
+      expect(
+        region(block).getByRole('button', {
+          name: `Move ${name} later at level 1`,
+        }),
+      ).toBeInTheDocument();
+  }
+  const feats = region('Feats & traits');
+  expect(
+    feats.getAllByRole('button', { name: /^Move .* earlier at level 1$/ }),
+  ).toHaveLength(3);
+  expect(
+    screen.getAllByRole('button', { name: /^Move .* later/ }),
+  ).toHaveLength(7);
+
+  for (const name of [
+    'Sky folk',
+    'Blessing',
+    'Lantern',
+    'Bless effect',
+    'Inspired',
+  ])
+    expect(
+      screen.queryByRole('button', { name: `Move ${name} later at level 1` }),
+    ).toBeNull();
+
+  // Granted rows take their source's place; they never move on their own.
+  expect(feats.queryByRole('button', { name: /^Move Skill Focus/ })).toBeNull();
+  const grantedRow = within(
+    region('Class features').getByRole('listitem', {
+      name: 'Granted training',
+    }),
+  );
+  expect(
+    grantedRow.getByRole('group', {
+      name: 'Prerequisites at recorded level 1',
+    }),
+  ).toBeVisible();
+  expect(
+    grantedRow.getByRole('group', { name: 'Prerequisites now' }),
+  ).toBeVisible();
+  expect(grantedRow.queryByRole('button', { name: /^Move / })).toBeNull();
+});
+
+test('a level that is gone keeps only the current check without order controls, and relinking through Level gained restores the recorded group and place', async () => {
+  const unplaced = { ...powerAttack, level: 'deleted-level' };
+  const rerender = renderBlocks(
+    mixedSheet({ selections: [unplaced], dated: [{ ...talent, order: 0 }] }),
+    ['selections'],
+  );
+  const saved = row('Power Attack');
+  expect(saved.getByText('Not tied to a level')).toBeVisible();
+  expect(saved.getByRole('group', { name: 'Prerequisites now' })).toBeVisible();
+  expect(
+    saved.queryByRole('group', { name: /Prerequisites at recorded level/ }),
+  ).toBeNull();
+  expect(saved.queryByRole('button', { name: /^Move / })).toBeNull();
+  expect(saved.queryByText(/^Order \d+ of/)).toBeNull();
+
+  fireEvent.change(saved.getByRole('combobox', { name: 'Level gained' }), {
+    target: { value: 'level-1' },
+  });
+  expect(lastCall('editSelection').args).toMatchObject({
+    entryId: 'power-attack-entry',
+    gainedAtClassLevel: 'level-1',
+  });
+  await settle(lastCall('editSelection'));
+  rerender(
+    mixedSheet({
+      selections: [{ ...powerAttack, order: 1 }],
+      dated: [{ ...talent, order: 0 }],
+    }),
+  );
+  expect(
+    saved.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  ).toBeVisible();
+  expect(saved.getByText('Order 2 of 2')).toBeVisible();
+  expect(moveButton('Power Attack', 'earlier')).toBeEnabled();
+  expect(moveButton('Power Attack', 'later')).toBeDisabled();
+});
+
+test('class feature, racial trait and generic entry rows keep current and recorded groups apart, list each warning once, and accept each group alone', async () => {
+  const feature = { ...talent, order: 0 };
+  const lantern: DatedSelection = {
+    id: 'item-entry',
+    kind: 'item',
+    name: 'Lantern',
+    level: 'level-1',
+    order: 1,
+    prerequisites: strength13,
+  };
+  const keen = { ...senses, prerequisites: strength13 };
+  const sheet = mixedSheet({ dated: [skyFolk, feature, lantern, keen] });
+  const rerender = renderBlocks(sheet, ['races', 'grants', 'entries']);
+  const racial = within(
+    region('Race').getByRole('listitem', { name: 'Keen senses' }),
+  );
+  expect(
+    within(racial.getByRole('group', { name: 'Prerequisites now' })).getByText(
+      'Keen senses: Strength 13 not met now.',
+    ),
+  ).toBeVisible();
+  expect(
+    racial.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  ).toBeVisible();
+  expect(
+    racial.getAllByText('Keen senses: Strength 13 not met now.'),
+  ).toHaveLength(1);
+  const featureRow = within(
+    region('Class features').getByRole('listitem', { name: 'Combat talent' }),
+  );
+  const current = 'Combat talent: Strength 13 not met now.';
+  const recorded = 'Combat talent: Strength 13 not met at level 1 as recorded.';
+  const now = within(
+    featureRow.getByRole('group', { name: 'Prerequisites now' }),
+  );
+  const atLevel = within(
+    featureRow.getByRole('group', {
+      name: 'Prerequisites at recorded level 1',
+    }),
+  );
+  expect(now.getByText(current)).toBeVisible();
+  expect(
+    now.getByRole('list', { name: 'Prerequisites now' }),
+  ).toHaveTextContent('Strength 13 not met');
+  expect(atLevel.getByText(recorded)).toBeVisible();
+  expect(featureRow.getAllByText(current)).toHaveLength(1);
+  expect(featureRow.getAllByText(recorded)).toHaveLength(1);
+  const entry = region('Sheet entries');
+  expect(entry.getByRole('group', { name: 'Prerequisites now' })).toBeVisible();
+  expect(
+    entry.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  ).toBeVisible();
+  expect(entry.getAllByText('Lantern: Strength 13 not met now.')).toHaveLength(
+    1,
+  );
+
+  fireEvent.click(atLevel.getByRole('button', { name: `Accept ${recorded}` }));
+  expect(lastCall('accept').args).toMatchObject({
+    check: 'prerequisites.recordedLevel',
+  });
+  expect(now.getByRole('button', { name: `Accept ${current}` })).toBeEnabled();
+  expect(moveButton('Combat talent', 'later')).toBeEnabled();
+  await settle(lastCall('accept'));
+  const accepted = sheet.calculated.warnings.find(
+    (warning) =>
+      warning.check === 'prerequisites.recordedLevel' &&
+      warning.target.kind === 'entry' &&
+      warning.target.entryId === 'talent-entry',
+  )!;
+  rerender(
+    mixedSheet({
+      dated: [skyFolk, feature, lantern, keen],
+      accepted: [
+        {
+          check: accepted.check,
+          subject: accepted.subject,
+          fingerprint: accepted.fingerprint,
+        },
+      ],
+    }),
+  );
+  expect(atLevel.getByText('Accepted')).toBeVisible();
+  expect(now.getByRole('button', { name: `Accept ${current}` })).toBeVisible();
+  fireEvent.click(atLevel.getByRole('button', { name: `Reopen ${recorded}` }));
+  expect(lastCall('reopen').args).toMatchObject({
+    check: 'prerequisites.recordedLevel',
+  });
+  expect(screen.queryByText(/eligible/i)).toBeNull();
+});
+
+test('a move waits only on its own row, reports a failure for a retry, and another player’s reorder refreshes the places with a dismissable notice', async () => {
+  const sheet = (orders: [number, number], lastOperationId = 'seed') =>
+    mixedSheet({
+      lastOperationId,
+      selections: [{ ...powerAttack, order: orders[0] }],
+      dated: [{ ...talent, order: orders[1] }],
+    });
+  const rerender = renderBlocks(sheet([0, 1]), ['selections', 'grants']);
+  const later = moveButton('Power Attack', 'later');
+  fireEvent.click(later);
+  await act(async () => undefined);
+  expect(later).toBeDisabled();
+  expect(row('Power Attack').getByText('Saving…')).toBeVisible();
+  expect(moveButton('Combat talent', 'earlier')).toBeEnabled();
+  fireEvent.click(later);
+  expect(calls.filter((call) => call.name === 'moveSelection')).toHaveLength(1);
+  await act(async () => {
+    lastCall('moveSelection').reject(new ConvexError('Character is read only'));
+  });
+  expect(row('Power Attack').getByRole('alert')).toHaveTextContent(
+    /Character is read only/,
+  );
+  expect(moveButton('Power Attack', 'later')).toBeEnabled();
+  fireEvent.click(moveButton('Power Attack', 'later'));
+  await act(async () => undefined);
+  expect(calls.filter((call) => call.name === 'moveSelection')).toHaveLength(2);
+  await settle(lastCall('moveSelection'));
+  expect(row('Power Attack').getByText('Saved')).toBeVisible();
+
+  const talentRow = within(
+    region('Class features').getByRole('listitem', { name: 'Combat talent' }),
+  );
+  expect(talentRow.queryByText('Saved')).toBeNull();
+  fireEvent.click(
+    row('Power Attack').getByRole('button', { name: 'Edit Power Attack' }),
+  );
+  const choice = screen.getByRole('textbox', { name: /Choice for/ });
+  fireEvent.change(choice, { target: { value: 'Draft' } });
+  rerender(sheet([1, 0], 'another-player'));
+  expect(screen.getByText('Feats and traits changed.')).toBeVisible();
+  expect(row('Power Attack').getByText('Order 2 of 2')).toBeVisible();
+  expect(talentRow.getByText('Order 1 of 2')).toBeVisible();
+  expect(choice).toHaveValue('Draft');
+  expect(choice).toHaveFocus();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Dismiss feats and traits update' }),
+  );
+  expect(screen.queryByText('Feats and traits changed.')).toBeNull();
+});
+
+test('maintenance disables every move with its reason while a rule mismatch leaves moves and Accept usable', () => {
+  const sheet = mixedSheet({
+    selections: [powerAttack],
+    dated: [talent],
+  });
+  const rerender = renderBlocks(sheet, ['selections', 'grants']);
+  expect(moveButton('Combat talent', 'earlier')).toBeEnabled();
+  expect(
+    screen.getAllByRole('button', { name: /^Accept Combat talent/ })[0],
+  ).toBeEnabled();
+  const message = 'Editing is paused for maintenance.';
+  maintenance.mockReturnValue({ kind: 'maintenance', readOnly: true, message });
+  rerender(sheet);
+  for (const button of screen.getAllByRole('button', { name: /^Move / })) {
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(message);
+  }
+  fireEvent.keyDown(moveButton('Combat talent', 'earlier'), {
+    key: 'ArrowUp',
+    altKey: true,
+  });
+  expect(calls.filter((call) => call.name === 'moveSelection')).toEqual([]);
+});
+
+test('a dormant racial trait keeps its Keep control and no prerequisite groups, and moving it neither keeps nor activates it', async () => {
+  const dormant: DatedSelection = {
+    ...senses,
+    order: 1,
+    prerequisites: strength13,
+  };
+  renderBlocks(mixedSheet({ selections: [powerAttack], dated: [dormant] }), [
+    'races',
+  ]);
+  fireEvent.click(screen.getByRole('button', { name: 'Not counting now (1)' }));
+  const trait = within(screen.getByRole('listitem', { name: 'Keen senses' }));
+  expect(trait.getByText('Not counting now')).toBeVisible();
+  expect(trait.getByRole('button', { name: 'Keep Keen senses' })).toBeVisible();
+  expect(trait.queryByRole('group', { name: /^Prerequisites/ })).toBeNull();
+  fireEvent.click(moveButton('Keen senses', 'earlier'));
+  await act(async () => undefined);
+  expect(calls.map((call) => call.name)).toEqual(['moveSelection']);
+  expect(lastCall('moveSelection').args).toMatchObject({
+    entryId: 'senses-entry',
+    direction: 'earlier',
+  });
+});
+
+test('an off Selection has no order controls and does not count among active neighbours', () => {
+  renderBlocks(
+    mixedSheet({
+      selections: [
+        powerAttack,
+        {
+          id: 'off-entry',
+          key: 'reactionary',
+          level: 'level-1',
+          order: 1,
+          active: false,
+        },
+      ],
+      dated: [{ ...talent, order: 2 }],
+    }),
+    ['selections', 'grants'],
+  );
+  expect(row('Power Attack').getByText('Order 1 of 2')).toBeVisible();
+  expect(region('Class features').getByText('Order 2 of 2')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: /^Move Reactionary/ }),
+  ).toBeNull();
 });

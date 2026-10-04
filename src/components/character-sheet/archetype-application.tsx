@@ -28,8 +28,9 @@ import {
 import { GrantEntryList } from './character-sheet-grants';
 import type { GrantEntryView } from './character-sheet-grants-view-model';
 import { listGrantEntryWarnings } from './grant-entry-row';
-import { InlineWarnings } from './inline-warning';
 import type { SaveStatus } from './save-status';
+import { SelectionChecks } from './selection-checks';
+import { useSelectionRow } from './selection-order-context';
 import { action, fieldLabel } from './sheet-parts';
 import type {
   SheetWarningView,
@@ -117,6 +118,7 @@ export function ArchetypeApplication({
   // it is acknowledged beside whichever of them saved last.
   const [writer, setWriter] = useState<'state' | 'parts'>('parts');
   const selectionStatus = actions.statusFor(selection._id);
+  const selectionView = useSelectionRow(selection._id);
   const { replaces, adds } = listFeatureRows({ group, option, featureNames });
   const relations = listFeatureRelations(group, option);
   const skillChanges = option.application
@@ -153,9 +155,10 @@ export function ArchetypeApplication({
           </span>
         </Button>
       </ArchetypeSelectionState>
-      <InlineWarnings
+      <SelectionChecks
+        selection={selectionView}
         warnings={listGrantEntryWarnings({ warnings, rowId: selection._id })}
-        controller={warningController}
+        warningController={warningController}
       />
       {relations.length > 0 ? (
         <ul

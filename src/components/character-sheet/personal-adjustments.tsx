@@ -7,7 +7,7 @@ import { useInitialMigrationMaintenance } from '~/components/use-initial-migrati
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import { RowCatalogDefinition } from './row-catalog-definition';
-import { InlineWarnings } from './inline-warning';
+import { SelectionChecks } from './selection-checks';
 import { describeModifier } from './modifier-labels';
 import { listEntryModifierWarnings } from './modifier-warnings';
 import { PersonalAdjustmentEditor } from './personal-adjustment-editor';
@@ -92,13 +92,12 @@ function AdjustmentRow({
         <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]">
           {row.modifiers.map(describeModifier).join(' · ')}
         </p>
-        {isOpen ? null : (
-          <InlineWarnings
-            warnings={warnings}
-            controller={warningController}
-            className="mt-1"
-          />
-        )}
+        <SelectionChecks
+          selection={row.selection}
+          warnings={isOpen ? [] : warnings}
+          warningController={warningController}
+          className="mt-1"
+        />
         <RowCatalogDefinition
           rowId={row.entryId}
           target={{ kind: 'entry', entryId: row.entryId }}

@@ -1,5 +1,6 @@
 import {
   selectionMetadata,
+  orderedSelectionIdsAtLevel,
   buildSelectionEntry,
   replaceRecordedSelection,
 } from '~/lib/character-sheet-selection';
@@ -18,13 +19,29 @@ import type {
   SheetWarningView,
 } from './use-character-sheet';
 import type { FillSelectionSlotInput } from './use-character-sheet-selections';
-import { ignoresPrerequisites } from '~/lib/character-sheet-proficiency-prerequisites';
+import {
+  ignoresPrerequisites,
+  recordedPosition,
+  buildRecordedPrerequisiteSources,
+} from '~/lib/character-sheet-proficiency-prerequisites';
 
-type SelectionKind = 'feat' | 'trait';
 type StoredSelection = Extract<
-  CharacterSheetSnapshot['entries'][number],
-  { kind: SelectionKind }
+  Exclude<CharacterSheetSnapshot['entries'][number], { kind: 'base' }>,
+  { catalogEntryId: string }
 >;
+function isStoredSelection(
+  entry: CharacterSheetSnapshot['entries'][number],
+): entry is StoredSelection {
+  return 'catalogEntryId' in entry && entry.kind !== 'base';
+}
+
+type CatalogSelection = Extract<SheetEntry, { catalogEntryId: string }> &
+  Exclude<SheetEntry, { kind: 'base' }>;
+
+function isCatalogSelection(entry: SheetEntry): entry is CatalogSelection {
+  return 'catalogEntryId' in entry && entry.kind !== 'base';
+}
+
 type RequirementStatus = 'met' | 'unmet' | 'none' | 'exempt' | null;
 
 function acceptedWarning(
@@ -102,6 +119,67 @@ function isRecordedWarning(warning: SheetWarning, entryId: string) {
   );
 }
 
+/** The same prerequisite groups accompany every row, including prestige entry. */
+export function buildEntryPrerequisiteView({
+  snapshot,
+  entryId,
+  recordedLevelPosition = null,
+  exempt = false,
+  warnings: warningSource = snapshot.calculated.warnings,
+}: {
+  snapshot: CharacterSheetSnapshot;
+  entryId: string;
+  recordedLevelPosition?: number | null;
+  exempt?: boolean;
+  warnings?: readonly SheetWarning[];
+}) {
+  const checks = entryChecks(snapshot.calculated, entryId);
+  const labeledChecks = checks
+    .filter((check) => check.met !== null)
+    .map((check) => ({
+      ...check,
+      label: prerequisiteLabel(check.clause, snapshot.catalogEntries),
+    }));
+  const warnings = warningSource
+    .filter(
+      (warning) =>
+        warning.target.kind === 'entry' && warning.target.entryId === entryId,
+    )
+    .map((warning) => acceptedWarning(snapshot, warning));
+  return {
+    recordedLevelLabel:
+      recordedLevelPosition === null
+        ? null
+        : `Prerequisites at recorded level ${recordedLevelPosition}`,
+    currentStatus: requirementStatus(
+      checks.filter((check) => check.view === 'current'),
+      exempt,
+    ),
+    recordedStatus:
+      recordedLevelPosition === null
+        ? null
+        : requirementStatus(
+            checks.filter((check) => check.view === 'recorded'),
+            exempt,
+          ),
+    checks: labeledChecks,
+    currentChecks: labeledChecks.filter((check) => check.view === 'current'),
+    recordedChecks: labeledChecks.filter((check) => check.view === 'recorded'),
+    warnings,
+    currentWarnings: warnings.filter((warning) =>
+      isCurrentWarning(warning, entryId),
+    ),
+    recordedWarnings: warnings.filter((warning) =>
+      isRecordedWarning(warning, entryId),
+    ),
+    otherWarnings: warnings.filter(
+      (warning) =>
+        !isCurrentWarning(warning, entryId) &&
+        !isRecordedWarning(warning, entryId),
+    ),
+  };
+}
+
 export function buildCharacterSheetSelectionsView(
   snapshot: CharacterSheetSnapshot,
 ) {
@@ -110,7 +188,7 @@ export function buildCharacterSheetSelectionsView(
   );
   const slots = snapshot.calculated.selectionRules.slots;
   const levels = snapshot.entries
-    .filter((entry) => entry.kind === 'classLevel')
+    .filter((entry) => entry.kind === 'classLevel' && entry.active)
     .map((entry) => ({
       entryId: entry._id,
       position: entry.state.position,
@@ -131,30 +209,51 @@ export function buildCharacterSheetSelectionsView(
         .map(({ entry }) => entry),
     ],
   };
-  const rows = snapshot.calculated.resolvedEntries.flatMap((resolved) => {
+  const recordedInput = { ...snapshot, characterKind: snapshot.character.kind };
+  const sources = buildRecordedPrerequisiteSources({
+    input: recordedInput,
+    effectiveInput: prerequisiteInput,
+  });
+  const levelOrders = new Map(
+    levels.map((level) => [
+      level.entryId,
+      orderedSelectionIdsAtLevel(snapshot.entries, level.entryId),
+    ]),
+  );
+  const storedSelections = new Map<string, StoredSelection>(
+    snapshot.entries
+      .filter(isStoredSelection)
+      .map((entry) => [entry._id, entry]),
+  );
+  const allRows = snapshot.calculated.resolvedEntries.flatMap((resolved) => {
     const entry = resolved.entry;
-    if (entry.kind !== 'feat' && entry.kind !== 'trait') return [];
-    const stored = snapshot.entries.find(
-      (row): row is StoredSelection =>
-        (row.kind === 'feat' || row.kind === 'trait') &&
-        row._id === resolved.storedEntryId,
-    );
+    if (!isCatalogSelection(entry)) return [];
+    const stored =
+      resolved.storedEntryId === undefined
+        ? undefined
+        : storedSelections.get(resolved.storedEntryId);
     const catalog = snapshot.catalogEntries.find(
       (definition) => definition._id === entry.catalogEntryId,
     );
-    const rowWarnings = warnings.filter(
-      (warning) =>
-        warning.target.kind === 'entry' && warning.target.entryId === entry._id,
-    );
-    const checks = entryChecks(snapshot.calculated, entry._id);
-    const currentChecks = checks.filter((check) => check.view === 'current');
-    const recordedChecks = checks.filter((check) => check.view === 'recorded');
-    const exempt =
-      resolved.origin === 'grant' ||
-      ignoresPrerequisites(entry, prerequisiteInput);
+    const exempt = ignoresPrerequisites(entry, prerequisiteInput);
     const recordedLevel = levels.find(
       (level) => level.entryId === stored?.gainedAtClassLevel,
     );
+    const position = recordedPosition({
+      entry,
+      input: recordedInput,
+      effectiveInput: prerequisiteInput,
+      sources,
+      levelOrders,
+    });
+    const order = recordedLevel
+      ? levelOrders.get(recordedLevel.entryId)
+      : undefined;
+    const orderIndex = stored ? (order?.indexOf(stored._id) ?? -1) : -1;
+    const canMove =
+      resolved.origin === 'selection' &&
+      stored !== undefined &&
+      orderIndex >= 0;
     return [
       {
         rowId: entry._id,
@@ -175,31 +274,26 @@ export function buildCharacterSheetSelectionsView(
         notes: stored?.notes ?? '',
         gainedAtClassLevel: stored?.gainedAtClassLevel ?? null,
         choiceOrder: stored?.choiceOrder ?? null,
-        recordedLevelLabel: recordedLevel
-          ? `Prerequisites at recorded level ${recordedLevel.position}`
-          : null,
-        currentStatus: requirementStatus(currentChecks, exempt),
-        recordedStatus: recordedLevel
-          ? requirementStatus(recordedChecks, exempt)
-          : null,
-        checks: checks
-          .filter((check) => check.met !== null)
-          .map((check) => ({
-            ...check,
-            label: prerequisiteLabel(check.clause, snapshot.catalogEntries),
-          })),
+        orderPosition: canMove ? orderIndex + 1 : null,
+        orderCount: canMove ? (order?.length ?? 0) : 0,
+        canMoveEarlier: canMove && orderIndex > 0,
+        canMoveLater: canMove && orderIndex < (order?.length ?? 0) - 1,
+        ...buildEntryPrerequisiteView({
+          snapshot,
+          entryId: entry._id,
+          recordedLevelPosition: position?.classLevel ?? null,
+          exempt,
+        }),
         prerequisiteText: catalog ? selectionPrerequisiteText(catalog) : '',
-        warnings: rowWarnings,
-        currentWarnings: rowWarnings.filter((warning) =>
-          isCurrentWarning(warning, entry._id),
-        ),
-        recordedWarnings: rowWarnings.filter((warning) =>
-          isRecordedWarning(warning, entry._id),
-        ),
       },
     ];
   });
+  const rows = allRows.filter(
+    (row): row is typeof row & { kind: 'feat' | 'trait' } =>
+      row.kind === 'feat' || row.kind === 'trait',
+  );
   return {
+    allRows,
     budgets: snapshot.calculated.selectionRules.budgets,
     slots: slots.map((slot) => ({
       ...slot,
@@ -287,7 +381,6 @@ export function previewSelectionSlot(
     characterKind: snapshot.character.kind,
     sheetMode: snapshot.character.sheetMode,
   });
-  const checks = entryChecks(calculated, entryId);
   const baselineWarningKeys = new Set(
     snapshot.calculated.selectionRules.warnings.map((warning) =>
       JSON.stringify([warning.check, warning.subject, warning.fingerprint]),
@@ -308,34 +401,35 @@ export function previewSelectionSlot(
           ),
       ),
   );
+  const recordedLevel = snapshot.entries.find(
+    (entry) =>
+      entry.kind === 'classLevel' &&
+      entry.active &&
+      entry._id === gainedAtClassLevel,
+  );
+  const groups = buildEntryPrerequisiteView({
+    snapshot: { ...snapshot, calculated },
+    entryId,
+    recordedLevelPosition:
+      recordedLevel?.kind === 'classLevel'
+        ? recordedLevel.state.position
+        : null,
+    exempt: slot.ignoresPrerequisites,
+    warnings,
+  });
   return {
     catalogEntryId: catalog._id,
     name: catalog.name,
-    currentStatus: requirementStatus(
-      checks.filter((check) => check.view === 'current'),
-      slot.ignoresPrerequisites,
-    ),
-    recordedStatus:
-      gainedAtClassLevel &&
-      snapshot.entries.some(
-        (entry) =>
-          entry.kind === 'classLevel' && entry._id === gainedAtClassLevel,
-      )
-        ? requirementStatus(
-            checks.filter((check) => check.view === 'recorded'),
-            slot.ignoresPrerequisites,
-          )
-        : null,
-    checks: checks
-      .filter((check) => check.met !== null)
-      .map((check) => ({
-        ...check,
-        label: prerequisiteLabel(check.clause, snapshot.catalogEntries),
-      })),
+    ...groups,
     prerequisiteText: selectionPrerequisiteText(catalog),
     guidanceText: selectionGuidance(catalog),
     description: catalog.description ?? '',
     warnings,
+    otherWarnings: warnings.filter(
+      (warning) =>
+        !isCurrentWarning(warning, entryId) &&
+        !isRecordedWarning(warning, entryId),
+    ),
     selectable: true,
   };
 }
@@ -356,3 +450,7 @@ export function createSelectionSlotPreview(
     return preview;
   };
 }
+
+export type CharacterSheetSelectionRow = ReturnType<
+  typeof buildCharacterSheetSelectionsView
+>['allRows'][number];

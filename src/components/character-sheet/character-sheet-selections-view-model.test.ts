@@ -6,6 +6,11 @@ import {
   createSelectionSlotPreview,
 } from './character-sheet-selections-view-model';
 import { calculateCharacterSheet } from '~/lib/character-sheet';
+import {
+  createCatalogSheetEntryState,
+  selectableCatalogSheetEntryKinds,
+} from '~/lib/character-sheet-entries';
+import { buildCharacterSheetView } from './character-sheet-view-model';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 function selectionSheet(
@@ -133,6 +138,8 @@ test('legacy proficiency prerequisites expose distinct current and recorded warn
     selectable: true,
   });
   expect(preview?.checks).toHaveLength(2);
+  expect(preview?.currentWarnings).toHaveLength(1);
+  expect(preview?.recordedWarnings).toHaveLength(1);
   expect(
     preview?.checks.filter((check) => check.view === 'current'),
   ).toHaveLength(1);
@@ -452,5 +459,324 @@ test('a generated class feature bonus slot keeps its prerequisite exemption in t
     currentStatus: 'exempt',
     recordedStatus: 'exempt',
     checks: [],
+  });
+});
+
+test('all dated Selection kinds share one level order with earlier and later controls', () => {
+  const snapshot = selectionSheet([{ ability: 'strength', min: 13 }]);
+  const feat = snapshot.entries.find((entry) => entry.kind === 'feat');
+  if (!feat) throw new Error('Missing feat');
+  const definition = snapshot.catalogEntries.at(-1)!;
+  const featureDefinition = {
+    ...definition,
+    _id: 'feature-catalog' as typeof definition._id,
+    name: 'Combat talent',
+    ruleIdentity: 'combat-talent',
+    detail: { kind: 'classFeature' as const },
+  };
+  const feature = {
+    ...feat,
+    _id: 'feature-entry' as typeof feat._id,
+    catalogEntryId: featureDefinition._id,
+    kind: 'classFeature' as const,
+    state: { kind: 'classFeature' as const },
+    choiceOrder: 1,
+  };
+  const entries = [...snapshot.entries, feature];
+  const catalogEntries = [...snapshot.catalogEntries, featureDefinition];
+  const view = buildCharacterSheetSelectionsView({
+    ...snapshot,
+    entries,
+    catalogEntries,
+    calculated: calculateCharacterSheet({
+      entries,
+      catalogEntries,
+      characterKind: 'pc',
+    }),
+  });
+  expect(view.rows.map((row) => row.kind)).toEqual(['feat']);
+  expect(view.allRows.find((row) => row.entryId === feat._id)).toMatchObject({
+    canMoveEarlier: false,
+    canMoveLater: true,
+    orderPosition: 1,
+    orderCount: 2,
+  });
+  expect(view.allRows.find((row) => row.entryId === feature._id)).toMatchObject(
+    {
+      kind: 'classFeature',
+      canMoveEarlier: true,
+      canMoveLater: false,
+      orderPosition: 2,
+      orderCount: 2,
+      recordedLevelLabel: 'Prerequisites at recorded level 1',
+      currentStatus: 'unmet',
+      recordedStatus: 'unmet',
+    },
+  );
+  const featureRow = view.allRows.find((row) => row.entryId === feature._id)!;
+  expect(featureRow.currentWarnings).toHaveLength(1);
+  expect(featureRow.recordedWarnings).toHaveLength(1);
+});
+
+test('generic Selection rows expose separately accepted prerequisite groups', () => {
+  const snapshot = selectionSheet([{ ability: 'strength', min: 13 }]);
+  const selected = snapshot.entries.find((entry) => entry.kind === 'feat')!;
+  const definition = snapshot.catalogEntries.at(-1)!;
+  const entries = snapshot.entries.map((entry) =>
+    entry._id === selected._id
+      ? {
+          ...selected,
+          kind: 'classFeature' as const,
+          state: { kind: 'classFeature' as const },
+        }
+      : entry,
+  );
+  const catalogEntries = snapshot.catalogEntries.map((catalog) =>
+    catalog._id === definition._id
+      ? { ...definition, detail: { kind: 'classFeature' as const } }
+      : catalog,
+  );
+  const calculated = calculateCharacterSheet({
+    entries,
+    catalogEntries,
+    characterKind: 'pc',
+  });
+  const recordedWarning = calculated.warnings.find(
+    (warning) => warning.check === 'prerequisites.recordedLevel',
+  )!;
+  const view = buildCharacterSheetView({
+    ...snapshot,
+    entries,
+    catalogEntries,
+    calculated,
+    acceptedWarnings: buildSheet({ accepted: [recordedWarning] })
+      .acceptedWarnings,
+  });
+  const row = view.grants.find((section) => section.kind === 'classFeature')!
+    .rows[0]!;
+  expect(
+    row.selection?.currentWarnings.map((warning) => warning.accepted),
+  ).toEqual([false]);
+  expect(
+    row.selection?.recordedWarnings.map((warning) => warning.accepted),
+  ).toEqual([true]);
+  expect(row.selection?.currentChecks.map((check) => check.label)).toEqual([
+    'Strength 13',
+  ]);
+  expect(row.selection?.recordedChecks.map((check) => check.label)).toEqual([
+    'Strength 13',
+  ]);
+  expect(
+    row.selection?.otherWarnings.some((warning) =>
+      warning.check.startsWith('prerequisites.'),
+    ),
+  ).toBe(false);
+});
+
+test('a feature granted by a dated Selection keeps its source’s recorded prerequisite group without being exempt', () => {
+  const snapshot = selectionSheet();
+  const feat = snapshot.entries.find((entry) => entry.kind === 'feat')!;
+  const definition = snapshot.catalogEntries.at(-1)!;
+  const grantedDefinition = {
+    ...definition,
+    _id: 'granted-feature-catalog' as typeof definition._id,
+    name: 'Granted training',
+    ruleIdentity: 'granted-training',
+    detail: { kind: 'classFeature' as const },
+    prerequisites: [{ ability: 'strength' as const, min: 13 }],
+  };
+  const catalogEntries = [
+    ...snapshot.catalogEntries.map((entry) =>
+      entry._id === definition._id
+        ? { ...definition, grants: [{ catalogEntryId: grantedDefinition._id }] }
+        : entry,
+    ),
+    grantedDefinition,
+  ];
+  const calculated = calculateCharacterSheet({
+    entries: snapshot.entries,
+    catalogEntries,
+    characterKind: 'pc',
+  });
+  const view = buildCharacterSheetSelectionsView({
+    ...snapshot,
+    catalogEntries,
+    calculated,
+  });
+  const row = view.allRows.find((row) => row.kind === 'classFeature')!;
+  expect(row).toMatchObject({
+    origin: 'grant',
+    entryId: null,
+    currentStatus: 'unmet',
+    recordedStatus: 'unmet',
+    recordedLevelLabel: 'Prerequisites at recorded level 1',
+    canMoveEarlier: false,
+    canMoveLater: false,
+  });
+  expect(row.currentWarnings).toHaveLength(1);
+  expect(row.recordedWarnings).toHaveLength(1);
+  expect(view.allRows.find((row) => row.entryId === feat._id)?.orderCount).toBe(
+    1,
+  );
+});
+
+test.each(selectableCatalogSheetEntryKinds)(
+  '%s Selections have ordering only when they are dated prerequisite inputs',
+  (kind) => {
+    const snapshot = selectionSheet();
+    const feat = snapshot.entries.find((entry) => entry.kind === 'feat')!;
+    const definition = snapshot.catalogEntries.at(-1)!;
+    const common = {
+      ...definition,
+      _id: 'other-catalog' as typeof definition._id,
+      ruleIdentity: 'other-rule',
+      modifiers: [],
+    };
+    const definitions = {
+      race: { ...common, detail: { kind: 'race', racialTraits: [] } },
+      racialTrait: {
+        ...common,
+        detail: { kind: 'racialTrait', raceEntryIds: [], replaces: [] },
+      },
+      archetype: {
+        ...common,
+        detail: {
+          kind: 'archetype',
+          classEntryIds: [],
+          replaces: [],
+          adds: [],
+        },
+      },
+      classFeature: { ...common, detail: { kind: 'classFeature' } },
+      feat: { ...common, detail: { kind: 'feat' } },
+      trait: { ...common, detail: { kind: 'trait' } },
+      manual: { ...common, detail: { kind: 'manual' } },
+      item: { ...common, detail: { kind: 'item', consumable: false } },
+      spell: { ...common, detail: { kind: 'spell' } },
+      spellEffect: {
+        ...common,
+        detail: {
+          kind: 'spellEffect',
+          lastsOverOneDay: false,
+          defaultCasterLevel: 1,
+        },
+      },
+      condition: { ...common, detail: { kind: 'condition' } },
+    } satisfies Record<
+      typeof kind,
+      CharacterSheetSnapshot['catalogEntries'][number]
+    >;
+    const addedDefinition = definitions[kind];
+    const other = {
+      ...feat,
+      ...createCatalogSheetEntryState(kind),
+      _id: 'other-entry' as typeof feat._id,
+      catalogEntryId: addedDefinition._id,
+      choiceOrder: 1,
+    };
+    const entries = [...snapshot.entries, other];
+    const catalogEntries = [...snapshot.catalogEntries, addedDefinition];
+    const view = buildCharacterSheetSelectionsView({
+      ...snapshot,
+      entries,
+      catalogEntries,
+      calculated: calculateCharacterSheet({
+        entries,
+        catalogEntries,
+        characterKind: 'pc',
+      }),
+    });
+    const isUndated = [
+      'race',
+      'manual',
+      'item',
+      'spellEffect',
+      'condition',
+    ].includes(kind);
+    expect(view.allRows.find((row) => row.entryId === other._id)).toMatchObject(
+      {
+        kind,
+        canMoveEarlier: !isUndated,
+        canMoveLater: false,
+        orderPosition: isUndated ? null : 2,
+        orderCount: isUndated ? 0 : 2,
+      },
+    );
+    expect(
+      view.allRows.find((row) => row.entryId === feat._id)?.orderCount,
+    ).toBe(isUndated ? 1 : 2);
+  },
+);
+
+test('an unusable recorded level keeps current checks and omits ordering and the recorded group', () => {
+  const snapshot = selectionSheet([{ ability: 'strength', min: 13 }]);
+  const entries = snapshot.entries.map((entry) =>
+    entry.kind === 'feat'
+      ? {
+          ...entry,
+          gainedAtClassLevel:
+            'deleted-level' as typeof entry.gainedAtClassLevel,
+        }
+      : entry,
+  );
+  const view = buildCharacterSheetSelectionsView({
+    ...snapshot,
+    entries,
+    calculated: calculateCharacterSheet({
+      entries,
+      catalogEntries: snapshot.catalogEntries,
+      characterKind: 'pc',
+    }),
+  });
+  expect(view.rows[0]).toMatchObject({
+    currentStatus: 'unmet',
+    recordedStatus: null,
+    recordedLevelLabel: null,
+    canMoveEarlier: false,
+    canMoveLater: false,
+    recordedChecks: [],
+    recordedWarnings: [],
+  });
+});
+
+test('the first prestige row exposes entry prerequisite groups while later levels omit them', () => {
+  const snapshot = buildSheet({
+    hasClasses: true,
+    levels: [
+      { id: 'prestige-1', hp: null, classId: 'fighter' },
+      { id: 'prestige-2', hp: null, classId: 'fighter' },
+    ],
+  });
+  const catalogEntries = snapshot.catalogEntries.map((definition) =>
+    definition.detail.kind === 'class' &&
+    'classKind' in definition.detail &&
+    definition.name === 'Fighter'
+      ? {
+          ...definition,
+          modifiers: [],
+          detail: { ...definition.detail, classKind: 'prestige' as const },
+          prerequisites: [{ ability: 'strength' as const, min: 13 }],
+        }
+      : definition,
+  );
+  const calculated = calculateCharacterSheet({
+    entries: snapshot.entries,
+    catalogEntries,
+    characterKind: 'pc',
+  });
+  const view = buildCharacterSheetView({
+    ...snapshot,
+    catalogEntries,
+    calculated,
+  });
+  expect(view.levels[0]?.prerequisites).toMatchObject({
+    currentStatus: 'unmet',
+    recordedStatus: 'unmet',
+    recordedLevelLabel: 'Prerequisites at recorded level 1',
+  });
+  expect(view.levels[1]?.prerequisites).toMatchObject({
+    currentChecks: [],
+    recordedChecks: [],
+    recordedLevelLabel: null,
   });
 });

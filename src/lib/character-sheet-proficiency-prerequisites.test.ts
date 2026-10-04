@@ -107,7 +107,7 @@ test('legacy proficiency Accepted Warnings retain their subject and fingerprint 
     {
       subject: 'required:recorded:0',
       fingerprint:
-        '["category:heavy","category:heavy",{"granted":[],"removed":[]},{"classLevel":1,"choiceOrder":0,"beforeLevel":false}]',
+        '["category:heavy","category:heavy",{"granted":[],"removed":[]},null]',
     },
   ];
   expect(
@@ -282,10 +282,19 @@ test('a recorded choice cannot borrow its own or later grants and follows edited
   );
 });
 
-test('prerequisite warning fingerprints use relevant inputs and recorded position', () => {
+test('prerequisite warning fingerprints follow relevant inputs and ignore unrelated order changes', () => {
   const input = sheet(
-    [feat('heavy-use', { level: 'level-1', order: 1 })],
     [
+      feat('heavy-use', { level: 'level-1', order: 1 }),
+      feat('peer', { level: 'level-1', order: 0 }),
+    ],
+    [
+      {
+        _id: 'peer',
+        ruleIdentity: 'feat/peer',
+        modifiers: [],
+        detail: { kind: 'feat' },
+      },
       {
         _id: 'heavy-use',
         ruleIdentity: 'feat/heavy-use',
@@ -338,11 +347,11 @@ test('prerequisite warning fingerprints use relevant inputs and recorded positio
   expect(changedInputs[0]?.fingerprint).not.toBe(original[0]?.fingerprint);
   expect(changedInputs[1]?.fingerprint).not.toBe(original[1]?.fingerprint);
   input.entries = input.entries.map((entry) =>
-    entry._id === 'heavy-use' ? { ...entry, choiceOrder: 2 } : entry,
+    entry._id === 'heavy-use' ? { ...entry, choiceOrder: -1 } : entry,
   );
   const reordered = warnings();
   expect(reordered[0]?.fingerprint).toBe(changedInputs[0]?.fingerprint);
-  expect(reordered[1]?.fingerprint).not.toBe(changedInputs[1]?.fingerprint);
+  expect(reordered[1]?.fingerprint).toBe(changedInputs[1]?.fingerprint);
 });
 
 test('a named weapon without modeled weapon facts is unchecked until a direct proficiency decides it', () => {

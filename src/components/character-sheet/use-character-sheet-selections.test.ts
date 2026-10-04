@@ -3,6 +3,7 @@ import { getFunctionName } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { buildSheet } from './character-sheet-test-fixture';
+import type { CharacterSheetSnapshot } from './use-character-sheet';
 import { useCharacterSheetSelections } from './use-character-sheet-selections';
 
 const writes = vi.hoisted(() => ({
@@ -10,6 +11,7 @@ const writes = vi.hoisted(() => ({
   clear: vi.fn(),
   edit: vi.fn(),
   settings: vi.fn(),
+  move: vi.fn(),
 }));
 vi.mock('convex/react', () => ({
   useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
@@ -18,6 +20,7 @@ vi.mock('convex/react', () => ({
       'characterSheet:clearSelectionSlot': writes.clear,
       'characterSheet:editSelection': writes.edit,
       'characterSheet:editCreationSettings': writes.settings,
+      'characterSheet:moveSelection': writes.move,
     })[getFunctionName(reference)],
 }));
 beforeEach(() =>
@@ -151,8 +154,23 @@ test('switching Characters clears selection acknowledgements and ignores a late 
   expect(view.result.current.statusForEntry(entryId)).toEqual({ kind: 'idle' });
 });
 
-test('another player’s feat definition edit is acknowledged while unrelated score changes are quiet', () => {
-  const initial = buildSheet();
+test('another player’s selected feat definition edit is acknowledged while unrelated score changes are quiet', () => {
+  const sheet = buildSheet({
+    adjustments: [{ id: 'feat', name: 'Power Attack', modifiers: [] }],
+  });
+  const initial: CharacterSheetSnapshot = {
+    ...sheet,
+    entries: sheet.entries.map((entry) =>
+      entry.kind === 'manual'
+        ? { ...entry, kind: 'feat', state: { kind: 'feat', slot: 'general' } }
+        : entry,
+    ),
+    catalogEntries: sheet.catalogEntries.map((entry) =>
+      entry.detail.kind === 'manual'
+        ? { ...entry, detail: { kind: 'feat' } }
+        : entry,
+    ),
+  };
   const view = renderHook(
     ({ snapshot }) =>
       useCharacterSheetSelections(
@@ -162,26 +180,22 @@ test('another player’s feat definition edit is acknowledged while unrelated sc
     { initialProps: { snapshot: initial } },
   );
   view.rerender({
-    snapshot: buildSheet({
-      scores: { ...initial.character, strength: 14 },
+    snapshot: {
+      ...initial,
+      character: { ...initial.character, strength: 14 },
       lastOperationId: 'another-player',
-    }),
+    },
   });
   expect(view.result.current.hasRemoteChange).toBe(false);
   view.rerender({
     snapshot: {
       ...initial,
       lastOperationId: 'another-player',
-      catalogEntries: [
-        ...initial.catalogEntries,
-        {
-          ...initial.baseScoresEntry,
-          _id: 'feat-catalog' as typeof initial.baseScoresEntry._id,
-          name: 'Power Attack',
-          ruleIdentity: 'power-attack',
-          detail: { kind: 'feat' },
-        },
-      ],
+      catalogEntries: initial.catalogEntries.map((entry) =>
+        entry.detail.kind === 'feat'
+          ? { ...entry, name: 'Changed feat' }
+          : entry,
+      ),
     },
   });
   expect(view.result.current.hasRemoteChange).toBe(true);
@@ -213,4 +227,156 @@ test('alignment and deity changes use the existing sheet settings writer and ack
     deity: 'Iomedae',
   });
   expect(view.result.current.factsStatus).toEqual({ kind: 'saved' });
+});
+
+test('moving a Selection reports saving, refuses duplicate submissions and retries a failed move', async () => {
+  const snapshot = buildSheet();
+  const entryId = snapshot.entries[1]!._id;
+  let reject: ((error: unknown) => void) | undefined;
+  writes.move.mockImplementationOnce(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      }),
+  );
+  const view = renderHook(() =>
+    useCharacterSheetSelections(
+      { characterId: snapshot.character._id },
+      snapshot,
+    ),
+  );
+  let move: Promise<boolean> | undefined;
+  act(() => {
+    move = view.result.current.move(entryId, 'earlier');
+  });
+  expect(view.result.current.statusForEntry(entryId)).toEqual({
+    kind: 'saving',
+  });
+  await act(async () => {
+    expect(await view.result.current.move(entryId, 'later')).toBe(false);
+  });
+  await act(async () => {
+    reject?.(new ConvexError('Character is read only'));
+    expect(await move).toBe(false);
+  });
+  expect(view.result.current.statusForEntry(entryId)).toEqual({
+    kind: 'error',
+    message: "Selection order wasn't saved: Character is read only. Try again.",
+  });
+  await act(async () => {
+    expect(await view.result.current.move(entryId, 'earlier')).toBe(true);
+  });
+  expect(writes.move).toHaveBeenLastCalledWith({
+    characterId: snapshot.character._id,
+    operationId: expect.any(String),
+    entryId,
+    direction: 'earlier',
+  });
+  expect(view.result.current.statusForEntry(entryId)).toEqual({
+    kind: 'saved',
+  });
+});
+
+test('another player’s order change on a personal adjustment leaves Feats & traits quiet', () => {
+  const initial = buildSheet({
+    adjustments: [
+      {
+        id: 'adjustment',
+        name: 'Recorded adjustment',
+        modifiers: [],
+        gainedAtClassLevel: 'level-1',
+      },
+    ],
+  });
+  const view = renderHook(
+    ({ snapshot }) =>
+      useCharacterSheetSelections(
+        { characterId: snapshot.character._id },
+        snapshot,
+      ),
+    { initialProps: { snapshot: initial } },
+  );
+  view.rerender({
+    snapshot: {
+      ...initial,
+      lastOperationId: 'another-player',
+      entries: initial.entries.map((entry) =>
+        entry.kind === 'manual' ? { ...entry, choiceOrder: 2 } : entry,
+      ),
+    },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(false);
+  act(() => view.result.current.dismissRemoteChange());
+  expect(view.result.current.hasRemoteChange).toBe(false);
+});
+
+test.each(['item', 'condition'] as const)(
+  'another player changing a %s or its definition leaves Feats & traits quiet',
+  (kind) => {
+    const initial = buildSheet({
+      sheetEntries: [
+        {
+          id: 'unrelated-entry',
+          name: 'Unrelated entry',
+          detail:
+            kind === 'item'
+              ? { kind: 'item', consumable: false }
+              : { kind: 'condition' },
+          modifiers: [],
+        },
+      ],
+    });
+    const view = renderHook(
+      ({ snapshot }) =>
+        useCharacterSheetSelections(
+          { characterId: snapshot.character._id },
+          snapshot,
+        ),
+      { initialProps: { snapshot: initial } },
+    );
+    view.rerender({
+      snapshot: {
+        ...initial,
+        lastOperationId: 'another-player',
+        entries: initial.entries.map((entry) =>
+          entry.kind === kind ? { ...entry, active: false } : entry,
+        ),
+        catalogEntries: initial.catalogEntries.map((entry) =>
+          entry.detail.kind === kind
+            ? { ...entry, name: 'Changed entry' }
+            : entry,
+        ),
+      },
+    });
+    expect(view.result.current.hasRemoteChange).toBe(false);
+  },
+);
+
+test('another player changing an unselected feat definition leaves Feats & traits quiet', () => {
+  const initial = buildSheet();
+  const view = renderHook(
+    ({ snapshot }) =>
+      useCharacterSheetSelections(
+        { characterId: snapshot.character._id },
+        snapshot,
+      ),
+    { initialProps: { snapshot: initial } },
+  );
+  view.rerender({
+    snapshot: {
+      ...initial,
+      lastOperationId: 'another-player',
+      catalogEntries: [
+        ...initial.catalogEntries,
+        {
+          ...initial.baseScoresEntry,
+          _id: 'unselected-feat' as typeof initial.baseScoresEntry._id,
+          name: 'Unselected feat',
+          ruleIdentity: 'unselected-feat',
+          detail: { kind: 'feat' },
+        },
+      ],
+    },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(false);
 });

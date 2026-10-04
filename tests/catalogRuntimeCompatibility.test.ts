@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:10de1531a3f695d0eb5a42a632047548ca7f1afd4c8b59e48d9804ec940dbc07';
+    'sha256:404dc533a4f5212248f8c8aa720de4115d85196b171e802d6d2cceff56aa9982';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -148,6 +148,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     [
       './character-sheet-grants',
       './character-sheet-class-levels',
+      './character-sheet-selection',
       './character-sheet-proficiencies',
       './character-sheet-proficiency-prerequisites',
       './character-sheet-prerequisite-evaluation',
@@ -167,6 +168,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     [
       './character-sheet-skills',
       './character-sheet-class-levels',
+      './character-sheet-spellcasting',
       './character-sheet-racial',
       './character-sheet-proficiencies',
       './character-sheet-proficiency-prerequisites',
@@ -187,11 +189,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-class-levels',
       './character-sheet-skills',
     ],
-    [
-      'zod',
-      '../character-sheet-skills',
-      '../character-sheet-linked-inputs',
-    ],
+    ['zod', '../character-sheet-skills', '../character-sheet-linked-inputs'],
     [],
     ['../character-sheet', './runtime-compatibility'],
     [

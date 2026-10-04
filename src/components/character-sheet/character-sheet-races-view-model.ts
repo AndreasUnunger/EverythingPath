@@ -1,5 +1,9 @@
 import { isRacialTraitApplicable } from '~/lib/character-sheet-racial';
 import { creatureTypeProgressionSeeds } from '~/lib/character-sheet-creature-types';
+import {
+  buildCharacterSheetSelectionsView,
+  type CharacterSheetSelectionRow,
+} from './character-sheet-selections-view-model';
 import { buildCharacterSheetGrantsView } from './character-sheet-grants-view-model';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
@@ -7,6 +11,9 @@ import type { CharacterSheetSnapshot } from './use-character-sheet';
 export function buildCharacterSheetRacesView(
   snapshot: CharacterSheetSnapshot,
   choices: CharacterSheetSnapshot['catalogEntries'] = [],
+  selectionRows: readonly CharacterSheetSelectionRow[] = buildCharacterSheetSelectionsView(
+    snapshot,
+  ).allRows,
 ) {
   const catalogEntries = [
     ...new Map(
@@ -67,8 +74,8 @@ export function buildCharacterSheetRacesView(
       race.detail.kind === 'race'
         ? race.detail.racialTraits.map(
             (id) =>
-              catalogEntries.find((entry) => entry._id === id)
-                ?.ruleIdentity ?? id,
+              catalogEntries.find((entry) => entry._id === id)?.ruleIdentity ??
+              id,
           )
         : [],
     ),
@@ -120,10 +127,17 @@ export function buildCharacterSheetRacesView(
       },
     ];
   });
-  const sections = buildCharacterSheetGrantsView(
-    snapshot.calculated.resolvedEntries,
-    snapshot.catalogEntries,
-  );
+  const selectionsById = new Map(selectionRows.map((row) => [row.rowId, row]));
+  const sections = buildCharacterSheetGrantsView({
+    entries: snapshot.calculated.resolvedEntries,
+    catalogEntries: snapshot.catalogEntries,
+    classLevelIds: new Set(
+      snapshot.entries
+        .filter((entry) => entry.kind === 'classLevel' && entry.active)
+        .map((entry) => entry._id),
+    ),
+    selectionRows,
+  });
   const racialSection = sections.find(
     (section) => section.kind === 'racialTrait',
   );
@@ -149,6 +163,7 @@ export function buildCharacterSheetRacesView(
       return [
         {
           rowId: entry._id,
+          selection: selectionsById.get(entry._id),
           name: definition.name,
           target: entry.grantKey
             ? { grantKey: entry.grantKey }
@@ -168,8 +183,8 @@ export function buildCharacterSheetRacesView(
     standardOptions: standards.map((catalogEntryId) => ({
       catalogEntryId,
       name:
-        catalogEntries.find((entry) => entry._id === catalogEntryId)
-          ?.name ?? 'Unavailable trait',
+        catalogEntries.find((entry) => entry._id === catalogEntryId)?.name ??
+        'Unavailable trait',
     })),
     choiceRows,
     rows: racialSection?.rows ?? [],

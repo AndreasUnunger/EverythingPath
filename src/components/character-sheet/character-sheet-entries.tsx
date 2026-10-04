@@ -12,7 +12,7 @@ import { ConditionRules, rulesOnlyText } from './condition-rules';
 import { SheetEntryEditor } from './sheet-entry-editor';
 import { SpellEffectStateControl } from './spell-effect-state-control';
 import { sheetEntryKindLabels } from './sheet-entry-classification-fields';
-import { InlineWarnings } from './inline-warning';
+import { SelectionChecks } from './selection-checks';
 import { describeModifier } from './modifier-labels';
 import { listEntryModifierWarnings } from './modifier-warnings';
 import { entryFocusAttribute, useRowDefinition } from './sheet-catalog-context';
@@ -220,13 +220,12 @@ function SheetEntryRow({
             showRules={!isOpen}
           />
         ) : null}
-        {isOpen ? null : (
-          <InlineWarnings
-            warnings={warnings}
-            controller={warningController}
-            className="mt-1"
-          />
-        )}
+        <SelectionChecks
+          selection={row.selection}
+          warnings={isOpen ? [] : warnings}
+          warningController={warningController}
+          className="mt-1"
+        />
         {isShared &&
         row.detail.kind === 'spellEffect' &&
         row.state.kind === 'spellEffect' ? (

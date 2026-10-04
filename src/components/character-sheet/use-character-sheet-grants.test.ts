@@ -250,3 +250,42 @@ test('remote source and catalog changes are announced, including a catalog updat
   });
   expect(view.result.current.hasRemoteChange).toBe(true);
 });
+
+test('another player reordering a class feature raises the shared entry notice', () => {
+  const sheet = buildSheet({
+    adjustments: [{ id: 'feature', name: 'Combat talent', modifiers: [] }],
+  });
+  const initial = {
+    ...sheet,
+    entries: sheet.entries.map((entry) =>
+      entry.kind === 'manual'
+        ? {
+            ...entry,
+            kind: 'classFeature' as const,
+            state: { kind: 'classFeature' as const },
+            choiceOrder: 0,
+          }
+        : entry,
+    ),
+  };
+  const view = renderHook(
+    ({ snapshot }) =>
+      useCharacterSheetGrants(
+        { characterId: snapshot.character._id },
+        snapshot,
+      ),
+    { initialProps: { snapshot: initial } },
+  );
+  view.rerender({
+    snapshot: {
+      ...initial,
+      lastOperationId: 'another-player',
+      entries: initial.entries.map((entry) =>
+        entry.kind === 'classFeature' ? { ...entry, choiceOrder: 1 } : entry,
+      ),
+    },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(true);
+  act(() => view.result.current.dismissRemoteChange());
+  expect(view.result.current.hasRemoteChange).toBe(false);
+});

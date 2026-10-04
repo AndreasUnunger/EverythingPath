@@ -31,12 +31,25 @@ export function useCharacterSheetSelections(
   scope: CharacterScope,
   snapshot: CharacterSheetSnapshot | null | undefined,
 ) {
+  const moveSelection = useMutation(api.characterSheet.moveSelection);
   const fillSelectionSlot = useMutation(api.characterSheet.fillSelectionSlot);
   const clearSelectionSlot = useMutation(api.characterSheet.clearSelectionSlot);
   const editSelection = useMutation(api.characterSheet.editSelection);
   const editCreationSettings = useMutation(
     api.characterSheet.editCreationSettings,
   );
+  const catalogIds = new Set([
+    ...(snapshot?.entries.flatMap((entry) =>
+      entry.kind === 'feat' || entry.kind === 'trait'
+        ? [entry.catalogEntryId]
+        : [],
+    ) ?? []),
+    ...(snapshot?.calculated.resolvedEntries.flatMap(({ entry }) =>
+      entry.kind === 'feat' || entry.kind === 'trait'
+        ? [entry.catalogEntryId]
+        : [],
+    ) ?? []),
+  ]);
   const state = useEntryWriteStatus({
     scopeKey: JSON.stringify(scope),
     signature: snapshot
@@ -44,11 +57,15 @@ export function useCharacterSheetSelections(
           entries: snapshot.entries.filter(
             (entry) => entry.kind === 'feat' || entry.kind === 'trait',
           ),
-          catalog: snapshot.catalogEntries.filter(
-            (entry) =>
-              entry.detail.kind === 'feat' || entry.detail.kind === 'trait',
+          catalog: snapshot.catalogEntries.filter((entry) =>
+            catalogIds.has(entry._id),
           ),
-          facts: snapshot.entries.find((entry) => entry.kind === 'base')?.state,
+          facts: {
+            alignment: snapshot.entries.find((entry) => entry.kind === 'base')
+              ?.state.alignment,
+            deity: snapshot.entries.find((entry) => entry.kind === 'base')
+              ?.state.deity,
+          },
         })
       : null,
     operationId: snapshot?.lastOperationId,
@@ -64,6 +81,18 @@ export function useCharacterSheetSelections(
   }
   const slotKey = (id: string, position: number) =>
     JSON.stringify([id, position]);
+  function move(
+    entryId: Id<'characterSheetEntry'>,
+    direction: 'earlier' | 'later',
+  ) {
+    return state.write(
+      () => moveSelection({ ...operation(), entryId, direction }),
+      {
+        key: entryId,
+        subject: 'Selection order',
+      },
+    );
+  }
   return {
     statusForSlot: (id: string, position: number) =>
       state.statusFor(slotKey(id, position)),
@@ -86,6 +115,7 @@ export function useCharacterSheetSelections(
         key: entryId,
         subject: 'Selection',
       }),
+    move,
     edit: (entryId: Id<'characterSheetEntry'>, input: SelectionEditInput) =>
       state.write(() => editSelection({ ...operation(), entryId, ...input }), {
         key: entryId,

@@ -1,5 +1,6 @@
 import { characterSheetClassFamily } from './character-sheet-grants';
 import { classFamilyLevels } from './character-sheet-class-levels';
+import { orderedSelectionIdsAtLevel } from './character-sheet-selection';
 import {
   proficiencyKey,
   type ManualProficiency,
@@ -7,6 +8,7 @@ import {
 } from './character-sheet-proficiencies';
 import type { CharacterSheetInput, SheetWarning } from './character-sheet';
 import {
+  buildRecordedPrerequisiteSources,
   definitionFor,
   ignoresPrerequisites,
   recordedPrefix,
@@ -64,8 +66,7 @@ function clausesFor(
 }
 
 function fingerprintClause(clause: Prerequisite): unknown {
-  if ('anyOf' in clause)
-    return { anyOf: clause.anyOf.map(fingerprintClause) };
+  if ('anyOf' in clause) return { anyOf: clause.anyOf.map(fingerprintClause) };
   const fields = { ...clause };
   delete fields.kind;
   return fields;
@@ -105,13 +106,9 @@ function prerequisiteWarning({
             : proficiencyKey(clause.proficiency),
           proficiencyKey(proficiency),
           facts,
-          view === 'recorded' ? position : undefined,
+          undefined,
         ]
-      : [
-          fingerprintClause(clause),
-          facts,
-          view === 'recorded' ? position : undefined,
-        ];
+      : [fingerprintClause(clause), facts, undefined];
   return {
     kind: 'rules',
     check: legacy
@@ -142,6 +139,18 @@ export function resolveCharacterSheetPrerequisites(
     met: boolean;
   }[] = [];
   const warnings: SheetWarning[] = [];
+  const sources = buildRecordedPrerequisiteSources({
+    input: recordedInput,
+    effectiveInput,
+  });
+  const levelOrders = new Map(
+    recordedInput.entries
+      .filter((entry) => entry.kind === 'classLevel' && entry.active)
+      .map((entry) => [
+        entry._id,
+        orderedSelectionIdsAtLevel(recordedInput.entries, entry._id),
+      ]),
+  );
   for (const entry of effectiveInput.entries) {
     if (!entry.active || ignoresPrerequisites(entry, effectiveInput)) continue;
     const definition = definitionFor(entry, effectiveInput);
@@ -165,7 +174,13 @@ export function resolveCharacterSheetPrerequisites(
       )
         continue;
     }
-    const prefix = recordedPrefix(entry, recordedInput, effectiveInput);
+    const prefix = recordedPrefix({
+      entry,
+      input: recordedInput,
+      effectiveInput,
+      sources,
+      levelOrders,
+    });
     const recordedFacts = prefix ? reconstruct(prefix.input) : undefined;
     for (const [
       clauseIndex,

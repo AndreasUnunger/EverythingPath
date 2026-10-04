@@ -2,6 +2,7 @@ import { findArchetypeSelection } from '../src/lib/character-sheet-archetype-hel
 import { defaultAttackRoutineConfiguration } from '../src/lib/character-sheet-attacks';
 import {
   selectionMetadata,
+  orderedSelectionIdsAtLevel,
   buildSelectionEntry,
   replaceRecordedSelection,
 } from '../src/lib/character-sheet-selection';
@@ -2861,6 +2862,67 @@ export const editSelection = campaignMutation({
       ...metadata,
     };
     await persistRecordedEntry(ctx, sheet, row, previous._id);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
+type CatalogBackedSelection = Exclude<
+  Extract<Doc<'characterSheetEntry'>, { catalogEntryId: Id<'catalogEntry'> }>,
+  { kind: 'base' }
+>;
+function isCatalogBackedSelection(
+  entry: Doc<'characterSheetEntry'> | undefined,
+): entry is CatalogBackedSelection {
+  return (
+    entry !== undefined && 'catalogEntryId' in entry && entry.kind !== 'base'
+  );
+}
+
+export const moveSelection = campaignMutation({
+  args: {
+    ...rowScope,
+    direction: v.union(v.literal('earlier'), v.literal('later')),
+  },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const selection = sheet.entries.find((row) => row._id === args.entryId);
+    if (!isCatalogBackedSelection(selection))
+      throw new ConvexError('Selection does not belong to this Character');
+    if (selection.grantKey) throw new ConvexError('Grants cannot be reordered');
+    const levelId = selection.gainedAtClassLevel;
+    if (
+      !levelId ||
+      !sheet.entries.some(
+        (row) => row._id === levelId && row.kind === 'classLevel' && row.active,
+      )
+    )
+      throw new ConvexError(
+        'Record a Class Level before moving this Selection',
+      );
+    const ordered = orderedSelectionIdsAtLevel(sheet.entries, levelId);
+    const index = ordered.indexOf(selection._id);
+    if (index === -1) return null;
+    const next = index + (args.direction === 'earlier' ? -1 : 1);
+    const source = ordered[index];
+    const destination = ordered[next];
+    if (source === undefined || destination === undefined) return null;
+    ordered[index] = destination;
+    ordered[next] = source;
+    for (const [choiceOrder, entryId] of ordered.entries()) {
+      const entry = sheet.entries.find((row) => row._id === entryId);
+      if (!isCatalogBackedSelection(entry)) continue;
+      if (entry.choiceOrder === choiceOrder) continue;
+      await ctx.db.patch('characterSheetEntry', entry._id, { choiceOrder });
+      sheet.entries = replaceRecordedSelection(sheet.entries, {
+        ...entry,
+        choiceOrder,
+      });
+    }
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
       operationId: args.operationId,

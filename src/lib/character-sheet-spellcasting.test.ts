@@ -155,7 +155,7 @@ test('candidate casting tables change allowances without changing default sheet 
   });
 });
 
-test('the retained prior calculation identity ignores candidate resources while the current identity uses them', async () => {
+test('the retained prior and current calculation identities both use candidate resources', async () => {
   const [{ createHash }, { readFile }] = await Promise.all([
     import('node:crypto'),
     import('node:fs/promises'),
@@ -176,34 +176,26 @@ test('the retained prior calculation identity ignores candidate resources while 
     resources: { castingTables: reviewedCastingTablesSchema.parse(tables) },
   };
   const prior =
-    'sha256:7a6006e58cfc1d2ed3c438033e53b82ef1d70cc9569449ecb6d6f00d8cc3f366';
-  expect(
-    calculateCharacterSheetForRelease(prior, input).spellcastings[0]?.slots[1],
-  ).toMatchObject({ base: 2, total: 3 });
-  expect(
-    calculateCharacterSheetForRelease(
-      catalogRuntimeCompatibility.calculation,
+    'sha256:10de1531a3f695d0eb5a42a632047548ca7f1afd4c8b59e48d9804ec940dbc07';
+  for (const identity of [prior, catalogRuntimeCompatibility.calculation]) {
+    expect(
+      calculateCharacterSheetForRelease(identity, input).spellcastings[0]
+        ?.slots[1],
+    ).toMatchObject({ base: 7, total: 8 });
+    const projections = calculateCharacterSheetProjectionsForRelease(
+      identity,
       input,
-    ).spellcastings[0]?.slots[1],
-  ).toMatchObject({ base: 7, total: 8 });
-  const oldProjections = calculateCharacterSheetProjectionsForRelease(
-    prior,
-    input,
-  );
-  const newProjections = calculateCharacterSheetProjectionsForRelease(
-    catalogRuntimeCompatibility.calculation,
-    input,
-  );
-  for (const projection of [oldProjections.current, oldProjections.permanent])
-    expect(projection.spellcastings[0]?.slots[1]).toMatchObject({
-      base: 2,
-      total: 3,
-    });
-  for (const projection of [newProjections.current, newProjections.permanent])
-    expect(projection.spellcastings[0]?.slots[1]).toMatchObject({
-      base: 7,
-      total: 8,
-    });
+    );
+    for (const projection of [projections.current, projections.permanent])
+      expect(projection.spellcastings[0]?.slots[1]).toMatchObject({
+        base: 7,
+        total: 8,
+      });
+  }
+  expect(
+    calculateCharacterSheetForRelease(prior, build([['wizard', 3]]))
+      .spellcastings[0]?.slots[1],
+  ).toMatchObject({ base: 2, total: 3 });
 });
 
 test('release calculation dispatch refuses identities without a retained implementation', () => {

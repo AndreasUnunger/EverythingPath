@@ -97,6 +97,8 @@ The adapter reports all four current byte SHA-256 hashes in `catalog.localResour
 
 **Feat/trait integration (#313, 2026-10-04).** The combined Archetype, racial Hit Dice, equipment, Catalog Copy, Attack Routine, Spell collection and prerequisite calculator has SHA-256 `3eb890dbfc3fbd03c057a87125560a2b946d2c878bf2fea748157491c505cbf4`. The ordinary `pnpm -s catalog:conditions` command regenerated the current report with 34 admitted Conditions and no holds, failures or outstanding notices. Existing Attribution Assessments, evidence and historical calculation provenance remain intact.
 
+**Recorded-level prerequisite integration (#320, 2026-10-04).** The combined linked-input (#317), reviewed casting-resource (#318), initial-backfill (#319) and recorded-prefix calculator has SHA-256 `e812105323f25d69634a895c9317d08a87ecf7f8bd8b32a81fd0a2e2ed572550`. The ordinary `pnpm -s catalog:conditions` command regenerated the current report with all 34 Conditions admitted, no holds, failures or outstanding notices. Condition definitions, resolver bytes, Attribution Assessments, evidence and historical calculation provenance remain unchanged.
+
 ```sh
 pnpm -s catalog:conditions > /tmp/conditions-admission.json
 pnpm -s catalog:preview --system /path/to/pf1 --content /path/to/pf1-content --conditions --out /tmp/full-catalog-preview

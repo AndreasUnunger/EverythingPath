@@ -67,6 +67,7 @@ const defaultApi = {
     discardDormantEntry: 'discardDormantEntry',
     editGrantState: 'editGrantState',
     editSelection: 'editSelection',
+    moveSelection: 'moveSelection',
     fillSelectionSlot: 'fillSelectionSlot',
     clearSelectionSlot: 'clearSelectionSlot',
     selectRace: 'selectRace',

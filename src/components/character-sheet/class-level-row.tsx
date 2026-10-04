@@ -12,6 +12,7 @@ import {
   FavoredClassBonusCell,
 } from './class-level-choices';
 import { ClassLevelHitPoints } from './class-level-hit-points';
+import { PrerequisiteGroups } from './prerequisite-groups';
 import type {
   SheetWarningView,
   useCharacterSheet,
@@ -55,7 +56,9 @@ function findClass(
  * chosen in place and saved as chosen; hit points are typed and saved with
  * their own button. Each warning sits by the field it is about; the level's
  * rank allocation is spent and warned about in the Skills block, and its
- * class's weapon proficiency choice is made in the Proficiencies block.
+ * class's weapon proficiency choice is made in the Proficiencies block. A
+ * Prestige Class's first level shows its entry prerequisites now and at
+ * that level, apart from the level's own order.
  */
 export function ClassLevelRow({
   row,
@@ -166,6 +169,11 @@ export function ClassLevelRow({
           className="col-span-2 md:col-span-6"
         />
       </Form>
+      <PrerequisiteGroups
+        groups={row.prerequisites}
+        warningController={warningController}
+        className="col-span-2 md:col-span-6"
+      />
       <RowCatalogDefinition
         rowId={row._id}
         target={{ kind: 'entry', entryId: row._id }}

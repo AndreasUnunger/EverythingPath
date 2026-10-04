@@ -59,10 +59,10 @@ const master: ResolvedSheetEntry = {
 test.each([true, false])(
   'replaced Grants nest under their replacer with or without recorded state (%s)',
   (recorded) => {
-    const sections = buildCharacterSheetGrantsView(
-      [feature(recorded), master],
-      catalogs,
-    );
+    const sections = buildCharacterSheetGrantsView({
+      entries: [feature(recorded), master],
+      catalogEntries: catalogs,
+    });
     expect(sections).toHaveLength(1);
     expect(sections[0]?.title).toBe('Archetypes');
     expect(sections[0]?.rows[0]?.replaced[0]).toMatchObject({
@@ -98,10 +98,10 @@ test('only recorded lost entries go in their section’s Not counting now group'
     counting: false,
     reason: undefined,
   };
-  const [section] = buildCharacterSheetGrantsView(
-    [recorded, unrecorded, off],
-    catalogs,
-  );
+  const [section] = buildCharacterSheetGrantsView({
+    entries: [recorded, unrecorded, off],
+    catalogEntries: catalogs,
+  });
   expect(section?.dormantLabel).toBe('Not counting now (1)');
   expect(section?.dormantRows.map((row) => row.rowId)).toEqual(['armor-grant']);
   expect(
@@ -115,7 +115,10 @@ test('a kept entry stays visible once and keeps its off control independent of K
     entry: { ...feature(true).entry, kept: true as const },
     counting: true,
   };
-  const [section] = buildCharacterSheetGrantsView([master, kept], catalogs);
+  const [section] = buildCharacterSheetGrantsView({
+    entries: [master, kept],
+    catalogEntries: catalogs,
+  });
   expect(section?.rows[0]?.replaced[0]).toMatchObject({
     kept: true,
     status: 'kept',
@@ -127,8 +130,10 @@ test('a kept entry stays visible once and keeps its off control independent of K
     counting: false,
   };
   expect(
-    buildCharacterSheetGrantsView([master, off], catalogs)[0]?.rows[0]
-      ?.replaced[0],
+    buildCharacterSheetGrantsView({
+      entries: [master, off],
+      catalogEntries: catalogs,
+    })[0]?.rows[0]?.replaced[0],
   ).toMatchObject({ kept: true, status: 'off', counting: false });
 });
 
@@ -153,7 +158,10 @@ test('dormant Selections from existing effect sections keep state without duplic
     reason: { kind: 'sourceMissing' },
   };
   if (lost.entry.kind !== 'item') throw new Error('Missing item');
-  const [section] = buildCharacterSheetGrantsView([lost], catalogs);
+  const [section] = buildCharacterSheetGrantsView({
+    entries: [lost],
+    catalogEntries: catalogs,
+  });
   expect(section).toMatchObject({
     title: 'Items',
     rows: [],
@@ -161,16 +169,18 @@ test('dormant Selections from existing effect sections keep state without duplic
   });
   expect(section?.dormantRows[0]?.target).toEqual({ entryId: 'item' });
   expect(
-    buildCharacterSheetGrantsView(
-      [{ ...lost, dormant: false, counting: true }],
-      catalogs,
-    ),
+    buildCharacterSheetGrantsView({
+      entries: [{ ...lost, dormant: false, counting: true }],
+      catalogEntries: catalogs,
+    }),
   ).toEqual([]);
   expect(
-    buildCharacterSheetGrantsView(
-      [{ ...lost, entry: { ...lost.entry, kept: true }, counting: true }],
-      catalogs,
-    )[0]?.rows[0],
+    buildCharacterSheetGrantsView({
+      entries: [
+        { ...lost, entry: { ...lost.entry, kept: true }, counting: true },
+      ],
+      catalogEntries: catalogs,
+    })[0]?.rows[0],
   ).toMatchObject({ status: 'kept', canKeep: true, canDiscard: true });
 });
 
@@ -190,7 +200,10 @@ test('derived Grants in existing effect kinds have their own controls even witho
     counting: true,
   };
   expect(
-    buildCharacterSheetGrantsView([manual], catalogs)[0]?.rows[0],
+    buildCharacterSheetGrantsView({
+      entries: [manual],
+      catalogEntries: catalogs,
+    })[0]?.rows[0],
   ).toMatchObject({
     name: 'Armor Training 1',
     origin: 'grant',
@@ -208,7 +221,10 @@ test('derived Grants in existing effect kinds have their own controls even witho
     },
   };
   expect(
-    buildCharacterSheetGrantsView([condition], catalogs)[0]?.rows[0],
+    buildCharacterSheetGrantsView({
+      entries: [condition],
+      catalogEntries: catalogs,
+    })[0]?.rows[0],
   ).toMatchObject({ canEditChoice: false, notes: '' });
 });
 
@@ -230,14 +246,14 @@ test('nested Grants name their Grant or Selection parent without repeating the p
     counting: true,
     reason: undefined,
   });
-  const rows = buildCharacterSheetGrantsView(
-    [
+  const rows = buildCharacterSheetGrantsView({
+    entries: [
       parent,
       master,
       nested(parent.entry._id, 'grant-child'),
       nested(master.entry._id, 'selection-child'),
     ],
-    [
+    catalogEntries: [
       ...catalogs,
       {
         _id: 'fighter',
@@ -246,7 +262,7 @@ test('nested Grants name their Grant or Selection parent without repeating the p
         modifiers: [],
       },
     ],
-  ).flatMap((section) => section.rows);
+  }).flatMap((section) => section.rows);
   expect(rows.find((row) => row.rowId === 'armor-grant')?.sourceLabel).toBe(
     'Fighter 3',
   );
