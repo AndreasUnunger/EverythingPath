@@ -22,7 +22,6 @@ This applies alongside the vendored `implement` skills.
 - Fable subagents (`model: "fable"`) write the UI presentation layer: React JSX, layout, styling, responsive behaviour, accessibility markup, and visual states. Brief each one with a precise contract: the props and hooks provided, the prototype or screenshot reference, and the layout acceptance criteria.
 - Opus subagents write everything else: domain and rules logic, Convex, state and hooks, tests, and integration.
 - Run nested subagents, including `code-review` reviewers, in the foreground (`run_in_background: false`). Background completion notices never reach a nested agent.
-- Every issue, new finding, and fix ready to push gets a Codex second opinion: see the `second-opinion` skill.
 
 ## Issue Tracker
 
