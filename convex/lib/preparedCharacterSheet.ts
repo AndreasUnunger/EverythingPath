@@ -9,6 +9,7 @@ import {
 import { ConvexError } from 'convex/values';
 import type { Doc } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
+import { jsonBytes } from '../../src/lib/json-bytes';
 import {
   abilityKeys,
   type calculateCharacterSheet,
@@ -28,6 +29,7 @@ export async function loadPreparedCharacterSheet(
   ctx: ReadCtx,
   character: Doc<'character'>,
   campaign?: Doc<'campaign'>,
+  options: CharacterSheetReadOptions = {},
 ) {
   if (!character.sheetMode) return null;
   const currentCampaign =
@@ -36,7 +38,15 @@ export async function loadPreparedCharacterSheet(
       ? await ctx.db.get('campaign', character.campaignId)
       : null);
   if (!currentCampaign?.e2eFixture) return null;
-  return await readCharacterSheetData(ctx, character);
+  const readBudget = createReadBudget(options.resourceLimits);
+  if (!campaign) readBudget.accountRead(currentCampaign);
+  return await readCharacterSheetDataWithBudget(
+    ctx,
+    character,
+    [],
+    options,
+    readBudget,
+  );
 }
 
 export function requireAbilityScore(score: number) {
@@ -74,28 +84,108 @@ export async function loadPreparedCharacterSheets(
   );
 }
 
+export type CharacterSheetReadOptions = {
+  resourceLimits?: {
+    maximumTotalBytesRead: number;
+    maximumReferences: number;
+  };
+  includeAcceptedWarnings?: boolean;
+};
+
+function createReadBudget(
+  resourceLimits: CharacterSheetReadOptions['resourceLimits'],
+) {
+  let totalBytesRead = 0;
+  const externalReferences = new Set<string>();
+  return {
+    accountRead(value: unknown) {
+      if (!resourceLimits) return;
+      totalBytesRead += jsonBytes(value);
+      if (totalBytesRead > resourceLimits.maximumTotalBytesRead)
+        throw new ConvexError(
+          'Recorded sheet exceeds the backfill read resource limit',
+        );
+    },
+    accountReference(id: string) {
+      if (!resourceLimits) return;
+      externalReferences.add(id);
+      if (externalReferences.size > resourceLimits.maximumReferences)
+        throw new ConvexError(
+          'Recorded sheet exceeds the backfill reference resource limit',
+        );
+    },
+  };
+}
+
 export async function readCharacterSheetData(
   ctx: ReadCtx,
   character: Doc<'character'>,
-  additionalReferences: CatalogLoadReference[] = [],
+  referencesOrOptions: CatalogLoadReference[] | CharacterSheetReadOptions = [],
+  options: CharacterSheetReadOptions = {},
 ) {
-  await requireCompatibleActiveRelease(ctx);
-  const [entries, localDefinitions, acceptedWarnings] = await Promise.all([
+  const additionalReferences = Array.isArray(referencesOrOptions)
+    ? referencesOrOptions
+    : [];
+  const readOptions = Array.isArray(referencesOrOptions)
+    ? options
+    : referencesOrOptions;
+  return await readCharacterSheetDataWithBudget(
+    ctx,
+    character,
+    additionalReferences,
+    readOptions,
+    createReadBudget(readOptions.resourceLimits),
+  );
+}
+
+async function readCharacterSheetDataWithBudget(
+  ctx: ReadCtx,
+  character: Doc<'character'>,
+  additionalReferences: CatalogLoadReference[],
+  { resourceLimits, includeAcceptedWarnings = true }: CharacterSheetReadOptions,
+  readBudget: ReturnType<typeof createReadBudget>,
+) {
+  readBudget.accountRead(await requireCompatibleActiveRelease(ctx));
+  async function readRows<T>(
+    query: AsyncIterable<T> & { take(count: number): Promise<T[]> },
+    maximumRows: number,
+  ) {
+    if (!resourceLimits) return await query.take(maximumRows + 1);
+    const rows: T[] = [];
+    for await (const row of query) {
+      readBudget.accountRead(row);
+      if (rows.length >= maximumRows)
+        throw new ConvexError(
+          'Recorded sheet exceeds the backfill read resource limit',
+        );
+      rows.push(row);
+    }
+    return rows;
+  }
+  const entries = await readRows(
     ctx.db
       .query('characterSheetEntry')
-      .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
-      .take(maxCharacterChildRows + 1),
+      .withIndex('by_characterId', (q) => q.eq('characterId', character._id)),
+    maxCharacterChildRows,
+  );
+  const localDefinitions = await readRows(
     ctx.db
       .query('catalogEntry')
       .withIndex('by_characterId_and_browseOnly', (q) =>
         q.eq('characterId', character._id).eq('browseOnly', undefined),
+      ),
+    maxCharacterChildRows,
+  );
+  const acceptedWarnings = includeAcceptedWarnings
+    ? await readRows(
+        ctx.db
+          .query('acceptedWarning')
+          .withIndex('by_characterId', (q) =>
+            q.eq('characterId', character._id),
+          ),
+        maxAcceptedWarnings,
       )
-      .take(maxCharacterChildRows + 1),
-    ctx.db
-      .query('acceptedWarning')
-      .withIndex('by_characterId', (q) => q.eq('characterId', character._id))
-      .take(maxAcceptedWarnings + 1),
-  ]);
+    : [];
   if (
     entries.length > maxCharacterChildRows ||
     localDefinitions.length > maxCharacterChildRows
@@ -127,6 +217,7 @@ export async function readCharacterSheetData(
       ),
       ...additionalReferences,
     ],
+    readBudget,
   );
   if (acceptedWarnings.length > maxAcceptedWarnings)
     throw new ConvexError('Character has too many accepted warnings');
@@ -178,9 +269,16 @@ export async function readCharacterSheetData(
     readClassDefinition(classId);
   for (const entry of entries) {
     if (entry.kind === 'attackRoutine') {
-      const weapon =
-        entries.find((row) => row._id === entry.state.weaponEntryId) ??
-        (await ctx.db.get('characterSheetEntry', entry.state.weaponEntryId));
+      let weapon = entries.find((row) => row._id === entry.state.weaponEntryId);
+      if (!weapon) {
+        readBudget.accountReference(entry.state.weaponEntryId);
+        weapon =
+          (await ctx.db.get(
+            'characterSheetEntry',
+            entry.state.weaponEntryId,
+          )) ?? undefined;
+        readBudget.accountRead(weapon ?? null);
+      }
       if (weapon && weapon.characterId !== character._id)
         throw new ConvexError('Weapon does not belong to this Character');
       continue;

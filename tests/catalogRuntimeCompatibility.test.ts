@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:916d72c3e6b0b8d643f62fd06db864578d93fd513925b1d122d3e447b96fae73';
+    'sha256:65b39be01f2e0a0ab0abc5cf9c626b4344ed2e40f60fb1b4418ae7b9d509e6fd';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +

@@ -1,5 +1,7 @@
 # Operational cutover
 
+For the initial Character Sheet migration, use the [Write Gate procedure](initial-character-migration-write-gate.md) and [private candidate-backfill runbook](initial-character-backfill.md). The weekly-board procedure below is historical; its writer endpoints are retired and must not be used for Character backfill. Character activation remains #413.
+
 Issue: [#90](https://github.com/AndreasUnunger/EverythingPath/issues/90).
 Use this procedure with the [rehearsal and recovery runbook](paused-cutover-runbook.md).
 Deployment authorization is separate from implementation or rehearsal evidence.

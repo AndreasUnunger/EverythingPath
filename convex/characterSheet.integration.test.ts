@@ -6,6 +6,10 @@ import schema from './schema';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { initializeCharacterSheet } from './lib/characterSheet';
 import { initializationEdits } from '../tests/rules/initialization-edits';
+import {
+  loadPreparedCharacterSheet,
+  readCharacterSheetData,
+} from './lib/preparedCharacterSheet';
 afterEach(() => vi.useRealTimers());
 const modules = import.meta.glob('./**/*.ts');
 
@@ -49,6 +53,332 @@ async function fixture() {
   const scope = { organizationId: 'org', characterId };
   return { t, owner, member, outsider, campaignId, characterId, scope };
 }
+
+test('bounded sheet reads share one byte budget across entries and catalog definitions', async () => {
+  const { t, characterId } = await fixture();
+  await t.run(async (ctx) => {
+    const definition = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .first();
+    if (!definition) throw new Error('Missing base scores');
+    await ctx.db.patch('catalogEntry', definition._id, {
+      name: 'x'.repeat(400 * 1024),
+    });
+    const entries = await ctx.db
+      .query('characterSheetEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .take(2);
+    const level = entries.find((entry) => entry.kind === 'classLevel');
+    if (level?.kind !== 'classLevel') throw new Error('Missing Class Level');
+    await ctx.db.patch('characterSheetEntry', level._id, {
+      state: { ...level.state, proficiencyChoice: 'x'.repeat(400 * 1024) },
+    });
+  });
+  await expect(
+    t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      return readCharacterSheetData(ctx, character, {
+        resourceLimits: {
+          maximumTotalBytesRead: 768 * 1024,
+          maximumReferences: 1024,
+        },
+      });
+    }),
+  ).rejects.toThrow('read resource limit');
+  expect(
+    await t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      const sheet = await readCharacterSheetData(ctx, character, {
+        resourceLimits: {
+          maximumTotalBytesRead: 900 * 1024,
+          maximumReferences: 1024,
+        },
+      });
+      return sheet.entries.length;
+    }),
+  ).toBe(2);
+});
+
+test('bounded sheet reads include accepted warnings unless separately excluded', async () => {
+  const { t, characterId } = await fixture();
+  await t.run(async (ctx) => {
+    const definition = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .first();
+    if (!definition) throw new Error('Missing base scores');
+    await ctx.db.patch('catalogEntry', definition._id, {
+      name: 'x'.repeat(400 * 1024),
+    });
+    await ctx.db.insert('acceptedWarning', {
+      characterId,
+      check: 'retained-check',
+      subject: 'sheet',
+      fingerprint: 'x'.repeat(400 * 1024),
+      acceptedBy: 'test|owner',
+      acceptedAt: 1,
+    });
+  });
+  async function read(
+    maximumTotalBytesRead: number,
+    includeAcceptedWarnings = true,
+  ) {
+    return t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      const sheet = await readCharacterSheetData(ctx, character, {
+        resourceLimits: { maximumTotalBytesRead, maximumReferences: 1024 },
+        includeAcceptedWarnings,
+      });
+      return sheet.acceptedWarnings.length;
+    });
+  }
+  await expect(read(768 * 1024)).rejects.toThrow('read resource limit');
+  expect(await read(900 * 1024)).toBe(1);
+  expect(await read(768 * 1024, false)).toBe(0);
+});
+
+test('bounded sheet reads count dependency documents in the same budget before scope validation', async () => {
+  const { t, owner, campaignId, characterId } = await fixture();
+  const otherCharacterId = await owner.mutation(api.characterSheet.create, {
+    organizationId: 'org',
+    campaignId,
+    name: 'Other',
+    kind: 'pc',
+    operationId: 'other',
+  });
+  await t.run(async (ctx) => {
+    const definition = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .first();
+    if (!definition) throw new Error('Missing base scores');
+    await ctx.db.patch('catalogEntry', definition._id, {
+      name: 'x'.repeat(400 * 1024),
+    });
+    const foreign = await ctx.db.insert('catalogEntry', {
+      scope: 'character',
+      characterId: otherCharacterId,
+      name: 'x'.repeat(400 * 1024),
+      ruleIdentity: 'foreign-class',
+      stacksWithItself: false,
+      sources: [],
+      modifiers: [],
+      detail: { kind: 'manual' },
+    });
+    const entries = await ctx.db
+      .query('characterSheetEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .take(2);
+    const level = entries.find((entry) => entry.kind === 'classLevel');
+    if (level?.kind !== 'classLevel') throw new Error('Missing Class Level');
+    await ctx.db.patch('characterSheetEntry', level._id, {
+      state: { ...level.state, classEntryId: foreign },
+    });
+  });
+  async function read(maximumTotalBytesRead: number) {
+    return t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      await readCharacterSheetData(ctx, character, {
+        resourceLimits: { maximumTotalBytesRead, maximumReferences: 1024 },
+      });
+    });
+  }
+  await expect(read(768 * 1024)).rejects.toThrow('read resource limit');
+  await expect(read(900 * 1024)).rejects.toThrow('Class does not belong');
+});
+
+test('bounded dependency reads count preferred campaign copies and exclude unrelated shared and browse-only rows', async () => {
+  const { t, characterId, campaignId } = await fixture();
+  const { globalId, preferredId } = await t.run(async (ctx) => {
+    const base = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .first();
+    if (!base) throw new Error('Missing base scores');
+    await ctx.db.patch('catalogEntry', base._id, {
+      name: 'x'.repeat(400 * 1024),
+    });
+    const definition = {
+      name: 'Dependency',
+      ruleIdentity: 'bounded-shared',
+      stacksWithItself: false,
+      sources: [],
+      modifiers: [],
+      detail: { kind: 'manual' as const },
+    };
+    const globalId = await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+    });
+    const preferredId = await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'campaign',
+      campaignId,
+      copiedFrom: globalId,
+      campaignPreference: true,
+      name: 'x'.repeat(400 * 1024),
+    });
+    await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'character',
+      characterId,
+      ruleIdentity: 'future-grant',
+      grantsSlots: [{ kind: 'feat', count: 1, feats: [globalId] }],
+    });
+    await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      ruleIdentity: 'unrelated-global',
+      name: 'x'.repeat(900 * 1024),
+    });
+    await ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'character',
+      characterId,
+      browseOnly: true,
+      ruleIdentity: 'unused-browse',
+      name: 'x'.repeat(900 * 1024),
+    });
+    return { globalId, preferredId };
+  });
+  async function read(maximumTotalBytesRead: number, maximumReferences = 2) {
+    return t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      const sheet = await readCharacterSheetData(ctx, character, [], {
+        resourceLimits: { maximumTotalBytesRead, maximumReferences },
+      });
+      return sheet.catalogEntries;
+    });
+  }
+  await expect(read(768 * 1024)).rejects.toThrow('read resource limit');
+  await expect(read(900 * 1024, 1)).rejects.toThrow('reference resource limit');
+  const loaded = await read(900 * 1024);
+  expect(loaded.map(({ _id }) => _id)).toEqual(
+    expect.arrayContaining([globalId, preferredId]),
+  );
+  expect(loaded.length).toBeGreaterThan(2);
+  expect(
+    loaded.some(
+      (row) => row.ruleIdentity === 'unrelated-global' || row.browseOnly,
+    ),
+  ).toBe(false);
+});
+
+test('bounded attack source reads share catalog budgets before rejecting a foreign weapon', async () => {
+  const { t, owner, campaignId, characterId } = await fixture();
+  const otherCharacterId = await owner.mutation(api.characterSheet.create, {
+    organizationId: 'org',
+    campaignId,
+    name: 'Other',
+    kind: 'pc',
+    operationId: 'other',
+  });
+  await t.run(async (ctx) => {
+    const base = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .first();
+    if (!base) throw new Error('Missing base scores');
+    await ctx.db.patch('catalogEntry', base._id, {
+      name: 'x'.repeat(400 * 1024),
+    });
+    const foreignId = await ctx.db.insert('characterSheetEntry', {
+      characterId: otherCharacterId,
+      kind: 'classLevel',
+      active: true,
+      state: {
+        kind: 'classLevel',
+        classEntryId: null,
+        position: 2,
+        hpGained: null,
+        proficiencyChoice: 'x'.repeat(400 * 1024),
+      },
+    });
+    await ctx.db.insert('characterSheetEntry', {
+      characterId,
+      kind: 'attackRoutine',
+      active: true,
+      state: {
+        kind: 'attackRoutine',
+        name: 'Foreign source',
+        weaponEntryId: foreignId,
+        hands: 'one',
+        mode: 'melee',
+      },
+    });
+  });
+  async function read(maximumTotalBytesRead: number, maximumReferences = 1) {
+    return t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      await readCharacterSheetData(ctx, character, {
+        resourceLimits: { maximumTotalBytesRead, maximumReferences },
+      });
+    });
+  }
+  await expect(read(768 * 1024)).rejects.toThrow('read resource limit');
+  await expect(read(900 * 1024, 0)).rejects.toThrow('reference resource limit');
+  await expect(read(900 * 1024)).rejects.toThrow('Weapon does not belong');
+});
+
+test('bounded prepared loading preserves the live fixture eligibility rule', async () => {
+  const { t, characterId, campaignId } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('campaign', campaignId, { e2eFixture: undefined }),
+  );
+  expect(
+    await t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      return loadPreparedCharacterSheet(ctx, character, undefined, {
+        resourceLimits: {
+          maximumTotalBytesRead: 1,
+          maximumReferences: 1024,
+        },
+      });
+    }),
+  ).toBeNull();
+});
+
+test('bounded prepared loading counts a campaign it fetches in the sheet budget', async () => {
+  const { t, characterId, campaignId } = await fixture();
+  await t.run(async (ctx) => {
+    await ctx.db.patch('campaign', campaignId, {
+      description: 'x'.repeat(400 * 1024),
+    });
+    const definition = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+      .first();
+    if (!definition) throw new Error('Missing base scores');
+    await ctx.db.patch('catalogEntry', definition._id, {
+      name: 'x'.repeat(400 * 1024),
+    });
+  });
+  async function read(maximumTotalBytesRead: number) {
+    return t.run(async (ctx) => {
+      const character = await ctx.db.get('character', characterId);
+      if (!character) throw new Error('Missing Character');
+      const sheet = await loadPreparedCharacterSheet(
+        ctx,
+        character,
+        undefined,
+        {
+          resourceLimits: { maximumTotalBytesRead, maximumReferences: 1024 },
+        },
+      );
+      return sheet?.entries.length;
+    });
+  }
+  await expect(read(768 * 1024)).rejects.toThrow('read resource limit');
+  expect(await read(900 * 1024)).toBe(2);
+});
 
 test('campaign members read a new Character with permanent base scores and one empty Unspecified Class Level', async () => {
   const { member, scope, characterId } = await fixture();

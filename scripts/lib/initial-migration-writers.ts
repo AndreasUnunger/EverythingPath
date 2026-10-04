@@ -35,6 +35,24 @@ const characterTables = new Set([
   'spellCatalogSummary',
 ]);
 const reviewed: Record<string, string> = {
+  'convex/initialCharacterBackfill.ts:start':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:batch':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:resume':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:validate':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:startValidation':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:startDriver':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:drive':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:stopDriver':
+    'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+  'convex/initialCharacterBackfill.ts:abortBeforeActivation':
+    'Operator: aborts the current capture and reopens only its unactivated run',
   'convex/initialMigration.ts:start':
     'Operator: atomically closes the gate and records the run',
   'convex/initialMigration.ts:abortBeforeActivation':
@@ -226,6 +244,15 @@ function checkRegistration(
   const policy = classifyRegistration(imported, retired, name);
   if (!policy) errors.push(`${name} is not gated or a reviewed exception`);
   if (
+    name.startsWith('convex/initialCharacterBackfill.ts:') &&
+    reviewed[name] &&
+    (imported.name !== 'internalMutation' ||
+      imported.module !== 'convex/_generated/server')
+  )
+    errors.push(
+      `${name} candidate operator must use internalMutation from the generated server`,
+    );
+  if (
     ['mutation', 'mutationGeneric'].includes(imported.name) &&
     !acceptsWriteEpoch(options, retired)
   )
@@ -405,6 +432,39 @@ function auditSource(
       ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)
         ? node.name.text
         : parentOwner;
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      ts.isIdentifier(node.initializer)
+    ) {
+      let initializer: ts.Expression | undefined = node.initializer;
+      const seen = new Set<ts.Symbol>();
+      while (initializer && ts.isIdentifier(initializer)) {
+        const symbol = checker.getSymbolAtLocation(initializer);
+        if (!symbol || seen.has(symbol)) break;
+        seen.add(symbol);
+        const declaration = symbol.valueDeclaration;
+        initializer =
+          declaration && ts.isVariableDeclaration(declaration)
+            ? declaration.initializer
+            : undefined;
+      }
+      if (initializer && ts.isCallExpression(initializer)) {
+        const imported = resolveImport(initializer.expression, imports);
+        if (imported && isBuilder(imported))
+          writers.push(
+            checkRegistration(
+              initializer,
+              imported,
+              imports,
+              `${path}:${node.name.text}`,
+              errors,
+              checker,
+            ),
+          );
+      }
+    }
     if (ts.isCallExpression(node)) {
       const imported = resolveImport(node.expression, imports);
       if (imported && isBuilder(imported)) {

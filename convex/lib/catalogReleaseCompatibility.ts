@@ -19,6 +19,7 @@ export async function requireCompatibleActiveRelease(ctx: ReadCtx) {
     throw new ConvexError(
       'Active Catalog Release requires unavailable schema or calculation behavior',
     );
+  return active;
 }
 
 export function calculateActiveCharacterSheet(input: CharacterSheetInput) {

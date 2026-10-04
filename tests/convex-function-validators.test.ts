@@ -5,6 +5,10 @@ import { defineSchema, defineTable } from 'convex/server';
 import { beforeAll, expect, test } from 'vitest';
 import { query } from '../convex/_generated/server';
 import schema from '../convex/schema';
+import {
+  militiaSnapshotCharacterReferencePaths,
+  weeklyDraftCharacterReferencePaths,
+} from '../src/lib/militia-character-references';
 
 const modules = import.meta.glob<Record<string, unknown>>([
   '../convex/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}',
@@ -42,6 +46,93 @@ function validatorJson(validator: unknown): unknown {
     throw new Error('Validator does not export JSON metadata');
   return validator.json;
 }
+
+function characterReferencePaths(
+  validator: unknown,
+  path = '',
+  field = '',
+): string[] {
+  if (typeof validator !== 'object' || validator === null) return [];
+  if (!('type' in validator)) return [];
+  if (
+    (validator.type === 'id' &&
+      'tableName' in validator &&
+      validator.tableName === 'character') ||
+    (validator.type === 'string' &&
+      /^(characterIds?|.*CharacterIds?)$/.test(field))
+  )
+    return [path];
+  if (!('value' in validator)) return [];
+  if (validator.type === 'array')
+    return characterReferencePaths(validator.value, `${path}.*`, field);
+  if (validator.type === 'union' && Array.isArray(validator.value))
+    return validator.value.flatMap((member) =>
+      characterReferencePaths(member, path, field),
+    );
+  if (
+    validator.type === 'object' &&
+    typeof validator.value === 'object' &&
+    validator.value !== null
+  )
+    return Object.entries(validator.value).flatMap(([name, metadata]) => {
+      if (
+        typeof metadata !== 'object' ||
+        metadata === null ||
+        !('fieldType' in metadata)
+      )
+        throw new Error(`Missing validator metadata for ${path}.${name}`);
+      return characterReferencePaths(
+        metadata.fieldType,
+        path ? `${path}.${name}` : name,
+        name,
+      );
+    });
+  return [];
+}
+
+test('every saved militia snapshot and Weekly Draft Character reference is explicitly listed', () => {
+  for (const [table, root, declaredPaths] of [
+    [
+      schema.tables.canonicalMilitiaState,
+      'snapshot',
+      militiaSnapshotCharacterReferencePaths,
+    ],
+    [
+      schema.tables.canonicalWeeklyDraft,
+      'draft',
+      weeklyDraftCharacterReferencePaths,
+    ],
+    [
+      schema.tables.canonicalWeeklyDraft,
+      'initialDraft',
+      weeklyDraftCharacterReferencePaths,
+    ],
+  ] as const) {
+    const prefix = `${root}.`;
+    const schemaPaths = characterReferencePaths(validatorJson(table.validator))
+      .filter((path) => path.startsWith(prefix))
+      .map((path) => path.slice(prefix.length));
+    expect([...new Set(schemaPaths)].sort()).toEqual([...declaredPaths].sort());
+  }
+});
+
+test('the Character reference coverage guard finds new named fields and Character IDs in nested schema unions', () => {
+  const fixture = defineTable({
+    nested: v.array(
+      v.union(
+        v.object({ futureCharacterId: v.optional(v.string()) }),
+        v.object({ subject: v.id('character') }),
+        v.object({ futureCharacterIds: v.array(v.string()) }),
+        v.object({ notes: v.string() }),
+      ),
+    ),
+  });
+  expect(characterReferencePaths(validatorJson(fixture.validator))).toEqual([
+    'nested.*.futureCharacterId',
+    'nested.*.subject',
+    'nested.*.futureCharacterIds.*',
+  ]);
+});
 
 function invalidValidators(validator: unknown, path: string): string[] {
   if (Array.isArray(validator))

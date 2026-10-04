@@ -1,5 +1,10 @@
 import { expect, test } from 'vitest';
-import { resolveCharacterSheetGrants } from './character-sheet-grants';
+import {
+  formatGrantKeyId,
+  hasGrantAncestor,
+  parseGrantKeyId,
+  resolveCharacterSheetGrants,
+} from './character-sheet-grants';
 import {
   abilityKeys,
   abilityTargets,
@@ -66,6 +71,62 @@ function level(classEntryId: string, position: number): SheetEntry {
     state: { kind: 'classLevel', classEntryId, position, hpGained: 5 },
   };
 }
+
+test('reads nested Grant Keys and warning subjects without losing colon-containing identities', () => {
+  const source = formatGrantKeyId({
+    source: 'class:戦士',
+    classLevel: 2,
+    entry: 'feature:training',
+  });
+  const id = formatGrantKeyId({ source, entry: 'feature:bonus' });
+  expect(parseGrantKeyId(id)).toEqual({ source, entry: 'feature:bonus' });
+  expect(parseGrantKeyId(`${id}:prerequisite`)).toEqual({
+    source,
+    entry: 'feature:bonus',
+  });
+  expect(parseGrantKeyId(source)).toEqual({
+    source: 'class:戦士',
+    classLevel: 2,
+    entry: 'feature:training',
+  });
+  expect(hasGrantAncestor(`${id}:prerequisite`, 'class:戦士')).toBe(true);
+  expect(hasGrantAncestor(id, 'other-class')).toBe(false);
+});
+
+test.each([
+  'feature:training',
+  'grant:999999999999999999999:source::1:x',
+  'grant:100:short::1:x',
+  'grant:3:abc:x:1:y',
+  'grant:3:abc::999999999999999999999:y',
+  'grant:3:abc::3:xy',
+  'grant:3:abc::1:xy',
+])('rejects malformed Grant Key %s when reading ancestors', (id) => {
+  expect(parseGrantKeyId(id)).toBeNull();
+  expect(hasGrantAncestor(id, 'abc')).toBe(false);
+});
+
+test('complete Grant Keys reject warning suffixes, empty identities and unsafe Class Levels', () => {
+  const id = formatGrantKeyId({
+    source: 'source',
+    classLevel: 1,
+    entry: 'entry',
+  });
+  expect(parseGrantKeyId(id, { requireComplete: true })).toEqual({
+    source: 'source',
+    classLevel: 1,
+    entry: 'entry',
+  });
+  for (const malformed of [
+    `${id}:warning`,
+    'grant:0:::1:x',
+    'grant:1:x::0:',
+    'grant:1:x:999999999999999999999:1:y',
+  ]) {
+    expect(parseGrantKeyId(malformed, { requireComplete: true })).toBeNull();
+    expect(parseGrantKeyId(malformed)).not.toBeNull();
+  }
+});
 
 test.each([
   ['fighter', 'unchained'],

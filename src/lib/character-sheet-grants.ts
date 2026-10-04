@@ -44,23 +44,44 @@ export function formatGrantKeyId(key: GrantKey) {
   return `grant:${key.source.length}:${key.source}:${key.classLevel ?? ''}:${key.entry.length}:${key.entry}`;
 }
 
+/** Warning subjects may append a field after the canonical Grant id. */
+export function parseGrantKeyId(
+  id: string,
+  { requireComplete = false }: { requireComplete?: boolean } = {},
+): GrantKey | null {
+  const prefix = /^grant:(\d+):/.exec(id);
+  if (!prefix) return null;
+  const sourceLength = Number(prefix[1]);
+  if (!Number.isSafeInteger(sourceLength)) return null;
+  const sourceEnd = prefix[0].length + sourceLength;
+  const suffix = /^:(\d*):(\d+):/.exec(id.slice(sourceEnd));
+  if (!suffix) return null;
+  const entryLength = Number(suffix[2]);
+  if (!Number.isSafeInteger(entryLength)) return null;
+  const entryStart = sourceEnd + suffix[0].length;
+  const end = entryStart + entryLength;
+  if (end > id.length || (end < id.length && id[end] !== ':')) return null;
+  if (
+    requireComplete &&
+    (end !== id.length ||
+      sourceLength <= 0 ||
+      entryLength <= 0 ||
+      (suffix[1] && !Number.isSafeInteger(Number(suffix[1]))))
+  )
+    return null;
+  return {
+    source: id.slice(prefix[0].length, sourceEnd),
+    ...(suffix[1] ? { classLevel: Number(suffix[1]) } : {}),
+    entry: id.slice(entryStart, end),
+  };
+}
+
 export function hasGrantAncestor(id: string, ancestorId: string): boolean {
   let source = id;
   while (source !== ancestorId) {
-    const prefix = /^grant:(\d+):/.exec(source);
-    if (!prefix) return false;
-    const sourceLength = Number(prefix[1]);
-    if (!Number.isSafeInteger(sourceLength)) return false;
-    const sourceEnd = prefix[0].length + sourceLength;
-    const suffix = /^:(\d*):(\d+):/.exec(source.slice(sourceEnd));
-    if (!suffix) return false;
-    const entryLength = Number(suffix[2]);
-    if (!Number.isSafeInteger(entryLength)) return false;
-    const end = sourceEnd + suffix[0].length + entryLength;
-    // Warning subjects can append a field after the canonical Grant id.
-    if (end > source.length || (end < source.length && source[end] !== ':'))
-      return false;
-    source = source.slice(prefix[0].length, sourceEnd);
+    const key = parseGrantKeyId(source);
+    if (!key) return false;
+    source = key.source;
   }
   return true;
 }

@@ -1,6 +1,6 @@
 # Character access and Militia Character Facts inventory (#252, #256, #260, #261, #262)
 
-This is the preparation inventory for [PRD #251](https://github.com/AndreasUnunger/EverythingPath/issues/251), updated on 2026-10-03. It records the prepared sheet interfaces, retained production flat Character consumers and implementation tickets that replace or extend them. It does not activate production Character Sheets or private Characters, a new Ruleset Version or a migration. The [legacy compatibility inventory, B6](legacy-compatibility-inventory.md#b6-planned-character-sheet-release-cleanup-240) tracks the eventual storage retirement.
+This is the preparation inventory for [PRD #251](https://github.com/AndreasUnunger/EverythingPath/issues/251), updated on 2026-10-04. It records the prepared sheet interfaces, retained production flat Character consumers and implementation tickets that replace or extend them. It does not activate production Character Sheets or private Characters, a new Ruleset Version or a migration. The [legacy compatibility inventory, B6](legacy-compatibility-inventory.md#b6-planned-character-sheet-release-cleanup-240) tracks the eventual storage retirement.
 
 ## Current contract and prepared seams
 
@@ -11,6 +11,12 @@ The persisted `character` identity stays in place. Since #260, `campaignId` and 
 - `updateCanonicalCharacter` patches current facts and mirrors roster kinds in the same transaction, advancing the revision only when either changes. Notes, names, recorded HP, row order and presentation changes preserve reviewed weeks. Creating a record publishes its facts without enrolling it. Sheet initialization and every existing sheet writer refresh through the shared persistence seam; frozen records are never rewritten.
 
 The [data model](pf-character-sheet-data-model.md), [ADR 0001](adr/0001-one-character-identity.md) and [ADR 0002](adr/0002-characters-owned-by-users-move-between-campaigns.md) describe the target sheet and lifecycle contracts. Production retains flat-field militia authority until explicit initial cutover; isolated prepared fixture sheets supply calculated facts without activating production. Campaign ownership reassignment is prepared for fixture campaigns in #300, while campaign movement and external lifecycle processing remain later work.
+
+## Private candidate backfill (#319)
+
+`convex/initialCharacterBackfill.ts` exposes only private operator `start`, `batch`, `resume`, `startValidation`, `validate`, `startDriver`, `drive`, `stopDriver`, `status` and `abortBeforeActivation` functions. Its separate candidate capture/storage never patches live Characters, sheet inputs or militia projections. The pure `src/lib/initial-character-backfill.ts` mapper/equality seam uses the public sheet resolver to compare permanent facts with all flat fields and current facts. Each bounded preparation/validation transaction requires the current closed legacy gate, Migration Run epoch and capture identity. Completion binds those inputs and its validation sweep; capture also records the build/catalog and schema/calculation identities. Restart after abort recaptures every current Character, including new ones, rather than trusting old markers.
+
+The [operator runbook](initial-character-backfill.md) describes receipts, bounded progress/report inspection, explicit mismatch failures and resume/abort/restart. Candidates preserve Character identity/access inputs and prepared sheets, while roster overrides, assignments, saved drafts, frozen records and equal facts/revisions remain untouched. This prepares exact-equality evidence for #413; it does not activate sheet authority, select a Catalog Release or retire legacy spell storage. The Write Gate inventory narrowly reviews its five mutation registrations, with no general maintenance bypass.
 
 ## Staged Character Sheet interfaces (#256)
 

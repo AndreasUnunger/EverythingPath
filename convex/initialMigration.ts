@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 import { internalMutation, internalQuery, query } from './_generated/server';
 import { readWriteGate } from './lib/writeGate';
 import { readCutover } from './lib/campaignRuntime';
+import { abortInitialMigrationRun } from './lib/initialCharacterBackfill';
 
 const runReceipt = v.object({
   runId: v.id('initialMigrationRun'),
@@ -172,42 +173,5 @@ export const status = internalQuery({
 export const abortBeforeActivation = internalMutation({
   args: runReceipt,
   returns: v.object({ epoch: v.number() }),
-  handler: async (ctx, args) => {
-    const control = await readWriteGate(ctx);
-    const run = await ctx.db.get('initialMigrationRun', args.runId);
-    if (
-      !control ||
-      control.runId !== run?._id ||
-      run.epoch !== args.epoch ||
-      control.authority !== 'legacy'
-    )
-      throw new ConvexError(
-        'Migration run is no longer current or has activated. Inspect status.',
-      );
-    if (
-      run.state === 'aborted' &&
-      !control.closed &&
-      control.epoch === args.epoch + 1
-    )
-      return { epoch: control.epoch };
-    if (
-      !control.closed ||
-      control.epoch !== args.epoch ||
-      run.state !== 'maintenance'
-    )
-      throw new ConvexError(
-        'Migration run is no longer current or has activated. Inspect status.',
-      );
-    const epoch = control.epoch + 1;
-    const abortedAt = Date.now();
-    await ctx.db.patch('initialMigrationControl', control._id, {
-      epoch,
-      closed: false,
-    });
-    await ctx.db.patch('initialMigrationRun', run._id, {
-      state: 'aborted',
-      abortedAt,
-    });
-    return { epoch };
-  },
+  handler: abortInitialMigrationRun,
 });

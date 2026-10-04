@@ -1,5 +1,7 @@
 # Paused cutover and recovery rehearsal (#89)
 
+For current initial Character Sheet preparation, use the [private candidate-backfill rehearsal](initial-character-backfill.md#local-rehearsal-evidence) under the [initial Write Gate](initial-character-migration-write-gate.md). This older weekly-board rehearsal does not authorize invoking its retired writer endpoints.
+
 This runbook rehearses the transition on the declared disposable E2E preview.
 Production cutover remains #90. A passing rehearsal is evidence for the tested
 source and fixtures, not permission to migrate or reopen a live campaign.

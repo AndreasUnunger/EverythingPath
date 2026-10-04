@@ -46,6 +46,70 @@ test('new raw writers fail even when an import disguises the registration name',
   ]);
 });
 
+test('candidate backfill exceptions cover only the reviewed private operator commands', () => {
+  const audit = auditWriters({
+    'convex/initialCharacterBackfill.ts': `
+    import { internalMutation as operator } from './_generated/server';
+    export const start = operator({args:{}, handler: async () => null});
+    export const batch = operator({args:{}, handler: async () => null});
+    export const resume = batch;
+    export const validate = operator({args:{}, handler: async () => null});
+    export const startValidation = operator({args:{}, handler: async () => null});
+    export const startDriver = operator({args:{}, handler: async () => null});
+    export const drive = operator({args:{}, handler: async () => null});
+    export const stopDriver = operator({args:{}, handler: async () => null});
+
+    export const abortBeforeActivation = operator({args:{}, handler: async () => null});
+    export const bypass = operator({args:{}, handler: async () => null});
+  `,
+  });
+  expect(audit.errors).toEqual([
+    'convex/initialCharacterBackfill.ts:bypass is not gated or a reviewed exception',
+  ]);
+  expect(audit.writers.filter(({ name }) => !name.endsWith(':bypass'))).toEqual(
+    [
+      {
+        name: 'convex/initialCharacterBackfill.ts:abortBeforeActivation',
+        writerClass: 'operator',
+        policy:
+          'Operator: aborts the current capture and reopens only its unactivated run',
+      },
+      ...[
+        'batch',
+        'drive',
+        'resume',
+        'start',
+        'startDriver',
+        'startValidation',
+        'stopDriver',
+        'validate',
+      ].map((command) => ({
+        name: `convex/initialCharacterBackfill.ts:${command}`,
+        writerClass: 'operator',
+        policy:
+          'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
+      })),
+    ],
+  );
+});
+
+test('candidate operator exceptions reject public writers and registrations from unreviewed modules', () => {
+  const audit = auditWriters({
+    'convex/initialCharacterBackfill.ts': `
+    import { mutation } from './_generated/server';
+    export const batch = mutation({args:{writeEpoch: v.optional(v.number())}, handler: async () => null});
+  `,
+    'convex/anotherBackfill.ts': `
+    import { internalMutation } from './_generated/server';
+    export const batch = internalMutation({args:{}, handler: async () => null});
+  `,
+  });
+  expect(audit.errors).toEqual([
+    'convex/anotherBackfill.ts:batch is not gated or a reviewed exception',
+    'convex/initialCharacterBackfill.ts:batch candidate operator must use internalMutation from the generated server',
+  ]);
+});
+
 test('gated aliases pass, retired names only pass while their handler rejects', () => {
   const audit = auditWriters({
     'convex/example.ts': `
@@ -323,7 +387,7 @@ test('every current registration is gated or reviewed and the committed inventor
   const root = fileURLToPath(new URL('../', import.meta.url));
   const audit = auditWriters(readWriterSources(root));
   expect(audit.errors).toEqual([]);
-  expect(audit.writers).toHaveLength(132);
+  expect(audit.writers).toHaveLength(141);
   const doc = readFileSync(
     new URL(
       '../docs/initial-character-migration-write-gate.md',

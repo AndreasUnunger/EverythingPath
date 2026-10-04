@@ -25,6 +25,7 @@ import type * as cutover from "../cutover.js";
 import type * as data_spells from "../data/spells.js";
 import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
+import type * as initialCharacterBackfill from "../initialCharacterBackfill.js";
 import type * as initialMigration from "../initialMigration.js";
 import type * as legacyRetirement from "../legacyRetirement.js";
 import type * as lib_acceptedCampaignFixture from "../lib/acceptedCampaignFixture.js";
@@ -42,6 +43,7 @@ import type * as lib_characterMilitiaOnlySheet from "../lib/characterMilitiaOnly
 import type * as lib_characterOwnership from "../lib/characterOwnership.js";
 import type * as lib_characterSheet from "../lib/characterSheet.js";
 import type * as lib_companionRelationships from "../lib/companionRelationships.js";
+import type * as lib_initialCharacterBackfill from "../lib/initialCharacterBackfill.js";
 import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
 import type * as lib_preparedCharacterSheet from "../lib/preparedCharacterSheet.js";
 import type * as lib_representativeArchetypeCatalog from "../lib/representativeArchetypeCatalog.js";
@@ -87,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "data/spells": typeof data_spells;
   e2eFixtures: typeof e2eFixtures;
   http: typeof http;
+  initialCharacterBackfill: typeof initialCharacterBackfill;
   initialMigration: typeof initialMigration;
   legacyRetirement: typeof legacyRetirement;
   "lib/acceptedCampaignFixture": typeof lib_acceptedCampaignFixture;
@@ -104,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   "lib/characterOwnership": typeof lib_characterOwnership;
   "lib/characterSheet": typeof lib_characterSheet;
   "lib/companionRelationships": typeof lib_companionRelationships;
+  "lib/initialCharacterBackfill": typeof lib_initialCharacterBackfill;
   "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
   "lib/preparedCharacterSheet": typeof lib_preparedCharacterSheet;
   "lib/representativeArchetypeCatalog": typeof lib_representativeArchetypeCatalog;

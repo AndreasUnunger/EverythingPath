@@ -114,6 +114,10 @@ export async function readReferencedCatalogDefinitions(
   character: Doc<'character'>,
   initialDefinitions: readonly Doc<'catalogEntry'>[],
   references: CatalogLoadReference[],
+  readBudget?: {
+    accountRead(value: unknown): void;
+    accountReference(id: string): void;
+  },
 ) {
   const definitions = new Map<string, Doc<'catalogEntry'>>();
   const visited = new Set<string>();
@@ -152,7 +156,13 @@ export async function readReferencedCatalogDefinitions(
       throw new ConvexError('Character has too many catalog dependencies');
     const id = ctx.db.normalizeId('catalogEntry', reference.id);
     if (!id) refuseReference(reference);
-    const definition = seed.get(id) ?? (await ctx.db.get('catalogEntry', id));
+    let definition = seed.get(id);
+    if (!definition) {
+      readBudget?.accountReference(id);
+      const stored = await ctx.db.get('catalogEntry', id);
+      readBudget?.accountRead(stored);
+      definition = stored ?? undefined;
+    }
     if (!definition) {
       if (reference.kind === 'definition') refuseReference(reference);
       continue;
@@ -176,7 +186,10 @@ export async function readReferencedCatalogDefinitions(
         campaignId: character.campaignId,
         originalId: id,
       });
+      readBudget?.accountRead(preferred);
       if (preferred) {
+        if (!seed.has(preferred._id))
+          readBudget?.accountReference(preferred._id);
         seed.set(preferred._id, preferred);
         pending.push({ id: preferred._id, kind: 'definition' });
       }

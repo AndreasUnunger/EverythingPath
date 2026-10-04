@@ -144,6 +144,10 @@ export const characterKindValidator = v.union(
   v.literal('npc'),
 );
 
+export const characterSheetModeValidator = v.union(
+  v.literal('militiaOnly'),
+  v.literal('full'),
+);
 export const characterValidator = v.object({
   name: v.string(),
   ownerId: v.optional(v.string()),
@@ -153,7 +157,7 @@ export const characterValidator = v.object({
   description: v.string(),
   kind: characterKindValidator,
   isActive: v.boolean(),
-  sheetMode: v.optional(v.union(v.literal('militiaOnly'), v.literal('full'))),
+  sheetMode: v.optional(characterSheetModeValidator),
   sheetRevision: v.optional(v.number()),
   sheetLastOperationId: v.optional(v.string()),
   sheetUpdatedBy: v.optional(v.string()),
@@ -819,6 +823,99 @@ export const militiaValidator = v.object({
 
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
+export const backfillPhaseValidator = v.union(
+  v.literal('characters'),
+  v.literal('candidates'),
+  v.literal('sources'),
+  v.literal('relationships'),
+  v.literal('sheetEntries'),
+  v.literal('catalogEntries'),
+  v.literal('warnings'),
+  v.literal('spells'),
+  v.literal('drafts'),
+  v.literal('done'),
+);
+export const backfillCompletionValidator = v.object({
+  runId: v.id('initialMigrationRun'),
+  epoch: v.number(),
+  captureId: v.string(),
+  validationId: v.string(),
+  schemaIdentity: v.string(),
+  calculationIdentity: v.string(),
+  catalogManifest: v.string(),
+});
+const backfillProgressFields = {
+  captureId: v.string(),
+  schemaIdentity: v.string(),
+  calculationIdentity: v.string(),
+  catalogManifest: v.string(),
+  frontendBuild: v.string(),
+  validatedCharacters: v.number(),
+  validatedCandidates: v.number(),
+  cursor: v.union(v.string(), v.null()),
+  isInventoryDone: v.boolean(),
+  captured: v.number(),
+  nextBatch: v.number(),
+  nextValidationBatch: v.number(),
+  validationPhase: backfillPhaseValidator,
+  validationCursor: v.union(v.string(), v.null()),
+  errors: v.number(),
+  validationRows: v.record(v.string(), v.number()),
+  censusPhase: backfillPhaseValidator,
+  censusCursor: v.union(v.string(), v.null()),
+  censusRows: v.record(v.string(), v.number()),
+  isCensusDone: v.boolean(),
+  driverGeneration: v.number(),
+  driver: v.union(
+    v.null(),
+    v.object({
+      id: v.string(),
+      validationId: v.string(),
+      generation: v.number(),
+      nextTick: v.number(),
+      isRunning: v.boolean(),
+      startedAt: v.number(),
+      batches: v.number(),
+      workDurationMs: v.number(),
+      workSampleCount: v.number(),
+      lastBatchStartedAt: v.union(v.number(), v.null()),
+      stoppedBecause: v.union(
+        v.null(),
+        v.literal('operator'),
+        v.literal('budget'),
+        v.literal('finished'),
+      ),
+    }),
+  ),
+};
+// Initial preparation tables have never been deployed; no stored-state migration.
+export const backfillStateValidator = v.union(
+  v.object({
+    ...backfillProgressFields,
+    stage: v.literal('building'),
+    validationId: v.null(),
+    completion: v.null(),
+  }),
+  v.object({
+    ...backfillProgressFields,
+    stage: v.literal('validating'),
+    validationId: v.string(),
+    completion: v.null(),
+  }),
+  v.object({
+    ...backfillProgressFields,
+    stage: v.literal('failed'),
+    validationId: v.string(),
+    completion: v.null(),
+  }),
+  v.object({
+    ...backfillProgressFields,
+    stage: v.literal('complete'),
+    validationId: v.string(),
+    completion: backfillCompletionValidator,
+  }),
+);
+
 export default defineSchema({
   catalogRelease: defineTable({
     releaseNumber: v.number(),
@@ -869,7 +966,27 @@ export default defineSchema({
     startedAt: v.number(),
     deadline: v.number(),
     abortedAt: v.optional(v.number()),
+    backfill: v.optional(backfillStateValidator),
   }).index('by_operationId', ['operationId']),
+  // Private preparation rows never participate in active sheet or facts reads.
+  initialMigrationCandidate: defineTable({
+    runId: v.id('initialMigrationRun'),
+    epoch: v.number(),
+    captureId: v.string(),
+    characterId: v.id('character'),
+    characterHash: v.string(),
+    input: v.union(v.string(), v.null()),
+    sheetMode: characterSheetModeValidator,
+    isInitialized: v.boolean(),
+    error: v.union(v.string(), v.null()),
+  }).index('by_runId_and_characterId', ['runId', 'characterId']),
+  initialMigrationReport: defineTable({
+    runId: v.id('initialMigrationRun'),
+    captureId: v.string(),
+    validationId: v.string(),
+    scope: v.string(),
+    message: v.string(),
+  }).index('by_runId_and_validationId', ['runId', 'validationId']),
   canonicalSourceCorrection: defineTable({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),
