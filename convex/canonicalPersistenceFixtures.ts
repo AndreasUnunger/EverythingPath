@@ -156,6 +156,16 @@ export const close = generalInternalMutation({
       draft: null,
       initialDraft: undefined,
     });
+    const sourceReviews = await ctx.db
+      .query('canonicalDraftSourceReview')
+      .withIndex('by_draftId_and_revision', (q) =>
+        q.eq('draftId', args.draftId),
+      )
+      .take(101);
+    if (sourceReviews.length > 100)
+      throw new Error('Fixture review checkpoint limit exceeded');
+    for (const review of sourceReviews)
+      await ctx.db.delete('canonicalDraftSourceReview', review._id);
     const operations = await ctx.db
       .query('canonicalDraftOperation')
       .withIndex('by_draftId_and_operationId', (q) =>

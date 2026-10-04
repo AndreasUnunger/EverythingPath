@@ -144,6 +144,10 @@ export function eventRequirement(value: string) {
   }
   const messages: [string, string][] = [
     [
+      'review',
+      'A character left the campaign. Review this event’s choices before continuing.',
+    ],
+    [
       'overseer-already-used',
       'Overseer support is already used on another event this week. Move it here or remove it.',
     ],

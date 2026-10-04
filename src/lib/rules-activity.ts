@@ -1,3 +1,4 @@
+import { activityReviewRequirement } from './weekly-draft-review';
 import { activityRollSpec } from './rules-roll-spec';
 import {
   actionChoiceRolls,
@@ -931,6 +932,10 @@ export function projectActivity(
       allowanceKnown: officersSettled && isAllowanceKnown(facts),
     });
     if (!choice) continue;
+    if (choice.reviewRequired) {
+      result.requirements.push(activityReviewRequirement(choice.choiceId));
+      continue;
+    }
     if (choice.actionId === 'change_officer_role' && !overAllowance)
       officerChange = choice.choiceId;
     let eligible = true;

@@ -80,8 +80,23 @@ export async function persistDraftOperation(
               .eq('acceptedRevision', operation.baseRevision),
           )
           .unique();
+  const sourceReview =
+    operation.baseRevision !== 0 && !baseRow
+      ? await ctx.db
+          .query('canonicalDraftSourceReview')
+          .withIndex('by_draftId_and_revision', (q) =>
+            q.eq('draftId', key.draftId).eq('revision', operation.baseRevision),
+          )
+          .unique()
+      : null;
   const base =
-    operation.baseRevision === 0 ? row.initialDraft : baseRow?.acceptedDraft;
+    operation.baseRevision === 0
+      ? row.initialDraft
+      : (baseRow?.acceptedDraft ??
+        (sourceReview?.campaignId === key.campaignId &&
+        sourceReview.militiaId === key.militiaId
+          ? sourceReview.acceptedDraft
+          : undefined));
   if (!base) throw new ConvexError('Unknown base revision');
   const state = await ctx.db
     .query('canonicalMilitiaState')
@@ -110,7 +125,20 @@ export async function persistDraftOperation(
     accepted.targets,
     operation.baseRevision,
   );
-  if (draftReferenceRequirements(accepted.draft, source, source).length)
+  // Departure keeps obsolete choices pending explicit review. An unrelated edit
+  // may preserve an unchanged flagged choice; reviewed or changed inputs must
+  // satisfy the current source's references before their flag can be cleared.
+  const before = weeklyDraftDataSchema.parse(row.draft);
+  const referenceDraft = weeklyDraftDataSchema.parse(accepted.draft);
+  for (const slot of referenceDraft.activity.slots) {
+    if (!slot.choice?.reviewRequired) continue;
+    const retained = before.activity.slots.find(
+      (previous) => previous.choice?.choiceId === slot.choice?.choiceId,
+    )?.choice;
+    if (retained?.reviewRequired && compareValues(retained, slot.choice) === 0)
+      slot.choice = null;
+  }
+  if (draftReferenceRequirements(referenceDraft, source, source).length)
     throw new ConvexError('Invalid draft entity reference');
   await ctx.db.patch('canonicalWeeklyDraft', row._id, {
     draft: weeklyDraftDataSchema.parse(accepted.draft),

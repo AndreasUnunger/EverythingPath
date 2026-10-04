@@ -97,6 +97,7 @@ export const officerCheckSchema = z.strictObject({
   roll: rawRollSchema.optional(),
 });
 export const persistentEventSchema = z.strictObject({
+  reviewRequired: z.literal(true).optional(),
   eventId: id,
   eventType: z.enum(EVENT_TYPES),
   startedWeek: int,
@@ -166,6 +167,7 @@ export const persistentDecisionSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('mitigate'),
     eventId: id,
+    reviewRequired: z.literal(true).optional(),
     officerCheck: officerCheckSchema.optional(),
     overseerCharacterId: id.optional(),
     rolls: checkRolls.optional(),
@@ -178,6 +180,7 @@ export const persistentDecisionSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 export const eventOccurrenceSchema = z.strictObject({
+  reviewRequired: z.literal(true).optional(),
   eventId: id,
   origin: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('rolled') }),
@@ -256,6 +259,7 @@ export const eventTreeSchema = z
   });
 
 const commonChoice = {
+  reviewRequired: z.literal(true).optional(),
   choiceId: id,
   teamId: id.optional(),
   costCopper: int.optional(),

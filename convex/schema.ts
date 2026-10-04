@@ -10,6 +10,7 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { defineSchema, defineTable } from 'convex/server';
 import {
   draftStorageValidator,
+  draftSourceReviewStorageValidator,
   operationStorageValidator,
   recordStorageValidator,
 } from './lib/canonicalStorageValidators';
@@ -157,6 +158,9 @@ export const characterValidator = v.object({
   name: v.string(),
   ownerId: v.optional(v.string()),
   ownerLastOperationId: v.optional(v.string()),
+  carriedCatalogReferences: v.optional(
+    v.record(v.string(), v.id('catalogEntry')),
+  ),
   campaignId: v.optional(v.id('campaign')),
   sheetDemo: v.optional(v.literal(true)),
   description: v.string(),
@@ -352,6 +356,8 @@ const catalogEntryFields = v.object({
   name: v.string(),
   ruleIdentity: v.string(),
   sourceKey: v.optional(v.string()),
+  dependencyKeys: v.optional(v.array(v.string())),
+  requiredDependencyKeys: v.optional(v.array(v.string())),
   stacksWithItself: v.boolean(),
   sources: v.array(
     v.object({ book: v.string(), pages: v.optional(v.string()) }),
@@ -808,6 +814,7 @@ export const characterSheetEntryValidator = v.union(
 );
 
 export const campaignValidator = v.object({
+  catalogRevision: v.optional(v.number()),
   name: v.string(),
   ownerId: v.string(),
   organizationId: v.string(),
@@ -1072,6 +1079,63 @@ export default defineSchema({
     schemaIdentity: v.string(),
     calculationIdentity: v.string(),
   }).index('by_key', ['key']),
+  characterMove: defineTable({
+    characterId: v.id('character'),
+    operationId: v.string(),
+    actor: v.string(),
+    sourceCampaignId: v.optional(v.id('campaign')),
+    destinationCampaignId: v.optional(v.id('campaign')),
+    destinationCampaignName: v.optional(v.string()),
+    state: v.union(
+      v.literal('preparing'),
+      v.literal('ready'),
+      v.literal('completed'),
+      v.literal('cancelled'),
+    ),
+    fingerprint: v.string(),
+    sourceRevision: v.number(),
+    scanPhase: v.union(
+      v.literal('campaignSpells'),
+      v.literal('campaignKeys'),
+      v.literal('globalKeys'),
+      v.literal('destinationSpells'),
+      v.literal('done'),
+    ),
+    scanCursor: v.union(v.string(), v.null()),
+    generation: v.number(),
+    prepared: v.number(),
+    total: v.number(),
+  })
+    .index('by_characterId_and_operationId', ['characterId', 'operationId'])
+    .index('by_characterId', ['characterId']),
+  characterMoveReference: defineTable({
+    moveId: v.id('characterMove'),
+    characterId: v.id('character'),
+    generation: v.number(),
+    reference: v.union(
+      v.object({ kind: v.literal('key'), key: v.string() }),
+      v.object({
+        kind: v.union(
+          v.literal('candidate'),
+          v.literal('destination'),
+          v.literal('definition'),
+        ),
+        catalogEntryId: v.id('catalogEntry'),
+      }),
+    ),
+  })
+    .index('by_moveId_and_generation', ['moveId', 'generation'])
+    .index('by_characterId', ['characterId']),
+  characterMoveDefinition: defineTable({
+    moveId: v.id('characterMove'),
+    characterId: v.id('character'),
+    generation: v.number(),
+    sourceId: v.id('catalogEntry'),
+    sourceCreatedAt: v.number(),
+    definition: catalogEntryValidator,
+  })
+    .index('by_moveId_and_generation', ['moveId', 'generation'])
+    .index('by_characterId', ['characterId']),
   initialMigrationControl: defineTable({
     key: v.literal('character-sheet'),
     epoch: v.number(),
@@ -1175,6 +1239,9 @@ export default defineSchema({
     .index('by_draftId_and_target', ['draftId', 'target'])
     .index('by_draftId_and_revision', ['draftId', 'revision'])
     .index('by_militiaId', ['militiaId']),
+  canonicalDraftSourceReview: defineTable(draftSourceReviewStorageValidator)
+    .index('by_draftId_and_revision', ['draftId', 'revision'])
+    .index('by_militiaId', ['militiaId']),
   canonicalDraftOperation: defineTable(operationStorageValidator)
     .index('by_draftId_and_operationId', ['draftId', 'operationId'])
     .index('by_draftId_and_acceptedRevision', ['draftId', 'acceptedRevision'])
@@ -1195,6 +1262,16 @@ export default defineSchema({
     .index('by_characterId', ['characterId'])
     .index('by_scope', ['scope'])
     .index('by_campaignId_and_scope', ['campaignId', 'scope'])
+    .index('by_campaignId_and_scope_and_detail_kind', [
+      'campaignId',
+      'scope',
+      'detail.kind',
+    ])
+    .index('by_campaignId_and_scope_and_dependencyKeys', [
+      'campaignId',
+      'scope',
+      'dependencyKeys',
+    ])
     .index('by_campaignId_and_scope_and_copiedFrom_and_campaignPreference', [
       'campaignId',
       'scope',

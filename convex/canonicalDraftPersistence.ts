@@ -168,13 +168,25 @@ export const retireClosedDraft = internalMutation({
       await ctx.db.patch('canonicalDraftOperation', operation._id, {
         acceptedDraft: undefined,
       });
+    const sourceReviews = await ctx.db
+      .query('canonicalDraftSourceReview')
+      .withIndex('by_draftId_and_revision', (q) =>
+        q.eq('draftId', args.draftId),
+      )
+      .take(4);
+    for (const review of sourceReviews)
+      await ctx.db.delete('canonicalDraftSourceReview', review._id);
     const targets = await ctx.db
       .query('canonicalDraftTarget')
       .withIndex('by_draftId_and_target', (q) => q.eq('draftId', args.draftId))
       .take(32);
     for (const target of targets)
       await ctx.db.delete('canonicalDraftTarget', target._id);
-    if (operations.length === 4 || targets.length === 32)
+    if (
+      operations.length === 4 ||
+      sourceReviews.length === 4 ||
+      targets.length === 32
+    )
       await ctx.scheduler.runAfter(
         0,
         internal.canonicalDraftPersistence.retireClosedDraft,

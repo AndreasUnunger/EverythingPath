@@ -1,3 +1,4 @@
+import { draftSourceReviewRequirements } from './weekly-draft-review';
 import {
   projectPersistentWeek,
   preparePersistentSuccessor,
@@ -90,6 +91,7 @@ export function projectWeeklyDraft(input: {
     phases.persistent.outcome,
   );
   requirements.push(
+    ...draftSourceReviewRequirements(draft),
     ...phases.upkeep.requirements,
     ...phases.activity.requirements,
     ...phases.event.requirements,

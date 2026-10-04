@@ -1,3 +1,4 @@
+import { draftReviewRequirement } from '~/lib/weekly-draft-review';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
@@ -276,11 +277,25 @@ export function projectedResult({
 // the saved card again keeps every stored field. Ended at the table is local
 // until a nonempty outcome can be saved.
 export function decisionEdit(
-  event: Pick<Event, 'eventId' | 'decision'>,
+  event: Pick<Event, 'eventId' | 'decision'> & {
+    requirements?: readonly string[];
+  },
   card: PersistentCard,
 ): WeeklyDraftEdit | null {
   const saved = event.decision?.kind ?? 'unattempted';
-  if (card === 'end' || card === saved) return null;
+  if (card === 'end') return null;
+  if (card === saved) {
+    const isReviewRequired = event.requirements?.includes(
+      draftReviewRequirement({ kind: 'persistent', eventId: event.eventId }),
+    );
+    if (!isReviewRequired) return null;
+    return {
+      kind: 'persistent_decision',
+      decision: structuredClone(
+        event.decision ?? { kind: 'unattempted', eventId: event.eventId },
+      ),
+    };
+  }
   return {
     kind: 'persistent_decision',
     decision: { kind: card, eventId: event.eventId },

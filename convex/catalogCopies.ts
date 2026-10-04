@@ -69,6 +69,8 @@ const definitionValidator = v.union(
         'campaignPreference',
         'racialStatisticsCopy',
         'ruleIdentity',
+        'dependencyKeys',
+        'requiredDependencyKeys',
       )
       .extend({
         modifiers: v.array(catalogModifierValidator.omit('stacksWithinEntry')),

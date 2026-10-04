@@ -2086,7 +2086,7 @@ test('the real command resumes discovery and re-evaluates a raced worker result 
 test('a resolver-only candidate uses a supported coherent prior release and keeps intervening active edits', async () => {
   const { t, owner, scope } = await fixture();
   const priorIdentity =
-    'sha256:10de1531a3f695d0eb5a42a632047548ca7f1afd4c8b59e48d9804ec940dbc07';
+    'sha256:404dc533a4f5212248f8c8aa720de4115d85196b171e802d6d2cceff56aa9982';
   const base = await prepare(t, [], 1, {
     compatibility: {
       schema: catalogRuntimeCompatibility.schema,

@@ -37,6 +37,13 @@ export const draftStorageValidator = zodOutputToConvex(draftStorageSchema);
 export const draftKeySchema = scopeSchema.extend({
   draftId: weeklyDraftSchema.shape.draftId,
 });
+export const draftSourceReviewStorageValidator = zodOutputToConvex(
+  draftKeySchema.extend({
+    revision: z.number().int().positive(),
+    acceptedDraft: weeklyDraftSchema,
+  }),
+);
+
 export const operationSchema = z.strictObject({
   operationId: z.string().trim().min(1),
   baseRevision: z.number().int().nonnegative(),

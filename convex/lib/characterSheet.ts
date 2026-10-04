@@ -526,6 +526,14 @@ export async function deleteCharacterSheet(
   for (const spell of spells) await ctx.db.delete('characterSpell', spell._id);
   await markCatalogImpactDirty(ctx, characterId);
   await ctx.db.delete('character', characterId);
+  const pendingMove = await ctx.db
+    .query('characterMove')
+    .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
+    .first();
+  if (pendingMove)
+    await ctx.scheduler.runAfter(0, internal.characterMoves.cleanup, {
+      characterId,
+    });
   if (await cleanupCharacterSpellIndex(ctx, characterId))
     await ctx.scheduler.runAfter(
       0,

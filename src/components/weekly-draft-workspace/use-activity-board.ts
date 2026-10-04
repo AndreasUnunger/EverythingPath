@@ -141,6 +141,17 @@ export function useActivityBoard({
       // The details follow the moved choice.
       setSelectedSlotId(toSlotId);
     },
+    reviewChoice(this: void, slotId: string) {
+      const slot = current().slots.find((item) => item.slotId === slotId);
+      const choice = slot?.choice;
+      if (!choice?.reviewRequired) return Promise.resolve<EditResult>('failed');
+      return send({
+        kind: 'detail',
+        slotId,
+        choiceId: choice.choiceId,
+        choice: { ...choice },
+      });
+    },
     clear(slotId: string) {
       const slot = slotById(slotId);
       if (!slot?.choice) return;

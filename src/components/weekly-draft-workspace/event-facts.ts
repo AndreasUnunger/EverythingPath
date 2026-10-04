@@ -1,3 +1,7 @@
+import {
+  draftSourceReviewRequirements,
+  draftReviewRequirement,
+} from '~/lib/weekly-draft-review';
 import { eventMitigationInput } from '~/lib/rules-event-checks';
 import { normalizeRawRoll } from '~/lib/raw-roll';
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
@@ -56,7 +60,29 @@ export function eventView(
     preparationFailed: false,
   },
 ): EventView {
-  const projection = preview.phases?.event;
+  const currentReviewCodes = new Set(
+    [
+      ...draft.event.occurrences,
+      ...draft.activity.slots.flatMap((slot) =>
+        actionChoiceEvents(slot.choice),
+      ),
+    ].map((event) =>
+      draftReviewRequirement({ kind: 'event', eventId: event.eventId }),
+    ),
+  );
+  const reviewRequirements = draftSourceReviewRequirements(draft).filter(
+    (code) => currentReviewCodes.has(code),
+  );
+  const projected = preview.phases?.event;
+  const projection = projected
+    ? {
+        ...projected,
+        ready: projected.ready && reviewRequirements.length === 0,
+        requirements: [
+          ...new Set([...projected.requirements, ...reviewRequirements]),
+        ],
+      }
+    : projected;
   const activity = preview.phases?.activity;
   const positions = uniquePositions(projection?.positions ?? []);
   // Missing required positions show as stable blanks before they are saved.

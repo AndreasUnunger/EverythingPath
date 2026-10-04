@@ -435,12 +435,30 @@ test('count acceptance keeps its subject and fingerprint when a casting class ID
   const input = sheet(['sorcerer']);
   for (const id of ['a', 'b', 'c'])
     record(input, id, 'sorcerer', { sorcerer: 1 }, 1);
+  input.catalogEntries = input.catalogEntries.map((entry) =>
+    entry._id === 'sorcerer' ? { ...entry, _id: 'source-sorcerer' } : entry,
+  );
+  input.entries = input.entries.map((entry) => {
+    if (entry.kind === 'classLevel')
+      return {
+        ...entry,
+        state: { ...entry.state, classEntryId: 'source-sorcerer' },
+      };
+    if (entry.kind === 'spell')
+      return {
+        ...entry,
+        state: { ...entry.state, castingClassId: 'source-sorcerer' },
+      };
+    return entry;
+  });
   const before = calculateCharacterSheet(input).warnings.find(
     (warning) => warning.check === 'spellCount',
   );
   expect(before).toBeDefined();
   input.catalogEntries = input.catalogEntries.map((entry) =>
-    entry._id === 'sorcerer' ? { ...entry, _id: 'remapped-sorcerer' } : entry,
+    entry._id === 'source-sorcerer'
+      ? { ...entry, _id: 'remapped-sorcerer' }
+      : entry,
   );
   input.entries = input.entries.map((entry) => {
     if (entry.kind === 'classLevel')
@@ -467,6 +485,66 @@ test('count acceptance keeps its subject and fingerprint when a casting class ID
       spellLevel: 1,
     },
   });
+});
+
+test('ID-based list remapping keeps off-list and count warning acceptance facts', () => {
+  const input = sheet(['sorcerer']);
+  record(input, 'a', 'sorcerer', { sorcerer: 1 }, 1);
+  record(input, 'b', 'sorcerer', { sorcerer: 1 }, 1);
+  record(input, 'off-list', 'sorcerer', { cleric: 1 }, 1);
+  const warnings = (value: CharacterSheetInput) =>
+    calculateCharacterSheet(value)
+      .warnings.filter((warning) =>
+        ['spellOffList', 'spellCount'].includes(warning.check),
+      )
+      .map(({ check, subject, fingerprint }) => ({
+        check,
+        subject,
+        fingerprint,
+      }));
+  const before = warnings(input);
+  expect(before.map((warning) => warning.check)).toEqual([
+    'spellOffList',
+    'spellCount',
+  ]);
+  input.catalogEntries = input.catalogEntries.map((entry) => {
+    if (
+      entry.detail?.kind === 'class' &&
+      'casting' in entry.detail &&
+      entry.detail.casting
+    )
+      return {
+        ...entry,
+        _id: 'carried-sorcerer',
+        detail: {
+          ...entry.detail,
+          casting: { ...entry.detail.casting, classTag: 'carried-sorcerer' },
+        },
+      };
+    if (
+      entry.detail?.kind === 'spell' &&
+      entry.detail.levels?.sorcerer !== undefined
+    )
+      return {
+        ...entry,
+        detail: { ...entry.detail, levels: { 'carried-sorcerer': 1 } },
+      };
+    return entry;
+  });
+  input.entries = input.entries.map((entry) => {
+    if (entry.kind === 'classLevel')
+      return {
+        ...entry,
+        state: { ...entry.state, classEntryId: 'carried-sorcerer' },
+      };
+    if (entry.kind === 'spell')
+      return {
+        ...entry,
+        state: { ...entry.state, castingClassId: 'carried-sorcerer' },
+      };
+    return entry;
+  });
+  expect(warnings(input)).toEqual(before);
 });
 
 test('a too-high Spell acceptance survives added lower castable levels, but reopens when the highest castable level changes', () => {

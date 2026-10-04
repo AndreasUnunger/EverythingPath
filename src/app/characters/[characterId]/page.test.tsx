@@ -70,6 +70,11 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
   }),
 }));
 
+vi.mock(
+  '~/components/character-sheet/use-character-move',
+  () => import('~/components/character-sheet/use-character-move-test-double'),
+);
+
 // Keep the real lifecycle controls and route host without unrelated sheet editors.
 vi.mock('~/components/character-sheet/character-sheet-view', () => ({
   CharacterSheetView: ({

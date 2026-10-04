@@ -27,6 +27,9 @@ const characterTables = new Set([
   'characterLinkedInput',
   'character',
   'characterSheetEntry',
+  'characterMove',
+  'characterMoveDefinition',
+  'characterMoveReference',
   'companionRelationship',
   'catalogEntry',
   'acceptedWarning',
@@ -54,6 +57,8 @@ const reviewed: Record<string, string> = {
     'Operator: private candidate preparation requires the closed legacy gate, current run, epoch and input capture',
   'convex/initialCharacterBackfill.ts:abortBeforeActivation':
     'Operator: aborts the current capture and reopens only its unactivated run',
+  'convex/characterMoves.ts:cleanup':
+    'Housekeeping: bounded cleanup of private obsolete move preparation; never changes live Character or catalog state',
   'convex/initialMigration.ts:start':
     'Operator: atomically closes the gate and records the run',
   'convex/initialMigration.ts:abortBeforeActivation':

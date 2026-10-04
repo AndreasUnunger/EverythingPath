@@ -195,8 +195,16 @@ test('an empty campaign says so under its title', () => {
       scope={campaignScope}
       campaignName="Kingmaker"
       characters={[]}
+      addFromMine={<button type="button">Add from my characters</button>}
       newHref="/characters/new"
     />,
+  );
+  // Add from my characters sits with New character in the page title.
+  const add = screen.getByRole('button', { name: 'Add from my characters' });
+  const create = screen.getByRole('link', { name: 'New character' });
+  expect(add.parentElement).toBe(create.parentElement);
+  expect(add.compareDocumentPosition(create)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
   );
   expect(screen.getByText('No characters in this campaign yet.')).toBeVisible();
   expect(screen.queryByRole('table')).not.toBeInTheDocument();

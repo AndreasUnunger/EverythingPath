@@ -93,6 +93,10 @@ vi.mock('./use-character-sheet-navigation', () => ({
     organizationSwitch: { kind: 'idle', retry: vi.fn() },
   }),
 }));
+vi.mock(
+  './use-character-move',
+  () => import('./use-character-move-test-double'),
+);
 vi.mock('next/navigation', () => ({
   useParams: () => ({ characterId: 'character%2D1' }),
 }));

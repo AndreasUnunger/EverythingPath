@@ -5,9 +5,12 @@ import { Button } from '~/components/ui/button';
 
 export function CharactersTitle({
   eyebrow,
+  actions,
   newHref,
 }: {
   eyebrow?: ReactNode;
+  /** Further page actions, before New character. */
+  actions?: ReactNode;
   newHref?: string;
 }) {
   return (
@@ -20,13 +23,18 @@ export function CharactersTitle({
         ) : null}
         <h1 className="text-2xl md:text-xl">Characters</h1>
       </div>
-      {newHref ? (
-        <Button asChild className="min-h-11 md:min-h-9">
-          <GuardedLink href={newHref}>
-            <Plus aria-hidden />
-            New character
-          </GuardedLink>
-        </Button>
+      {actions || newHref ? (
+        <div className="flex flex-wrap gap-2">
+          {actions}
+          {newHref ? (
+            <Button asChild className="min-h-11 md:min-h-9">
+              <GuardedLink href={newHref}>
+                <Plus aria-hidden />
+                New character
+              </GuardedLink>
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

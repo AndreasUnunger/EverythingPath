@@ -11,6 +11,10 @@ type Summary = Pick<
   Extract<PhaseView, { phase: 'summary' }>,
   'adjustments' | 'options' | 'eventMessages'
 >;
+// A departed Character flags the staged choice until it is resubmitted (#316).
+export const reviewRequirementMessage =
+  'A character left the campaign. Review this choice before continuing.';
+
 const messages: Record<string, string> = {
   ...economyMessages,
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
@@ -46,6 +50,7 @@ const messages: Record<string, string> = {
   'from-role': 'Choose the officer role to leave.',
   'duplicate-role': 'This character already holds the selected officer role.',
   character: 'Choose an available character.',
+  review: reviewRequirementMessage,
   'officer-pc': 'Officer roles normally go to player characters.',
   'officer-role-limit': 'This character would hold more than one officer role.',
   'manager-limit':

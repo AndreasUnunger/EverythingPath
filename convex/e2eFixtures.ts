@@ -190,6 +190,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         'canonicalDraftTarget',
         'canonicalWeeklyDraft',
         'canonicalDraftOperation',
+        'canonicalDraftSourceReview',
         'canonicalResolutionRecord',
         'canonicalMilitiaState',
         'canonicalSourceCorrection',

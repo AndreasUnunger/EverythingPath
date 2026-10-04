@@ -1139,6 +1139,12 @@ function isCatalogDefinitionReferenced(
   } = {},
 ) {
   if (
+    Object.values(sheet.character.carriedCatalogReferences ?? {}).includes(
+      catalogEntryId,
+    )
+  )
+    return true;
+  if (
     sheet.entries.some(
       (entry) =>
         entry._id !== removedEntryId &&

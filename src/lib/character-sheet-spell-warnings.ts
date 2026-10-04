@@ -9,7 +9,15 @@ type SpellWarningFacts = {
   spell: ResolvedCollectionSpell;
   casting: ResolvedSpellcasting;
   classIdentity: string | undefined;
+  listIdentity: string;
 };
+
+function spellListIdentity(input: CharacterSheetInput, classTag: string) {
+  return (
+    input.catalogEntries.find((definition) => definition._id === classTag)
+      ?.ruleIdentity ?? classTag
+  );
+}
 
 function spellWithoutSpellcastingWarning({
   spell,
@@ -38,6 +46,7 @@ function spellOffListWarning({
   spell,
   casting,
   classIdentity,
+  listIdentity,
 }: SpellWarningFacts): SheetWarning {
   return {
     kind: 'rules',
@@ -47,7 +56,7 @@ function spellOffListWarning({
     fingerprint: JSON.stringify([
       spell.ruleIdentity,
       classIdentity,
-      casting.classTag,
+      listIdentity,
       spell.spellLevel,
     ]),
     message: `${spell.name} is not on the ${casting.name} spell list.`,
@@ -101,7 +110,12 @@ export function spellCollectionWarnings({
   )?.ruleIdentity;
   if (!casting || casting.record === 'none')
     return [spellWithoutSpellcastingWarning({ spell, casting, classIdentity })];
-  const facts = { spell, casting, classIdentity };
+  const facts = {
+    spell,
+    casting,
+    classIdentity,
+    listIdentity: spellListIdentity(input, casting.classTag),
+  };
   const levelWarning = spellLevelWarning(facts);
   return [
     ...(spell.offList ? [spellOffListWarning(facts)] : []),
@@ -133,7 +147,7 @@ export function spellCountWarnings({
         },
         fingerprint: JSON.stringify([
           classIdentity,
-          collection.classTag,
+          spellListIdentity(input, collection.classTag),
           level.spellLevel,
           level.count,
           level.allowance,

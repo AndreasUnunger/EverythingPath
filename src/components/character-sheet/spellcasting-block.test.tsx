@@ -39,6 +39,10 @@ import type { CharacterSheetSnapshot } from './use-character-sheet';
 let snapshot: CharacterSheetSnapshot | null | undefined;
 const maintenance = vi.fn<() => MigrationMaintenance>();
 
+vi.mock(
+  './use-character-move',
+  () => import('./use-character-move-test-double'),
+);
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));

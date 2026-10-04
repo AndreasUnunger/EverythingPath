@@ -58,6 +58,10 @@ const warningController: Controller['warnings'] = {
   dismissRemoteChange: vi.fn(),
 };
 
+vi.mock(
+  './use-character-move',
+  () => import('./use-character-move-test-double'),
+);
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));

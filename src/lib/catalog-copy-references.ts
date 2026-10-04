@@ -72,3 +72,69 @@ export function listCatalogReferences(value: unknown): CatalogReference[] {
   visit(value);
   return result;
 }
+
+const dependencyKeyFields = new Set(['classTag', 'castingClass', 'list']);
+
+/** Actual keyed fields shared by closure discovery and scoped-key remapping. */
+export function listCatalogDependencyKeys(value: unknown): string[] {
+  const keys = new Set<string>();
+  function visit(input: unknown) {
+    if (Array.isArray(input)) {
+      for (const child of input) visit(child);
+    } else if (input && typeof input === 'object') {
+      for (const [field, child] of Object.entries(input)) {
+        if (dependencyKeyFields.has(field) && typeof child === 'string')
+          keys.add(child);
+        else visit(child);
+      }
+    }
+  }
+  visit(value);
+  return [...keys];
+}
+
+/** Spell level maps offer list membership; casting and prompt keys consume it. */
+export function isCatalogKeyedListMember(
+  value: unknown,
+  keys: ReadonlySet<string>,
+): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const detail: unknown = Reflect.get(value, 'detail');
+  if (
+    !detail ||
+    typeof detail !== 'object' ||
+    Reflect.get(detail, 'kind') !== 'spell'
+  )
+    return false;
+  const levels: unknown = Reflect.get(detail, 'levels');
+  return Boolean(
+    levels &&
+    typeof levels === 'object' &&
+    Object.keys(levels).some((key) => keys.has(key)),
+  );
+}
+
+/** Remap scoped ID keys without rewriting durable names or formula text. */
+export function remapCatalogDependencyKeys<Value>(
+  value: Value,
+  originalId: string,
+  copyId: string,
+): Value {
+  const result = structuredClone(value);
+  function visit(input: unknown, field?: string) {
+    if (Array.isArray(input)) {
+      for (const child of input) visit(child, field);
+    } else if (input && typeof input === 'object') {
+      for (const [key, child] of Object.entries(input)) {
+        if (field === 'levels' && key === originalId) {
+          Reflect.deleteProperty(input, key);
+          Reflect.set(input, copyId, child);
+        } else if (dependencyKeyFields.has(key) && child === originalId)
+          Reflect.set(input, key, copyId);
+        else visit(child, key);
+      }
+    }
+  }
+  visit(result);
+  return result;
+}

@@ -1,3 +1,4 @@
+import { draftSourceReviewRequirements } from '~/lib/weekly-draft-review';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
@@ -48,7 +49,12 @@ export function persistentView(
     );
   };
   const ownIds = events.map((event) => event.eventId);
-  const allRequirements = projection?.requirements ?? [];
+  const allRequirements = [
+    ...new Set([
+      ...(projection?.requirements ?? []),
+      ...draftSourceReviewRequirements(draft),
+    ]),
+  ];
   const earlier = earlierPhases(allRequirements, ownIds, phases);
   // The rank, and so the rules cost, is settled once Upkeep is complete.
   const costPending = !phases?.upkeep.ready;
@@ -56,7 +62,10 @@ export function persistentView(
   const warnings = projection?.warnings ?? [];
   return {
     phase: 'persistent',
-    ready: (projection?.ready ?? false) && earlier.length === 0,
+    ready:
+      (projection?.ready ?? false) &&
+      allRequirements.length === 0 &&
+      earlier.length === 0,
     firstBuyoff: draft.context.lastBuyoffWeek === null,
     buyoffAvailability: buyoffAvailability(
       draft.week,

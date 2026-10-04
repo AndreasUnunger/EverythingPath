@@ -16,21 +16,24 @@ import {
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { actionTeamTypes } from '~/lib/rules-action-teams';
 import { actionChoiceRolls } from '~/lib/weekly-draft-facts';
+import { activityReviewRequirement } from '~/lib/weekly-draft-review';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import {
   ActivityCheckRow,
   ActivityHelpful,
   ActivityModifierList,
 } from './activity-check-row';
+import { ActivityChoiceReview } from './activity-choice-review';
 import { ActivityDetails } from './activity-details';
 import { ActivityModifierForm } from './activity-modifier-form';
 import type { TeamOption } from './activity-board';
 import type { ActivityView } from './types';
 import type { ActivityBoard } from './use-activity-board';
 
-// The selected slot's details under the board: its issues, the acting team,
-// the check with Helpful and recorded modifiers, then every remaining
-// action-specific field through the retained editor, and Clear.
+// The selected slot's details under the board: a departed Character's review
+// flag, its issues, the acting team, the check with Helpful and recorded
+// modifiers, then every remaining action-specific field through the retained
+// editor, and Clear.
 
 type Slot = ActivityView['slots'][number];
 const NONE = '__none__';
@@ -128,11 +131,18 @@ function TeamField({
   );
 }
 
+// The review flag has its own notice with Review choice, so it isn't listed
+// again here.
 function Issues({ slot }: { slot: Slot }) {
-  if (slot.issues.length === 0) return null;
+  const issues = slot.issues.filter(
+    (issue) =>
+      !slot.choice ||
+      issue.code !== activityReviewRequirement(slot.choice.choiceId),
+  );
+  if (issues.length === 0) return null;
   return (
     <ul className="space-y-1">
-      {slot.issues.map((issue) => {
+      {issues.map((issue) => {
         const warning = slot.warnings.includes(issue.code);
         return (
           <li
@@ -230,6 +240,12 @@ export function ActivitySlotDetails({
           </SelectContent>
         </Select>
       </header>
+      <ActivityChoiceReview
+        slot={slot}
+        view={view}
+        reviewChoice={board.reviewChoice}
+        disabled={disabled}
+      />
       <Issues slot={slot} />
       <TeamField
         slot={slot}

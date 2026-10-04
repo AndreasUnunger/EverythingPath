@@ -538,3 +538,51 @@ test('[WEEK-10.link] the source link still navigates while editing is locked', (
   fireEvent.click(button);
   expect(openSource).toHaveBeenCalledWith(link);
 });
+
+test('choosing the current Leave it card explicitly reviews an event changed by Character departure', async () => {
+  const { edit } = show([
+    {
+      ...theft,
+      reviewRequired: true,
+      requirements: ['theft:review'],
+      decision: { kind: 'unattempted', eventId: 'theft' },
+    },
+  ]);
+  fireEvent.click(screen.getByRole('button', { name: 'Leave it' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'persistent_decision',
+      decision: { kind: 'unattempted', eventId: 'theft' },
+    }),
+  );
+});
+
+test('reviewing the current mitigation card preserves its surviving roll and officer selections', async () => {
+  const decision: Extract<Event['decision'], { kind: 'mitigate' }> = {
+    kind: 'mitigate',
+    eventId: 'theft',
+    reviewRequired: true,
+    officerCheck: { characterId: 'pc', skill: 'bluff' },
+    rolls: {
+      check: {
+        diceTotal: 12,
+        diceCount: 1,
+        sides: 20,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      },
+    },
+  };
+  const { edit } = show([
+    { ...theft, requirements: ['theft:review'], decision },
+  ]);
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Loyalty check (this week only)' }),
+  );
+  await waitFor(() =>
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'persistent_decision',
+      decision,
+    }),
+  );
+});

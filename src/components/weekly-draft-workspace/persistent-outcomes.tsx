@@ -2,6 +2,8 @@
 // Exceptions its decision needs.
 export function persistentMessage(key: string) {
   const messages: Record<string, string> = {
+    review:
+      'A character left the campaign. Choose this event’s decision again before continuing.',
     'buyoff-cooldown':
       'Another buyoff falls within the militia’s four-week waiting period. Record an exception or revise the decision.',
     treasury:

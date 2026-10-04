@@ -165,7 +165,12 @@ function editTargets(base: WeeklyDraft, edit: WeeklyDraftEdit): Path[] {
     case 'event_tree':
       return [['event', 'tree']];
     case 'persistent_decision':
-      return [persistentTarget(base, edit.decision.eventId)];
+      return [
+        persistentTarget(base, edit.decision.eventId),
+        ...base.context.carriedEvents
+          .filter((event) => event.eventId === edit.decision.eventId)
+          .map((event) => ['context', 'carriedEvents', event.eventId]),
+      ];
     case 'clear_persistent_decision':
       return [persistentTarget(base, edit.eventId)];
     case 'acknowledge':

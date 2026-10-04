@@ -143,19 +143,38 @@ const draftEditHandlers: {
       return 'obsolete_event';
     for (const key of Object.keys(event)) Reflect.deleteProperty(event, key);
     Object.assign(event, edit.occurrence);
+    delete event.reviewRequired;
   },
   event_tree: (next, edit) => {
-    next.event.occurrences = edit.occurrences;
+    next.event.occurrences = edit.occurrences.map(
+      ({ reviewRequired: _review, ...event }) => event,
+    );
   },
   persistent_decision: (next, edit) => {
+    if (
+      next.context.carriedEvents.some(
+        (event) =>
+          event.eventId === edit.decision.eventId && event.reviewRequired,
+      )
+    )
+      next.context = {
+        ...next.context,
+        carriedEvents: next.context.carriedEvents.map((event) => {
+          if (event.eventId !== edit.decision.eventId) return event;
+          const { reviewRequired: _review, ...reviewed } = event;
+          return reviewed;
+        }),
+      };
+    const decision = { ...edit.decision };
+    if (decision.kind === 'mitigate') delete decision.reviewRequired;
     const event = currentEvent(next, edit.decision.eventId);
     if (event) {
-      event.persistentDecision = edit.decision;
+      event.persistentDecision = decision;
       return;
     }
     next.persistent.decisions = next.persistent.decisions
       .filter((value) => value.eventId !== edit.decision.eventId)
-      .concat(edit.decision);
+      .concat(decision);
   },
   clear_persistent_decision: (next, edit) => {
     const event = currentEvent(next, edit.eventId);
@@ -277,7 +296,8 @@ function updateChoiceDetails(
     edit.choice.actionId !== slot.choice?.actionId
   )
     return 'choice_mismatch';
-  slot.choice = edit.choice;
+  const { reviewRequired: _review, ...reviewedChoice } = edit.choice;
+  slot.choice = reviewedChoice;
 }
 
 function transferChoice(

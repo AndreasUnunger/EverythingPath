@@ -137,9 +137,31 @@ export async function readReferencedCatalogDefinitions(
           : 'Catalog dependency does not belong to this Character'),
     );
   }
-  const seed = new Map(initialDefinitions.map((row) => [row._id, row]));
+  const carriedDefinitions = await Promise.all(
+    [...new Set(Object.values(character.carriedCatalogReferences ?? {}))].map(
+      (id) => ctx.db.get('catalogEntry', id),
+    ),
+  );
+  for (const row of carriedDefinitions)
+    if (
+      !row ||
+      !(
+        (row.scope === 'character' && row.characterId === character._id) ||
+        (row.scope === 'campaign' &&
+          row.campaignId === character.campaignId &&
+          character.campaignId)
+      )
+    )
+      throw new ConvexError(
+        'Carried catalog dependency does not belong to this Character',
+      );
+  const roots = [
+    ...initialDefinitions,
+    ...carriedDefinitions.filter((row) => row !== null),
+  ];
+  const seed = new Map(roots.map((row) => [row._id, row]));
   pending.push(
-    ...initialDefinitions.map((row) => ({
+    ...roots.map((row) => ({
       id: row._id,
       kind: 'definition' as const,
     })),
@@ -195,7 +217,16 @@ export async function readReferencedCatalogDefinitions(
       }
     }
   }
-  return projectCampaignCopies([...definitions.values()]);
+  const selected = [...definitions.values()].map((definition) => {
+    if (definition.scope !== 'global') return definition;
+    let projected = definition;
+    for (const [original, carried] of Object.entries(
+      character.carriedCatalogReferences ?? {},
+    ))
+      projected = remapCatalogReferences(projected, original, carried);
+    return projected;
+  });
+  return projectCampaignCopies(selected);
 }
 
 /** Validate every new/rescoped definition before its atomic insert or patch. */
@@ -207,11 +238,9 @@ export async function writeCatalogDefinition(
   if (!validate(catalogEntryValidator, definition, { db: ctx.db }))
     throw new ConvexError('Catalog definition is invalid');
   requireCatalogDefinitionScope(definition);
-  if (id) {
-    await ctx.db.patch('catalogEntry', id, definition);
-    return id;
-  }
-  return ctx.db.insert('catalogEntry', definition);
+  const writtenId = id ?? (await ctx.db.insert('catalogEntry', definition));
+  if (id) await ctx.db.patch('catalogEntry', id, definition);
+  return writtenId;
 }
 
 export async function calculateDefinitionFingerprint(

@@ -83,6 +83,7 @@ function SheetHost({
       lifecycle={
         <CharacterLifecycle
           character={controller.sheet.character}
+          campaignName={controller.sheet.campaign?.campaignName}
           owner={controller.sheet.owner}
           ownershipAvailable={
             controller.sheet.campaign?.ownershipAvailable ?? false
