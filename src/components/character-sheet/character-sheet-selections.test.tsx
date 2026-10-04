@@ -1438,6 +1438,85 @@ test('class feature, racial trait and generic entry rows keep current and record
   expect(screen.queryByText(/eligible/i)).toBeNull();
 });
 
+test('entry rules remain visible beside prerequisite groups while a dated feature can still move', async () => {
+  const sheet = mixedSheet({
+    selections: [{ ...powerAttack, order: 1 }],
+    dated: [
+      { ...talent, order: 0 },
+      {
+        id: 'item-entry',
+        kind: 'item',
+        name: 'Lantern',
+        prerequisites: strength13,
+      },
+      {
+        id: 'manual-entry',
+        kind: 'manual',
+        name: 'Blessing',
+        prerequisites: strength13,
+      },
+    ],
+  });
+  const notes = new Map([
+    ['talent-entry-catalog', 'Reroll a failed confirmation check.'],
+    ['item-entry-catalog', 'Reveals invisible writing.'],
+    ['manual-entry-catalog', 'Can always take 10 on this check.'],
+    ['power-attack', 'Trade attack bonus for damage.'],
+  ]);
+  const catalogEntries = sheet.catalogEntries.map((entry) => {
+    const text = notes.get(entry._id);
+    return text ? { ...entry, situationalNotes: [{ text }] } : entry;
+  });
+  const input = {
+    entries: sheet.entries,
+    catalogEntries,
+    characterKind: sheet.character.kind,
+  };
+  renderBlocks(
+    {
+      ...sheet,
+      catalogEntries,
+      calculated: calculateCharacterSheet(input),
+      permanentCalculated: calculateCharacterSheet(input, {
+        permanentOnly: true,
+      }),
+    },
+    ['selections', 'grants', 'entries', 'adjustments'],
+  );
+  const powerAttackNote = 'Trade attack bonus for damage.';
+  expect(screen.getAllByText(powerAttackNote)).toHaveLength(1);
+  expect(
+    within(screen.getByRole('listitem', { name: 'Power Attack' })).getByText(
+      powerAttackNote,
+    ),
+  ).toBeVisible();
+  const expectedNotes: [string, string][] = [
+    ['Combat talent', 'Reroll a failed confirmation check.'],
+    ['Lantern', 'Reveals invisible writing.'],
+    ['Blessing', 'Can always take 10 on this check.'],
+  ];
+  for (const [name, text] of expectedNotes) {
+    const saved = within(screen.getByRole('listitem', { name }));
+    expect(saved.getByText(text)).toBeVisible();
+    expect(
+      saved.getByRole('group', { name: 'Prerequisites now' }),
+    ).toBeVisible();
+  }
+  const feature = within(
+    screen.getByRole('listitem', { name: 'Combat talent' }),
+  );
+  expect(
+    feature.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  ).toBeVisible();
+  fireEvent.click(moveButton('Combat talent', 'later'));
+  await act(async () => undefined);
+  expect(lastCall('moveSelection').args).toMatchObject({
+    entryId: 'talent-entry',
+    direction: 'later',
+  });
+  await settle(lastCall('moveSelection'));
+});
+
 test('a move waits only on its own row, reports a failure for a retry, and another player’s reorder refreshes the places with a dismissable notice', async () => {
   const sheet = (orders: [number, number], lastOperationId = 'seed') =>
     mixedSheet({

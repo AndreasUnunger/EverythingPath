@@ -7,7 +7,7 @@ import { z } from 'zod';
 import {
   personalBonusTypes,
   modifierTargets,
-  modifierConditionSchema,
+  personalAdjustmentConditionSchema,
 } from '~/lib/character-sheet';
 import { useSheetFormState } from './use-sheet-form-state';
 import {
@@ -21,8 +21,8 @@ const catalogEntryId = z.custom<Id<'catalogEntry'>>(
   (value) => typeof value === 'string' && value.length > 0,
 );
 const situationOptions =
-  modifierConditionSchema.shape.situation.unwrap().options;
-const conditionSchema = modifierConditionSchema.strict().extend({
+  personalAdjustmentConditionSchema.shape.situation.unwrap().options;
+const conditionSchema = personalAdjustmentConditionSchema.extend({
   situation: z
     .union([
       situationOptions[0],

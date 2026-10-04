@@ -8,7 +8,9 @@ import { Button } from '~/components/ui/button';
 import { isTemporaryEffect } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
 import { RowCatalogDefinition } from './row-catalog-definition';
+import { useEntrySituationNotes } from './breakdown-resolver';
 import { ConditionRules, rulesOnlyText } from './condition-rules';
+import { BreakdownNotes } from './breakdown-notes';
 import { SheetEntryEditor } from './sheet-entry-editor';
 import { SpellEffectStateControl } from './spell-effect-state-control';
 import { sheetEntryKindLabels } from './sheet-entry-classification-fields';
@@ -71,11 +73,14 @@ function ConditionEffectDetails({
   row,
   conditionEffect,
   showRules,
+  shownNotes,
 }: {
   row: Row;
   conditionEffect: RowConditionEffect;
   /** Off while the row's editor previews the same rules below. */
   showRules: boolean;
+  /** Rule identities the row already shows as its Situational Notes. */
+  shownNotes: ReadonlySet<string>;
 }) {
   const { effect, replacementName } = conditionEffect;
   if (effect.replacedBy !== undefined)
@@ -92,7 +97,12 @@ function ConditionEffectDetails({
       ) : null}
       {showRules ? (
         <ConditionRules
-          notes={effect.notes}
+          notes={effect.notes.filter(
+            (_, index) =>
+              !shownNotes.has(
+                `${effect.sheetEntryId}|${effect.noteIndexes[index]}`,
+              ),
+          )}
           unmodeled={effect.unmodeled}
           className="mt-1"
         />
@@ -153,6 +163,7 @@ function SheetEntryRow({
     (useRowDefinition(row.entryId)?.definition.scope ?? 'character') !==
     'character';
   const isGear = isArmorRow(row);
+  const situationalNotes = useEntrySituationNotes(row.entryId).notes;
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2">
       {isGear ? (
@@ -218,8 +229,18 @@ function SheetEntryRow({
             row={row}
             conditionEffect={conditionEffect}
             showRules={!isOpen}
+            shownNotes={
+              new Set(
+                situationalNotes.map(
+                  (note) => `${note.sheetEntryId}|${note.noteIndex}`,
+                ),
+              )
+            }
           />
         ) : null}
+        {isReplaced ? null : (
+          <BreakdownNotes entryId={row.entryId} className="mt-1" />
+        )}
         <SelectionChecks
           selection={row.selection}
           warnings={isOpen ? [] : warnings}

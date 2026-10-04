@@ -14,7 +14,7 @@ import {
   type Spellcasting,
   type SpellcastingSlot,
 } from './spellcasting-parts';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 
 const th = cn(fieldLabel, 'px-1.5 pb-1 text-left font-normal');
 const td = 'border-foreground/10 border-t px-1.5 py-1 align-baseline';
@@ -48,18 +48,23 @@ function SaveDc({
   const name = school
     ? `${level} ${capitalize(school)} save DC`
     : `${level} save DC`;
+  const target = spellcastingBreakdownTarget(casting.classEntryId, {
+    kind: 'dc',
+    spellLevel: slot.spellLevel,
+    school,
+  });
+  const incompleteReason = unresolved ? describeUnresolved(['spellDC']) : null;
   return (
-    <StatBreakdown
-      label={`${casting.name} ${name}`}
-      statistic={statistic}
-      target={spellcastingBreakdownTarget(casting.classEntryId, {
-        kind: 'dc',
-        spellLevel: slot.spellLevel,
-        school,
-      })}
-      incompleteReason={unresolved ? describeUnresolved(['spellDC']) : null}
-      className="min-h-7 text-sm"
-    />
+    <>
+      <SheetStatistic
+        label={`${casting.name} ${name}`}
+        statistic={statistic}
+        target={target}
+        incompleteReason={incompleteReason}
+        className="min-h-7 text-sm"
+        alternates={{ isStacked: true, className: 'items-start' }}
+      />
+    </>
   );
 }
 

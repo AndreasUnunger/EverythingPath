@@ -227,6 +227,14 @@ export const catalogModifierValidator = modifierValidator
       ...catalogModifierTargets.map((target) => v.literal(target)),
     ),
   });
+export const situationalNoteValidator = v.object({
+  target: v.optional(
+    v.union(...catalogModifierTargets.map((target) => v.literal(target))),
+  ),
+  text: v.string(),
+  situation: modifierConditionValidator.fields.situation,
+  condition: v.optional(modifierConditionValidator),
+});
 const baseModifierValidator = modifierValidator
   .pick('target', 'bonusType', 'value')
   .extend({
@@ -337,6 +345,7 @@ export const prerequisiteAtomValidator = zodOutputToConvex(
 );
 export const prerequisiteValidator = zodOutputToConvex(prerequisiteSchema);
 const catalogEntryFields = v.object({
+  situationalNotes: v.optional(v.array(situationalNoteValidator)),
   scope: v.union(
     v.literal('global'),
     v.literal('campaign'),

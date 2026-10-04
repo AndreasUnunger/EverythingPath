@@ -18,10 +18,7 @@ import {
   isOwnCharacterSheetOperation,
 } from '~/lib/character-sheet-operations';
 import { detectRemoteSheetChange } from '~/lib/character-sheet-changes';
-import {
-  calculateCharacterSheet,
-  type ResolveOptions,
-} from '~/lib/character-sheet';
+import { calculateCharacterSheet } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
@@ -38,6 +35,8 @@ import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import { buildCharacterSheetView } from './character-sheet-view-model';
 import { useBuildOutCharacter } from './use-build-out-character';
 import { equalClassLevels, equalAdjustments } from './sheet-state-comparison';
+import { listCharacterSituationGroups } from './situations-view-model';
+import type { RequestedSituation } from '~/lib/character-sheet-situations';
 
 export type ClassLevelChanges = Omit<
   FunctionArgs<typeof api.characterSheet.editClassLevel>,
@@ -83,6 +82,32 @@ export function useCharacterSheet(
     catalogChoices,
   );
   const selections = useCharacterSheetSelections(scope, snapshot);
+  const previewSituation = useMemo(
+    () => (situations: readonly RequestedSituation[]) =>
+      snapshot
+        ? calculateCharacterSheet(
+            {
+              ...snapshot,
+              characterKind: snapshot.character.kind,
+              familiarBaseCreatureKey:
+                snapshot.character.familiarBaseCreatureKey,
+            },
+            {
+              situations,
+              ...(snapshot.calculated.familiar
+                ? {
+                    familiar: {
+                      baseCreatureKey:
+                        snapshot.character.familiarBaseCreatureKey,
+                      linkedInputs: snapshot.calculated.familiar.linkedInputs,
+                    },
+                  }
+                : {}),
+            },
+          )
+        : null,
+    [snapshot],
+  );
   const previewSelection = useMemo(
     () => createSelectionSlotPreview(snapshot),
     [snapshot],
@@ -258,21 +283,17 @@ export function useCharacterSheet(
       preview: previewSelection,
     },
     sheet,
+    situations: sheet ? listCharacterSituationGroups(sheet.calculated) : [],
+    findPrerequisiteName: (catalogEntryId: string) =>
+      snapshot?.catalogEntries.find((entry) => entry._id === catalogEntryId)
+        ?.name ?? null,
     catalogSnapshot: snapshot,
     buildOut: {
       ...buildOut,
       available: sheet?.canBuildOut ?? false,
       run: () => buildOut.run(sheet?.character),
     },
-    previewSituation: (
-      situation: NonNullable<ResolveOptions['situations']>[number],
-    ) =>
-      snapshot
-        ? calculateCharacterSheet(
-            { ...snapshot, characterKind: snapshot.character.kind },
-            { situations: [situation] },
-          )
-        : null,
+    previewSituation,
     adjustments: {
       status: adjustmentStatus,
       hasRemoteChange: hasRemoteAdjustmentChange,

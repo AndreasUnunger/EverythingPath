@@ -5,6 +5,7 @@ import { useMaintenanceReasonId } from '~/components/campaign-shell/maintenance-
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
+import { BreakdownNotes } from './breakdown-notes';
 import { ChoiceSelect } from './choice-select';
 import { InlineWarnings } from './inline-warning';
 import { PrerequisiteGroups } from './prerequisite-groups';
@@ -34,8 +35,8 @@ const mutedChip = cn(chip, 'text-muted-foreground');
  * One saved feat or trait in its slot (approved variant B's feat rows). The
  * first line holds its on/off switch, name and state, the level gained for a
  * feat, and Remove; the description sits below it, then the choice and
- * notes, guidance, and the prerequisites now and at the recorded level, each
- * group with its own warnings and Accept. Its order among the level's
+ * notes, guidance, its untargeted Situational Notes, and the prerequisites
+ * now and at the recorded level, each group with its own warnings and Accept. Its order among the level's
  * Selections, Edit and Replace follow on their own line. Replace reopens the
  * slot's picker; Remove clears the slot. The row waits only on its own save.
  */
@@ -170,6 +171,7 @@ export function SelectionRow({
             </p>
           ) : null}
           <SelectionGuidance text={row.guidanceText} />
+          <BreakdownNotes entryId={row.entryId} />
           <PrerequisiteProse text={row.prerequisiteText} />
           <PrerequisiteGroups
             groups={row}

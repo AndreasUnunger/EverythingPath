@@ -1,4 +1,7 @@
-import type { CharacterSheetCatalogEntry } from '../../src/lib/character-sheet';
+import type {
+  CharacterSheetCatalogEntry,
+  Modifier,
+} from '../../src/lib/character-sheet';
 import type { Doc, Id } from '../_generated/dataModel';
 
 type Seed = CharacterSheetCatalogEntry & {
@@ -404,6 +407,19 @@ type StoredSeed = Omit<
 export function materializeRepresentativeRaceCatalog(
   idForKey: (key: string) => Id<'catalogEntry'>,
 ): { key: string; definition: StoredSeed }[] {
+  const remapSituation = (
+    situation: NonNullable<Modifier['condition']>['situation'],
+  ) =>
+    typeof situation === 'object' && 'option' in situation
+      ? { option: idForKey(situation.option) }
+      : situation;
+  const remapCondition = (condition: NonNullable<Modifier['condition']>) => ({
+    ...condition,
+    situation: remapSituation(condition.situation),
+    whileActive: condition.whileActive
+      ? idForKey(condition.whileActive)
+      : undefined,
+  });
   return representativeRaceCatalog.map((entry) => {
     const detail = entry.detail;
     if (
@@ -444,25 +460,25 @@ export function materializeRepresentativeRaceCatalog(
         ruleIdentity: entry.ruleIdentity,
         stacksWithItself: false,
         sources: entry.sources,
+        ...(entry.situationalNotes
+          ? {
+              situationalNotes: entry.situationalNotes.map((note) => {
+                const { situation, condition, ...fields } = note;
+                return {
+                  ...fields,
+                  situation: remapSituation(situation),
+                  ...(condition
+                    ? { condition: remapCondition(condition) }
+                    : {}),
+                };
+              }),
+            }
+          : {}),
         modifiers: entry.modifiers.map((modifier) => {
           const { condition, ...fields } = modifier;
           return {
             ...fields,
-            ...(condition
-              ? {
-                  condition: {
-                    situation:
-                      condition.situation &&
-                      typeof condition.situation === 'object' &&
-                      'option' in condition.situation
-                        ? { option: idForKey(condition.situation.option) }
-                        : condition.situation,
-                    whileActive: condition.whileActive
-                      ? idForKey(condition.whileActive)
-                      : undefined,
-                  },
-                }
-              : {}),
+            ...(condition ? { condition: remapCondition(condition) } : {}),
           };
         }),
         detail: storedDetail,

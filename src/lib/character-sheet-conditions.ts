@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { compareValues } from 'convex/values';
 import data from './catalog/data/reviewed-conditions.json';
 import type {
   CharacterSheetInput,
@@ -108,6 +109,7 @@ export const conditionEffectSchema = z.object({
   name: z.string(),
   replacedBy: z.string().optional(),
   notes: z.array(z.string()),
+  noteIndexes: z.array(z.number().int().min(0)),
   unmodeled: z.array(z.string()),
 });
 export type ConditionEffect = z.infer<typeof conditionEffectSchema>;
@@ -234,6 +236,15 @@ function projectConditionInput({
             ruleIdentity: definition.ruleIdentity,
             sourceKey: definition.ruleIdentity,
             modifiers: definition.modifiers,
+            situationalNotes: [
+              ...definition.situationalNotes,
+              ...(catalog.situationalNotes ?? []).filter(
+                (note) =>
+                  !definition.situationalNotes.some(
+                    (canonical) => compareValues(canonical, note) === 0,
+                  ),
+              ),
+            ],
             detail: {
               kind: 'condition' as const,
               conditionKey: definition.key,
@@ -261,6 +272,7 @@ export function resolveSheetConditions({
       name: definition.name,
       ...(replacedBy ? { replacedBy } : {}),
       notes: definition.situationalNotes.map((note) => note.text),
+      noteIndexes: definition.situationalNotes.map((_, index) => index),
       unmodeled: definition.unmodeled,
     }),
   );

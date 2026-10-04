@@ -89,6 +89,51 @@ function build(
   };
 }
 
+test('a school scoped Situational Note creates its casting breakdown without changing a DC or leaking into other classes', () => {
+  const input = build([
+    ['wizard', 3],
+    ['cleric', 1],
+  ]);
+  input.catalogEntries.find(
+    (row) => row._id === 'adjustment',
+  )!.situationalNotes = [
+    {
+      target: 'spellDC',
+      situation: 'fear',
+      text: 'Targets reroll successful saves.',
+      condition: { castingClass: 'wizard', school: 'enchantment' },
+    },
+  ];
+  const result = calculateCharacterSheet(input);
+  const wizard = result.spellcastings.find((row) => row.classTag === 'wizard')!;
+  const cleric = result.spellcastings.find((row) => row.classTag === 'cleric')!;
+  const enchantment = wizard.slots[0]?.schoolDCs.find(
+    (row) => row.school === 'enchantment',
+  );
+  expect(enchantment?.breakdown.total).toBe(14);
+  expect(enchantment?.breakdown.notes?.[0]?.text).toBe(
+    'Targets reroll successful saves.',
+  );
+  expect(wizard.slots[0]?.dc.notes ?? []).toEqual([]);
+  expect(cleric.slots[0]?.schoolDCs).toEqual([]);
+});
+
+test('an unchosen school Note never creates a pseudo-school breakdown', () => {
+  const input = build([['wizard', 3]]);
+  input.catalogEntries.find(
+    (row) => row._id === 'adjustment',
+  )!.situationalNotes = [
+    {
+      target: 'spellDC',
+      text: 'Reroll saves.',
+      condition: { school: '$choice' },
+    },
+  ];
+  expect(
+    calculateCharacterSheet(input).spellcastings[0]?.slots[0]?.schoolDCs,
+  ).toEqual([]);
+});
+
 test('Wizard 3 / Cleric 1 keeps class levels, slots and casting ability separate', () => {
   // CRB class tables: Wizard 3 has 4/2/1, Cleric 1 has 3/1 before domain slots.
   const { current } = calculateCharacterSheetProjections(
@@ -176,7 +221,7 @@ test('the retained prior and current calculation identities both use candidate r
     resources: { castingTables: reviewedCastingTablesSchema.parse(tables) },
   };
   const prior =
-    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
+    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
   for (const identity of [prior, catalogRuntimeCompatibility.calculation]) {
     expect(
       calculateCharacterSheetForRelease(identity, input).spellcastings[0]

@@ -56,6 +56,7 @@ export const outputSchema = z.discriminatedUnion('kind', [
     target: z.enum(catalogModifierTargets).optional(),
     situation: situationSchema.optional(),
     text: z.string().min(1),
+    condition: conditionSchema.optional(),
   }),
   abilitySchema.extend({ kind: z.literal('itemAbility') }),
 ]);

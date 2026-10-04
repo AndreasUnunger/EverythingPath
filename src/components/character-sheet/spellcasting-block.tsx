@@ -88,7 +88,7 @@ function countOpenWarnings(
 
 function Labelled({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="flex items-baseline gap-1">
+    <span className="flex flex-wrap items-baseline gap-1">
       <span className={fieldLabel}>{label}</span>
       {children}
     </span>
@@ -214,7 +214,7 @@ function CastingSummary({
           <span className="font-sans text-base">{casting.name}</span>
           <span className="text-muted-foreground text-xs">{heading}</span>
         </span>
-        <span className="flex items-baseline gap-x-3">
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <Labelled label="CL">
             <CastingFigure
               casting={casting}

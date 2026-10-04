@@ -381,3 +381,40 @@ test('a failed concentration modifier has no numeric lookup without hiding a rea
     )?.total,
   ).toBe(15);
 });
+
+test('wire breakdowns retain scoped exclusions and targeted Situational Notes', () => {
+  const breakdowns = resolveSheet(
+    [
+      {
+        target: 'save.will',
+        value: 3,
+        bonusType: 'morale',
+        sheetEntryId: 'other-school',
+        entryName: 'School bonus',
+        source: 'school',
+        builtIn: false,
+        condition: { school: 'evocation' },
+      },
+    ],
+    {
+      situationalNotes: [
+        {
+          target: 'save.will',
+          situation: 'fear',
+          text: 'Reroll once.',
+          sheetEntryId: 'fearless',
+          entryName: 'Fearless',
+          source: 'fearless',
+          builtIn: false,
+        },
+      ],
+    },
+  );
+  const parsed = parseCharacterSheetBreakdowns(breakdowns);
+  expect(parsed['save.will'].excluded?.map((row) => row.entryName)).toEqual([
+    'School bonus',
+  ]);
+  expect(parsed['save.will'].notes?.map((note) => note.text)).toEqual([
+    'Reroll once.',
+  ]);
+});

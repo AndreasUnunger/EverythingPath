@@ -7,6 +7,78 @@ import { deleteSpellCatalogIndex } from './lib/spellCatalog';
 import { maxCharacterChildRows } from './lib/characterSheetData';
 
 const modules = import.meta.glob('./**/*.ts');
+
+test('reimporting a recorded Spell replaces its entry Notes and clears Notes removed upstream', async () => {
+  const { owner, scope, wizard } = await fixture();
+  const spell = importedSpell('note-reimport', 'Annotated Spell', {
+    wizard: 0,
+  });
+  const [catalogEntryId] = await owner.mutation(
+    internal.characterSheetSpells.installPreparedCatalog,
+    {
+      ...scope,
+      spells: [
+        {
+          ...spell,
+          situationalNotes: [{ text: 'Only affects willing targets.' }],
+        },
+      ],
+      operationId: 'import-note',
+    },
+  );
+  if (!catalogEntryId) throw new Error('Missing imported Spell');
+  await owner.mutation(api.characterSheetSpells.record, {
+    ...scope,
+    catalogEntryId,
+    castingClassId: wizard._id,
+    operationId: 'record-note-spell',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated.entryNotes,
+  ).toEqual([
+    expect.objectContaining({ text: 'Only affects willing targets.' }),
+  ]);
+  await owner.mutation(internal.characterSheetSpells.installPreparedCatalog, {
+    ...scope,
+    spells: [spell],
+    operationId: 'reimport-without-note',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.calculated.entryNotes,
+  ).toEqual([]);
+});
+
+test('the Spell installer atomically refuses Note references that have not been materialized', async () => {
+  const { owner, scope, wizard } = await fixture();
+  await expect(
+    owner.mutation(internal.characterSheetSpells.installPreparedCatalog, {
+      ...scope,
+      operationId: 'unmapped-note-reference',
+      spells: [
+        importedSpell('would-be-inserted', 'Atomic Note Spell', { wizard: 0 }),
+        {
+          ...importedSpell('unmapped-reference', 'Referenced Note Spell', {
+            wizard: 0,
+          }),
+          situationalNotes: [
+            {
+              text: 'Only while active.',
+              condition: { whileActive: wizard._id },
+            },
+          ],
+        },
+      ],
+    }),
+  ).rejects.toThrow('Imported Spell Note catalog references are not supported');
+  const result = await owner.query(api.characterSheetSpells.browse, {
+    ...scope,
+    castingClassId: wizard._id,
+    search: 'Atomic Note Spell',
+    paginationOpts: { cursor: null, numItems: 25 },
+  });
+  expect(result.page).toEqual([]);
+});
+
 afterEach(() => vi.useRealTimers());
 beforeAll(async () => {
   await import('./data/spells');

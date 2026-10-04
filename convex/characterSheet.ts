@@ -1,4 +1,5 @@
 import { findArchetypeSelection } from '../src/lib/character-sheet-archetype-helpers';
+import { listCatalogReferences } from '../src/lib/catalog-copy-references';
 import { defaultAttackRoutineConfiguration } from '../src/lib/character-sheet-attacks';
 import {
   selectionMetadata,
@@ -68,6 +69,7 @@ import schema, {
   favoredClassBonusValidator,
   characterSheetEntryValidator,
   modifierValidator,
+  situationalNoteValidator,
   abilityValidator,
   alignmentValidator,
   abilityChangeKindValidator,
@@ -107,11 +109,15 @@ import {
   defaultAbilityScores,
   creationSettingsFor,
   modifierConditionSchema,
+  personalAdjustmentConditionSchema,
+  situationalNoteSchema,
+  sourcedSituationalNoteSchema,
   characterSheetWarningSchema,
   type Modifier,
   type CatalogModifier,
   type BaseModifier,
   type SheetEntry,
+  type SituationalNote,
 } from '../src/lib/character-sheet';
 import {
   deleteCharacterSheet,
@@ -131,6 +137,8 @@ const scope = {
 };
 const abilityValue = v.object({ score: v.number(), modifier: v.number() });
 const sourcedModifierValidator = modifierValidator.omit('condition').extend({
+  modifierIndex: v.optional(v.number()),
+  catalogEntryId: v.optional(v.string()),
   condition: v.optional(zodOutputToConvex(modifierConditionSchema)),
   value: v.number(),
   sheetEntryId: v.string(),
@@ -140,6 +148,8 @@ const sourcedModifierValidator = modifierValidator.omit('condition').extend({
   stacksWithItself: v.optional(v.boolean()),
 });
 const breakdownValidator = v.object({
+  excluded: v.optional(v.array(sourcedModifierValidator)),
+  notes: v.optional(v.array(zodOutputToConvex(sourcedSituationalNoteSchema))),
   total: v.number(),
   applied: v.array(sourcedModifierValidator),
   suppressed: v.array(
@@ -294,6 +304,7 @@ function attackLineValidator() {
 }
 const calculatedValidator = v.object({
   familiar: v.union(zodOutputToConvex(familiarFactsSchema), v.null()),
+  entryNotes: v.array(zodOutputToConvex(sourcedSituationalNoteSchema)),
   spellCollections: v.object({
     collections: v.array(
       v.object({
@@ -1049,16 +1060,29 @@ export function validatePersonalAdjustment({
   name,
   modifiers,
   previousModifiers = [],
+  situationalNotes = [],
+  previousSituationalNotes = [],
+  conditionSchema = personalAdjustmentConditionSchema,
 }: {
   sheet: NonNullable<Awaited<ReturnType<typeof loadCharacterSheet>>>;
   name: string;
   modifiers: readonly CatalogModifier[];
   previousModifiers?: readonly CatalogModifier[];
+  situationalNotes?: readonly SituationalNote[];
+  previousSituationalNotes?: readonly SituationalNote[];
+  conditionSchema?:
+    | typeof modifierConditionSchema
+    | typeof personalAdjustmentConditionSchema;
 }) {
   if (!name.trim()) throw new ConvexError('Adjustment name cannot be empty');
   if (modifiers.length > 256)
     throw new ConvexError('An adjustment supports at most 256 Modifiers');
   for (const modifier of modifiers) {
+    if (
+      modifier.condition &&
+      !conditionSchema.safeParse(modifier.condition).success
+    )
+      throw new ConvexError('Modifier condition is invalid');
     if (typeof modifier.value === 'number') {
       requireFiniteNumber(modifier.value);
       if (
@@ -1071,8 +1095,24 @@ export function validatePersonalAdjustment({
     if (modifier.bonusType === 'base')
       throw new ConvexError('Base scores cannot be personal adjustments');
   }
-  const previousReferences = new Set(modifierReferences(previousModifiers));
-  for (const reference of modifierReferences(modifiers)) {
+  if (situationalNotes.length > 256)
+    throw new ConvexError('An entry supports at most 256 Situational Notes');
+  for (const note of situationalNotes)
+    if (
+      !situationalNoteSchema.safeParse(note).success ||
+      (note.condition && !conditionSchema.safeParse(note.condition).success)
+    )
+      throw new ConvexError('Situational Note is invalid');
+  const noteReferences = (notes: readonly SituationalNote[]) =>
+    listCatalogReferences(notes).map((reference) => reference.id);
+  const previousReferences = new Set([
+    ...modifierReferences(previousModifiers),
+    ...noteReferences(previousSituationalNotes),
+  ]);
+  for (const reference of [
+    ...modifierReferences(modifiers),
+    ...noteReferences(situationalNotes),
+  ]) {
     if (
       !previousReferences.has(reference) &&
       !sheet.catalogEntries.some((entry) => entry._id === reference)
@@ -1953,6 +1993,7 @@ export const createSheetEntry = campaignMutation({
     ...personalAdjustmentFields,
     detail: sheetEntryDetailValidator,
     casterLevel: v.optional(v.number()),
+    situationalNotes: v.optional(v.array(situationalNoteValidator)),
   },
   returns: v.id('characterSheetEntry'),
   async handler(ctx, args) {
@@ -1967,6 +2008,8 @@ export const createSheetEntry = campaignMutation({
       sheet,
       name,
       modifiers,
+      conditionSchema: modifierConditionSchema,
+      situationalNotes: args.situationalNotes,
     });
     validateSheetEntryDetail(args.detail, args.casterLevel);
     if (sheet.entries.length >= maxCharacterChildRows)
@@ -1979,6 +2022,9 @@ export const createSheetEntry = campaignMutation({
       ...(canonical ? { sourceKey: canonical.sourceKey } : {}),
       stacksWithItself: false,
       modifiers,
+      ...(args.situationalNotes
+        ? { situationalNotes: args.situationalNotes }
+        : {}),
       detail: args.detail,
       sources: canonical?.sources ?? [],
     });
@@ -2037,6 +2083,7 @@ export const editSheetEntry = campaignMutation({
     detail: v.optional(sheetEntryDetailValidator),
     casterLevel: v.optional(v.number()),
     active: v.optional(v.boolean()),
+    situationalNotes: v.optional(v.array(situationalNoteValidator)),
   },
   returns: v.null(),
   async handler(ctx, args) {
@@ -2047,7 +2094,8 @@ export const editSheetEntry = campaignMutation({
       args.characterId,
       args.name !== undefined ||
         args.modifiers !== undefined ||
-        args.detail !== undefined,
+        args.detail !== undefined ||
+        args.situationalNotes !== undefined,
     );
     const detail = args.detail ?? catalog.detail;
     if (detail.kind !== entry.kind)
@@ -2064,6 +2112,9 @@ export const editSheetEntry = campaignMutation({
       name,
       modifiers,
       previousModifiers: catalog.modifiers,
+      conditionSchema: modifierConditionSchema,
+      situationalNotes: args.situationalNotes ?? catalog.situationalNotes,
+      previousSituationalNotes: catalog.situationalNotes,
     });
     validateSheetEntryDetail(detail, args.casterLevel);
     const active = args.active ?? entry.active;
@@ -2086,6 +2137,10 @@ export const editSheetEntry = campaignMutation({
       name === catalog.name &&
       compareValues(modifiers, catalog.modifiers) === 0 &&
       compareValues(detail, catalog.detail) === 0 &&
+      compareValues(
+        args.situationalNotes ?? catalog.situationalNotes,
+        catalog.situationalNotes,
+      ) === 0 &&
       active === entry.active &&
       compareValues(patch.state, entry.state) === 0
     )
@@ -2093,12 +2148,16 @@ export const editSheetEntry = campaignMutation({
     if (
       args.name !== undefined ||
       args.modifiers !== undefined ||
-      args.detail !== undefined
+      args.detail !== undefined ||
+      args.situationalNotes !== undefined
     )
       await ctx.db.patch('catalogEntry', catalog._id, {
         name,
         modifiers,
         detail,
+        ...(args.situationalNotes !== undefined
+          ? { situationalNotes: args.situationalNotes }
+          : {}),
         ...buildCatalogIdentityPatch({ canonical, catalog }),
       });
     await ctx.db.patch('characterSheetEntry', entry._id, patch);

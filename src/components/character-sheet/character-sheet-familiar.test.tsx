@@ -156,7 +156,7 @@ function familiarSheet({
   lastOperationId?: string;
 } & Pick<
   Parameters<typeof buildSheet>[0] & object,
-  'sheetEntries' | 'attackRoutines'
+  'sheetEntries' | 'attackRoutines' | 'adjustments'
 > = {}): CharacterSheetSnapshot {
   const sheet = buildSheet({
     name: 'Smudge',
@@ -385,6 +385,66 @@ test('missing creature and master values read Unresolved in the summary and the 
   expect(
     screen.getByRole('button', { name: 'Touch AC Unresolved, breakdown' }),
   ).toBeVisible();
+});
+
+test('an unresolved familiar save has no Situation totals while resolved Initiative keeps its alternatives', () => {
+  renderSheet(
+    familiarSheet({
+      current: [linked({ kind: 'baseAttackBonus' }, 0)],
+      permanent: [linked({ kind: 'baseAttackBonus' }, 0)],
+      adjustments: [
+        {
+          id: 'vigilance',
+          name: 'Spell vigilance',
+          modifiers: [
+            {
+              target: 'save.fort',
+              bonusType: 'insight',
+              value: 2,
+              condition: { situation: 'spells' },
+            },
+            {
+              target: 'init',
+              bonusType: 'insight',
+              value: 2,
+              condition: { situation: 'spells' },
+            },
+          ],
+        },
+      ],
+    }),
+    ['situations', 'familiar', 'defenses', 'offense'],
+  );
+  const save = screen.getByRole('button', {
+    name: 'Fortitude save Unresolved, breakdown',
+  });
+  expect(save).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: /^Fortitude save, / }),
+  ).toBeNull();
+  expect(
+    screen.getByRole('button', {
+      name: 'Initiative, vs. spells +2, breakdown',
+    }),
+  ).toBeVisible();
+
+  fireEvent.click(screen.getByRole('button', { name: 'vs. spells' }));
+  expect(
+    screen.queryByRole('button', { name: /^Fortitude save, / }),
+  ).toBeNull();
+  expect(
+    screen.getByRole('button', {
+      name: 'Initiative, selected: vs. spells +2, breakdown',
+    }),
+  ).toBeVisible();
+  fireEvent.click(save);
+  const breakdown = within(
+    screen.getByRole('group', { name: 'Fortitude save breakdown' }),
+  );
+  expect(breakdown.getByText('Known contributions (partial)')).toBeVisible();
+  expect(breakdown.getByText('Selected Situations')).toBeVisible();
+  expect(breakdown.getByText('Only when…')).toBeVisible();
+  expect(breakdown.queryByText(/becomes/)).toBeNull();
 });
 
 test('skill totals without the master’s ranks and attack bonuses without its base attack read Unresolved; damage stays a number', () => {

@@ -8,6 +8,7 @@ import { cn } from '~/lib/utils';
 import { RowCatalogDefinition } from './row-catalog-definition';
 import type { GrantEntryView } from './character-sheet-grants-view-model';
 import { listEquipmentWarnings } from './equipment-statistics';
+import { BreakdownNotes } from './breakdown-notes';
 import { EntryStateEditor } from './entry-state-editor';
 import { InlineDeleteQuestion } from './inline-delete-question';
 import { SelectionChecks } from './selection-checks';
@@ -174,6 +175,7 @@ export function GrantEntryRow({
             <StateChips row={row} />
           </div>
           <RowDetails row={row} />
+          <BreakdownNotes entryId={row.rowId} />
           {renderExtra?.(row)}
           {isGear ? (
             <p className="text-muted-foreground text-xs">

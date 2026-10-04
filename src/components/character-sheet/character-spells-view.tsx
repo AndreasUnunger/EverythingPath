@@ -172,6 +172,7 @@ export function CharacterSpellsView({
         previewSituation={controller.previewSituation}
         adjustments={sheet.adjustments}
         spellcastings={sheet.calculated.spellcastings}
+        findPrerequisiteName={controller.findPrerequisiteName}
       >
         <MaintenanceReasonScope id={reasonId}>
           <div className="space-y-3">

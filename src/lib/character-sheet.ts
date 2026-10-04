@@ -53,6 +53,13 @@ import type {
   ReviewedCastingTables,
 } from './character-sheet-casting-tables';
 import {
+  identifySituation,
+  isOwnStateSituation,
+  sameSituationIdentity,
+  situationMatches,
+  type RequestedSituation,
+} from './character-sheet-situations';
+import {
   racialTraitWarnings,
   resolveCharacterSheetRacialFacts,
 } from './character-sheet-racial';
@@ -273,6 +280,7 @@ export type CharacterSheetCatalogEntry = {
   stacksWithItself?: boolean;
   countsAsRaces?: readonly string[] | { oneOf: readonly string[] };
   modifiers: readonly CatalogModifier[];
+  situationalNotes?: readonly SituationalNote[];
   detail?: SheetCatalogEntryDetail;
   proficiencies?: readonly ProficiencyGrant[];
   proficiencyPrerequisites?: readonly ProficiencyPrerequisite[];
@@ -564,20 +572,11 @@ function sourceCatalogModifiers(
             target,
             ...(modifier.condition
               ? {
-                  condition: {
-                    ...modifier.condition,
-                    ...(modifier.condition.castingClass === '$choice' &&
-                    typeof choice === 'string'
-                      ? { castingClass: choice }
-                      : {}),
-                    ...(modifier.condition.school === '$choice' &&
-                    typeof choice === 'string'
-                      ? { school: choice }
-                      : {}),
-                  },
+                  condition: rewriteEntryCondition(modifier.condition, entry),
                 }
               : {}),
             sheetEntryId: entry._id,
+            catalogEntryId: entry.catalogEntryId,
             entryName:
               catalog.name ??
               (entry.kind === 'base' ? 'Base scores' : 'Personal adjustment'),
@@ -589,6 +588,85 @@ function sourceCatalogModifiers(
       },
     );
   });
+}
+
+function sourceSituationalNotes(
+  input: CharacterSheetInput,
+  options: ResolveOptions,
+): SourcedSituationalNote[] {
+  return input.entries.flatMap((entry) => {
+    if (!entry.active || !('catalogEntryId' in entry)) return [];
+    if (
+      options.conditionSuppression?.some(
+        (suppression) =>
+          suppression.sheetEntryId === entry._id &&
+          suppression.includesConditional,
+      )
+    )
+      return [];
+    const catalog = input.catalogEntries.find(
+      (row) => row._id === entry.catalogEntryId,
+    );
+    if (
+      !catalog ||
+      (options.permanentOnly && isTemporaryEffect(entry, catalog.detail))
+    )
+      return [];
+    const choice = 'choice' in entry.state ? entry.state.choice : undefined;
+    return (catalog.situationalNotes ?? []).flatMap((note, noteIndex) => {
+      const ability = abilityKeys.find((ability) => ability === choice);
+      const situation = note.situation ?? note.condition?.situation;
+      const ownState =
+        entry.kind === 'condition' &&
+        isOwnStateSituation(situation, catalog.name);
+      const target =
+        entry.kind === 'spell' || ownState
+          ? undefined
+          : note.target === 'ability.$choice'
+            ? ability
+              ? abilityTargets[ability]
+              : undefined
+            : note.target;
+      if (entry.kind !== 'spell' && !ownState && note.target && !target)
+        return [];
+      return [
+        {
+          ...note,
+          noteIndex,
+          ...(ownState ? { situation: undefined } : {}),
+          target,
+          ...(note.condition
+            ? {
+                condition: {
+                  ...rewriteEntryCondition(note.condition, entry),
+                  ...(ownState ? { situation: undefined } : {}),
+                },
+              }
+            : {}),
+          sheetEntryId: entry._id,
+          catalogEntryId: entry.catalogEntryId,
+          entryName: catalog.name ?? 'Personal adjustment',
+          source: catalog.sourceKey ?? catalog.ruleIdentity,
+          builtIn: entry.kind === 'base',
+        },
+      ];
+    });
+  });
+}
+
+function rewriteEntryCondition(
+  condition: NonNullable<Modifier['condition']>,
+  entry: SheetEntry,
+) {
+  const choice = 'choice' in entry.state ? entry.state.choice : undefined;
+  const rewritten = { ...condition };
+  if (condition.weapon === '$choice' && typeof choice === 'string')
+    rewritten.weaponSelection = choice;
+  if (condition.castingClass === '$choice' && typeof choice === 'string')
+    rewritten.castingClass = choice;
+  if (condition.school === '$choice' && typeof choice === 'string')
+    rewritten.school = choice;
+  return rewritten;
 }
 
 function abilityChangesFor(
@@ -1013,6 +1091,10 @@ function prepareSheetCalculation({
     abilityDamage,
     {
       ...options,
+      situationalNotes: sourceSituationalNotes(effectiveInput, {
+        ...options,
+        conditionSuppression,
+      }),
       conditionSuppression,
       abilityPenaltyEntryIds: conditionEffects
         .filter((effect) => !effect.replacedBy)
@@ -1310,6 +1392,16 @@ function calculateSheetProjection({
   return {
     familiar,
     abilities,
+    entryNotes: (context.situationalNotes ?? [])
+      .filter((note) => !note.target)
+      .map((note) => {
+        const excluded = !conditionContextApplies(note, context);
+        return {
+          ...note,
+          waiting: !excluded && !conditionPrerequisiteApplies(note, context),
+          excluded,
+        };
+      }),
     attackRoutines,
     spellcastings,
     spellCollections,
@@ -1681,16 +1773,56 @@ export type CatalogModifier = Omit<Modifier, 'target'> & {
 export type ModifierTarget = (typeof modifierTargets)[number];
 export type LeafTarget = (typeof leafTargets)[number];
 const situationSchema = z.union([
-  z.string(),
-  z.object({ local: z.string() }),
-  z.object({ option: z.string() }),
+  z.string().min(1).max(64),
+  z.object({ local: z.string().min(1).max(4096) }),
+  z.object({ option: z.string().min(1).max(64) }),
 ]);
 export const modifierConditionSchema = z.object({
   situation: situationSchema.optional(),
   whileActive: z.string().optional(),
   castingClass: z.string().optional(),
   school: z.string().optional(),
+  weapon: z
+    .enum(['$self', '$choice', '$group', '$target', '$unarmedOrNatural'])
+    .optional(),
+  weaponSelection: z.string().optional(),
+  option: z.literal(true).optional(),
 });
+export const personalAdjustmentConditionSchema = modifierConditionSchema
+  .omit({ weapon: true, weaponSelection: true, option: true })
+  .strict();
+export const situationalNoteSchema = z
+  .object({
+    target: z.enum(catalogModifierTargets).optional(),
+    situation: situationSchema.optional(),
+    text: z.string().min(1).max(4096),
+    condition: modifierConditionSchema.optional(),
+  })
+  .refine(
+    (note) =>
+      !note.situation ||
+      !note.condition?.situation ||
+      sameSituationIdentity(
+        identifySituation(note.situation),
+        identifySituation(note.condition.situation),
+      ),
+    { message: 'A Situational Note must name one Situation.' },
+  );
+export type SituationalNote = z.infer<typeof situationalNoteSchema>;
+export const sourcedSituationalNoteSchema = situationalNoteSchema.safeExtend({
+  target: z.enum(modifierTargets).optional(),
+  catalogEntryId: z.string().optional(),
+  noteIndex: z.number().int().min(0).optional(),
+  sheetEntryId: z.string(),
+  entryName: z.string(),
+  source: z.string(),
+  builtIn: z.boolean(),
+  waiting: z.boolean().optional(),
+  excluded: z.boolean().optional(),
+});
+export type SourcedSituationalNote = z.infer<
+  typeof sourcedSituationalNoteSchema
+>;
 export type Situation = z.infer<typeof situationSchema>;
 export type Modifier = {
   target: ModifierTarget;
@@ -1700,6 +1832,7 @@ export type Modifier = {
   stacksWithinEntry?: true;
 };
 export type InputSourcedModifier = Modifier & {
+  catalogEntryId?: string;
   modifierIndex?: number;
   effectCasterLevel?: number;
   sheetEntryId: string;
@@ -1725,6 +1858,8 @@ export type ResolvedStatistic = {
   applied: SourcedModifier[];
   suppressed: SuppressedModifier[];
   conditional: SourcedModifier[];
+  excluded?: SourcedModifier[];
+  notes?: SourcedSituationalNote[];
 };
 const parentTargets: Partial<Record<ModifierTarget, readonly LeafTarget[]>> = {
   ac: ['ac.other'],
@@ -1886,6 +2021,14 @@ export const specialSizeModifiers = {
 export type ResolveOptions = {
   familiar?: FamiliarCalculationInput;
   companionLinkedInputs?: readonly CompanionLinkedInputResolution[];
+  weapon?: {
+    entryId: string;
+    baseType: string;
+    groups?: readonly string[];
+    kind?: 'manufactured' | 'unarmed' | 'natural';
+  };
+  routineOptions?: readonly string[];
+  situationalNotes?: readonly SourcedSituationalNote[];
   size?: CreatureSize;
   weaponUses?: readonly {
     entryId: string;
@@ -1914,16 +2057,15 @@ export type ResolveOptions = {
     reason: string;
     includesConditional?: boolean;
   }[];
-  situations?: readonly (
-    | string
-    | { local: string; sheetEntryId: string }
-    | { option: string }
-  )[];
+  situations?: readonly RequestedSituation[];
   activeCatalogEntryIds?: readonly string[];
 };
 
-function conditionApplies(
-  modifier: InputSourcedModifier,
+export function conditionContextApplies(
+  modifier: Pick<
+    InputSourcedModifier,
+    'condition' | 'sheetEntryId' | 'catalogEntryId'
+  >,
   options: ResolveOptions,
 ) {
   const condition = modifier.condition;
@@ -1932,25 +2074,79 @@ function conditionApplies(
     return false;
   if (condition.school && condition.school !== options.school) return false;
   if (
+    condition.option &&
+    (!modifier.catalogEntryId ||
+      !options.routineOptions?.includes(modifier.catalogEntryId))
+  )
+    return false;
+  if (condition.weapon) {
+    const weapon = options.weapon;
+    if (!weapon) return false;
+    return weaponScopePredicates[condition.weapon](modifier, weapon);
+  }
+  return true;
+}
+
+const weaponScopePredicates = {
+  $self: (modifier, weapon) => weapon.entryId === modifier.sheetEntryId,
+  $choice: (modifier, weapon) =>
+    weapon.baseType === modifier.condition?.weaponSelection,
+  $group: (modifier, weapon) =>
+    Boolean(
+      modifier.condition?.weaponSelection &&
+      weapon.groups?.includes(modifier.condition.weaponSelection),
+    ),
+  $target: (modifier, weapon) => {
+    if (modifier.condition?.weaponSelection === 'unarmed')
+      return weapon.kind === 'unarmed';
+    return weapon.entryId === modifier.condition?.weaponSelection;
+  },
+  $unarmedOrNatural: (_, weapon) =>
+    weapon.kind === 'unarmed' || weapon.kind === 'natural',
+} satisfies Record<
+  NonNullable<NonNullable<Modifier['condition']>['weapon']>,
+  (
+    modifier: Pick<InputSourcedModifier, 'condition' | 'sheetEntryId'>,
+    weapon: NonNullable<ResolveOptions['weapon']>,
+  ) => boolean
+>;
+
+export function conditionScopeApplies(
+  modifier: Pick<
+    InputSourcedModifier,
+    'condition' | 'sheetEntryId' | 'catalogEntryId'
+  >,
+  options: ResolveOptions,
+) {
+  if (!conditionContextApplies(modifier, options)) return false;
+  return conditionPrerequisiteApplies(modifier, options);
+}
+
+function conditionPrerequisiteApplies(
+  modifier: Pick<InputSourcedModifier, 'condition'>,
+  options: ResolveOptions,
+) {
+  const condition = modifier.condition;
+  if (!condition) return true;
+  if (
     condition.whileActive &&
     !options.activeCatalogEntryIds?.includes(condition.whileActive)
   )
     return false;
-  const situation = condition.situation;
+  return true;
+}
+
+export function conditionApplies(
+  modifier: Pick<
+    InputSourcedModifier,
+    'condition' | 'sheetEntryId' | 'catalogEntryId'
+  >,
+  options: ResolveOptions,
+) {
+  if (!conditionScopeApplies(modifier, options)) return false;
+  const situation = modifier.condition?.situation;
   if (!situation) return true;
-  return (
-    options.situations?.some((selected) => {
-      if (typeof situation === 'string') return selected === situation;
-      if (typeof selected === 'string') return false;
-      if ('local' in situation)
-        return (
-          'local' in selected &&
-          selected.local === situation.local &&
-          selected.sheetEntryId === modifier.sheetEntryId
-        );
-      return 'option' in selected && selected.option === situation.option;
-    }) ?? false
-  );
+  return situationMatches(situation, modifier.sheetEntryId, options.situations);
 }
 
 function expandModifier(
@@ -1971,6 +2167,15 @@ function expandModifier(
   return targets
     ? targets.map((target) => ({ ...modifier, target }))
     : [modifier];
+}
+
+export function noteMatchesTarget(
+  note: Pick<SourcedSituationalNote, 'target'>,
+  target: ModifierTarget,
+) {
+  if (!note.target) return false;
+  if (note.target === target) return true;
+  return parentTargets[note.target]?.some((leaf) => leaf === target) ?? false;
 }
 
 const calculationStages = {
@@ -2243,6 +2448,7 @@ function resolveTarget(
 ): ResolvedStatistic {
   const active: SourcedModifier[] = [];
   const conditional: SourcedModifier[] = [];
+  const excluded: SourcedModifier[] = [];
   const conditionSuppressed: SuppressedModifier[] = [];
   for (const modifier of modifiers.filter((item) => item.target === target)) {
     try {
@@ -2252,16 +2458,13 @@ function resolveTarget(
         breakdowns,
         formulaCache,
       );
-      const {
-        modifierIndex: _index,
-        effectCasterLevel: _casterLevel,
-        ...displayModifier
-      } = modifier;
+      const { effectCasterLevel: _casterLevel, ...displayModifier } = modifier;
       const resolved = { ...displayModifier, value };
       const suppression = options.conditionSuppression?.find(
         (item) => item.sheetEntryId === modifier.sheetEntryId,
       );
-      if (
+      if (!conditionContextApplies(modifier, options)) excluded.push(resolved);
+      else if (
         !suppression?.includesConditional &&
         !conditionApplies(modifier, options)
       )
@@ -2304,7 +2507,26 @@ function resolveTarget(
       statistic.total = otherScore + limitedPenalty;
     }
   }
-  return { ...statistic, conditional };
+  const notes = (options.situationalNotes ?? []).flatMap((note) => {
+    if (
+      !noteMatchesTarget(note, target) ||
+      !conditionContextApplies(note, options)
+    )
+      return [];
+    return [
+      {
+        ...note,
+        target,
+        waiting: !conditionPrerequisiteApplies(note, options),
+      },
+    ];
+  });
+  return {
+    ...statistic,
+    conditional,
+    ...(excluded.length ? { excluded } : {}),
+    ...(notes.length ? { notes } : {}),
+  };
 }
 
 function resolveCalculation(
@@ -2458,12 +2680,14 @@ export function composeStatistics({
   statistics,
   builtIns,
   includes,
+  includesNote = () => true,
   name,
   stackBonuses = false,
 }: {
   statistics: ResolvedStatistic[];
   builtIns: SourcedModifier[];
   includes: (modifier: SourcedModifier) => boolean;
+  includesNote?: (note: SourcedSituationalNote) => boolean;
   name: string;
   stackBonuses?: boolean;
 }): ResolvedStatistic {
@@ -2499,6 +2723,12 @@ export function composeStatistics({
     ],
     conditional: statistics
       .flatMap((statistic) => statistic.conditional)
+      .filter(includes),
+    notes: statistics
+      .flatMap((statistic) => statistic.notes ?? [])
+      .filter(includesNote),
+    excluded: statistics
+      .flatMap((statistic) => statistic.excluded ?? [])
       .filter(includes),
   };
 }
@@ -2603,6 +2833,7 @@ function deriveDefenses({
         item.target === 'ac.other' &&
         !['armor', 'shield', 'naturalArmor'].includes(item.bonusType),
       name: 'touch AC',
+      includesNote: (note) => note.target === 'ac.other',
     }),
   );
   const flatFootedAc = composeStatistics({
@@ -2628,6 +2859,7 @@ function deriveDefenses({
         'sacred',
       ].includes(item.bonusType),
     name: 'CMD',
+    includesNote: () => false,
   });
   const cmdBase = [
     builtIn({ target: 'cmd', id: 'base-cmd', name: 'Base CMD', value: 10 }),

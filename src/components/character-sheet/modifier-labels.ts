@@ -167,14 +167,15 @@ export const targetPickerGroups: TargetGroup[] = [
 const sharedSituationText: Record<string, string> = {
   traps: 'vs. traps',
   fear: 'vs. fear',
-  spells: 'vs. spells and spell-like abilities',
+  spells: 'vs. spells',
+  spellLikeAbilities: 'vs. spell-like abilities',
   poison: 'vs. poison',
   enchantment: 'vs. enchantment spells and effects',
   giants: 'vs. giants',
   orcsGoblinoids: 'vs. orcs and goblinoids',
   bullRushTrip: 'vs. bull rush and trip while standing on the ground',
   sneak: 'when flanking or the target is denied its Dex bonus',
-  // The CRB conditions' own Situations (docs/catalog-import/conditions.md).
+  // Canonical reviewed CRB Condition identities retain their authored keys.
   'opposed-perception': 'on opposed Perception checks',
   'sight-based': 'on sight-based Perception checks',
   'reaction-check': 'on skill checks made as reactions',
@@ -183,6 +184,10 @@ const sharedSituationText: Record<string, string> = {
   'sighted-opponent': 'vs. opponents that cannot see you',
   'ranged-attack': 'vs. ranged attacks',
   'melee-attack': 'vs. melee attacks',
+  fightingDefensively: 'when fighting defensively',
+  totalDefense: 'during total defense',
+  charging: 'when charging',
+  shootingIntoMelee: 'when shooting into melee',
 };
 
 /** A key the table does not know still reads as words: `undead` → "vs. undead". */

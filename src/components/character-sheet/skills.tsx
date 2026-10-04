@@ -17,7 +17,7 @@ import { cn } from '~/lib/utils';
 import { InlineWarnings } from './inline-warning';
 import { Block, chip, fieldLabel, formatModifier } from './sheet-parts';
 import { SkillRankCell } from './skill-rank-cell';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import type { useCharacterSheet } from './use-character-sheet';
 import { useCharacterSheetSkills } from './use-character-sheet-skills';
 
@@ -175,12 +175,13 @@ function SkillRow({
         <SkillName skill={skill} />
       </th>
       <td className={cn(tableCellClass, 'text-right')}>
-        <StatBreakdown
+        <SheetStatistic
           label={skill.name}
           statistic={statistic}
           target={skill.key}
           format={formatModifier}
           className="min-h-7 text-sm"
+          alternates={{ isStacked: true }}
         />
       </td>
       <td className={cn(tableCellClass, 'py-1.5 text-right font-mono text-sm')}>

@@ -171,11 +171,11 @@ A Modifier that applies only under a condition: while another entry is active ("
 _Avoid_: context note, rider
 
 **Situation**:
-A circumstance a Conditional Modifier or Situational Note names, such as "vs. traps" or "vs. poison". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied. A shared Situation is one that several entries name and can stack across them. A local Situation is named by one entry only, such as "vs male creatures of your race", and matches nothing else. No Situation includes another: "vs. charm" is not "vs. enchantment". The Combat situations, such as fighting defensively, charging or shooting into melee, are Situations every Character has.
+A circumstance a Conditional Modifier or Situational Note names, such as "vs. traps" or "vs. poison". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied. A shared Situation is one that several entries name and can stack across them. A local Situation is named by one entry only, such as "vs male creatures of your race", and matches nothing else. No Situation includes another: "vs. charm" is not "vs. enchantment", and "vs. spells" is not "vs. spell-like abilities". Explicitly selected Situations can combine, with stacking applied afresh. The Combat situations, such as fighting defensively, charging or shooting into melee, are Situations every Character has; they stay in a collapsed group and do not mark numbers.
 _Avoid_: context
 
 **Situational Note**:
-Situational rules text with no number to add, such as an immunity, a reroll or "can always take 10". It shows in its Situation's part of a number's breakdown, or with its entry when it concerns nothing the sheet shows, and never changes a total.
+Situational rules text with no number to add, such as an immunity, a reroll or "can always take 10". It shows in its Situation's part of a number's breakdown, with a marker even when there is no numeric bonus, or with its entry when it concerns nothing the sheet shows, and never changes a total. A prerequisite can leave it waiting even when its Situation is selected.
 _Avoid_: note (alone), immunity record
 
 **Attack Routine**:

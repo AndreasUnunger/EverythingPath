@@ -1943,6 +1943,59 @@ test('personal adjustments reject malformed values, excessive Modifiers and cura
   expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
 });
 
+test.each([
+  { weapon: '$self' as const },
+  { weaponSelection: 'longsword' },
+  { option: true as const },
+])(
+  'personal adjustment commands reject unsupported scope %j without changing the sheet',
+  async (condition) => {
+    const { owner, scope } = await fixture();
+    const fields = {
+      name: 'Reward',
+      modifiers: [
+        {
+          target: 'save.will' as const,
+          bonusType: 'untyped' as const,
+          value: 2,
+        },
+      ],
+    };
+    const entryId = await owner.mutation(
+      api.characterSheet.createPersonalAdjustment,
+      {
+        ...scope,
+        ...fields,
+        operationId: 'add',
+      },
+    );
+    const before = await owner.query(api.characterSheet.read, scope);
+    const invalid = {
+      ...fields,
+      modifiers: fields.modifiers.map((modifier) => ({
+        ...modifier,
+        condition,
+      })),
+    };
+    await expect(
+      owner.mutation(api.characterSheet.createPersonalAdjustment, {
+        ...scope,
+        ...invalid,
+        operationId: 'invalid-add',
+      }),
+    ).rejects.toThrow('Modifier condition is invalid');
+    await expect(
+      owner.mutation(api.characterSheet.editPersonalAdjustment, {
+        ...scope,
+        entryId,
+        ...invalid,
+        operationId: 'invalid-edit',
+      }),
+    ).rejects.toThrow('Modifier condition is invalid');
+    expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  },
+);
+
 test('personal adjustment commands reject base bonuses without changing authoritative base scores', async () => {
   const { owner, member, scope } = await fixture();
   const entryId = await owner.mutation(

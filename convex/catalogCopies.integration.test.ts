@@ -1,5 +1,6 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
+import type { FunctionArgs } from 'convex/server';
 import { expect, test } from 'vitest';
 import { api } from './_generated/api';
 import schema from './schema';
@@ -58,7 +59,206 @@ const definition = {
   stacksWithItself: false,
   sources: [],
   detail: { kind: 'feat' },
-} as const;
+} satisfies FunctionArgs<typeof api.catalogCopies.createOneOff>['definition'];
+
+test('note references survive campaign copies, local notes keep entry ownership, and foreign references are refused', async () => {
+  const { t, owner, member, scope } = await fixture();
+  const optionId = await t.run((ctx) =>
+    ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'global',
+      ruleIdentity: 'combat-expertise',
+      name: 'Combat Expertise',
+      modifiers: [],
+    }),
+  );
+  const entryId = await member.mutation(api.catalogCopies.createOneOff, {
+    ...scope,
+    operationId: 'note-entry',
+    definition: {
+      ...definition,
+      modifiers: [],
+      situationalNotes: [
+        {
+          target: 'ac',
+          situation: { option: optionId },
+          text: 'May defend cautiously.',
+        },
+        {
+          situation: { local: 'critical confirmation' },
+          text: 'Reroll confirmation.',
+        },
+      ],
+    },
+  });
+  const copyId = await member.mutation(api.catalogCopies.customizeForCampaign, {
+    ...scope,
+    catalogEntryId: optionId,
+    operationId: 'copy-note-option',
+  });
+  let read = await owner.query(api.characterSheet.read, scope);
+  expect(read?.calculated.derivedStatistics.ac.notes).toEqual([
+    expect.objectContaining({
+      sheetEntryId: entryId,
+      situation: { option: copyId },
+    }),
+  ]);
+  expect(read?.calculated.entryNotes).toEqual([
+    expect.objectContaining({
+      sheetEntryId: entryId,
+      situation: { local: 'critical confirmation' },
+    }),
+  ]);
+  const row = read?.entries.find((row) => row._id === entryId);
+  if (!row || !('catalogEntryId' in row)) throw new Error('Missing note entry');
+  await member.mutation(api.catalogCopies.editDefinition, {
+    ...scope,
+    catalogEntryId: row.catalogEntryId,
+    situationalNotes: [
+      { target: 'saves', situation: 'fear', text: 'Reroll fear saves.' },
+    ],
+    operationId: 'change-notes',
+  });
+  read = await owner.query(api.characterSheet.read, scope);
+  expect(read?.calculated.breakdowns['save.will']?.notes?.[0]?.text).toBe(
+    'Reroll fear saves.',
+  );
+  const foreignId = await t.run(async (ctx) => {
+    const campaignId = await ctx.db.insert('campaign', {
+      name: 'Other',
+      organizationId: 'other',
+      ownerId: 'other',
+      description: '',
+    });
+    return ctx.db.insert('catalogEntry', {
+      ...definition,
+      scope: 'campaign',
+      campaignId,
+      ruleIdentity: 'foreign',
+    });
+  });
+  await expect(
+    member.mutation(api.catalogCopies.editDefinition, {
+      ...scope,
+      catalogEntryId: row.catalogEntryId,
+      situationalNotes: [
+        { situation: { option: foreignId }, text: 'Foreign option.' },
+      ],
+      operationId: 'foreign-note',
+    }),
+  ).rejects.toThrow('does not belong');
+  await expect(
+    member.mutation(api.catalogCopies.editDefinition, {
+      ...scope,
+      catalogEntryId: row.catalogEntryId,
+      situationalNotes: [{ text: '' }],
+      operationId: 'empty-note',
+    }),
+  ).rejects.toThrow('Situational Note is invalid');
+  await expect(
+    member.mutation(api.catalogCopies.editDefinition, {
+      ...scope,
+      catalogEntryId: row.catalogEntryId,
+      situationalNotes: [
+        { situation: 'x'.repeat(65), text: 'Too long an identity.' },
+      ],
+      operationId: 'long-note',
+    }),
+  ).rejects.toThrow('Situational Note is invalid');
+});
+
+test.each([
+  { weapon: '$self' as const },
+  { weaponSelection: 'longsword' },
+  { option: true as const },
+])(
+  'personal adjustment definitions reject unsupported scope %j through the catalog editor',
+  async (condition) => {
+    const { owner, scope } = await fixture();
+    const entryId = await owner.mutation(
+      api.characterSheet.createPersonalAdjustment,
+      {
+        ...scope,
+        name: 'Reward',
+        modifiers: [],
+        operationId: 'add',
+      },
+    );
+    const before = await owner.query(api.characterSheet.read, scope);
+    const row = before?.entries.find((entry) => entry._id === entryId);
+    if (!row || !('catalogEntryId' in row))
+      throw new Error('Missing adjustment');
+    await expect(
+      owner.mutation(api.catalogCopies.editDefinition, {
+        ...scope,
+        catalogEntryId: row.catalogEntryId,
+        situationalNotes: [{ text: 'Conditional note', condition }],
+        operationId: 'invalid',
+      }),
+    ).rejects.toThrow('Situational Note is invalid');
+    await expect(
+      owner.mutation(api.catalogCopies.editDefinition, {
+        ...scope,
+        catalogEntryId: row.catalogEntryId,
+        modifiers: [
+          { target: 'save.will', bonusType: 'untyped', value: 2, condition },
+        ],
+        operationId: 'invalid-modifier',
+      }),
+    ).rejects.toThrow('Modifier condition is invalid');
+    expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+  },
+);
+
+test('item definitions retain weapon-scoped modifiers and notes through both editors', async () => {
+  const { owner, scope } = await fixture();
+  const modifiers = [
+    {
+      target: 'attack' as const,
+      bonusType: 'enhancement' as const,
+      value: 1,
+      condition: { weapon: '$self' as const },
+    },
+  ];
+  const situationalNotes = [
+    { text: 'This weapon only.', condition: { weapon: '$self' as const } },
+  ];
+  const entryId = await owner.mutation(api.characterSheet.createSheetEntry, {
+    ...scope,
+    name: 'Scoped item',
+    detail: { kind: 'item', consumable: false },
+    modifiers,
+    situationalNotes,
+    operationId: 'add',
+  });
+  let read = await owner.query(api.characterSheet.read, scope);
+  const row = read?.entries.find((entry) => entry._id === entryId);
+  if (!row || !('catalogEntryId' in row)) throw new Error('Missing item');
+  await owner.mutation(api.catalogCopies.editDefinition, {
+    ...scope,
+    catalogEntryId: row.catalogEntryId,
+    modifiers,
+    situationalNotes,
+    name: 'Catalog edit',
+    operationId: 'catalog-edit',
+  });
+  await owner.mutation(api.characterSheet.editSheetEntry, {
+    ...scope,
+    entryId,
+    modifiers,
+    situationalNotes,
+    name: 'Sheet edit',
+    operationId: 'sheet-edit',
+  });
+  read = await owner.query(api.characterSheet.read, scope);
+  expect(
+    read?.catalogEntries.find((entry) => entry._id === row.catalogEntryId),
+  ).toMatchObject({
+    name: 'Sheet edit',
+    modifiers,
+    situationalNotes,
+  });
+});
 
 test.each(['global', 'campaign', 'campaign with recorded override'] as const)(
   'racial statistics from a %s race create one private Catalog Copy with provenance',

@@ -23,9 +23,13 @@ import { SelectionOrderProvider } from './selection-order-context';
 import { SheetCatalogProvider } from './sheet-catalog-context';
 import { Block, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
+import { buildSelectedSituations } from './situation-copy';
+import { SituationPicker } from './situation-picker';
 import { Skills } from './skills';
+import { SpellcastingBlock } from './spellcasting-block';
 import { characterId } from './character-sheet-test-fixture';
 import { useCharacterSheet } from './use-character-sheet';
+import { useSituationSelection } from './use-situation-selection';
 import {
   describeFamiliarUnresolved,
   describeIncompleteHp,
@@ -54,7 +58,9 @@ type SheetBlock =
   | 'grants'
   | 'catalog'
   | 'attacks'
-  | 'familiar';
+  | 'familiar'
+  | 'situations'
+  | 'spellcasting';
 
 // Exercise the real controller and selected public blocks against the same
 // read snapshots as page integration tests, without rendering unrelated UI.
@@ -92,6 +98,10 @@ function SheetBlocks({
   controller: ReturnType<typeof useCharacterSheet>;
 }) {
   const sheet = controller.sheet;
+  const situations = useSituationSelection({
+    groups: controller.situations,
+    scopeKey: sheet?.character._id ?? '',
+  });
   if (!sheet) return null;
   const incompleteHpReason = describeIncompleteHp(sheet);
   return (
@@ -100,6 +110,13 @@ function SheetBlocks({
       previewSituation={controller.previewSituation}
       adjustments={sheet.adjustments}
       unresolved={describeFamiliarUnresolved(sheet, controller.familiar)}
+      findPrerequisiteName={controller.findPrerequisiteName}
+      selected={buildSelectedSituations({
+        groups: controller.situations,
+        selection: situations,
+        findPrerequisiteName: controller.findPrerequisiteName,
+      })}
+      entryNotes={sheet.calculated.entryNotes}
     >
       <SelectionOrderProvider
         controls={controller.selections}
@@ -285,6 +302,24 @@ function SheetBlocks({
                 <CharacterSheetFamiliar
                   key={block}
                   controller={controller.familiar}
+                />
+              );
+            case 'spellcasting':
+              return (
+                <SpellcastingBlock
+                  key={block}
+                  characterName={sheet.character.name}
+                  spellcastings={sheet.calculated.spellcastings}
+                  unresolved={sheet.calculated.spellcastingUnresolved}
+                />
+              );
+            case 'situations':
+              return (
+                <SituationPicker
+                  key={block}
+                  groups={controller.situations}
+                  selection={situations}
+                  findPrerequisiteName={controller.findPrerequisiteName}
                 />
               );
             case 'grants':

@@ -8,7 +8,7 @@ import {
   formatSigned,
 } from './equipment-statistics';
 import { fieldLabel } from './sheet-parts';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import type { useCharacterSheet } from './use-character-sheet';
 
 type Totals = NonNullable<
@@ -41,7 +41,7 @@ export function EquipmentSummary({ totals }: { totals: Totals }) {
   return (
     <dl className="border-foreground/15 grid grid-cols-1 gap-x-3 gap-y-2 border-b pb-2 sm:grid-cols-3">
       <SummaryFigure term="Armor check penalty">
-        <StatBreakdown
+        <SheetStatistic
           label="Armor check penalty"
           statistic={describeArmorCheckPenalty(totals)}
           format={(total) => (total === 0 ? '0' : formatSigned(total))}
@@ -49,7 +49,7 @@ export function EquipmentSummary({ totals }: { totals: Totals }) {
         />
       </SummaryFigure>
       <SummaryFigure term="Arcane spell failure">
-        <StatBreakdown
+        <SheetStatistic
           label="Arcane spell failure"
           statistic={describeSpellFailure(totals)}
           format={formatPercent}
@@ -58,7 +58,7 @@ export function EquipmentSummary({ totals }: { totals: Totals }) {
       </SummaryFigure>
       <SummaryFigure term="Maximum Dexterity bonus to AC">
         {maxDexterity ? (
-          <StatBreakdown
+          <SheetStatistic
             label="Maximum Dexterity bonus to AC"
             statistic={maxDexterity}
             format={formatSigned}

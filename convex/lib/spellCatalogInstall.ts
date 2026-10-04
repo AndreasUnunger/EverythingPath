@@ -1,4 +1,8 @@
 import { ConvexError } from 'convex/values';
+import { validate } from 'convex-helpers/validators';
+import { situationalNoteSchema } from '../../src/lib/character-sheet';
+import { listCatalogReferences } from '../../src/lib/catalog-copy-references';
+import { situationalNoteValidator } from '../schema';
 import type { z } from 'zod';
 import { extractCatalogDescriptionText } from '../../src/lib/catalog/description-text';
 import type {
@@ -30,6 +34,18 @@ export async function installPreparedSpells({
   for (const spell of spells) {
     if (spell.detail.kind !== 'spell')
       throw new ConvexError('Import only Spell definitions');
+    const situationalNotes = spell.situationalNotes?.map((input) => {
+      if (listCatalogReferences(input).length)
+        throw new ConvexError(
+          'Imported Spell Note catalog references are not supported',
+        );
+      const parsed = situationalNoteSchema.safeParse(input);
+      if (!parsed.success) throw new ConvexError('Situational Note is invalid');
+      const note: unknown = parsed.data;
+      if (!validate(situationalNoteValidator, note, { db: ctx.db }))
+        throw new ConvexError('Situational Note is invalid');
+      return note;
+    });
     if (
       Object.values(spell.detail.levels).some(
         (level) => !Number.isSafeInteger(level) || level < 0,
@@ -60,6 +76,7 @@ export async function installPreparedSpells({
       stacksWithItself: false,
       sources: spell.sources,
       modifiers: [],
+      situationalNotes,
       detail: {
         kind: 'spell' as const,
         levels: spell.detail.levels,

@@ -104,6 +104,47 @@ function sheet(
   };
 }
 
+test('canonical condition Notes stay with their active entry without a selectable own-state Situation, and replacements do not duplicate them', () => {
+  const input = sheet(['fatigued', 'exhausted']);
+  const result = calculateCharacterSheet(input);
+  expect(result.abilities.strength.score).toBe(9);
+  expect(result.entryNotes).toEqual(
+    getConditionDefinition('exhausted').situationalNotes.map((note) =>
+      expect.objectContaining({
+        text: note.text,
+        sheetEntryId: 'row-1',
+        situation: undefined,
+      }),
+    ),
+  );
+  expect(result.entryNotes.some((note) => note.sheetEntryId === 'row-0')).toBe(
+    false,
+  );
+  expect(result.breakdowns['ability.str'].notes ?? []).toEqual([]);
+});
+
+test('canonical condition Notes deduplicate equivalent records while retaining same-text rules with different Situations', () => {
+  const input = sheet(['bleed']);
+  const note = getConditionDefinition('bleed').situationalNotes[0]!;
+  input.catalogEntries = input.catalogEntries.map((catalog) =>
+    catalog._id === 'condition-0'
+      ? {
+          ...catalog,
+          situationalNotes: [
+            { situation: note.situation, text: note.text },
+            { text: note.text, situation: 'fear' },
+          ],
+        }
+      : catalog,
+  );
+  const notes = calculateCharacterSheet(input).entryNotes;
+  expect(notes).toHaveLength(2);
+  expect(notes).toEqual([
+    expect.objectContaining({ noteIndex: 0, situation: undefined }),
+    expect.objectContaining({ noteIndex: 1, situation: 'fear' }),
+  ]);
+});
+
 test('a dormant condition retains its state without affecting the sheet until kept or its source returns', () => {
   const input = sheet(['fatigued']);
   const condition = input.entries.find((entry) => entry.kind === 'condition');

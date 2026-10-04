@@ -170,7 +170,7 @@ test('a breakdown lists built-ins, applied entries, set-aside entries with their
   expect(strength).toHaveTextContent('14');
   expect(
     within(strength.parentElement!).getByRole('img', {
-      name: 'Has situational bonuses',
+      name: 'Situational rules available',
     }),
   ).toBeInTheDocument();
   expect(
@@ -327,12 +327,12 @@ test('a shared Situation reads as its display text, and a Modifier that also wai
   );
   fireEvent.click(trigger('Strength'));
   const group = within(panel('Strength'))
-    .getByText('vs. spells and spell-like abilities')
+    .getByText('vs. spells')
     .closest('li')!;
   expect(within(group).getByText('Superstition')).toBeVisible();
   expect(group).toHaveTextContent('only while Rage is active — not now');
   expect(group).not.toHaveTextContent('becomes');
-  expect(panel('Strength')).not.toHaveTextContent(/catalog|\bspells\b(?! and)/);
+  expect(panel('Strength')).not.toHaveTextContent(/catalog|shared:|local:/);
 });
 
 test('once the prerequisite is active the Situation resolves as usual, and a set-aside Modifier is explained rather than counted', () => {
@@ -340,7 +340,7 @@ test('once the prerequisite is active the Situation resolves as usual, and a set
   expect(trigger('Strength')).toHaveTextContent('14');
   fireEvent.click(trigger('Strength'));
   const group = within(panel('Strength'))
-    .getByText('vs. spells and spell-like abilities')
+    .getByText('vs. spells')
     .closest('li')!;
   expect(group).toHaveTextContent('becomes 14');
   expect(within(group).getByText('Superstition')).toHaveClass('line-through');

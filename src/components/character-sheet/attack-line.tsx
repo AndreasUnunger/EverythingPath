@@ -3,7 +3,7 @@ import { formatCriticalRange } from '~/lib/character-sheet-attacks';
 import { cn } from '~/lib/utils';
 import { formatSigned } from './equipment-statistics';
 import { chip, fieldLabel } from './sheet-parts';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import type { useCharacterSheet } from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
@@ -40,7 +40,8 @@ function DamageDice({ damage }: { damage: Line['damage'] }) {
  * One attack of a routine (approved prototype's attack line): its place in
  * the full attack, the weapon, and the attack bonus, damage, critical
  * threat and multiplier, and range increment as numbers that explain
- * themselves. Damage reads as dice plus its bonus, in the line and in its
+ * themselves, each followed by what it becomes in a Situation of this
+ * line's own. Damage reads as dice plus its bonus, in the line and in its
  * breakdown, with the dice credited to their weapon. In a two-weapon full
  * attack each line names its hand, and a double weapon's second end says so.
  */
@@ -98,54 +99,74 @@ export function AttackLine({
         )}
       </span>
       <span className="ml-auto flex flex-wrap items-center justify-end gap-x-1">
-        <StatBreakdown
+        <SheetStatistic
           label={`${name}: attack`}
           statistic={line.attack.statistic}
           target={line.attack.target}
           format={formatSigned}
           className={number}
+          alternates={{}}
         />
-        <StatBreakdown
+        <SheetStatistic
           label={`${name}: damage`}
           statistic={line.damage.statistic}
           target={line.damage.target}
           format={formatDamage}
           lead={<DamageDice damage={line.damage} />}
           className={number}
+          alternates={{}}
         />
-        <span className="inline-flex items-center">
-          <StatBreakdown
-            label={`${name}: critical threat`}
-            statistic={line.critical.threat.statistic}
-            target={line.critical.threat.target}
-            format={formatCriticalRange}
-            formatContribution={formatPlain}
-            className={number}
-          />
-          <span aria-hidden className="text-muted-foreground font-mono text-xs">
-            /
-          </span>
-          <StatBreakdown
-            label={`${name}: critical multiplier`}
-            statistic={line.critical.multiplier.statistic}
-            target={line.critical.multiplier.target}
-            format={formatMultiplier}
-            formatContribution={formatMultiplier}
-            className={number}
-          />
-        </span>
+        <SheetStatistic
+          label={`${name}: critical threat`}
+          statistic={line.critical.threat.statistic}
+          target={line.critical.threat.target}
+          format={formatCriticalRange}
+          formatContribution={formatPlain}
+          className={number}
+          alternates={{}}
+        >
+          {(threat, threatTotals) => (
+            <SheetStatistic
+              label={`${name}: critical multiplier`}
+              statistic={line.critical.multiplier.statistic}
+              target={line.critical.multiplier.target}
+              format={formatMultiplier}
+              formatContribution={formatMultiplier}
+              className={number}
+              alternates={{}}
+            >
+              {(multiplier, multiplierTotals) => (
+                <>
+                  <span className="inline-flex items-center">
+                    {threat}
+                    <span
+                      aria-hidden
+                      className="text-muted-foreground font-mono text-xs"
+                    >
+                      /
+                    </span>
+                    {multiplier}
+                  </span>
+                  {threatTotals}
+                  {multiplierTotals}
+                </>
+              )}
+            </SheetStatistic>
+          )}
+        </SheetStatistic>
         {line.range ? (
           <span className="inline-flex items-center gap-1">
             <span aria-hidden className={fieldLabel}>
               range
             </span>
-            <StatBreakdown
+            <SheetStatistic
               label={`${name}: range increment`}
               statistic={line.range.statistic}
               target={line.range.target}
               format={formatRange}
               formatContribution={formatRange}
               className={number}
+              alternates={{}}
             />
           </span>
         ) : null}

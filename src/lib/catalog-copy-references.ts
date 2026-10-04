@@ -14,6 +14,7 @@ const referenceFields = new Set([
   'feats',
   'whileActive',
   'option',
+  'options',
 ]);
 
 /** Change content references without changing provenance or durable identities. */
@@ -59,7 +60,9 @@ export function listCatalogReferences(value: unknown): CatalogReference[] {
           field === 'castingClassId' ||
           field === 'favoredClassIds'
             ? 'class'
-            : field === 'whileActive' || field === 'option'
+            : field === 'whileActive' ||
+                field === 'option' ||
+                field === 'options'
               ? 'condition'
               : 'definition',
       });

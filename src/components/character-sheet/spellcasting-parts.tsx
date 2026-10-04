@@ -2,7 +2,7 @@
 import { spellcastingBreakdownTarget } from '~/lib/character-sheet-breakdowns';
 import { cn } from '~/lib/utils';
 import { formatModifier } from './sheet-parts';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import type { useCharacterSheet } from './use-character-sheet';
 
 // Small pieces the sheet's Spellcasting section and the Spells page share:
@@ -117,16 +117,22 @@ export function CastingFigure({
         }
       />
     );
+  const target = spellcastingBreakdownTarget(casting.classEntryId, { kind });
+  const format = kind === 'concentration' ? formatModifier : String;
+  const incompleteReason = casting.unresolved.includes(kind)
+    ? describeUnresolved([kind])
+    : null;
   return (
-    <StatBreakdown
-      label={label}
-      statistic={statistic}
-      target={spellcastingBreakdownTarget(casting.classEntryId, { kind })}
-      format={kind === 'concentration' ? formatModifier : String}
-      incompleteReason={
-        casting.unresolved.includes(kind) ? describeUnresolved([kind]) : null
-      }
-      className={className}
-    />
+    <>
+      <SheetStatistic
+        label={label}
+        statistic={statistic}
+        target={target}
+        format={format}
+        incompleteReason={incompleteReason}
+        className={className}
+        alternates={{}}
+      />
+    </>
   );
 }

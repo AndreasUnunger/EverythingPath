@@ -649,6 +649,11 @@ test('a saved Blinded condition reads its rules on the row and denies the Dexter
   );
   expect(within(row('Blinded')).getByText('Rules')).toBeVisible();
   expect(row('Blinded')).toHaveTextContent(/The creature cannot see/);
+  // Its structured Situational Note is the rules text, shown once.
+  expect(
+    within(row('Blinded')).getAllByText(/The creature cannot see/),
+  ).toHaveLength(1);
+  expect(row('Blinded')).not.toHaveTextContent('only when Blinded');
   expect(within(row('Blinded')).getByText('Not calculated')).toBeVisible();
   expect(row('Blinded')).toHaveTextContent(
     /Total concealment \(50% miss chance\)/,

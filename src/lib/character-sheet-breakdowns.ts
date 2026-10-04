@@ -5,12 +5,15 @@ import {
   leafTargets,
   modifierConditionSchema,
   modifierTargets,
+  sourcedSituationalNoteSchema,
   type LeafTarget,
   type ResolvedStatistic,
   type calculateCharacterSheet,
 } from './character-sheet';
 
 const sourcedModifierSchema = z.object({
+  modifierIndex: z.number().int().min(0).optional(),
+  catalogEntryId: z.string().optional(),
   target: z.enum(modifierTargets),
   bonusType: z.enum(bonusTypes),
   value: z.number(),
@@ -34,6 +37,8 @@ const breakdownsSchema = z.record(
       }),
     ),
     conditional: z.array(sourcedModifierSchema),
+    excluded: z.array(sourcedModifierSchema).optional(),
+    notes: z.array(sourcedSituationalNoteSchema).optional(),
   }),
 );
 

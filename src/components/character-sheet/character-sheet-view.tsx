@@ -29,9 +29,12 @@ import { SelectionOrderProvider } from './selection-order-context';
 import { SheetCatalogProvider } from './sheet-catalog-context';
 import { Block, chip, fieldLabel, RemoteNotice } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
+import { buildSelectedSituations } from './situation-copy';
+import { SituationPicker } from './situation-picker';
 import { Skills } from './skills';
 import { SpellcastingBlock } from './spellcasting-block';
 import type { useCharacterSheet } from './use-character-sheet';
+import { useSituationSelection } from './use-situation-selection';
 import {
   describeFamiliarUnresolved,
   describeIncompleteHp,
@@ -141,8 +144,9 @@ function CampaignRow({
 
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
- * campaign row that scrolls with the body, then Character, Race, a familiar's
- * own Familiar summary, Class Levels,
+ * campaign row that scrolls with the body, the Situation picker whose
+ * choices show alternate totals beside the numbers they change, then Character,
+ * Race, a familiar’s own Familiar summary, Class Levels,
  * Archetypes and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns with Defenses, Equipment, Offense, Attacks and
  * Proficiencies, and the skills, Feats & traits after Skills, personal
@@ -174,6 +178,10 @@ export function CharacterSheetView({
   /** The Character's archive or delete control, bound to the route scope. */
   lifecycle: ReactNode;
 }) {
+  const situations = useSituationSelection({
+    groups: controller.situations,
+    scopeKey: sheet.character._id,
+  });
   return (
     <CharacterSheetFrame back={back}>
       <SheetCatalogProvider scope={scope} snapshot={controller.catalogSnapshot}>
@@ -182,6 +190,13 @@ export function CharacterSheetView({
           adjustments={sheet.adjustments}
           spellcastings={sheet.calculated.spellcastings}
           unresolved={describeFamiliarUnresolved(sheet, controller.familiar)}
+          findPrerequisiteName={controller.findPrerequisiteName}
+          selected={buildSelectedSituations({
+            groups: controller.situations,
+            selection: situations,
+            findPrerequisiteName: controller.findPrerequisiteName,
+          })}
+          entryNotes={sheet.calculated.entryNotes}
         >
           <SelectionOrderProvider
             controls={controller.selections}
@@ -202,6 +217,11 @@ export function CharacterSheetView({
               message="Warnings updated by another player."
               subject="warnings"
               onDismiss={controller.warnings.dismissRemoteChange}
+            />
+            <SituationPicker
+              groups={controller.situations}
+              selection={situations}
+              findPrerequisiteName={controller.findPrerequisiteName}
             />
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
               <div className="min-w-0 lg:col-span-12">

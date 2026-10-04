@@ -6,6 +6,7 @@ import { MaintenanceReason } from '~/components/campaign-shell/maintenance-reaso
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
+import { BreakdownNotes } from './breakdown-notes';
 import { RowCatalogDefinition } from './row-catalog-definition';
 import { SelectionChecks } from './selection-checks';
 import { describeModifier } from './modifier-labels';
@@ -92,6 +93,7 @@ function AdjustmentRow({
         <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]">
           {row.modifiers.map(describeModifier).join(' · ')}
         </p>
+        <BreakdownNotes entryId={row.entryId} className="mt-1" />
         <SelectionChecks
           selection={row.selection}
           warnings={isOpen ? [] : warnings}

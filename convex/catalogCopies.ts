@@ -10,6 +10,10 @@ import {
   resolveCharacterSheetGrants,
   formatGrantKeyId,
 } from '../src/lib/character-sheet-grants';
+import {
+  modifierConditionSchema,
+  personalAdjustmentConditionSchema,
+} from '../src/lib/character-sheet';
 import { remapCatalogReferences } from '../src/lib/catalog-copy-references';
 import {
   calculateDefinitionFingerprint,
@@ -32,6 +36,7 @@ import { requireCompatibleActiveRelease } from './lib/catalogReleaseCompatibilit
 import { requireCharacterAccess } from './lib/characterAccess';
 import schema, {
   catalogEntryValidator,
+  situationalNoteValidator,
   catalogModifierValidator,
   grantKeyValidator,
 } from './schema';
@@ -121,6 +126,11 @@ export const createOneOff = legacyCharacterMutation({
       sheet,
       name,
       modifiers: args.definition.modifiers,
+      conditionSchema:
+        args.definition.detail.kind === 'manual'
+          ? personalAdjustmentConditionSchema
+          : modifierConditionSchema,
+      situationalNotes: args.definition.situationalNotes,
     });
     requireEntryChoice(args.definition.detail.kind, args.choice);
     const detail = args.definition.detail;
@@ -497,6 +507,7 @@ export const editDefinition = legacyCharacterMutation({
       v.array(catalogModifierValidator.omit('stacksWithinEntry')),
     ),
     detail: v.optional(detailValidator),
+    situationalNotes: v.optional(v.array(situationalNoteValidator)),
   },
   returns: v.null(),
   async handler(ctx, args) {
@@ -526,6 +537,12 @@ export const editDefinition = legacyCharacterMutation({
       name,
       modifiers: args.modifiers ?? definition.modifiers,
       previousModifiers: definition.modifiers,
+      conditionSchema:
+        definition.detail.kind === 'manual'
+          ? personalAdjustmentConditionSchema
+          : modifierConditionSchema,
+      situationalNotes: args.situationalNotes ?? definition.situationalNotes,
+      previousSituationalNotes: definition.situationalNotes,
     });
     const detail = args.detail ?? definition.detail;
     if (
@@ -545,7 +562,15 @@ export const editDefinition = legacyCharacterMutation({
     const { _id, _creationTime, ...body } = definition;
     await writeCatalogDefinition(
       ctx,
-      { ...body, name, modifiers, detail },
+      {
+        ...body,
+        name,
+        modifiers,
+        detail,
+        ...(args.situationalNotes !== undefined
+          ? { situationalNotes: args.situationalNotes }
+          : {}),
+      },
       definition._id,
     );
     const updated = await ctx.db.get('catalogEntry', definition._id);

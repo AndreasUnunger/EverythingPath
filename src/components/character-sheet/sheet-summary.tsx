@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { fieldLabel } from './sheet-parts';
-import { StatBreakdown } from './stat-breakdown';
 import { useIsUnresolved } from './unresolved-statistics';
+import { SheetStatistic } from './sheet-statistic';
 import type { useCharacterSheet } from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
@@ -94,7 +94,7 @@ export function SheetSummary({
           )}
         </Figure>
         <Figure label="HP">
-          <StatBreakdown
+          <SheetStatistic
             label="HP"
             statistic={calculated.breakdowns.hp}
             target="hp"

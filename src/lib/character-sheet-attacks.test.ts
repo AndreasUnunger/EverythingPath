@@ -162,6 +162,124 @@ function attackSheet(bab = 11): CharacterSheetInput {
   };
 }
 
+test('weapon scoped Situations recompute only matching routine lines and stay out of sheet attack totals', () => {
+  const input = attackSheet();
+  input.catalogEntries.find((row) => row._id === 'longsword')!.modifiers = [
+    {
+      target: 'attack',
+      value: 3,
+      bonusType: 'enhancement',
+      condition: { weapon: '$self', situation: 'evil' },
+    },
+  ];
+  const ordinary = calculateCharacterSheet(input);
+  const preview = calculateCharacterSheet(input, { situations: ['evil'] });
+  expect(preview.breakdowns['attack.melee'].total).toBe(0);
+  expect(ordinary.attackRoutines[0]?.single[0]?.attackBonus.total).toBe(15);
+  expect(
+    preview.attackRoutines[0]?.full.map((line) => line.attackBonus.total),
+  ).toEqual([18, 13, 8]);
+  input.entries = [
+    ...input.entries,
+    {
+      _id: 'other-weapon',
+      kind: 'item',
+      active: true,
+      catalogEntryId: 'longsword',
+      state: { kind: 'item' },
+    },
+  ];
+  input.entries = [
+    ...input.entries,
+    {
+      _id: 'other-routine',
+      kind: 'attackRoutine',
+      active: true,
+      state: {
+        kind: 'attackRoutine',
+        name: 'Other sword',
+        weaponEntryId: 'other-weapon',
+        mode: 'melee',
+        hands: 'one',
+      },
+    },
+  ];
+  input.entries.find((row) => row._id === 'weapon-row')!.active = false;
+  expect(
+    calculateCharacterSheet(input, { situations: ['evil'] }).attackRoutines[1]
+      ?.single[0]?.attackBonus.total,
+  ).toBe(18);
+});
+
+test('Weapon Training matches a second weapon group while local Situations remain owned by each weapon entry', () => {
+  const input = attackSheet();
+  const sword = input.catalogEntries.find((row) => row._id === 'longsword')!;
+  if (sword.detail?.kind === 'item' && sword.detail.weapon)
+    sword.detail.weapon.groups = ['heavyBlades', 'close'];
+  sword.modifiers = [
+    {
+      target: 'attack',
+      bonusType: 'untyped',
+      value: 3,
+      condition: {
+        weapon: '$self',
+        situation: { local: 'against a marked foe' },
+      },
+    },
+  ];
+  input.catalogEntries = [
+    ...input.catalogEntries,
+    {
+      _id: 'training',
+      ruleIdentity: 'training',
+      modifiers: [
+        {
+          target: 'attack',
+          bonusType: 'untyped',
+          value: 2,
+          condition: { weapon: '$group', weaponSelection: 'close' },
+        },
+      ],
+    },
+  ];
+  input.entries = [
+    ...input.entries,
+    {
+      _id: 'training-row',
+      kind: 'classFeature',
+      active: true,
+      catalogEntryId: 'training',
+      state: { kind: 'classFeature' },
+    },
+    {
+      _id: 'other-weapon',
+      kind: 'item',
+      active: true,
+      catalogEntryId: 'longsword',
+      state: { kind: 'item' },
+    },
+    {
+      _id: 'other-routine',
+      kind: 'attackRoutine',
+      active: true,
+      state: {
+        kind: 'attackRoutine',
+        name: 'Other sword',
+        weaponEntryId: 'other-weapon',
+        hands: 'one',
+        mode: 'melee',
+      },
+    },
+  ];
+  const result = calculateCharacterSheet(input, {
+    situations: [{ local: 'against a marked foe', sheetEntryId: 'weapon-row' }],
+  });
+  expect(result.breakdowns['attack.melee'].total).toBe(0);
+  expect(
+    result.attackRoutines.map((row) => row.single[0]?.attackBonus.total),
+  ).toEqual([20, 17]);
+});
+
 // CRB pp. 179, 182: BAB +11 grants three attacks at +11/+6/+1.
 // CRB pp. 141, 179: a one-handed melee weapon adds full Strength to damage.
 test('a named routine has one standard attack and its ordered BAB iteratives', () => {

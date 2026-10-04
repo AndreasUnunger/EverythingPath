@@ -1,246 +1,131 @@
 'use client';
-import type { ReactNode } from 'react';
-import {
-  type ResolvedStatistic,
-  type SourcedModifier,
-  type SuppressedModifier,
-} from '~/lib/character-sheet';
-import {
-  findCharacterSheetStatistic,
-  type CharacterSheetBreakdownTarget,
-} from '~/lib/character-sheet-breakdowns';
+import type { ResolvedStatistic } from '~/lib/character-sheet';
+import type { CharacterSheetBreakdownTarget } from '~/lib/character-sheet-breakdowns';
 import { cn } from '~/lib/utils';
+import { BreakdownContributions } from './breakdown-contributions';
+import { BreakdownLine, contributionKey } from './breakdown-line';
+import { BreakdownNotes } from './breakdown-notes';
+import { useBreakdownResolver } from './breakdown-resolver';
+import { CombatSituations } from './combat-situations';
+import { SelectedSituationsSection } from './selected-situations-section';
+import { fieldLabel } from './sheet-parts';
+import { SituationPreview } from './situation-preview';
 import {
-  useBreakdownResolver,
-  type BreakdownResolver,
-} from './breakdown-resolver';
-import { bonusTypeClasses, bonusTypeLabels } from './modifier-labels';
-import { fieldLabel, formatModifier } from './sheet-parts';
-import {
-  describeCastingScope,
+  describeContributionScope,
   describePrerequisite,
-  diffSituation,
-  findSuppressorName,
   listPrerequisiteContributions,
-  listSituationGroups,
-  type SituationGroup,
 } from './stat-breakdown-groups';
-import { SituationMarker } from './situation-marker';
+import { useSituationBreakdown } from './use-situation-breakdown';
 
 /** A leaf breakdown, a derived statistic, or one class's casting number. */
 export type BreakdownTarget = CharacterSheetBreakdownTarget;
 
-const contributionKey = (contribution: SourcedModifier, index: number) =>
-  `${contribution.sheetEntryId}|${contribution.bonusType}|${contribution.value}|${index}`;
-
-function TypeTag({
-  contribution,
-  isDim,
-}: {
-  contribution: SourcedModifier;
-  isDim?: boolean;
-}) {
-  const type = contribution.bonusType;
-  if (type === 'untyped' || type === 'base') return null;
-  return (
-    <span
-      className={cn(
-        'font-mono text-[11px]',
-        isDim ? 'text-muted-foreground' : bonusTypeClasses[type],
-      )}
-    >
-      {bonusTypeLabels[type]}
-    </span>
-  );
-}
-
-function Line({
-  contribution,
-  detail,
-  isStruck,
-  className,
-  format = formatModifier,
-}: {
-  contribution: SourcedModifier;
-  detail?: ReactNode;
-  isStruck?: boolean;
-  className?: string;
-  format?: (value: number) => string;
-}) {
-  const struck = isStruck ? 'line-through' : '';
-  return (
-    <li className={className}>
-      <div className="flex items-baseline gap-2">
-        <span className={cn('min-w-0 flex-1 truncate', struck)}>
-          {contribution.entryName}
-        </span>
-        <TypeTag contribution={contribution} isDim={isStruck} />
-        <span className={cn('font-mono', struck)}>
-          {format(contribution.value)}
-        </span>
-      </div>
-      {detail ? <div className="text-xs">{detail}</div> : null}
-    </li>
-  );
-}
-
-function SuppressedLines({
-  items,
-  statistic,
-  format,
-}: {
-  items: SuppressedModifier[];
-  statistic: ResolvedStatistic;
-  format?: (value: number) => string;
-}) {
-  return items.map((item, index) => {
-    const winner = findSuppressorName(item, statistic);
-    return (
-      <Line
-        key={contributionKey(item, index)}
-        contribution={item}
-        isStruck
-        className="text-muted-foreground"
-        format={format}
-        detail={winner ? `${item.reason} (${winner})` : item.reason}
-      />
-    );
-  });
-}
-
-// "Only when vs. spells": what the number becomes there, with what newly
-// applies, what that sets aside, and, dimmed, what still waits on a
-// prerequisite even then. A group that changes nothing shows no total.
-function SituationPreview({
-  group,
-  statistic,
-  target,
-  resolver,
-}: {
-  group: SituationGroup;
-  statistic: ResolvedStatistic;
-  target: BreakdownTarget;
-  resolver: BreakdownResolver;
-}) {
-  const preview = resolver.previewSituation(group.selection);
-  const inSituation = preview
-    ? findCharacterSheetStatistic(preview, target)
-    : null;
-  const change = inSituation
-    ? diffSituation({ group, ordinary: statistic, inSituation })
-    : null;
-  const total = change?.total ?? null;
-  return (
-    <li>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="flex min-w-0 items-baseline gap-1.5 text-sky-300">
-          <SituationMarker className="relative top-0 shrink-0 self-center" />
-          <span className="min-w-0 [overflow-wrap:anywhere]">{group.text}</span>
-        </span>
-        {total !== null ? (
-          <span className="shrink-0 font-mono">
-            <span className="text-muted-foreground text-xs">becomes </span>
-            <span className="text-lg">{total}</span>
-          </span>
-        ) : null}
-      </div>
-      {inSituation && change ? (
-        <ul className="space-y-0.5 pl-3">
-          {change.applied.map((item, index) => (
-            <Line key={contributionKey(item, index)} contribution={item} />
-          ))}
-          <SuppressedLines items={change.suppressed} statistic={inSituation} />
-          {change.waiting.map((item, index) => (
-            <Line
-              key={contributionKey(item, index)}
-              contribution={item}
-              className="text-muted-foreground/70"
-              detail={`${describePrerequisite(item, resolver.findPrerequisiteName, resolver.findCastingClassName)} — not now`}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </li>
-  );
-}
-
 /**
  * Why a number is what it is: every applied contribution, built-ins
- * included; what stacking set aside and why; then "Only when…" with what the
- * number becomes in each Situation, resolved by the same rules. Nothing here
- * is summed by hand.
+ * included; what stacking set aside and why; its rules that change no
+ * number; what the picked Situations make it; then "Only when…" with what
+ * the number becomes in each Situation, the Combat situations collapsed
+ * below them, what waits on another entry, and what belongs to another
+ * weapon, routine or casting. Every total is the resolver's own answer.
  */
 export function BreakdownExplanation({
   statistic,
   target,
+  format = String,
   formatContribution,
 }: {
   statistic: ResolvedStatistic;
   /** Without a sheet statistic to preview, Situations are not listed. */
   target?: BreakdownTarget;
+  format?: (total: number) => string;
   formatContribution?: (value: number) => string;
 }) {
   const resolver = useBreakdownResolver();
-  const situations = target === undefined ? [] : listSituationGroups(statistic);
-  const prerequisites = listPrerequisiteContributions(statistic);
+  const view = useSituationBreakdown(statistic, target);
+  const waiting = view?.waiting ?? listPrerequisiteContributions(statistic);
+  const excluded = view?.excluded ?? statistic.excluded ?? [];
+  const notes =
+    view?.notes ??
+    (statistic.notes ?? []).filter(
+      (note) => (note.situation ?? note.condition?.situation) === undefined,
+    );
   return (
     <>
-      {statistic.applied.length === 0 ? (
-        <p className="text-muted-foreground text-xs">Nothing applies yet.</p>
-      ) : (
-        <ul className="space-y-0.5">
-          {statistic.applied.map((item, index) => (
-            <Line
-              key={contributionKey(item, index)}
-              contribution={item}
-              detail={describeCastingScope(item, resolver.findCastingClassName)}
-              format={formatContribution}
-            />
-          ))}
-        </ul>
-      )}
-      {statistic.suppressed.length > 0 ? (
-        <>
-          <p className={cn(fieldLabel, 'mt-2')}>Not applied</p>
-          <ul className="space-y-0.5">
-            <SuppressedLines
-              items={statistic.suppressed}
-              statistic={statistic}
-              format={formatContribution}
-            />
-          </ul>
-        </>
+      <BreakdownContributions
+        statistic={statistic}
+        formatContribution={formatContribution}
+      />
+      {notes.length > 0 ? (
+        <div className="border-foreground/15 mt-2 border-t pt-2">
+          <p className={cn(fieldLabel, 'mb-1')}>Rules</p>
+          <BreakdownNotes notes={notes} className="text-xs" />
+        </div>
       ) : null}
-      {target !== undefined && situations.length > 0 ? (
+      {view ? (
+        <SelectedSituationsSection
+          selected={view.selected}
+          format={format}
+          formatContribution={formatContribution}
+        />
+      ) : null}
+      {view && view.groups.length > 0 ? (
         <div className="border-foreground/15 mt-2 border-t pt-2">
           <p className={cn(fieldLabel, 'mb-1')}>Only when…</p>
           <ul className="space-y-2">
-            {situations.map((group) => (
+            {view.groups.map((group) => (
               <SituationPreview
                 key={group.key}
                 group={group}
-                statistic={statistic}
-                target={target}
-                resolver={resolver}
+                format={format}
+                formatContribution={formatContribution}
               />
             ))}
           </ul>
         </div>
       ) : null}
-      {prerequisites.length > 0 ? (
+      {view ? (
+        <CombatSituations
+          groups={view.combatGroups}
+          format={format}
+          formatContribution={formatContribution}
+        />
+      ) : null}
+      {waiting.length > 0 ? (
         <div className="border-foreground/15 mt-2 border-t pt-2">
-          <p className={cn(fieldLabel, 'mb-1')}>Not now</p>
+          <p className={cn(fieldLabel, 'mb-1')}>Waiting</p>
           <ul className="space-y-0.5">
-            {prerequisites.map((item, index) => (
-              <Line
+            {waiting.map((item, index) => (
+              <BreakdownLine
                 key={contributionKey(item, index)}
                 contribution={item}
                 className="text-muted-foreground"
+                format={formatContribution}
                 detail={describePrerequisite(
                   item,
                   resolver.findPrerequisiteName,
                   resolver.findCastingClassName,
                 )}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {excluded.length > 0 ? (
+        <div className="border-foreground/15 mt-2 border-t pt-2">
+          <p className={cn(fieldLabel, 'mb-1')}>Outside this scope</p>
+          <ul className="space-y-0.5">
+            {excluded.map((item, index) => (
+              <BreakdownLine
+                key={contributionKey(item, index)}
+                contribution={item}
+                className="text-muted-foreground"
+                format={formatContribution}
+                detail={
+                  describeContributionScope(
+                    item,
+                    resolver.findCastingClassName,
+                  ) ?? 'only elsewhere on the sheet'
+                }
               />
             ))}
           </ul>

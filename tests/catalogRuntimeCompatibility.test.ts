@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
+    'sha256:becf4290fdf699293d79c24d577e75dddde57919ad7291d8ea7b0eaebdc73cfc';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -70,6 +70,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'convex/lib/characterSheetLinkedInputReader.ts',
     'convex/lib/companionRelationshipGraph.ts',
     'convex/lib/preparedCharacterSheet.ts',
+    'src/lib/character-sheet-situations.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -97,6 +98,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-conditions',
       './character-sheet-spellcasting',
       './character-sheet-spell-collections',
+      './character-sheet-situations',
       './character-sheet-racial',
       './character-sheet-advancement',
       './character-sheet-formulas',
@@ -124,7 +126,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ],
     [],
     ['./character-sheet', './character-sheet-skill-definitions'],
-    ['zod', './catalog/data/reviewed-conditions.json'],
+    ['zod', 'convex/values', './catalog/data/reviewed-conditions.json'],
     [],
     [
       './character-sheet-casting-tables',
@@ -263,6 +265,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       '../../src/lib/character-sheet-grants',
     ],
     ['convex/values', './characterSheetFamiliar', './characterSheetData'],
+    [],
   ];
   const exportsByFile: Record<string, string[]> = {
     'src/lib/character-sheet-skills.ts': [

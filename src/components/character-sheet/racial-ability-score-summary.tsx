@@ -8,7 +8,7 @@ import {
 } from '~/lib/character-sheet';
 import { racialAbilityScoreCopy } from './racial-ability-score-copy';
 import { fieldLabel, formatModifier } from './sheet-parts';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import type { useCharacterSheet } from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
@@ -75,7 +75,7 @@ export function RacialAbilityScoreSummary({
                 racial {formatModifier(adjustment.racialTotal)}
                 {adjustment.hasSuppressed ? ' (part not counting)' : ''}
               </span>
-              <StatBreakdown
+              <SheetStatistic
                 label={abilityLabels[adjustment.ability]}
                 statistic={adjustment.statistic}
                 target={abilityTargets[adjustment.ability]}

@@ -21,7 +21,7 @@ import {
 } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
 import { InlineWarnings } from './inline-warning';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import {
   action,
   Block,
@@ -203,7 +203,7 @@ export function BaseScoresEditor({
                     <span className="sr-only">
                       {abilityLabels[ability]} total{' '}
                     </span>
-                    <StatBreakdown
+                    <SheetStatistic
                       label={abilityLabels[ability]}
                       statistic={breakdowns[abilityTargets[ability]]}
                       target={abilityTargets[ability]}
@@ -212,7 +212,7 @@ export function BaseScoresEditor({
                     />
                   </span>
                   <span className="flex justify-end font-mono text-base">
-                    <StatBreakdown
+                    <SheetStatistic
                       label={`${abilityLabels[ability]} modifier`}
                       statistic={modifierBreakdowns[ability]}
                       target={abilityTargets[ability]}

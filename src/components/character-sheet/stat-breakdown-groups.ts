@@ -1,34 +1,68 @@
 import type {
-  ResolveOptions,
   ResolvedStatistic,
   SourcedModifier,
+  SourcedSituationalNote,
+  Situation,
   SuppressedModifier,
 } from '~/lib/character-sheet';
+import {
+  isCombatSituation,
+  identifySituation,
+  sameSituationIdentity,
+  serializeSituationIdentity,
+  type RequestedSituation,
+} from '~/lib/character-sheet-situations';
 import { describeSituation } from './modifier-labels';
 
 // Pure grouping for a number's explanation: which contributions wait on a
 // Situation (and how to ask the resolver about it), which wait on something
 // else, and what a situation changes once the resolver has answered for it.
 
-type SituationSelection = NonNullable<ResolveOptions['situations']>[number];
-
 export type SituationGroup = {
   key: string;
   text: string;
-  selection: SituationSelection;
+  selection: RequestedSituation;
+  entryName?: string;
 };
 
 const sameContribution = (a: SourcedModifier, b: SourcedModifier) =>
   a.sheetEntryId === b.sheetEntryId &&
   a.target === b.target &&
   a.bonusType === b.bonusType &&
-  a.value === b.value;
+  a.value === b.value &&
+  a.source === b.source &&
+  a.modifierIndex === b.modifierIndex &&
+  a.condition?.whileActive === b.condition?.whileActive &&
+  a.condition?.castingClass === b.condition?.castingClass &&
+  a.condition?.school === b.condition?.school &&
+  a.condition?.weapon === b.condition?.weapon &&
+  a.condition?.weaponSelection === b.condition?.weaponSelection &&
+  a.condition?.option === b.condition?.option &&
+  (a.condition?.situation === undefined
+    ? b.condition?.situation === undefined
+    : b.condition?.situation !== undefined &&
+      sameSituationIdentity(
+        identifySituation(a.condition.situation, a.sheetEntryId),
+        identifySituation(b.condition.situation, b.sheetEntryId),
+      ));
 
 export const isSituational = (contribution: SourcedModifier) =>
   contribution.condition?.situation !== undefined;
 
 export const hasSituationalContributions = (statistic: ResolvedStatistic) =>
-  statistic.conditional.some(isSituational);
+  [
+    ...statistic.applied,
+    ...statistic.suppressed,
+    ...statistic.conditional,
+  ].some(
+    (item) =>
+      item.condition?.situation !== undefined &&
+      !isCombatSituation(item.condition.situation),
+  ) ||
+  (statistic.notes ?? []).some((note) => {
+    const situation = note.situation ?? note.condition?.situation;
+    return situation === undefined || !isCombatSituation(situation);
+  });
 
 /**
  * The group a situational contribution belongs to. A local situation is
@@ -36,24 +70,34 @@ export const hasSituationalContributions = (statistic: ResolvedStatistic) =>
  * adjustment is a separate group that never activates it.
  */
 function findSituationGroup(
-  contribution: SourcedModifier,
+  contribution: Pick<SourcedModifier, 'sheetEntryId' | 'condition'> & {
+    situation?: Situation;
+    entryName?: string;
+  },
 ): SituationGroup | null {
-  const situation = contribution.condition?.situation;
+  const situation = contribution.situation ?? contribution.condition?.situation;
   if (situation === undefined) return null;
   const text = describeSituation(situation);
   if (typeof situation === 'string')
-    return { key: `shared:${situation}`, text, selection: situation };
+    return {
+      key: serializeSituationIdentity(identifySituation(situation)),
+      text,
+      selection: situation,
+    };
   if ('local' in situation)
     return {
-      key: `local:${contribution.sheetEntryId}:${situation.local}`,
+      key: serializeSituationIdentity(
+        identifySituation(situation, contribution.sheetEntryId),
+      ),
       text,
+      entryName: contribution.entryName,
       selection: {
         local: situation.local,
         sheetEntryId: contribution.sheetEntryId,
       },
     };
   return {
-    key: `option:${situation.option}`,
+    key: serializeSituationIdentity(identifySituation(situation)),
     text,
     selection: { option: situation.option },
   };
@@ -63,12 +107,38 @@ function findSituationGroup(
 export function listSituationGroups(
   statistic: ResolvedStatistic,
 ): SituationGroup[] {
+  return collectSituationGroups([
+    ...statistic.applied,
+    ...statistic.suppressed,
+    ...statistic.conditional,
+    ...(statistic.notes ?? []),
+  ]);
+}
+
+export function listSituationalNoteGroups(
+  notes: readonly SourcedSituationalNote[],
+) {
+  return collectSituationGroups(notes);
+}
+
+function collectSituationGroups(
+  contributions: readonly Parameters<typeof findSituationGroup>[0][],
+) {
   const groups = new Map<string, SituationGroup>();
-  for (const contribution of statistic.conditional) {
+  for (const contribution of contributions) {
     const group = findSituationGroup(contribution);
     if (group) groups.set(group.key, group);
   }
   return [...groups.values()];
+}
+
+export function listSituationNotes(
+  statistic: ResolvedStatistic,
+  group: SituationGroup,
+): SourcedSituationalNote[] {
+  return (statistic.notes ?? []).filter(
+    (note) => findSituationGroup(note)?.key === group.key,
+  );
 }
 
 /** Conditional contributions waiting on something other than a Situation. */
@@ -86,7 +156,7 @@ const wordsOf = (key: string) =>
  * words; a choice not yet made reads as such. Null without a casting scope.
  */
 export function describeCastingScope(
-  contribution: SourcedModifier,
+  contribution: Pick<SourcedModifier, 'condition'>,
   findCastingClassName: (classTag: string) => string | null,
 ) {
   const { castingClass, school } = contribution.condition ?? {};
@@ -106,9 +176,50 @@ export function describeCastingScope(
   return `${scope.join(' ')} spells`;
 }
 
+function describeWeaponScope(
+  weapon: NonNullable<SourcedModifier['condition']>['weapon'],
+  entryName: string,
+) {
+  switch (weapon) {
+    case '$self':
+      return entryName;
+    case '$group':
+      return 'the chosen weapon group';
+    case '$target':
+      return 'the affected weapon';
+    case '$unarmedOrNatural':
+      return 'unarmed strikes or natural attacks';
+    case '$choice':
+      return 'the chosen weapon';
+    case undefined:
+      return null;
+    default: {
+      const exhaustive: never = weapon;
+      return exhaustive;
+    }
+  }
+}
+
+/** Scope text stays readable even when a referenced choice is unavailable. */
+export function describeContributionScope(
+  contribution: Pick<SourcedModifier, 'condition' | 'entryName'>,
+  findCastingClassName: (classTag: string) => string | null,
+) {
+  const { weapon, option } = contribution.condition ?? {};
+  const scopes: string[] = [];
+  if (weapon) {
+    const weaponText = describeWeaponScope(weapon, contribution.entryName);
+    scopes.push(`only with ${weaponText}`);
+  }
+  if (option) scopes.push(`only in routines using ${contribution.entryName}`);
+  const casting = describeCastingScope(contribution, findCastingClassName);
+  if (casting) scopes.push(`only for ${casting}`);
+  return scopes.length > 0 ? scopes.join('; ') : null;
+}
+
 /** "only while Rage is active": the prerequisite by name, never by identifier. */
 export function describePrerequisite(
-  contribution: SourcedModifier,
+  contribution: Pick<SourcedModifier, 'condition'>,
   findPrerequisiteName: (catalogEntryId: string) => string | null,
   findCastingClassName: (classTag: string) => string | null,
 ) {
@@ -146,7 +257,8 @@ export function diffSituation({
       !ordinary.suppressed.some(
         (item) =>
           sameContribution(item, contribution) &&
-          item.reason === contribution.reason,
+          item.reason === contribution.reason &&
+          item.suppressedBy === contribution.suppressedBy,
       ),
   );
   const waiting = inSituation.conditional.filter(

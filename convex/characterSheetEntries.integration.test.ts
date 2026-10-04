@@ -52,6 +52,69 @@ async function fixture() {
   };
 }
 
+test('members persist and edit structured Situational Notes through the authorized sheet API', async () => {
+  const { owner, member, outsider, scope } = await fixture();
+  const entryId = await member.mutation(api.characterSheet.createSheetEntry, {
+    ...scope,
+    name: 'Hardy',
+    modifiers: [],
+    detail: { kind: 'item', consumable: false },
+    operationId: 'notes',
+    situationalNotes: [
+      { target: 'saves', situation: 'poison', text: 'Reroll a failed save.' },
+      { situation: { local: 'stabilizing' }, text: 'Stabilize automatically.' },
+    ],
+  });
+  let sheet = await owner.query(api.characterSheet.read, scope);
+  expect(sheet?.calculated.breakdowns['save.will']).toMatchObject({
+    total: 0,
+    notes: [
+      expect.objectContaining({ sheetEntryId: entryId, situation: 'poison' }),
+    ],
+  });
+  expect(sheet?.calculated.entryNotes).toEqual([
+    expect.objectContaining({
+      sheetEntryId: entryId,
+      text: 'Stabilize automatically.',
+    }),
+  ]);
+  await member.mutation(api.characterSheet.editSheetEntry, {
+    ...scope,
+    entryId,
+    situationalNotes: [
+      { target: 'save.will', situation: 'fear', text: 'Immune to fear.' },
+    ],
+    operationId: 'edit-notes',
+  });
+  sheet = await owner.query(api.characterSheet.read, scope);
+  expect(sheet?.calculated.entryNotes).toEqual([]);
+  expect(sheet?.calculated.breakdowns['save.will']?.notes?.[0]?.text).toBe(
+    'Immune to fear.',
+  );
+  await expect(
+    outsider.mutation(api.characterSheet.editSheetEntry, {
+      ...scope,
+      entryId,
+      situationalNotes: [],
+      operationId: 'forged-notes',
+    }),
+  ).rejects.toThrow();
+  await expect(
+    member.mutation(api.characterSheet.editSheetEntry, {
+      ...scope,
+      entryId,
+      operationId: 'conflicting-note-situations',
+      situationalNotes: [
+        {
+          situation: 'fear',
+          condition: { situation: 'poison' },
+          text: 'Reroll a save.',
+        },
+      ],
+    }),
+  ).rejects.toThrow('Situational Note is invalid');
+});
+
 test('members record damage without changing scores and drain in both projections, and edit, deactivate and remove those entries', async () => {
   // #298; data model Resolution stages 1–2 / Temporary Effects; CRB pp. 555–556.
   const { owner, member, scope } = await fixture();

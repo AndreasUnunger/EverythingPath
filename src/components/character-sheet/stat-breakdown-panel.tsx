@@ -20,8 +20,10 @@ export function StatBreakdownPanel({
   total,
   statistic,
   target,
+  format,
   formatContribution,
   lead,
+  explanation,
   incompleteReason,
   isPartial = false,
   trigger,
@@ -32,7 +34,10 @@ export function StatBreakdownPanel({
   total: ReactNode;
   statistic: ResolvedStatistic;
   target?: BreakdownTarget;
+  format?: (total: number) => string;
   formatContribution?: (value: number) => string;
+  /** Replaces the ordinary explanation, as for a number in a Situation. */
+  explanation?: ReactNode;
   lead?: ReactNode;
   incompleteReason: string | null;
   /** The total is unresolved; the contributions below are only those known. */
@@ -51,13 +56,15 @@ export function StatBreakdownPanel({
       className="bg-background border-foreground/40 absolute top-full z-50 mt-1 w-[min(22rem,calc(100vw-1rem))] border p-3 text-left text-sm font-normal normal-case shadow-xl"
     >
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <span className="font-sans">{label}</span>
+        <span className="min-w-0 font-sans [overflow-wrap:anywhere]">
+          {label}
+        </span>
         <span className="font-mono text-2xl">{total}</span>
         <button
           type="button"
           aria-label="Close breakdown"
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground -mr-1 p-1"
+          className="text-muted-foreground hover:text-foreground -mr-1 shrink-0 p-1"
         >
           <X aria-hidden className="size-4" />
         </button>
@@ -69,11 +76,14 @@ export function StatBreakdownPanel({
       {isPartial ? (
         <p className={cn(fieldLabel, 'mb-1')}>Known contributions (partial)</p>
       ) : null}
-      <BreakdownExplanation
-        statistic={statistic}
-        target={target}
-        formatContribution={formatContribution}
-      />
+      {explanation ?? (
+        <BreakdownExplanation
+          statistic={statistic}
+          target={target}
+          format={format}
+          formatContribution={formatContribution}
+        />
+      )}
     </div>
   );
 }

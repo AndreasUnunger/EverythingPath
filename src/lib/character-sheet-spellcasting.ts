@@ -263,6 +263,7 @@ function resolveSlotDC({
       ({ school, breakdown, unresolved }) =>
         unresolved ||
         breakdown.total !== dc.total ||
+        (breakdown.notes?.length ?? 0) > 0 ||
         [
           ...breakdown.applied,
           ...breakdown.suppressed,
@@ -328,15 +329,22 @@ export function calculateSpellcastings({
     ? undefined
     : Math.max(0, ...arcaneBases.map((base) => base.casterLevel?.total ?? 0));
   const schools = [
-    ...new Set(
-      modifiers
+    ...new Set([
+      ...modifiers
         .filter((modifier) => modifier.target === 'spellDC')
         .flatMap((modifier) =>
           modifier.condition?.school && modifier.condition.school !== '$choice'
             ? [modifier.condition.school]
             : [],
         ),
-    ),
+      ...(options.situationalNotes ?? []).flatMap((note) =>
+        note.target === 'spellDC' &&
+        note.condition?.school &&
+        note.condition.school !== '$choice'
+          ? [note.condition.school]
+          : [],
+      ),
+    ]),
   ];
   const spellcastings: ResolvedSpellcasting[] = bases.map(
     ({
@@ -377,7 +385,7 @@ export function calculateSpellcastings({
         casting.classTag,
       );
       const classSchools = schools.filter((school) =>
-        modifiers.some(
+        [...modifiers, ...(options.situationalNotes ?? [])].some(
           (modifier) =>
             modifier.target === 'spellDC' &&
             modifier.condition?.school === school &&

@@ -1,5 +1,6 @@
 import {
   calculateFixtureSheet as calculateCharacterSheet,
+  calculateFixtureSheetProjections,
   buildSheet,
 } from './character-sheet-test-fixture';
 import { useClassLevelChoicesForm } from './use-sheet-forms';
@@ -12,6 +13,10 @@ import {
   defaultAbilityScores,
   defaultCreationSettings,
 } from '~/lib/character-sheet';
+import type {
+  CompanionLinkedInput,
+  CompanionLinkedInputResolution,
+} from '~/lib/character-sheet-linked-inputs';
 import { useCharacterRecord } from '../character-manager/use-character-record';
 import { useCreateCharacterSheet } from './use-create-character-sheet';
 
@@ -1425,4 +1430,176 @@ test('equivalent level and adjustment data stays quiet when property order chang
   view.rerender();
   expect(view.result.current.levels.hasRemoteChange).toBe(false);
   expect(view.result.current.adjustments.hasRemoteChange).toBe(false);
+});
+
+test('Situation preview supports explicit combinations and empty ordinary selections without saving', () => {
+  snapshot = buildSheet({
+    adjustments: [
+      {
+        id: 'fearless',
+        name: 'Fearless',
+        modifiers: [
+          {
+            target: 'save.will',
+            bonusType: 'racial',
+            value: 2,
+            condition: { situation: 'fear' },
+          },
+        ],
+      },
+      {
+        id: 'superstition',
+        name: 'Superstition',
+        modifiers: [
+          {
+            target: 'save.will',
+            bonusType: 'morale',
+            value: 3,
+            condition: { situation: 'spells' },
+          },
+        ],
+      },
+    ],
+  });
+  const scope = { characterId: snapshot.character._id };
+  const view = renderHook(() => useCharacterSheet(scope));
+  expect(
+    view.result.current.previewSituation(['fear', 'spells'])?.breakdowns[
+      'save.will'
+    ].total,
+  ).toBe(5);
+  expect(
+    view.result.current.previewSituation(['fear'])?.breakdowns['save.will']
+      .total,
+  ).toBe(2);
+  expect(
+    view.result.current.previewSituation([])?.breakdowns['save.will'].total,
+  ).toBe(0);
+  expect(calls).toEqual([]);
+});
+
+test('Situation previews keep the familiar’s creature and current associated values even without relationship controls', () => {
+  const initial = buildSheet({
+    levels: [],
+    adjustments: [
+      {
+        id: 'fearless',
+        name: 'Fearless',
+        modifiers: [
+          {
+            target: 'save.will',
+            bonusType: 'racial',
+            value: 2,
+            condition: { situation: 'fear' },
+          },
+        ],
+      },
+    ],
+  });
+  function linked(
+    input: CompanionLinkedInput,
+    value: number,
+  ): CompanionLinkedInputResolution {
+    return {
+      input,
+      value,
+      status: 'available',
+      resolution: 'calculated',
+      candidates: [],
+      contributions: [],
+      fallback: null,
+      interpretation: null,
+      fallbackState: 'none',
+      prerequisiteStatus: 'resolved',
+    };
+  }
+  const common = [
+    linked({ kind: 'characterLevel' }, 7),
+    linked({ kind: 'familiarProgressionLevels' }, 5),
+    linked({ kind: 'baseAttackBonus' }, 3),
+    linked({ kind: 'baseSave', save: 'will' }, 5),
+  ];
+  const calculated = calculateFixtureSheetProjections(
+    {
+      ...initial,
+      characterKind: 'npc',
+      familiarBaseCreatureKey: 'cat',
+    },
+    {
+      projectionInputs: {
+        current: {
+          familiar: {
+            baseCreatureKey: 'cat',
+            linkedInputs: [...common, linked({ kind: 'maximumHp' }, 49)],
+          },
+        },
+        permanent: {
+          familiar: {
+            baseCreatureKey: 'cat',
+            linkedInputs: [...common, linked({ kind: 'maximumHp' }, 41)],
+          },
+        },
+      },
+    },
+  );
+  snapshot = {
+    ...initial,
+    character: {
+      ...initial.character,
+      kind: 'npc',
+      familiarBaseCreatureKey: 'cat',
+    },
+    calculated: calculated.current,
+    permanentCalculated: calculated.permanent,
+  };
+  const view = renderHook(() =>
+    useCharacterSheet({ characterId: initial.character._id }),
+  );
+  expect(view.result.current.familiar.isAvailable).toBe(false);
+  const ordinary = view.result.current.previewSituation([]);
+  expect(ordinary).toMatchObject({
+    hitDice: 1,
+    hp: 24,
+    familiar: { baseAttackBonus: 3, baseSaves: { will: 5 } },
+    breakdowns: { 'save.will': { total: 5 } },
+  });
+  const fear = view.result.current.previewSituation(['fear']);
+  expect(fear).toMatchObject({
+    hitDice: 1,
+    hp: 24,
+    breakdowns: { 'save.will': { total: 7 } },
+  });
+  expect(calls).toEqual([]);
+});
+
+test('Situation previews remain stable through local interaction and refresh with sheet changes', () => {
+  snapshot = buildSheet({
+    adjustments: [
+      {
+        id: 'fearless',
+        name: 'Fearless',
+        modifiers: [
+          {
+            target: 'save.will',
+            bonusType: 'racial',
+            value: 2,
+            condition: { situation: 'fear' },
+          },
+        ],
+      },
+    ],
+  });
+  const view = renderHook(() => useCharacterSheet({ characterId: 'hero' }));
+  const preview = view.result.current.previewSituation;
+  view.rerender();
+  expect(view.result.current.previewSituation).toBe(preview);
+  act(() => view.result.current.adjustments.dismissRemoteChange());
+  expect(view.result.current.previewSituation).toBe(preview);
+  snapshot = { ...snapshot, revision: snapshot.revision + 1 };
+  view.rerender();
+  expect(view.result.current.previewSituation).not.toBe(preview);
+  expect(
+    view.result.current.previewSituation(['fear'])?.breakdowns['save.will']
+      .total,
+  ).toBe(2);
 });

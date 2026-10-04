@@ -27,6 +27,8 @@ export function StatBreakdown({
   formatContribution,
   lead,
   isNarrow = false,
+  explanation,
+  tone = 'ordinary',
   className,
 }: {
   label: string;
@@ -43,6 +45,10 @@ export function StatBreakdown({
   lead?: ReactNode;
   /** Too narrow to spell out Unresolved: a dash stands in, the name says it. */
   isNarrow?: boolean;
+  /** Replaces the ordinary explanation, as for a number in a Situation. */
+  explanation?: ReactNode;
+  /** A total in a Situation reads in the Situation's colour, unmarked. */
+  tone?: 'ordinary' | 'situation';
   className?: string;
 }) {
   const popup = useStatBreakdownPopup();
@@ -87,15 +93,18 @@ export function StatBreakdown({
         onClick={popup.togglePinned}
         className={cn(
           'hover:bg-foreground/10 focus-visible:ring-ring/50 inline-flex min-h-8 items-center border-b border-dotted px-1 font-mono leading-none outline-none focus-visible:ring-[3px]',
+          tone === 'situation' && 'text-sky-300 hover:bg-sky-400/10',
           popup.isPinned
             ? 'border-primary bg-foreground/10'
-            : 'border-foreground/40',
+            : tone === 'situation'
+              ? 'border-sky-300/50'
+              : 'border-foreground/40',
           className,
         )}
       >
         {total}
       </button>
-      {hasSituationalContributions(statistic) ? (
+      {tone === 'ordinary' && hasSituationalContributions(statistic) ? (
         <SituationMarker className="-top-px -right-1" />
       ) : null}
       {popup.isOpen ? (
@@ -105,10 +114,12 @@ export function StatBreakdown({
           total={total}
           statistic={statistic}
           target={target}
+          format={format}
           formatContribution={formatContribution}
           lead={lead}
           incompleteReason={unresolvedReason ?? incompleteReason}
           isPartial={isUnresolved}
+          explanation={explanation}
           trigger={popup.trigger}
           onClose={popup.closeAndRefocus}
         />

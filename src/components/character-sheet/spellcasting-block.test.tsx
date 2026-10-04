@@ -89,8 +89,15 @@ function blockOf(input: CharacterSheetInput) {
   const calculated = calculateCharacterSheet(input);
   return (
     <BreakdownResolverProvider
-      previewSituation={(situation: Situation) =>
-        calculateCharacterSheet(input, { situations: [situation] })
+      previewSituation={(situation: Situation | readonly Situation[]) =>
+        calculateCharacterSheet(input, {
+          situations:
+            typeof situation === 'string' ||
+            'local' in situation ||
+            'option' in situation
+              ? [situation]
+              : situation,
+        })
       }
       adjustments={[]}
       spellcastings={calculated.spellcastings}
@@ -381,7 +388,7 @@ test('concentration and DC breakdowns name their class-level and ability contrib
   const defensively = within(panel('Wizard concentration'))
     .getByText('casting defensively')
     .closest('li')!;
-  expect(defensively).toHaveTextContent('becomes 9');
+  expect(defensively).toHaveTextContent('becomes +9');
   expect(within(defensively).getByText('Combat Casting')).toBeVisible();
   fireEvent.keyDown(panel('Wizard concentration'), { key: 'Escape' });
   expect(
@@ -404,10 +411,13 @@ test('concentration and DC breakdowns name their class-level and ability contrib
   expect(line(label, 'Lesser rod')).toHaveTextContent(
     'A higher bonus of this type applies. (Greater rod)',
   );
-  expect(within(panel(label)).getByText('Not now')).toBeVisible();
+  expect(within(panel(label)).queryByText('Waiting')).not.toBeInTheDocument();
+  // The Evocation-only bonus belongs to another number: shown apart, by scope.
+  expect(within(panel(label)).getByText('Outside this scope')).toBeVisible();
   expect(line(label, 'Spell Focus')).toHaveTextContent(
     'only for Wizard Evocation spells',
   );
+  expect(dc).toHaveTextContent('17');
   fireEvent.keyDown(panel(label), { key: 'Escape' });
   expect(dc).toHaveFocus();
 

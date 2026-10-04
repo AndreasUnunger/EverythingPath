@@ -2,7 +2,7 @@
 import type { ResolvedStatistic } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
 import { formatModifier } from './sheet-parts';
-import { StatBreakdown } from './stat-breakdown';
+import { SheetStatistic } from './sheet-statistic';
 import type { BreakdownTarget } from './stat-breakdown-content';
 
 export type StatFigure = {
@@ -21,9 +21,9 @@ const onRule = 'bg-card -mb-px self-end';
 
 /**
  * One line of the Defenses or Offense block (approved prototype): a plain
- * label, the variants between it and the main figure, and the main figure
- * right-aligned so the column lines up down the block. Every figure opens
- * its breakdown.
+ * label, the variants between it and the main figure, the main figure's
+ * alternate totals in its Situations, and the main figure right-aligned so
+ * the column lines up down the block. Every figure opens its breakdown.
  */
 export function StatRow({
   figure,
@@ -41,7 +41,7 @@ export function StatRow({
             {variants.map((variant) => (
               <span key={variant.title} className="inline-flex items-end gap-1">
                 <span className="pb-1.5 leading-tight">{variant.label}</span>
-                <StatBreakdown
+                <SheetStatistic
                   label={variant.title}
                   statistic={variant.statistic}
                   target={variant.target}
@@ -53,12 +53,13 @@ export function StatRow({
           </span>
         ) : null}
       </span>
-      <StatBreakdown
+      <SheetStatistic
         label={figure.title}
         statistic={figure.statistic}
         target={figure.target}
         format={figure.isSigned ? formatModifier : String}
         className={cn(onRule, 'min-w-12 justify-end text-xl')}
+        alternates={{ className: 'max-w-[55%] self-end pb-1' }}
       />
     </li>
   );

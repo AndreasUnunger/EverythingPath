@@ -451,6 +451,7 @@ function resolveAttackBonus(calculation: AttackCalculation): ResolvedStatistic {
     ...leaf.applied,
     ...leaf.suppressed,
     ...leaf.conditional,
+    ...(leaf.excluded ?? []),
   ];
   if (calculation.twoWeaponPenalty) {
     modifiers.push({
@@ -542,6 +543,7 @@ function resolveDamageBonus(calculation: AttackCalculation): ResolvedStatistic {
     ...leaf.applied,
     ...leaf.suppressed,
     ...leaf.conditional,
+    ...(leaf.excluded ?? []),
     {
       ...sourced({
         calculation,
@@ -994,7 +996,15 @@ export function resolveAttackRoutines({
         (use) =>
           use.entryId === state.weaponEntryId && use.hands === state.hands,
       ),
-      options,
+      options: {
+        ...options,
+        weapon: {
+          entryId: equippedWeapon.item._id,
+          baseType: equippedWeapon.weapon.baseType,
+          groups: equippedWeapon.weapon.groups,
+          kind: 'manufactured',
+        },
+      },
     };
     const line = resolveAttackLine(calculation);
     const offCalculation =

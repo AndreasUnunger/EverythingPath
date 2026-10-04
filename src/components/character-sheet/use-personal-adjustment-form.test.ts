@@ -402,36 +402,43 @@ test('personal adjustments refuse the reserved base bonus type', async () => {
   ).toBeDefined();
 });
 
-test('unsupported modifier conditions produce field errors instead of silently saving', async () => {
-  const saved: PersonalAdjustmentInput[] = [];
-  const view = renderHook(() =>
-    usePersonalAdjustmentForm({
-      save: async (input) => {
-        saved.push(input);
-      },
-    }),
-  );
-  act(() => {
-    view.result.current.form.setValue('name', 'Weapon blessing', {
-      shouldDirty: true,
-    });
-    view.result.current.form.setValue('modifiers.0.value', '2', {
-      shouldDirty: true,
-    });
-    view.result.current.form.setValue(
-      'modifiers.0.condition',
-      { weapon: '$self' } as unknown as FormModifier['condition'],
-      { shouldDirty: true },
+test.each([
+  { weapon: '$self' },
+  { weaponSelection: 'longsword' },
+  { option: true },
+])(
+  'unsupported modifier condition %j produces field errors instead of silently saving',
+  async (condition) => {
+    const saved: PersonalAdjustmentInput[] = [];
+    const view = renderHook(() =>
+      usePersonalAdjustmentForm({
+        save: async (input) => {
+          saved.push(input);
+        },
+      }),
     );
-  });
-  await act(async () => {
-    expect(await view.result.current.save()).toBe('failed');
-  });
-  expect(saved).toEqual([]);
-  expect(
-    view.result.current.form.formState.errors.modifiers?.[0]?.condition,
-  ).toBeDefined();
-});
+    act(() => {
+      view.result.current.form.setValue('name', 'Weapon blessing', {
+        shouldDirty: true,
+      });
+      view.result.current.form.setValue('modifiers.0.value', '2', {
+        shouldDirty: true,
+      });
+      view.result.current.form.setValue(
+        'modifiers.0.condition',
+        condition as unknown as FormModifier['condition'],
+        { shouldDirty: true },
+      );
+    });
+    await act(async () => {
+      expect(await view.result.current.save()).toBe('failed');
+    });
+    expect(saved).toEqual([]);
+    expect(
+      view.result.current.form.formState.errors.modifiers?.[0]?.condition,
+    ).toBeDefined();
+  },
+);
 
 test('formula mode preserves supported and unsupported expressions as formulas instead of coercing numbers', async () => {
   // #298 Formulas: unsupported text is retained for the resolver warning.

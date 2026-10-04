@@ -2086,7 +2086,7 @@ test('the real command resumes discovery and re-evaluates a raced worker result 
 test('a resolver-only candidate uses a supported coherent prior release and keeps intervening active edits', async () => {
   const { t, owner, scope } = await fixture();
   const priorIdentity =
-    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
+    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
   const base = await prepare(t, [], 1, {
     compatibility: {
       schema: catalogRuntimeCompatibility.schema,
@@ -2247,7 +2247,7 @@ test('familiar release candidates fail closed until linked dependency calculatio
     operationId: 'release-familiar-species',
   });
   const priorIdentity =
-    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
+    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
   const base = await prepare(t, [], 1, {
     compatibility: {
       schema: catalogRuntimeCompatibility.schema,
