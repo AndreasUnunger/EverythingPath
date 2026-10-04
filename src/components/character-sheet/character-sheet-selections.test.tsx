@@ -1,17 +1,5 @@
-import type { Id } from '@convex/_generated/dataModel';
-import { representativeArchetypeCatalog } from '@convex/lib/representativeArchetypeCatalog';
-import { representativeSelectionCatalog } from '@convex/lib/representativeSelectionCatalog';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { ConvexError } from 'convex/values';
-import { beforeEach, expect, test, vi } from 'vitest';
-import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
 import {
-  createCatalogSheetEntryState,
-  type SelectableCatalogSheetEntryKind,
-} from '~/lib/character-sheet-entries';
-import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
-import {
+  calculateFixtureSheet as calculateCharacterSheet,
   buildSheet,
   characterId,
   emptyOwnerCandidates,
@@ -19,6 +7,19 @@ import {
   type Accepted,
   type Level,
 } from './character-sheet-test-fixture';
+import type { Id } from '@convex/_generated/dataModel';
+import { representativeArchetypeCatalog } from '@convex/lib/representativeArchetypeCatalog';
+import { representativeSelectionCatalog } from '@convex/lib/representativeSelectionCatalog';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { ConvexError } from 'convex/values';
+import { beforeEach, expect, test, vi } from 'vitest';
+import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
+import {
+  createCatalogSheetEntryState,
+  type SelectableCatalogSheetEntryKind,
+} from '~/lib/character-sheet-entries';
+import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
+
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Feats & traits (#313): slots with their counts, the picker's advisory

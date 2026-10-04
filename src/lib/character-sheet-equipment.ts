@@ -1,3 +1,4 @@
+import type { AttackHand } from './character-sheet-attack-types';
 import {
   isTemporaryEffect,
   builtIn,
@@ -200,6 +201,7 @@ export function resolveWeaponProficiencies(
   uses: readonly {
     entryId: string;
     routineEntryId?: string;
+    hand?: AttackHand;
     hands: AttackRoutineState['hands'];
     attack?: 'melee' | 'ranged';
   }[] = [],
@@ -268,7 +270,10 @@ export function resolveWeaponProficiencies(
         message: `${name} needs its named proficiency to be used in one hand. Not proficient: −4 on attacks.`,
       };
       if (use.routineEntryId)
-        routineWarningFingerprints.set(use.routineEntryId, warning.fingerprint);
+        routineWarningFingerprints.set(
+          use.hand === 'off' ? `${use.routineEntryId}:off` : use.routineEntryId,
+          warning.fingerprint,
+        );
       else warnings.push(warning);
     }
     return [

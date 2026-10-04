@@ -1,4 +1,12 @@
 import {
+  calculateFixtureSheetProjections as calculateCharacterSheetProjections,
+  buildSheet,
+  emptyOwnerCandidates,
+  isClassCatalogEntry,
+  type CatalogSheetEntry,
+  type Level,
+} from './character-sheet-test-fixture';
+import {
   act,
   fireEvent,
   render,
@@ -11,17 +19,11 @@ import type { ComponentProps } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
-import { calculateCharacterSheetProjections } from '~/lib/character-sheet';
+
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import { SkillRankCell } from './skill-rank-cell';
 import { ProficiencyChoice } from './proficiency-choice';
-import {
-  buildSheet,
-  emptyOwnerCandidates,
-  isClassCatalogEntry,
-  type CatalogSheetEntry,
-  type Level,
-} from './character-sheet-test-fixture';
+
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Allocating skills and favored-class benefits (#302): ranks spent per Class

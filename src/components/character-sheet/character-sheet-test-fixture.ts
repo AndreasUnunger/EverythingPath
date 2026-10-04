@@ -3,6 +3,7 @@ import {
   abilityKeys,
   abilityTargets,
   calculateCharacterSheet,
+  calculateCharacterSheetProjections,
   defaultAbilityScores,
   type Ability,
   type AbilityScores,
@@ -81,7 +82,17 @@ export type CatalogSheetEntry = {
   casterLevel?: number;
   active?: boolean;
   /** An item's recorded gear state: enhancement, masterwork, material. */
-  itemState?: { enhancement?: number; masterwork?: boolean; material?: string };
+  itemState?: {
+    enhancement?: number;
+    masterwork?: boolean;
+    material?: string;
+    /** A double weapon's second end, recorded separately from its primary end. */
+    otherEnd?: {
+      enhancement?: number;
+      masterwork?: boolean;
+      material?: string;
+    };
+  };
 };
 export type Accepted = Pick<SheetWarning, 'check' | 'subject' | 'fingerprint'>;
 /** A recorded Attack Routine, naming the Gear entry it attacks with. */
@@ -91,6 +102,14 @@ export type AttackRoutineFixture = {
   weaponEntryId: string;
   hands?: 'one' | 'two';
   mode?: 'melee' | 'ranged' | 'thrown';
+  /** A second Gear weapon or the other end of a double main weapon. */
+  offHand?:
+    | {
+        kind: 'weapon';
+        weaponEntryId: string;
+        mode: 'melee' | 'ranged' | 'thrown';
+      }
+    | { kind: 'otherEnd'; mode: 'melee' | 'ranged' | 'thrown' };
   revision?: number;
   deleted?: boolean;
 };
@@ -160,6 +179,60 @@ export function findCalculatedWarning(
   );
   if (!warning) throw new Error(`Expected a ${check} warning`);
   return warning;
+}
+
+type FixtureSheetInput = Omit<
+  Parameters<typeof calculateCharacterSheet>[0],
+  'entries'
+> & {
+  entries: CharacterSheetSnapshot['entries'];
+};
+
+function storedAttackReferences(
+  calculated: ReturnType<typeof calculateCharacterSheet>,
+  entries: CharacterSheetSnapshot['entries'],
+): CharacterSheetSnapshot['calculated'] {
+  return {
+    ...calculated,
+    attackRoutines: calculated.attackRoutines.map((routine) => {
+      const { offHand, ...fields } = routine;
+      if (!offHand || offHand.kind === 'otherEnd')
+        return { ...fields, ...(offHand ? { offHand } : {}) };
+      const stored = entries.find((entry) => entry._id === routine.entryId);
+      const retained =
+        stored?.kind === 'attackRoutine' ? stored.state.offHand : undefined;
+      if (
+        retained?.kind !== 'weapon' ||
+        retained.weaponEntryId !== offHand.weaponEntryId
+      )
+        throw new Error(
+          'Calculated off-hand reference does not match its stored routine',
+        );
+      return { ...fields, offHand: retained };
+    }),
+  };
+}
+
+/** Match the read DTO using the routine's typed reference, even when Gear is missing. */
+export function calculateFixtureSheet(
+  input: FixtureSheetInput,
+  options?: Parameters<typeof calculateCharacterSheet>[1],
+) {
+  return storedAttackReferences(
+    calculateCharacterSheet(input, options),
+    input.entries,
+  );
+}
+
+export function calculateFixtureSheetProjections(
+  input: FixtureSheetInput,
+  options?: Parameters<typeof calculateCharacterSheetProjections>[1],
+) {
+  const projections = calculateCharacterSheetProjections(input, options);
+  return {
+    current: storedAttackReferences(projections.current, input.entries),
+    permanent: storedAttackReferences(projections.permanent, input.entries),
+  };
 }
 
 export function buildSheet({
@@ -435,6 +508,7 @@ export function buildSheet({
             weaponEntryId: routine.weaponEntryId,
             hands: routine.hands ?? 'one',
             mode: routine.mode ?? 'melee',
+            ...(routine.offHand ? { offHand: routine.offHand } : {}),
             revision: routine.revision ?? 0,
           },
         }) as Entry,
@@ -471,12 +545,12 @@ export function buildSheet({
     entries,
     catalogEntries,
     baseScoresEntry: baseCatalog,
-    calculated: calculateCharacterSheet({
+    calculated: calculateFixtureSheet({
       entries,
       catalogEntries,
       characterKind: 'pc',
     }),
-    permanentCalculated: calculateCharacterSheet(
+    permanentCalculated: calculateFixtureSheet(
       {
         entries,
         catalogEntries,

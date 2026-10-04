@@ -24,11 +24,19 @@ import {
   SheetTitle,
 } from '~/components/ui/sheet';
 import { cn } from '~/lib/utils';
+import { weaponCard } from './attack-routine-card-style';
 import {
   describeWeapon,
   handsLabels,
   modeLabels,
 } from './attack-routine-view-model';
+import { AttackFieldFeedback } from './attack-field-feedback';
+import { AttackRoutineOffHandField } from './attack-routine-off-hand-field';
+import { AttackRoutinePreview } from './attack-routine-preview';
+import {
+  AttackWeaponEndEditor,
+  type WeaponEnd,
+} from './attack-weapon-end-editor';
 import {
   action,
   chip,
@@ -36,7 +44,6 @@ import {
   RemoteNotice,
   SaveFeedback,
 } from './sheet-parts';
-import type { SaveStatus } from './save-status';
 import {
   attackRoutineHandsSchema,
   attackRoutineModeSchema,
@@ -50,97 +57,14 @@ type Row = Attacks['rows'][number];
 type Field = keyof AttackRoutineValues;
 
 const hint = 'text-muted-foreground text-xs';
-// A playing card: lifts on hover, settles when chosen, stays put for reduced motion.
-const weaponCard =
-  'h-auto flex-col items-start justify-start gap-0.5 px-2.5 py-1.5 text-left transition-transform motion-safe:hover:-translate-y-0.5';
-
-/** A field's own save: Saving…, Saved, or the refusal with Try again. */
-function FieldFeedback({
-  status,
-  label,
-  onRetry,
-  isDisabled,
-}: {
-  status: SaveStatus;
-  label: string;
-  onRetry: () => void;
-  isDisabled: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <SaveFeedback
-        status={status}
-        savedText="Saved"
-        savingText="Saving…"
-        shouldHideWhenIdle
-      />
-      {status.kind === 'error' ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-11 px-2 text-xs md:h-7"
-          disabled={isDisabled}
-          onClick={onRetry}
-        >
-          Try again <span className="sr-only">saving {label}</span>
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function summarize(lines: Row['singleView']) {
-  const first = lines[0];
-  if (!first) return '';
-  const range = first.range ? `, ${first.range.text}` : '';
-  return `${lines.map((line) => line.attack.text).join('/')} (${first.damage.text}/${first.critical.text}${range})`;
-}
-
-/** The saved routine as the sheet calculates it, kept until the next result arrives. */
-function Preview({ row }: { row: Row }) {
-  const id = useId();
-  return (
-    <section
-      aria-labelledby={id}
-      className="border-foreground/15 space-y-1 border-t pt-3"
-    >
-      <h3 id={id} className={fieldLabel}>
-        As it attacks now
-      </h3>
-      {row.singleView.length > 0 ? (
-        <dl className="space-y-0.5 text-sm">
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Single attack</dt>
-            <dd className="font-mono [overflow-wrap:anywhere]">
-              {summarize(row.singleView)}
-            </dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Full attack</dt>
-            <dd className="font-mono [overflow-wrap:anywhere]">
-              {summarize(row.fullView)}
-            </dd>
-          </div>
-        </dl>
-      ) : null}
-      {row.warnings.map((warning) => (
-        <p
-          key={`${warning.check}:${warning.subject}`}
-          className="text-xs [overflow-wrap:anywhere] text-amber-300"
-        >
-          {warning.message}
-        </p>
-      ))}
-    </section>
-  );
-}
 
 /**
  * One Attack Routine's editor (approved prototype's routine editor): a
  * panel on the right from 768px, a bottom sheet below. Every change saves
  * at once, field by field, with its acknowledgement beside it; there is no
- * Save step and closing discards nothing. Keyed by the routine's identity.
+ * Save step and closing discards nothing. Below the main weapon come the
+ * off hand and the details of each weapon end in use. Keyed by the
+ * routine's identity.
  */
 export function AttackRoutineEditor({
   row,
@@ -160,12 +84,14 @@ export function AttackRoutineEditor({
   const weaponLabelId = useId();
   const handsLabelId = useId();
   const modeLabelId = useId();
+  const detailsLabelId = useId();
   const editor = useAttackRoutineForm({
     value: {
       name: row.name,
       weaponEntryId: row.weaponEntryId,
       hands: row.hands,
       mode: row.mode,
+      offHand: row.offHand ?? null,
     },
     save: (patch) => attacks.edit(row.entryId, patch),
     operationId: attacks.operationId,
@@ -179,14 +105,37 @@ export function AttackRoutineEditor({
   const weapon = attacks.weapons.find(
     (candidate) => candidate.entryId === values.weaponEntryId,
   );
-  const weaponWarning = row.warnings.find((warning) =>
-    [
-      'missingAttackWeapon',
-      'inactiveAttackWeapon',
-      'invalidAttackWeapon',
-      'unavailableAttackWeapon',
-    ].includes(warning.check),
+  const weaponWarning = row.warnings.find(
+    (warning) =>
+      warning.subject === row.entryId &&
+      [
+        'missingAttackWeapon',
+        'inactiveAttackWeapon',
+        'invalidAttackWeapon',
+        'unavailableAttackWeapon',
+      ].includes(warning.check),
   );
+  const offHand = values.offHand ?? null;
+  const offHandWeapon =
+    offHand?.kind === 'weapon'
+      ? attacks.weapons.find(
+          (candidate) => candidate.entryId === offHand.weaponEntryId,
+        )
+      : undefined;
+  // Each Gear weapon's ends once: the main weapon's, then a separate off hand's.
+  const ends = [
+    ...(weapon
+      ? [
+          { weapon, end: 'primary' as WeaponEnd },
+          ...(weapon.weapon.otherEnd
+            ? [{ weapon, end: 'otherEnd' as WeaponEnd }]
+            : []),
+        ]
+      : []),
+    ...(offHandWeapon && offHandWeapon.entryId !== weapon?.entryId
+      ? [{ weapon: offHandWeapon, end: 'primary' as WeaponEnd }]
+      : []),
+  ];
   const isLightInTwoHands =
     weapon?.weapon.handedness === 'light' && values.hands === 'two';
 
@@ -199,7 +148,7 @@ export function AttackRoutineEditor({
   }
   function feedback(field: Field, label: string) {
     return (
-      <FieldFeedback
+      <AttackFieldFeedback
         status={editor.statusFor(field)}
         label={label}
         isDisabled={isReadOnly}
@@ -434,7 +383,41 @@ export function AttackRoutineEditor({
                   </FormItem>
                 )}
               />
-              <Preview row={row} />
+              <AttackRoutineOffHandField
+                row={row}
+                attacks={attacks}
+                editor={editor}
+                mainWeaponEntryId={values.weaponEntryId}
+                offHand={offHand}
+                isReadOnly={isReadOnly}
+                describedBy={describedBy}
+              />
+              {ends.length > 0 ? (
+                <section
+                  aria-labelledby={detailsLabelId}
+                  className="border-foreground/15 space-y-3 border-t pt-3"
+                >
+                  <div>
+                    <h3 id={detailsLabelId} className={fieldLabel}>
+                      Weapon details
+                    </h3>
+                    <p className={hint}>
+                      Shared by every routine that uses the weapon.
+                    </p>
+                  </div>
+                  {ends.map(({ weapon: gear, end }) => (
+                    <AttackWeaponEndEditor
+                      key={`${gear.entryId}:${end}`}
+                      weapon={gear}
+                      end={end}
+                      attacks={attacks}
+                      isReadOnly={isReadOnly}
+                      describedBy={describedBy}
+                    />
+                  ))}
+                </section>
+              ) : null}
+              <AttackRoutinePreview row={row} />
               <MaintenanceReason
                 id={reasonId}
                 notice={maintenance}

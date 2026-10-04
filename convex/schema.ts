@@ -16,6 +16,10 @@ import {
 } from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
 import {
+  weaponEnds,
+  attackHands,
+} from '../src/lib/character-sheet-attack-types';
+import {
   catalogReleaseManifestValidator,
   catalogReleaseRowValidator,
 } from '../src/lib/catalog/release-validators';
@@ -418,6 +422,14 @@ export const sheetEntryDetailValidator = v.union(
           ),
         ),
         strengthRating: v.optional(v.number()),
+        otherEnd: v.optional(
+          v.object({
+            dice: v.string(),
+            threat: v.number(),
+            mult: v.number(),
+            damageTypes: v.optional(v.array(v.string())),
+          }),
+        ),
       }),
     ),
     armor: v.optional(
@@ -606,6 +618,23 @@ export const attackRoutineModeValidator = v.union(
   v.literal('ranged'),
   v.literal('thrown'),
 );
+export const weaponEndValidator = v.union(
+  ...weaponEnds.map((end) => v.literal(end)),
+);
+export const attackHandValidator = v.union(
+  ...attackHands.map((hand) => v.literal(hand)),
+);
+export const attackRoutineOffHandValidator = v.union(
+  v.object({
+    kind: v.literal('weapon'),
+    weaponEntryId: v.id('characterSheetEntry'),
+    mode: attackRoutineModeValidator,
+  }),
+  v.object({
+    kind: v.literal('otherEnd'),
+    mode: attackRoutineModeValidator,
+  }),
+);
 export const characterSheetEntryValidator = v.union(
   v.object({
     characterId: v.id('character'),
@@ -617,6 +646,7 @@ export const characterSheetEntryValidator = v.union(
       weaponEntryId: v.id('characterSheetEntry'),
       hands: attackRoutineHandsValidator,
       mode: attackRoutineModeValidator,
+      offHand: v.optional(attackRoutineOffHandValidator),
       revision: v.optional(v.number()),
     }),
   }),
@@ -750,6 +780,13 @@ export const characterSheetEntryValidator = v.union(
       masterwork: v.optional(v.boolean()),
       enhancement: v.optional(v.number()),
       material: v.optional(v.union(v.string(), v.null())),
+      otherEnd: v.optional(
+        v.object({
+          masterwork: v.optional(v.boolean()),
+          enhancement: v.optional(v.number()),
+          material: v.optional(v.union(v.string(), v.null())),
+        }),
+      ),
     }),
   }),
   v.object({

@@ -13,6 +13,7 @@ import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
 import {
   buildSheet,
   emptyOwnerCandidates,
+  findCalculatedWarning,
   representativeWeapon,
 } from './character-sheet-test-fixture';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
@@ -418,4 +419,103 @@ test('maintenance disables writes with its reason while breakdowns stay usable',
   });
   fireEvent.click(attack);
   expect(attack).toHaveAttribute('aria-expanded', 'true');
+});
+
+const dagger = representativeWeapon('dagger', 'dagger');
+const hammer = representativeWeapon('gnome-hooked-hammer', 'hammer');
+const damages = (list: HTMLElement) =>
+  within(list)
+    .getAllByRole('button', { name: /: damage / })
+    .map((button) => button.getAttribute('aria-label'));
+
+test('two weapons and a double weapon’s ends attack in order with their own damage and critical; the single attack stays one-handed', () => {
+  renderSheet(
+    sheet({
+      sheetEntries: [sword, dagger, hammer],
+      attackRoutines: [
+        {
+          ...strike,
+          offHand: { kind: 'weapon', weaponEntryId: 'dagger', mode: 'melee' },
+        },
+        {
+          id: 'whirl',
+          name: 'Hammer whirl',
+          weaponEntryId: 'hammer',
+          hands: 'two',
+          offHand: { kind: 'otherEnd', mode: 'melee' },
+        },
+      ],
+    }),
+  );
+  const swords = card('Sword strike');
+  expect(swords).toHaveTextContent(
+    'Longsword · One hand · Melee · Off hand: Dagger',
+  );
+  const single = within(swords).getByRole('list', { name: 'Single attack' });
+  expect(within(single).getAllByRole('listitem')).toHaveLength(1);
+  expect(within(single).queryByText('Off hand')).toBe(null);
+  expect(
+    damages(within(swords).getByRole('list', { name: 'Full attack' })),
+  ).toEqual([
+    expect.stringMatching(
+      /^Sword strike full attack 1 of 2, main hand: damage 1d8/,
+    ),
+    expect.stringMatching(
+      /^Sword strike full attack 2 of 2, off hand: damage 1d4/,
+    ),
+  ]);
+
+  const whirl = card('Hammer whirl');
+  expect(whirl).toHaveTextContent('Off hand: Other end');
+  const full = within(whirl).getByRole('list', { name: 'Full attack' });
+  expect(damages(full)).toEqual([
+    expect.stringMatching(
+      /^Hammer whirl full attack 1 of 2, main hand: damage 1d8/,
+    ),
+    expect.stringMatching(
+      /^Hammer whirl full attack 2 of 2, off hand, other end: damage 1d6/,
+    ),
+  ]);
+  expect(within(full).getByText('Other end')).toBeVisible();
+  expect(
+    within(full)
+      .getAllByRole('button', { name: /: critical multiplier / })
+      .map((button) => button.textContent),
+  ).toEqual(['×3', '×4']);
+  expect(
+    damages(within(whirl).getByRole('list', { name: 'Single attack' })),
+  ).toEqual([expect.stringMatching(/^Hammer whirl single attack: damage 1d8/)]);
+});
+
+test('an off hand’s accepted warning stays its own, apart from the same check on a main weapon', () => {
+  const input = {
+    sheetEntries: [sword, { ...dagger, active: false }],
+    attackRoutines: [
+      {
+        ...strike,
+        offHand: {
+          kind: 'weapon' as const,
+          weaponEntryId: 'dagger',
+          mode: 'melee' as const,
+        },
+      },
+      { id: 'stab', name: 'Dagger stab', weaponEntryId: 'dagger' },
+    ],
+  };
+  const unaccepted = sheet(input);
+  renderSheet(
+    sheet({
+      ...input,
+      accepted: [
+        findCalculatedWarning(unaccepted, 'inactiveAttackWeapon', 'strike:off'),
+      ],
+    }),
+  );
+  const swords = card('Sword strike');
+  expect(swords).toHaveTextContent(/Off hand: .*switched off/);
+  expect(within(swords).getByText('Accepted')).toBeVisible();
+  expect(within(swords).getByRole('button', { name: 'Reopen' })).toBeVisible();
+  const stab = card('Dagger stab');
+  expect(within(stab).queryByText('Accepted')).toBe(null);
+  expect(within(stab).getByRole('button', { name: 'Accept' })).toBeVisible();
 });

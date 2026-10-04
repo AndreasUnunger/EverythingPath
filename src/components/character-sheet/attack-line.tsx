@@ -1,5 +1,6 @@
 'use client';
 import { formatCriticalRange } from '~/lib/character-sheet-attacks';
+import { cn } from '~/lib/utils';
 import { formatSigned } from './equipment-statistics';
 import { chip, fieldLabel } from './sheet-parts';
 import { StatBreakdown } from './stat-breakdown';
@@ -40,24 +41,34 @@ function DamageDice({ damage }: { damage: Line['damage'] }) {
  * the full attack, the weapon, and the attack bonus, damage, critical
  * threat and multiplier, and range increment as numbers that explain
  * themselves. Damage reads as dice plus its bonus, in the line and in its
- * breakdown, with the dice credited to their weapon.
+ * breakdown, with the dice credited to their weapon. In a two-weapon full
+ * attack each line names its hand, and a double weapon's second end says so.
  */
 export function AttackLine({
   line,
   routineName,
   sequence,
   count,
+  isHandShown = line.hand === 'off',
 }: {
   line: Line;
   routineName: string;
   sequence: 'single' | 'full';
   count: number;
+  /** Names the hand (and end) the attack is made with: two-weapon sequences. */
+  isHandShown?: boolean;
 }) {
   const which =
     sequence === 'single'
       ? 'single attack'
       : `full attack ${line.position} of ${count}`;
-  const name = `${routineName} ${which}`;
+  const hand = isHandShown
+    ? [line.handLabel, line.endLabel]
+        .filter((label) => label !== null)
+        .join(', ')
+        .toLowerCase()
+    : null;
+  const name = `${routineName} ${which}${hand ? `, ${hand}` : ''}`;
   const formatDamage = (bonus: number) =>
     `${line.damage.dice}${bonus === 0 ? '' : formatSigned(bonus)}`;
   return (
@@ -74,6 +85,12 @@ export function AttackLine({
         <span className="min-w-0 [overflow-wrap:anywhere]">
           {line.weaponName}
         </span>
+        {isHandShown ? (
+          <span className={cn(chip, line.hand === 'off' && 'text-primary')}>
+            {line.handLabel}
+          </span>
+        ) : null}
+        {line.endLabel ? <span className={chip}>{line.endLabel}</span> : null}
         {line.mode === 'melee' ? null : (
           <span className={chip}>
             {line.mode === 'thrown' ? 'Thrown' : 'Ranged'}

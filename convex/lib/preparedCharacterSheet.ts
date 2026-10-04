@@ -321,18 +321,20 @@ async function readCharacterSheetDataWithBudget(
     readClassDefinition(classId);
   for (const entry of entries) {
     if (entry.kind === 'attackRoutine') {
-      let weapon = entries.find((row) => row._id === entry.state.weaponEntryId);
-      if (!weapon) {
-        readBudget.accountReference(entry.state.weaponEntryId);
-        weapon =
-          (await ctx.db.get(
-            'characterSheetEntry',
-            entry.state.weaponEntryId,
-          )) ?? undefined;
-        readBudget.accountRead(weapon ?? null);
+      const weaponIds = [entry.state.weaponEntryId];
+      if (entry.state.offHand?.kind === 'weapon')
+        weaponIds.push(entry.state.offHand.weaponEntryId);
+      for (const weaponId of weaponIds) {
+        let weapon = entries.find((row) => row._id === weaponId);
+        if (!weapon) {
+          readBudget.accountReference(weaponId);
+          weapon =
+            (await ctx.db.get('characterSheetEntry', weaponId)) ?? undefined;
+          readBudget.accountRead(weapon ?? null);
+        }
+        if (weapon && weapon.characterId !== character._id)
+          throw new ConvexError('Weapon does not belong to this Character');
       }
-      if (weapon && weapon.characterId !== character._id)
-        throw new ConvexError('Weapon does not belong to this Character');
       continue;
     }
     if (

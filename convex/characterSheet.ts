@@ -79,6 +79,9 @@ import schema, {
   attackRoutineHandsValidator,
   attackRoutineModeValidator,
   prerequisiteValidator,
+  attackRoutineOffHandValidator,
+  attackHandValidator,
+  weaponEndValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -270,6 +273,8 @@ function attackLineValidator() {
   return v.object({
     weaponEntryId: v.string(),
     weaponName: v.string(),
+    hand: attackHandValidator,
+    end: weaponEndValidator,
     mode: attackRoutineModeValidator,
     damageDice: v.string(),
     damageType: v.string(),
@@ -323,6 +328,8 @@ const calculatedValidator = v.object({
       weaponEntryId: v.string(),
       hands: attackRoutineHandsValidator,
       mode: attackRoutineModeValidator,
+      offHand: v.optional(attackRoutineOffHandValidator),
+      twoWeaponPenaltySummary: v.union(v.string(), v.null()),
       single: v.array(attackLineValidator()),
       full: v.array(attackLineValidator()),
       warnings: v.array(zodOutputToConvex(characterSheetWarningSchema)),
@@ -633,6 +640,21 @@ export const read = query({
       initialSupportingEntryKeys: _initialSupportingEntryKeys,
       ...result
     } = sheet;
+    const persistedRoutines = (
+      routines: typeof result.calculated.attackRoutines,
+    ) =>
+      routines.map((routine) => {
+        const { offHand, ...fields } = routine;
+        if (!offHand || offHand.kind === 'otherEnd')
+          return { ...fields, ...(offHand ? { offHand } : {}) };
+        const weaponEntryId = ctx.db.normalizeId(
+          'characterSheetEntry',
+          offHand.weaponEntryId,
+        );
+        if (!weaponEntryId)
+          throw new ConvexError('Off-hand weapon reference is invalid');
+        return { ...fields, offHand: { ...offHand, weaponEntryId } };
+      });
     const owners = await readCharacterOwners(
       ctx,
       [sheet.character],
@@ -640,6 +662,16 @@ export const read = query({
     );
     return {
       ...result,
+      calculated: {
+        ...result.calculated,
+        attackRoutines: persistedRoutines(result.calculated.attackRoutines),
+      },
+      permanentCalculated: {
+        ...result.permanentCalculated,
+        attackRoutines: persistedRoutines(
+          result.permanentCalculated.attackRoutines,
+        ),
+      },
       owner: sheet.character.ownerId
         ? (owners.get(sheet.character.ownerId) ?? null)
         : null,
@@ -723,6 +755,7 @@ async function insertAttackRoutine(
     weaponEntryId: Id<'characterSheetEntry'>;
     hands: Infer<typeof attackRoutineHandsValidator>;
     mode: Infer<typeof attackRoutineModeValidator>;
+    offHand?: Infer<typeof attackRoutineOffHandValidator>;
   },
 ) {
   if (sheet.entries.length >= maxCharacterChildRows)
@@ -742,7 +775,25 @@ const attackRoutineFields = {
   name: v.optional(v.string()),
   hands: v.optional(attackRoutineHandsValidator),
   mode: v.optional(attackRoutineModeValidator),
+  offHand: v.optional(v.union(attackRoutineOffHandValidator, v.null())),
 };
+function requireRoutineOffHand(
+  sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
+  offHand: Infer<typeof attackRoutineOffHandValidator> | null | undefined,
+  retainedOffHand?: Infer<typeof attackRoutineOffHandValidator>,
+) {
+  if (offHand?.kind !== 'weapon') return;
+  const retainedMissingWeapon =
+    retainedOffHand?.kind === 'weapon' &&
+    offHand.weaponEntryId === retainedOffHand.weaponEntryId &&
+    !sheet.entries.some((row) => row._id === offHand.weaponEntryId);
+  if (retainedMissingWeapon) return;
+  getRoutineWeapon(
+    sheet,
+    offHand.weaponEntryId,
+    'Off-hand weapon does not belong to this Character',
+  );
+}
 function requireRoutineName(name: string) {
   if (!name.trim()) throw new ConvexError('Attack Routine name is required');
   if (name.trim().length > 256)
@@ -752,6 +803,7 @@ function requireRoutineName(name: string) {
 function getRoutineWeapon(
   sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
   weaponEntryId: Id<'characterSheetEntry'>,
+  message = 'Weapon does not belong to this Character',
 ) {
   const weapon = sheet.entries.find((row) => row._id === weaponEntryId);
   const definition =
@@ -759,7 +811,7 @@ function getRoutineWeapon(
       ? sheet.catalogEntries.find((row) => row._id === weapon.catalogEntryId)
       : undefined;
   if (definition?.detail.kind !== 'item' || !definition.detail.weapon)
-    throw new ConvexError('Weapon does not belong to this Character');
+    throw new ConvexError(message);
   return { name: definition.name, detail: definition.detail.weapon };
 }
 function getAttackRoutine(
@@ -781,12 +833,14 @@ export const createAttackRoutine = campaignMutation({
   async handler(ctx, args) {
     const sheet = await loadWritableRoutineSheet(ctx, args);
     const weapon = getRoutineWeapon(sheet, args.weaponEntryId);
+    requireRoutineOffHand(sheet, args.offHand);
     const entryId = await insertAttackRoutine(ctx, sheet, {
       name: requireRoutineName(args.name ?? weapon.name),
       weaponEntryId: args.weaponEntryId,
       ...defaultAttackRoutineConfiguration(weapon.detail),
       ...(args.hands !== undefined ? { hands: args.hands } : {}),
       ...(args.mode !== undefined ? { mode: args.mode } : {}),
+      ...(args.offHand ? { offHand: args.offHand } : {}),
     });
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,
@@ -806,6 +860,7 @@ export const editAttackRoutine = campaignMutation({
     const sheet = await loadWritableRoutineSheet(ctx, args);
     const entry = getAttackRoutine(sheet, args.entryId);
     if (!entry.active) throw new ConvexError('Attack Routine was deleted');
+    requireRoutineOffHand(sheet, args.offHand, entry.state.offHand);
     const replacement =
       args.weaponEntryId !== undefined &&
       args.weaponEntryId !== entry.state.weaponEntryId
@@ -821,10 +876,12 @@ export const editAttackRoutine = campaignMutation({
         : {}),
       ...(args.hands !== undefined ? { hands: args.hands } : {}),
       ...(args.mode !== undefined ? { mode: args.mode } : {}),
+      ...(args.offHand ? { offHand: args.offHand } : {}),
       ...(args.weaponEntryId !== undefined
         ? { weaponEntryId: args.weaponEntryId }
         : {}),
     };
+    if (args.offHand === null) delete state.offHand;
     if (compareValues(state, entry.state) === 0)
       return entry.state.revision ?? 0;
     state.revision = (entry.state.revision ?? 0) + 1;
@@ -1760,13 +1817,13 @@ export function validateSheetEntryDetail(
       detail.weapon.rangeIncrement,
       detail.weapon.thrownRangeIncrement,
       detail.weapon.strengthRating,
+      detail.weapon.otherEnd?.threat,
+      detail.weapon.otherEnd?.mult,
     ])
       if (value !== undefined) requireFiniteNumber(value);
-    if (
-      detail.weapon.dice !== undefined &&
-      !/^[1-9]\d*d[1-9]\d*$/.test(detail.weapon.dice.trim())
-    )
-      throw new ConvexError('Enter weapon damage dice such as 1d8');
+    for (const dice of [detail.weapon.dice, detail.weapon.otherEnd?.dice])
+      if (dice !== undefined && !/^[1-9]\d*d[1-9]\d*$/.test(dice.trim()))
+        throw new ConvexError('Enter weapon damage dice such as 1d8');
   }
   if (detail.kind === 'item' && detail.armor) {
     requireFiniteNumber(detail.armor.armorCheckPenalty);
@@ -3410,6 +3467,7 @@ export const editEquipment = campaignMutation({
     masterwork: v.optional(v.boolean()),
     enhancement: v.optional(v.number()),
     material: v.optional(v.union(v.string(), v.null())),
+    end: v.optional(weaponEndValidator),
   },
   returns: v.null(),
   async handler(ctx, args) {
@@ -3432,16 +3490,22 @@ export const editEquipment = campaignMutation({
     const definition = sheet.catalogEntries.find(
       (row) => row._id === catalogEntryId,
     );
-    if (definition?.detail.kind !== 'item' || !definition.detail.armor)
-      throw new ConvexError('Choose armor or a shield');
+    if (
+      definition?.detail.kind !== 'item' ||
+      (!definition.detail.armor && !definition.detail.weapon)
+    )
+      throw new ConvexError('Choose a weapon, armor or a shield');
+    if (args.end === 'otherEnd' && !definition.detail.weapon?.otherEnd)
+      throw new ConvexError(
+        'Choose a double weapon with an available other end',
+      );
     const previous = sheet.entries.find(
       (row) => row._id === (resolved?.storedEntryId ?? args.entryId),
     );
     if (args.enhancement !== undefined)
       requireSafeWholeNumber(args.enhancement, 'Enhancement');
     const normalizedMaterial = args.material?.trim();
-    const state = {
-      ...entry.state,
+    const enchantment = {
       ...(args.masterwork !== undefined ? { masterwork: args.masterwork } : {}),
       ...(args.enhancement !== undefined
         ? { enhancement: args.enhancement }
@@ -3453,6 +3517,13 @@ export const editEquipment = campaignMutation({
           }
         : {}),
     };
+    const state =
+      args.end === 'otherEnd'
+        ? {
+            ...entry.state,
+            otherEnd: { ...entry.state.otherEnd, ...enchantment },
+          }
+        : { ...entry.state, ...enchantment };
     const active = args.active ?? entry.active;
     if (active === entry.active && compareValues(state, entry.state) === 0)
       return null;

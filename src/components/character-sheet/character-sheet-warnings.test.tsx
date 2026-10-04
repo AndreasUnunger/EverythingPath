@@ -1,3 +1,4 @@
+import { calculateFixtureSheet as calculateCharacterSheet } from './character-sheet-test-fixture';
 import {
   act,
   fireEvent,
@@ -14,7 +15,6 @@ import type { MigrationMaintenance } from '~/components/use-initial-migration-ma
 import {
   abilityKeys,
   abilityTargets,
-  calculateCharacterSheet,
   defaultAbilityScores,
   defaultCreationSettings,
   type AbilityScores,

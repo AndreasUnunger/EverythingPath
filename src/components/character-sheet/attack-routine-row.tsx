@@ -35,6 +35,7 @@ function AttackList({
   sequence: 'single' | 'full';
 }) {
   const id = useId();
+  const hasOffHand = lines.some((line) => line.hand === 'off');
   return (
     <div>
       <p id={id} className={fieldLabel}>
@@ -48,6 +49,7 @@ function AttackList({
             routineName={row.name}
             sequence={sequence}
             count={lines.length}
+            isHandShown={hasOffHand}
           />
         ))}
       </ol>
@@ -57,8 +59,9 @@ function AttackList({
 
 /**
  * One saved Attack Routine (approved prototype's routine card): its name,
- * weapon and how it is held, Edit and Remove, its warnings, then its single
- * attack and its full attack in order. A routine whose weapon is gone keeps
+ * weapon and how it is held, its off hand, Edit and Remove, its warnings,
+ * then its single attack and its full attack in order, the off hand's
+ * attacks after the main hand's. A routine whose weapon is gone keeps
  * its card with the warning and a way to choose another weapon, and shows
  * no attacks.
  */
@@ -86,10 +89,19 @@ export function AttackRoutineRow({
     (candidate) => candidate.entryId === row.weaponEntryId,
   );
   const hasAttacks = row.singleView.length > 0;
+  const offHandReference = row.offHand;
+  const offHand = offHandReference
+    ? offHandReference.kind === 'otherEnd'
+      ? 'Other end'
+      : (attacks.weapons.find(
+          (candidate) => candidate.entryId === offHandReference.weaponEntryId,
+        )?.label ?? 'No weapon')
+    : null;
   const facts = [
     weapon?.label ?? 'No weapon',
     handsLabels[row.hands],
     modeLabels[row.mode],
+    ...(offHand ? [`Off hand: ${offHand}`] : []),
   ].join(' · ');
 
   async function remove() {

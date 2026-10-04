@@ -1,10 +1,13 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import type { Id } from '@convex/_generated/dataModel';
 import { act, renderHook } from '@testing-library/react';
 import { getFunctionName } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
-import { buildSheet } from './character-sheet-test-fixture';
+
 import { useCharacterSheetSpells } from './use-character-sheet-spells';
 
 const writes = vi.hoisted(() => ({ record: vi.fn(), remove: vi.fn() }));

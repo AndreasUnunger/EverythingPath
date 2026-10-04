@@ -1,3 +1,7 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import { useClassLevelChoicesForm } from './use-sheet-forms';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { convexTest } from 'convex-test';
@@ -7,11 +11,10 @@ import schema from '@convex/schema';
 import {
   defaultAbilityScores,
   defaultCreationSettings,
-  calculateCharacterSheet,
 } from '~/lib/character-sheet';
 import { useCharacterRecord } from '../character-manager/use-character-record';
 import { useCreateCharacterSheet } from './use-create-character-sheet';
-import { buildSheet } from './character-sheet-test-fixture';
+
 import {
   useCharacterSheet,
   type CharacterSheetSnapshot,
@@ -244,9 +247,7 @@ test('the race picker selects the available shared race while its statistics cop
         : entry,
     ),
   };
-  catalogChoices = [
-    { ...original, scope: 'global', characterId: undefined },
-  ];
+  catalogChoices = [{ ...original, scope: 'global', characterId: undefined }];
   const view = renderHook(() =>
     useCharacterSheet({ characterId: initial.character._id }),
   );

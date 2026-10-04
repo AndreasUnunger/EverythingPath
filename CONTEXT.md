@@ -182,6 +182,15 @@ _Avoid_: note (alone), immunity record
 A named way a Character attacks, kept on its sheet: the weapon and whether it is held in two hands or one, an optional off-hand weapon, its natural attacks, and the Routine Options switched on. It shows the single attack and the full attack in order. Each weapon added to Gear brings one.
 _Avoid_: attack set, action
 
+**Double weapon**:
+A weapon whose two ends can supply the main and off-hand attacks in one Attack Routine. Each end has its own weapon statistics and recorded item properties.
+
+**Other end**:
+The second end of a Double weapon, selected as the Off hand in place of a separate Gear weapon. It counts as light for two-weapon penalties.
+
+**Off hand**:
+The optional second weapon or Other end used by an Attack Routine's full attack. Its attacks follow the main weapon's attacks; it contributes no attacks or two-weapon penalties to the single attack.
+
 **Routine Option**:
 A feat or class feature an Attack Routine can switch on, such as Power Attack or flurry of blows, changing only that routine's attacks. Its effects on anything else, such as Combat Expertise's bonus to AC, count as a Situation named after it.
 _Avoid_: toggle, attack mode

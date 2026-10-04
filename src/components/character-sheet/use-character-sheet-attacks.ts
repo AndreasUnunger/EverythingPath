@@ -3,14 +3,17 @@
 import { api } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
+import type { AttackWeaponEnd } from '~/lib/character-sheet-attack-types';
 import { defaultAttackRoutineConfiguration } from '~/lib/character-sheet-attacks';
 import { createCharacterSheetOperationId } from '~/lib/character-sheet-operations';
 import type { CharacterScope } from './character-scope';
 import type { AttackRoutineValues } from './use-attack-routine-form';
+import type { EquipmentValues } from './use-equipment-form';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 import { useEntryWriteStatus } from './use-character-sheet-entries';
 import {
   listAttackRoutineRows,
+  listAttackRoutineOffHands,
   listAttackRoutineWeapons,
   listAttackWeaponCatalog,
 } from './attack-routine-view-model';
@@ -25,6 +28,7 @@ export function useCharacterSheetAttacks(
   const deleteRoutine = useMutation(api.characterSheet.deleteAttackRoutine);
   const restoreRoutine = useMutation(api.characterSheet.restoreAttackRoutine);
   const selectEntry = useMutation(api.characterSheet.selectEntry);
+  const editEquipment = useMutation(api.characterSheet.editEquipment);
   const scopeKey = JSON.stringify(scope);
   const recorded =
     snapshot?.entries.filter((entry) => entry.kind === 'attackRoutine') ?? [];
@@ -67,7 +71,7 @@ export function useCharacterSheetAttacks(
   }
   async function edit(entryId: string, patch: Partial<AttackRoutineValues>) {
     const entry = getRoutine(entryId);
-    const { weaponEntryId, ...fields } = patch;
+    const { weaponEntryId, offHand, ...fields } = patch;
     const choice =
       weaponEntryId === undefined ? null : getWeapon(weaponEntryId);
     const defaults = choice
@@ -78,15 +82,46 @@ export function useCharacterSheetAttacks(
       entryId: entry._id,
       ...(defaults ? { hands: defaults.hands, mode: defaults.mode } : {}),
       ...fields,
+      ...(offHand === undefined
+        ? {}
+        : {
+            offHand:
+              offHand === null
+                ? null
+                : offHand.kind === 'otherEnd'
+                  ? offHand
+                  : {
+                      ...offHand,
+                      weaponEntryId: getOffHandReference(offHand.weaponEntryId),
+                    },
+          }),
       ...(weaponEntryId === undefined
         ? {}
         : { weaponEntryId: choice?.entryId }),
     });
+
+    function getOffHandReference(reference: string) {
+      const retained =
+        entry.state.offHand?.kind === 'weapon'
+          ? entry.state.offHand.weaponEntryId
+          : undefined;
+      if (retained === reference) return retained;
+      const choice = snapshot?.entries.find(
+        (candidate) => candidate._id === reference,
+      );
+      if (choice?.kind !== 'item')
+        throw new Error(
+          'This off-hand weapon is no longer available. Choose another weapon.',
+        );
+      return choice._id;
+    }
   }
   return {
     rows,
     weapons,
     weaponCatalog,
+    offHandChoices: (mainWeaponEntryId: string) =>
+      listAttackRoutineOffHands(weapons, mainWeaponEntryId),
     canCreate: weapons.length > 0,
     statusFor: state.statusFor,
     hasRemoteChange: state.hasRemoteChange,
@@ -110,6 +145,17 @@ export function useCharacterSheetAttacks(
         { key: `weapon:${catalogEntryId}`, subject: 'Weapon' },
       ),
     edit,
+    saveWeaponEnd: (
+      weaponEntryId: string,
+      end: AttackWeaponEnd,
+      patch: EquipmentValues,
+    ) =>
+      editEquipment({
+        ...getOperation(),
+        entryId: getWeapon(weaponEntryId).entryId,
+        end,
+        ...patch,
+      }),
     create: async (weaponEntryId: string) => {
       const created: {
         entryId: Awaited<ReturnType<typeof createRoutine>> | null;

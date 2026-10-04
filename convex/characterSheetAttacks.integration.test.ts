@@ -93,6 +93,289 @@ test('adding a weapon creates a named shared routine without adding one for armo
   ]);
 });
 
+test('members save, replace and clear an off-hand choice without overwriting other routine changes', async () => {
+  const { owner, member, scope, weapon } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const routine = initial?.entries.find((row) => row.kind === 'attackRoutine');
+  const dagger = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'dagger',
+  );
+  if (!routine || !dagger) throw new Error('Missing routine or dagger');
+  const offWeapon = await member.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: dagger._id,
+    operationId: 'off-weapon',
+  });
+  await member.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    offHand: { kind: 'weapon', weaponEntryId: offWeapon, mode: 'thrown' },
+    operationId: 'off-hand',
+  });
+  await owner.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    name: 'Sword and dagger',
+    operationId: 'rename-off-hand',
+  });
+  expect(
+    (await member.query(api.characterSheet.read, scope))?.entries.find(
+      (row) => row._id === routine._id,
+    ),
+  ).toMatchObject({
+    state: {
+      weaponEntryId: weapon,
+      name: 'Sword and dagger',
+      offHand: { kind: 'weapon', weaponEntryId: offWeapon, mode: 'thrown' },
+      revision: 2,
+    },
+  });
+  await owner.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    offHand: { kind: 'weapon', weaponEntryId: offWeapon, mode: 'melee' },
+    operationId: 'latest-off-hand',
+  });
+  await member.mutation(api.characterSheet.deleteAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    operationId: 'delete-off-hand',
+  });
+  await owner.mutation(api.characterSheet.restoreAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    operationId: 'undo-off-hand',
+  });
+  expect(
+    (await member.query(api.characterSheet.read, scope))?.entries.find(
+      (row) => row._id === routine._id,
+    ),
+  ).toMatchObject({
+    active: true,
+    state: {
+      offHand: { kind: 'weapon', weaponEntryId: offWeapon, mode: 'melee' },
+      revision: 5,
+    },
+  });
+  await member.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    offHand: null,
+    operationId: 'clear-off-hand',
+  });
+  const cleared = (
+    await owner.query(api.characterSheet.read, scope)
+  )?.entries.find((row) => row._id === routine._id);
+  expect(cleared?.state).not.toHaveProperty('offHand');
+  expect(cleared).toMatchObject({
+    state: { name: 'Sword and dagger', revision: 6 },
+  });
+});
+
+test('members retain independent enchantment and material state on both ends of a double weapon', async () => {
+  const { owner, member, scope } = await fixture();
+  // CRB pp. 143, 147: hammer/hook are 1d8/×3 and 1d6/×4. Str 18 is
+  // +6 for one end in two hands, or +4/+2 when using both ends.
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    scores: { strength: 18 },
+    operationId: 'double-weapon-strength',
+  });
+  const weapon = await member.mutation(api.characterSheet.createSheetEntry, {
+    ...scope,
+    name: 'Gnome hooked hammer',
+    modifiers: [],
+    detail: {
+      kind: 'item',
+      consumable: false,
+      weapon: {
+        baseType: 'gnome hooked hammer',
+        proficiency: 'exotic',
+        handedness: 'twoHanded',
+        attackType: 'melee',
+        dice: '1d8',
+        threat: 20,
+        mult: 3,
+        otherEnd: { dice: '1d6', threat: 20, mult: 4 },
+      },
+    },
+    operationId: 'double-weapon',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const routine = initial?.entries.find(
+    (row) => row.kind === 'attackRoutine' && row.state.weaponEntryId === weapon,
+  );
+  if (!routine) throw new Error('Missing double-weapon routine');
+  await member.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    offHand: { kind: 'otherEnd', mode: 'melee' },
+    operationId: 'use-both-ends',
+  });
+  await owner.mutation(api.characterSheet.editEquipment, {
+    ...scope,
+    entryId: weapon,
+    enhancement: 2,
+    material: 'silver',
+    operationId: 'primary-enchantment',
+  });
+  await member.mutation(api.characterSheet.editEquipment, {
+    ...scope,
+    entryId: weapon,
+    end: 'otherEnd',
+    masterwork: true,
+    material: 'cold iron',
+    operationId: 'off-enchantment',
+  });
+  await owner.mutation(api.characterSheet.editEquipment, {
+    ...scope,
+    entryId: weapon,
+    end: 'otherEnd',
+    enhancement: 1,
+    operationId: 'off-enhancement',
+  });
+  await member.mutation(api.characterSheet.editEquipment, {
+    ...scope,
+    entryId: weapon,
+    material: null,
+    operationId: 'clear-primary-material',
+  });
+  const saved = await owner.query(api.characterSheet.read, scope);
+  expect(saved?.entries.find((row) => row._id === weapon)).toMatchObject({
+    state: {
+      enhancement: 2,
+      material: null,
+      otherEnd: { masterwork: true, enhancement: 1, material: 'cold iron' },
+    },
+  });
+  expect(saved?.entries.find((row) => row._id === routine._id)).toMatchObject({
+    state: {
+      hands: 'two',
+      offHand: { kind: 'otherEnd', mode: 'melee' },
+    },
+  });
+  expect(
+    saved?.calculated.attackRoutines.find((row) => row.entryId === routine._id),
+  ).toMatchObject({
+    single: [
+      {
+        hand: 'main',
+        end: 'primary',
+        damageDice: '1d8',
+        damageBonus: { total: 8 },
+        criticalMultiplier: { total: 3 },
+      },
+    ],
+    full: [
+      {
+        hand: 'main',
+        end: 'primary',
+        damageDice: '1d8',
+        damageBonus: { total: 6 },
+        criticalMultiplier: { total: 3 },
+      },
+      {
+        hand: 'off',
+        end: 'otherEnd',
+        damageDice: '1d6',
+        damageBonus: { total: 3 },
+        criticalMultiplier: { total: 4 },
+      },
+    ],
+  });
+});
+
+test('public feat selections drive the shared off-hand chain and switching Double Slice off restores half Strength', async () => {
+  // CRB Table 8–7: light off hand with TWF is −2/−2. Improved/Greater
+  // add −5/−10 off-hand attacks; Double Slice applies the full +4 Str.
+  const { owner, member, scope } = await fixture();
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    ...scope,
+    scores: { strength: 18, dexterity: 19 },
+    operationId: 'dual-wielder-scores',
+  });
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const sword = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'longsword',
+  );
+  const dagger = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'dagger',
+  );
+  if (!sword || !dagger) throw new Error('Missing representative weapons');
+  const mainId = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: sword._id,
+    operationId: 'feat-main-weapon',
+  });
+  const offId = await member.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: dagger._id,
+    operationId: 'feat-off-weapon',
+  });
+  const featIds = new Map<string, typeof mainId>();
+  let position = 0;
+  for (const identity of [
+    'two-weapon-fighting',
+    'improved-two-weapon-fighting',
+    'greater-two-weapon-fighting',
+    'double-slice',
+  ]) {
+    const feat = initial?.catalogEntries.find(
+      (row) => row.ruleIdentity === identity,
+    );
+    if (!feat) throw new Error(`Missing representative feat: ${identity}`);
+    featIds.set(
+      identity,
+      await member.mutation(api.characterSheet.fillSelectionSlot, {
+        ...scope,
+        slotId: 'feat:general',
+        position: position++,
+        catalogEntryId: feat._id,
+        operationId: identity,
+      }),
+    );
+  }
+  const selected = await owner.query(api.characterSheet.read, scope);
+  const routine = selected?.entries.find(
+    (row) => row.kind === 'attackRoutine' && row.state.weaponEntryId === mainId,
+  );
+  if (!routine) throw new Error('Missing selected routine');
+  await owner.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId: routine._id,
+    offHand: { kind: 'weapon', weaponEntryId: offId, mode: 'melee' },
+    operationId: 'feat-off-hand',
+  });
+  const dual = (
+    await member.query(api.characterSheet.read, scope)
+  )?.calculated.attackRoutines.find((row) => row.entryId === routine._id);
+  expect(dual?.single).toMatchObject([
+    { hand: 'main', attackBonus: { total: 0 }, damageBonus: { total: 4 } },
+  ]);
+  expect(dual?.full).toMatchObject([
+    { hand: 'main', attackBonus: { total: -2 }, damageBonus: { total: 4 } },
+    { hand: 'off', attackBonus: { total: -2 }, damageBonus: { total: 4 } },
+    { hand: 'off', attackBonus: { total: -7 }, damageBonus: { total: 4 } },
+    { hand: 'off', attackBonus: { total: -12 }, damageBonus: { total: 4 } },
+  ]);
+  const doubleSlice = featIds.get('double-slice');
+  if (!doubleSlice) throw new Error('Missing selected Double Slice');
+  await member.mutation(api.characterSheet.editSelection, {
+    ...scope,
+    entryId: doubleSlice,
+    active: false,
+    operationId: 'switch-off-double-slice',
+  });
+  const without = (
+    await owner.query(api.characterSheet.read, scope)
+  )?.calculated.attackRoutines.find((row) => row.entryId === routine._id);
+  expect(
+    without?.full
+      .filter((line) => line.hand === 'off')
+      .map((line) => line.damageBonus.total),
+  ).toEqual([2, 2, 2]);
+});
+
 test('representative Base Items can be selected and create routines with natural hands and computed lines', async () => {
   // CRB Tables 6–4 and 8–1: greatsword 2d6, 19–20/×2; Str 18 is +4,
   // two hands gives +6 damage. Without martial proficiency attack takes −4.
@@ -193,6 +476,9 @@ test.each(['global', 'campaign'] as const)(
 test('Customize and Detach keep an Attack Routine attached to its Gear row and use the copied weapon statistics', async () => {
   const { t, owner, member, scope } = await fixture();
   const catalog = await owner.query(api.characterSheet.read, scope);
+  const dagger = catalog?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'dagger',
+  );
   const longsword = catalog?.catalogEntries.find(
     (row) =>
       row.ruleIdentity === 'longsword' &&
@@ -212,6 +498,21 @@ test('Customize and Detach keep an Attack Routine attached to its Gear row and u
   );
   if (item?.kind !== 'item' || !routine)
     throw new Error('Missing weapon routine');
+  if (!dagger) throw new Error('Missing dagger');
+  const mainWeapon = await member.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: dagger._id,
+    operationId: 'copy-test-main-weapon',
+  });
+  const offRoutine = await member.mutation(
+    api.characterSheet.createAttackRoutine,
+    {
+      ...scope,
+      weaponEntryId: mainWeapon,
+      offHand: { kind: 'weapon', weaponEntryId: weapon, mode: 'melee' },
+      operationId: 'copy-test-off-hand',
+    },
+  );
   expect(routine.single).toMatchObject([
     { weaponName: 'Longsword', damageDice: '1d8' },
   ]);
@@ -239,6 +540,25 @@ test('Customize and Detach keep an Attack Routine attached to its Gear row and u
   expect(customized?.entries.find((row) => row._id === weapon)).toMatchObject({
     catalogEntryId: campaignCopyId,
   });
+  expect(
+    customized?.entries.find((row) => row._id === offRoutine),
+  ).toMatchObject({
+    state: {
+      offHand: { kind: 'weapon', weaponEntryId: weapon, mode: 'melee' },
+    },
+  });
+  expect(
+    customized?.calculated.attackRoutines.find(
+      (row) => row.entryId === offRoutine,
+    )?.full,
+  ).toContainEqual(
+    expect.objectContaining({
+      hand: 'off',
+      weaponEntryId: weapon,
+      weaponName: 'Campaign longsword',
+      damageDice: '1d8',
+    }),
+  );
   expect(
     customized?.calculated.attackRoutines.find(
       (row) => row.entryId === routine.entryId,
@@ -272,6 +592,22 @@ test('Customize and Detach keep an Attack Routine attached to its Gear row and u
   expect(saved?.entries.find((row) => row._id === weapon)).toMatchObject({
     catalogEntryId: privateCopyId,
   });
+  expect(saved?.entries.find((row) => row._id === offRoutine)).toMatchObject({
+    state: {
+      offHand: { kind: 'weapon', weaponEntryId: weapon, mode: 'melee' },
+    },
+  });
+  expect(
+    saved?.calculated.attackRoutines.find((row) => row.entryId === offRoutine)
+      ?.full,
+  ).toContainEqual(
+    expect.objectContaining({
+      hand: 'off',
+      weaponEntryId: weapon,
+      weaponName: 'Private longsword',
+      damageDice: '2d8',
+    }),
+  );
   expect(
     saved?.calculated.attackRoutines.find(
       (row) => row.entryId === routine.entryId,
@@ -298,6 +634,7 @@ test('all routine writers enforce membership, private ownership and legacy write
         caller.mutation(api.characterSheet.createAttackRoutine, {
           ...scope,
           weaponEntryId: weapon,
+          offHand: { kind: 'otherEnd', mode: 'melee' },
           writeEpoch,
           operationId: 'create',
         }),
@@ -306,6 +643,7 @@ test('all routine writers enforce membership, private ownership and legacy write
           ...scope,
           entryId: routine._id,
           name: 'Edited',
+          offHand: { kind: 'otherEnd', mode: 'melee' },
           writeEpoch,
           operationId: 'edit',
         }),
@@ -322,6 +660,15 @@ test('all routine writers enforce membership, private ownership and legacy write
           entryId: routine._id,
           writeEpoch,
           operationId: 'undo',
+        }),
+      () =>
+        caller.mutation(api.characterSheet.editEquipment, {
+          ...scope,
+          entryId: weapon,
+          end: 'otherEnd',
+          enhancement: 1,
+          writeEpoch,
+          operationId: 'edit-off-end',
         }),
     ];
     for (const caller of privateCharacter
@@ -808,6 +1155,21 @@ test('weapon edits block nonfinite statistics and malformed dice while allowing 
       rangeIncrement: Number.NEGATIVE_INFINITY,
     },
     { baseType: 'longsword', proficiency: 'martial' as const, dice: 'sword' },
+    {
+      baseType: 'longsword',
+      proficiency: 'martial' as const,
+      otherEnd: { dice: '1d6', threat: Number.NaN, mult: 2 },
+    },
+    {
+      baseType: 'longsword',
+      proficiency: 'martial' as const,
+      otherEnd: { dice: '1d6', threat: 20, mult: Number.POSITIVE_INFINITY },
+    },
+    {
+      baseType: 'longsword',
+      proficiency: 'martial' as const,
+      otherEnd: { dice: 'hammer', threat: 20, mult: 2 },
+    },
   ]) {
     await expect(
       owner.mutation(api.characterSheet.editSheetEntry, {
@@ -856,4 +1218,331 @@ test('sheet reads reject a retained routine linked to another Character while al
   await expect(
     owner.query(api.characterSheet.read, { ...scope, characterId: otherId }),
   ).rejects.toThrow('Weapon does not belong');
+});
+
+test('off-hand writes and retained reads refuse another Character’s sheet rows', async () => {
+  const { t, owner, member, scope, weapon } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const routine = initial?.entries.find((row) => row.kind === 'attackRoutine');
+  if (routine?.kind !== 'attackRoutine') throw new Error('Missing routine');
+  const otherId = await owner.mutation(api.characterSheet.create, {
+    organizationId: scope.organizationId,
+    campaignId: scope.campaignId,
+    name: 'Other off-hand wielder',
+    kind: 'pc',
+    operationId: 'other-off-hand-character',
+  });
+  const other = await owner.query(api.characterSheet.read, {
+    ...scope,
+    characterId: otherId,
+  });
+  const foreignRow = other?.entries.find((row) => row.kind === 'base');
+  if (!foreignRow) throw new Error('Missing foreign row');
+  for (const command of [
+    () =>
+      member.mutation(api.characterSheet.createAttackRoutine, {
+        ...scope,
+        weaponEntryId: weapon,
+        offHand: {
+          kind: 'weapon',
+          weaponEntryId: foreignRow._id,
+          mode: 'melee',
+        },
+        operationId: 'foreign-off-hand-create',
+      }),
+    () =>
+      member.mutation(api.characterSheet.editAttackRoutine, {
+        ...scope,
+        entryId: routine._id,
+        offHand: {
+          kind: 'weapon',
+          weaponEntryId: foreignRow._id,
+          mode: 'melee',
+        },
+        operationId: 'foreign-off-hand-edit',
+      }),
+  ])
+    await expect(command()).rejects.toThrow('Off-hand weapon does not belong');
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(initial);
+  await t.run((ctx) =>
+    ctx.db.patch('characterSheetEntry', routine._id, {
+      state: {
+        ...routine.state,
+        offHand: {
+          kind: 'weapon',
+          weaponEntryId: foreignRow._id,
+          mode: 'melee',
+        },
+      },
+    }),
+  );
+  await expect(member.query(api.characterSheet.read, scope)).rejects.toThrow(
+    'Weapon does not belong',
+  );
+});
+
+test('off-hand writers block same-Character references to entries without a weapon', async () => {
+  const { owner, member, scope, weapon } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const routine = initial?.entries.find((row) => row.kind === 'attackRoutine');
+  const base = initial?.entries.find((row) => row.kind === 'base');
+  if (!routine || !base) throw new Error('Missing routine or base');
+  const feat = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'two-weapon-fighting',
+  );
+  if (!feat) throw new Error('Missing feat');
+  const selectedFeat = await owner.mutation(
+    api.characterSheet.fillSelectionSlot,
+    {
+      ...scope,
+      slotId: 'feat:general',
+      position: 0,
+      catalogEntryId: feat._id,
+      operationId: 'nonweapon-feat',
+    },
+  );
+  const nonWeapons = [base._id, routine._id, selectedFeat];
+  for (const detail of [
+    { kind: 'spell', school: 'evocation' },
+    { kind: 'item', consumable: false },
+  ] as const) {
+    nonWeapons.push(
+      await owner.mutation(api.characterSheet.createSheetEntry, {
+        ...scope,
+        name: `Not a weapon: ${detail.kind}`,
+        detail,
+        modifiers: [],
+        operationId: `nonweapon-${detail.kind}`,
+      }),
+    );
+  }
+  const before = await owner.query(api.characterSheet.read, scope);
+  for (const weaponEntryId of nonWeapons) {
+    const offHand = { kind: 'weapon', weaponEntryId, mode: 'melee' } as const;
+    await expect(
+      member.mutation(api.characterSheet.createAttackRoutine, {
+        ...scope,
+        weaponEntryId: weapon,
+        offHand,
+        operationId: 'reject-nonweapon-create',
+      }),
+    ).rejects.toThrow('Off-hand weapon does not belong');
+    await expect(
+      owner.mutation(api.characterSheet.editAttackRoutine, {
+        ...scope,
+        entryId: routine._id,
+        offHand,
+        operationId: 'reject-nonweapon-edit',
+      }),
+    ).rejects.toThrow('Off-hand weapon does not belong');
+  }
+  expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
+});
+
+test('same-Character invalid off-hand choices remain saveable and repairable with advisory warnings', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const dagger = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'dagger',
+  );
+  const base = initial?.entries.find((row) => row.kind === 'base');
+  if (!dagger || !base) throw new Error('Missing dagger or base');
+  const weapon = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: dagger._id,
+    operationId: 'advisory-main',
+  });
+  for (const offHand of [
+    { kind: 'weapon', weaponEntryId: weapon, mode: 'melee' },
+    { kind: 'otherEnd', mode: 'melee' },
+  ] as const) {
+    const entryId = await member.mutation(
+      api.characterSheet.createAttackRoutine,
+      {
+        ...scope,
+        weaponEntryId: weapon,
+        offHand,
+        operationId: `advisory-${offHand.kind}`,
+      },
+    );
+    const shared = await owner.query(api.characterSheet.read, scope);
+    const routine = shared?.calculated.attackRoutines.find(
+      (row) => row.entryId === entryId,
+    );
+    expect(shared?.entries.find((row) => row._id === entryId)).toMatchObject({
+      state: { offHand },
+    });
+    expect(routine?.warnings.length).toBeGreaterThan(0);
+    expect(routine?.full).toHaveLength(1);
+    await owner.mutation(api.characterSheet.editAttackRoutine, {
+      ...scope,
+      entryId,
+      offHand: null,
+      operationId: `repair-${offHand.kind}`,
+    });
+    expect(
+      (await member.query(api.characterSheet.read, scope))?.entries.find(
+        (row) => row._id === entryId,
+      )?.state,
+    ).not.toHaveProperty('offHand');
+  }
+});
+
+test('an off-hand weapon leaving Gear preserves editable choices and its warning acceptance lifecycle', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const dagger = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'dagger',
+  );
+  const sword = initial?.catalogEntries.find(
+    (row) => row.ruleIdentity === 'longsword',
+  );
+  if (!dagger || !sword) throw new Error('Missing weapons');
+  const main = await member.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: dagger._id,
+    operationId: 'missing-off-main',
+  });
+  const off = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: sword._id,
+    operationId: 'missing-off-weapon',
+  });
+  const entryId = await owner.mutation(api.characterSheet.createAttackRoutine, {
+    ...scope,
+    weaponEntryId: main,
+    offHand: { kind: 'weapon', weaponEntryId: off, mode: 'melee' },
+    operationId: 'missing-off-routine',
+  });
+  await member.mutation(api.characterSheet.removeSheetEntry, {
+    ...scope,
+    entryId: off,
+    operationId: 'remove-off-weapon',
+  });
+  await owner.mutation(api.characterSheet.editAttackRoutine, {
+    ...scope,
+    entryId,
+    offHand: { kind: 'weapon', weaponEntryId: off, mode: 'thrown' },
+    operationId: 'edit-missing-off-mode',
+  });
+  const missing = await member.query(api.characterSheet.read, scope);
+  const warning = missing?.calculated.attackRoutines
+    .find((row) => row.entryId === entryId)
+    ?.warnings.find((row) => row.check === 'missingAttackWeapon');
+  if (!warning) throw new Error('Missing off-hand warning');
+  await owner.mutation(api.characterSheet.acceptWarning, {
+    ...scope,
+    check: warning.check,
+    subject: warning.subject,
+    fingerprint: warning.fingerprint,
+    operationId: 'accept-missing-off',
+  });
+  await member.mutation(api.characterSheet.deleteAttackRoutine, {
+    ...scope,
+    entryId,
+    operationId: 'delete-missing-off',
+  });
+  expect(
+    (await owner.query(api.characterSheet.read, scope))?.acceptedWarnings.some(
+      (row) => row.subject === warning.subject,
+    ),
+  ).toBe(false);
+  await owner.mutation(api.characterSheet.restoreAttackRoutine, {
+    ...scope,
+    entryId,
+    operationId: 'undo-missing-off',
+  });
+  const restored = await member.query(api.characterSheet.read, scope);
+  expect(restored?.entries.find((row) => row._id === entryId)).toMatchObject({
+    state: { offHand: { kind: 'weapon', weaponEntryId: off, mode: 'thrown' } },
+  });
+  expect(
+    restored?.calculated.attackRoutines.find((row) => row.entryId === entryId)
+      ?.warnings,
+  ).toContainEqual(expect.objectContaining({ check: 'missingAttackWeapon' }));
+});
+
+test('accepted off-hand warnings survive an unavailable main weapon and unrelated writes', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const sword = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'longsword',
+  );
+  const dagger = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'dagger',
+  );
+  if (!sword || !dagger) throw new Error('Missing weapons');
+  for (const disposition of ['inactive', 'missing'] as const) {
+    const main = await owner.mutation(api.characterSheet.selectEntry, {
+      ...scope,
+      catalogEntryId: sword._id,
+      operationId: `main-${disposition}`,
+    });
+    const off = await member.mutation(api.characterSheet.selectEntry, {
+      ...scope,
+      catalogEntryId: dagger._id,
+      operationId: `off-${disposition}`,
+    });
+    const entryId = await owner.mutation(
+      api.characterSheet.createAttackRoutine,
+      {
+        ...scope,
+        weaponEntryId: main,
+        name: `Paired strikes ${disposition}`,
+        offHand: { kind: 'weapon', weaponEntryId: off, mode: 'melee' },
+        operationId: `paired-${disposition}`,
+      },
+    );
+    const disable = (weaponEntryId: typeof main) =>
+      disposition === 'inactive'
+        ? member.mutation(api.characterSheet.editEquipment, {
+            ...scope,
+            entryId: weaponEntryId,
+            active: false,
+            operationId: `disable-${weaponEntryId}`,
+          })
+        : member.mutation(api.characterSheet.removeSheetEntry, {
+            ...scope,
+            entryId: weaponEntryId,
+            operationId: `remove-${weaponEntryId}`,
+          });
+    await disable(off);
+    const before = await owner.query(api.characterSheet.read, scope);
+    const warning = before?.calculated.attackRoutines
+      .find((routine) => routine.entryId === entryId)
+      ?.warnings.find((row) => row.subject === `${entryId}:off`);
+    if (!warning) throw new Error('Missing off-hand warning');
+    if (disposition === 'inactive') {
+      expect(warning.message).toContain('Dagger is switched off');
+      expect(warning.message).toContain('Off-hand attacks are skipped');
+      expect(warning.message).not.toContain('Paired strikes');
+    }
+    await owner.mutation(api.characterSheet.acceptWarning, {
+      ...scope,
+      check: warning.check,
+      subject: warning.subject,
+      fingerprint: warning.fingerprint,
+      operationId: `accept-${disposition}`,
+    });
+    await disable(main);
+    await member.mutation(api.characterSheet.editAttackRoutine, {
+      ...scope,
+      entryId,
+      name: `Renamed strikes ${disposition}`,
+      operationId: `rename-${disposition}`,
+    });
+    const after = await owner.query(api.characterSheet.read, scope);
+    expect(
+      after?.calculated.attackRoutines.find(
+        (routine) => routine.entryId === entryId,
+      ),
+    ).toMatchObject({ single: [], full: [] });
+    expect(after?.acceptedWarnings).toContainEqual(
+      expect.objectContaining({
+        check: warning.check,
+        subject: warning.subject,
+        fingerprint: warning.fingerprint,
+      }),
+    );
+  }
 });

@@ -176,7 +176,7 @@ test('the retained prior and current calculation identities both use candidate r
     resources: { castingTables: reviewedCastingTablesSchema.parse(tables) },
   };
   const prior =
-    'sha256:404dc533a4f5212248f8c8aa720de4115d85196b171e802d6d2cceff56aa9982';
+    'sha256:a0a094c701ddeb6123a372b6106ae32d22969bdf4a256c1bfaf2320c34d48bf0';
   for (const identity of [prior, catalogRuntimeCompatibility.calculation]) {
     expect(
       calculateCharacterSheetForRelease(identity, input).spellcastings[0]

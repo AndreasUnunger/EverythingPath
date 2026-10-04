@@ -1,6 +1,9 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import { expect, test } from 'vitest';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
-import { buildSheet } from './character-sheet-test-fixture';
+
 import {
   buildCharacterSheetRacesView,
   buildRaceStatisticsView,

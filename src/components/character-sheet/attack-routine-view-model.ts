@@ -5,6 +5,7 @@ import type {
 } from '~/lib/character-sheet-attacks';
 import type { SheetWarning } from '~/lib/character-sheet';
 import { formatCriticalRange } from '~/lib/character-sheet-attacks';
+import { defaultAttackRoutineConfiguration } from '~/lib/character-sheet-attacks';
 import type { CharacterSheetBreakdownTarget } from '~/lib/character-sheet-breakdowns';
 import { formatSigned } from './equipment-statistics';
 import type {
@@ -31,6 +32,10 @@ export function attackRoutineLineView({
   const damage = line.damageBonus.total;
   return {
     weaponName: line.weaponName,
+    hand: line.hand,
+    end: line.end,
+    handLabel: line.hand === 'off' ? 'Off hand' : 'Main hand',
+    endLabel: line.end === 'otherEnd' ? 'Other end' : null,
     mode: line.mode,
     position: sequence === 'single' ? null : attackIndex + 1,
     attack: {
@@ -133,6 +138,16 @@ export function listAttackRoutineWeapons(
         name: catalog.name,
         weapon: catalog.detail.weapon,
         active: entry.active,
+        primaryState: {
+          masterwork: entry.state.masterwork ?? false,
+          enhancement: entry.state.enhancement ?? 0,
+          material: entry.state.material ?? null,
+        },
+        otherEndState: {
+          masterwork: entry.state.otherEnd?.masterwork ?? false,
+          enhancement: entry.state.otherEnd?.enhancement ?? 0,
+          material: entry.state.otherEnd?.material ?? null,
+        },
       },
     ];
   });
@@ -151,6 +166,47 @@ export function listAttackRoutineWeapons(
           : weapon.name,
     };
   });
+}
+
+/** Offer Gear choices without rejecting a table's unusual hand configuration. */
+export function listAttackRoutineOffHands(
+  weapons: ReturnType<typeof listAttackRoutineWeapons>,
+  mainWeaponEntryId: string,
+) {
+  const main = weapons.find((weapon) => weapon.entryId === mainWeaponEntryId);
+  const choices = [
+    ...(main?.weapon.otherEnd
+      ? [
+          {
+            ...main,
+            choice: { kind: 'otherEnd' as const },
+            label: `Other end of ${main.label}`,
+            weapon: {
+              ...main.weapon,
+              ...main.weapon.otherEnd,
+              handedness: 'light' as const,
+            },
+          },
+        ]
+      : []),
+    ...weapons.map((weapon) => ({
+      ...weapon,
+      choice: { kind: 'weapon' as const, weaponEntryId: weapon.entryId },
+    })),
+  ];
+  return choices.map((choice) => ({
+    ...choice,
+    defaultMode: defaultAttackRoutineConfiguration(choice.weapon).mode,
+  }));
+}
+
+/** Radio values identify a choice without overloading a Gear entry ID. */
+export function attackOffHandChoiceValue(
+  choice: { kind: 'weapon'; weaponEntryId: string } | { kind: 'otherEnd' },
+) {
+  return choice.kind === 'otherEnd'
+    ? 'end:otherEnd'
+    : `weapon:${choice.weaponEntryId}`;
 }
 
 /** Weapon catalog choices exclude armor, whose bash has no default routine. */

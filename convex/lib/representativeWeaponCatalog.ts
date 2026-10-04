@@ -202,6 +202,33 @@ export const representativeWeaponCatalog = [
       },
     },
   },
+  {
+    name: 'Gnome hooked hammer',
+    ruleIdentity: 'gnome-hooked-hammer',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '143, 147' }],
+    modifiers: [],
+    detail: {
+      kind: 'item',
+      consumable: false,
+      weapon: {
+        baseType: 'gnome hooked hammer',
+        proficiency: 'exotic',
+        handedness: 'twoHanded',
+        attackType: 'melee',
+        dice: '1d8',
+        damageTypes: ['bludgeoning'],
+        threat: 20,
+        mult: 3,
+        strengthDamage: 'melee',
+        otherEnd: {
+          dice: '1d6',
+          damageTypes: ['piercing'],
+          threat: 20,
+          mult: 4,
+        },
+      },
+    },
+  },
 ] as const satisfies readonly (Omit<CharacterSheetCatalogEntry, '_id'> & {
   sources: readonly { book: string; pages: string }[];
 })[];

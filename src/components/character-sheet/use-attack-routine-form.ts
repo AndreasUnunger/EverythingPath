@@ -2,11 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState } from 'react';
+import type { FieldValues, Path, PathValue, Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { isOwnCharacterSheetOperation } from '~/lib/character-sheet-operations';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
 import type { SaveStatus } from './save-status';
 import { useSheetFormState } from './use-sheet-form-state';
+import type { EquipmentValues } from './use-equipment-form';
+import { equipmentFormSchema } from './equipment-form-schema';
 
 export const attackRoutineHandsSchema = z.enum(['one', 'two']);
 export const attackRoutineModeSchema = z.enum(['melee', 'ranged', 'thrown']);
@@ -18,9 +21,19 @@ const schema = z.object({
   weaponEntryId: z.string().min(1, 'Main weapon is required'),
   hands: attackRoutineHandsSchema,
   mode: attackRoutineModeSchema,
+  offHand: z
+    .discriminatedUnion('kind', [
+      z.object({
+        kind: z.literal('weapon'),
+        weaponEntryId: z.string().min(1, 'Off-hand weapon is required'),
+        mode: attackRoutineModeSchema,
+      }),
+      z.object({ kind: z.literal('otherEnd'), mode: attackRoutineModeSchema }),
+    ])
+    .nullable()
+    .optional(),
 });
 export type AttackRoutineValues = z.infer<typeof schema>;
-type Field = keyof AttackRoutineValues;
 
 /** Each valid field change is saved in order; refused and newer input stays local. */
 export function useAttackRoutineForm({
@@ -32,9 +45,90 @@ export function useAttackRoutineForm({
   save: (patch: Partial<AttackRoutineValues>) => Promise<unknown>;
   operationId?: string | null;
 }) {
+  const fields = useImmediateAttackFields({
+    value,
+    save,
+    operationId,
+    resolver: zodResolver(schema),
+    validatePatch: createPatchValidator(schema),
+  });
+  return {
+    ...fields,
+    change: (
+      field: keyof AttackRoutineValues,
+      next: AttackRoutineValues[keyof AttackRoutineValues],
+    ) => fields.change(field, next),
+  };
+}
+
+/** One end's magic state; saving a field never overwrites the other end. */
+export function useAttackWeaponEndForm({
+  value,
+  save,
+  operationId,
+}: {
+  value: EquipmentValues;
+  save: (patch: EquipmentValues) => Promise<unknown>;
+  operationId?: string | null;
+}) {
+  return useImmediateAttackFields({
+    value: {
+      masterwork: value.masterwork ?? false,
+      enhancement: String(value.enhancement ?? 0),
+      material: value.material ?? '',
+    },
+    resolver: zodResolver(equipmentFormSchema),
+    operationId,
+    save: (patch) =>
+      save({
+        ...(patch.masterwork === undefined
+          ? {}
+          : { masterwork: patch.masterwork }),
+        ...(patch.enhancement === undefined
+          ? {}
+          : { enhancement: Number(patch.enhancement) }),
+        ...(patch.material === undefined
+          ? {}
+          : { material: patch.material.trim() || null }),
+      }),
+    validatePatch: createPatchValidator(equipmentFormSchema),
+  });
+}
+
+function createPatchValidator<Shape extends z.ZodRawShape>(
+  schema: z.ZodObject<Shape>,
+) {
+  return (field: keyof Shape, submitted: unknown) => {
+    const parsed = z.safeParse(schema.shape[field] ?? z.never(), submitted);
+    const patch = schema.partial().safeParse({ [field]: submitted });
+    return parsed.success && patch.success
+      ? patch.data
+      : !parsed.success
+        ? (parsed.error.issues[0]?.message ?? 'Enter a valid value')
+        : 'Enter a valid value';
+  };
+}
+
+function useImmediateAttackFields<Values extends FieldValues>({
+  value,
+  save,
+  operationId,
+  resolver,
+  validatePatch,
+}: {
+  value: Values;
+  save: (patch: Partial<Values>) => Promise<unknown>;
+  operationId?: string | null;
+  resolver: Resolver<Values>;
+  validatePatch: (
+    field: keyof Values & Path<Values>,
+    submitted: unknown,
+  ) => Partial<Values> | string;
+}) {
+  type Field = keyof Values & Path<Values>;
   const state = useSheetFormState({
     incoming: value,
-    resolver: zodResolver(schema),
+    resolver,
     draftPolicy: 'fields',
     isOwnChange: isOwnCharacterSheetOperation(operationId),
   });
@@ -52,17 +146,14 @@ export function useAttackRoutineForm({
   function status(field: Field, next: SaveStatus) {
     setStatuses((previous) => ({ ...previous, [field]: next }));
   }
-  function persist(field: Field, submitted: AttackRoutineValues[Field]) {
+  function persist(field: Field, submitted: unknown) {
     const generation = (generations.current[field] ?? 0) + 1;
     generations.current[field] = generation;
-    const patch = schema.partial().safeParse({ [field]: submitted });
-    const parsed = schema.shape[field].safeParse(submitted);
-    if (!parsed.success || !patch.success) {
+    const patch = validatePatch(field, submitted);
+    if (typeof patch === 'string') {
       status(field, { kind: 'idle' });
       form.setError(field, {
-        message: !parsed.success
-          ? parsed.error.issues[0]?.message
-          : 'Enter a valid value',
+        message: patch,
       });
       return Promise.resolve(false);
     }
@@ -72,17 +163,17 @@ export function useAttackRoutineForm({
       const source = latest.current.source;
       state.expected.current = JSON.stringify({
         ...latest.current.source,
-        ...patch.data,
+        ...patch,
       });
       try {
-        await latest.current.save(patch.data);
+        await latest.current.save(patch);
         const current = form.getValues();
         form.reset(
           latest.current.source === source
             ? {
                 ...source,
                 ...form.formState.defaultValues,
-                ...patch.data,
+                ...patch,
               }
             : latest.current.source,
           { keepErrors: true },
@@ -110,7 +201,10 @@ export function useAttackRoutineForm({
   }
   return {
     form,
-    change: (field: Field, next: AttackRoutineValues[Field]) => {
+    change: <Name extends Field>(
+      field: Name,
+      next: PathValue<Values, Name>,
+    ) => {
       form.setValue(field, next, { shouldDirty: true });
       return persist(field, next);
     },

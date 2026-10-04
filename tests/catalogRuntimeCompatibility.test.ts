@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:a0a094c701ddeb6123a372b6106ae32d22969bdf4a256c1bfaf2320c34d48bf0';
+    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -59,6 +59,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-linked-input-evaluation.ts',
     'src/lib/catalog/calculation-dispatch.ts',
     'convex/lib/catalogReleaseCompatibility.ts',
+    'convex/lib/representativeSelectionCatalog.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -197,6 +198,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       '../../src/lib/catalog/calculation-dispatch',
       '../../src/lib/catalog/runtime-compatibility',
     ],
+    [],
   ];
   const exportsByFile: Record<string, string[]> = {
     'src/lib/character-sheet-linked-inputs.ts': [

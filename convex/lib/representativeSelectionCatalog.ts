@@ -3,6 +3,59 @@ import type { Doc } from '../_generated/dataModel';
 // Representative prepared-sheet choices; production still uses legacy authority.
 export const representativeSelectionCatalog = [
   {
+    name: 'Two-Weapon Fighting',
+    ruleIdentity: 'two-weapon-fighting',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '136' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+    prerequisites: [{ ability: 'dexterity', min: 15 }],
+    prerequisiteText: 'Dex 15.',
+  },
+  {
+    name: 'Improved Two-Weapon Fighting',
+    ruleIdentity: 'improved-two-weapon-fighting',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '127' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+    prerequisites: [
+      { ability: 'dexterity', min: 17 },
+      { feat: 'two-weapon-fighting' },
+      { bab: 6 },
+    ],
+    prerequisiteText: 'Dex 17, Two-Weapon Fighting, base attack bonus +6.',
+  },
+  {
+    name: 'Greater Two-Weapon Fighting',
+    ruleIdentity: 'greater-two-weapon-fighting',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '125' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+    prerequisites: [
+      { ability: 'dexterity', min: 19 },
+      { feat: 'improved-two-weapon-fighting' },
+      { feat: 'two-weapon-fighting' },
+      { bab: 11 },
+    ],
+    prerequisiteText:
+      'Dex 19, Improved Two-Weapon Fighting, Two-Weapon Fighting, base attack bonus +11.',
+  },
+  {
+    name: 'Double Slice',
+    ruleIdentity: 'double-slice',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '122' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+    prerequisites: [
+      { ability: 'dexterity', min: 15 },
+      { feat: 'two-weapon-fighting' },
+    ],
+    prerequisiteText: 'Dex 15, Two-Weapon Fighting.',
+  },
+  {
     name: 'Power Attack',
     ruleIdentity: 'power-attack',
     sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '131' }],

@@ -1,4 +1,10 @@
 import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+  characterId,
+  emptyOwnerCandidates,
+} from './character-sheet-test-fixture';
+import {
   act,
   fireEvent,
   render,
@@ -11,18 +17,14 @@ import type { Id } from '@convex/_generated/dataModel';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
+
 import { CharacterSheetGrants } from './character-sheet-grants';
 import type {
   GrantEntryView,
   GrantSectionView,
 } from './character-sheet-grants-view-model';
 import { CharacterSheetPage } from './character-sheet-page';
-import {
-  buildSheet,
-  characterId,
-  emptyOwnerCandidates,
-} from './character-sheet-test-fixture';
+
 import type { SaveStatus } from './save-status';
 import type {
   CharacterSheetSnapshot,

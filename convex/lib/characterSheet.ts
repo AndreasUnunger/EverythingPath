@@ -223,7 +223,14 @@ export async function initializeCharacterSheet(
         },
       },
     );
-  for (const definition of representativeWeaponCatalog)
+  for (const definition of representativeWeaponCatalog) {
+    const { otherEnd, ...primaryEnd } = {
+      ...definition.detail.weapon,
+      otherEnd:
+        'otherEnd' in definition.detail.weapon
+          ? definition.detail.weapon.otherEnd
+          : undefined,
+    };
     await ctx.db.insert('catalogEntry', {
       ...definition,
       sources: definition.sources.map((source) => ({ ...source })),
@@ -231,14 +238,23 @@ export async function initializeCharacterSheet(
       detail: {
         ...definition.detail,
         weapon: {
-          ...definition.detail.weapon,
-          damageTypes: [...definition.detail.weapon.damageTypes],
+          ...primaryEnd,
+          damageTypes: [...primaryEnd.damageTypes],
+          ...(otherEnd
+            ? {
+                otherEnd: {
+                  ...otherEnd,
+                  damageTypes: [...otherEnd.damageTypes],
+                },
+              }
+            : {}),
         },
       },
       characterId,
       scope: 'character',
       stacksWithItself: false,
     });
+  }
   const raceCatalogIds = new Map<string, Id<'catalogEntry'>>();
   for (const definition of representativeRaceCatalog) {
     const existing = selectionCatalogIds.get(definition.ruleIdentity);

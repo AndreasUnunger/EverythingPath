@@ -1,11 +1,14 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import { expect, test } from 'vitest';
-import { buildSheet } from './character-sheet-test-fixture';
+
 import {
   buildCharacterSheetSelectionsView,
   previewSelectionSlot,
   createSelectionSlotPreview,
 } from './character-sheet-selections-view-model';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
 import {
   createCatalogSheetEntryState,
   selectableCatalogSheetEntryKinds,

@@ -1,11 +1,13 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import type { Id } from '@convex/_generated/dataModel';
 import { expect, test } from 'vitest';
 import type { CharacterSheetInput } from '~/lib/character-sheet';
 import type { ResolvedSheetEntry } from '~/lib/character-sheet-grants';
 import { buildCharacterSheetGrantsView } from './character-sheet-grants-view-model';
 import { buildCharacterSheetView } from './character-sheet-view-model';
-import { buildSheet } from './character-sheet-test-fixture';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
 
 const catalogs: CharacterSheetInput['catalogEntries'] = [
   {

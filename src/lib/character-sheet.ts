@@ -161,6 +161,8 @@ export const warningChecks = [
   'inactiveAttackWeapon',
   'unavailableAttackWeapon',
   'invalidAttackWeapon',
+  'invalidAttackOffHand',
+  'unsuitableAttackOffHand',
   'unsuitableAttackHands',
   'unsuitableAttackMode',
   'attackWeaponUnresolved',
@@ -428,6 +430,12 @@ export type SheetCatalogEntryDetail =
           | 'crossbow'
           | 'sling';
         strengthRating?: number;
+        otherEnd?: {
+          dice: string;
+          threat: number;
+          mult: number;
+          damageTypes?: readonly string[];
+        };
       };
     }
   | CharacterSheetClassDetail

@@ -1,3 +1,10 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+  characterId,
+  emptyOwnerCandidates,
+  type Accepted,
+} from './character-sheet-test-fixture';
 import type { Id } from '@convex/_generated/dataModel';
 import {
   Children,
@@ -9,17 +16,11 @@ import {
 import { vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import {
-  calculateCharacterSheet,
   type CharacterSheetClassDetail,
   type CharacterSheetInput,
 } from '~/lib/character-sheet';
 import { findReviewedClassCasting } from '~/lib/character-sheet-casting-tables';
-import {
-  buildSheet,
-  characterId,
-  emptyOwnerCandidates,
-  type Accepted,
-} from './character-sheet-test-fixture';
+
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // The Spells page's component tests: a sheet read with casting classes,
@@ -205,11 +206,11 @@ export function buildSpellSheet({
     ...extraClasses.map(classCatalog),
     ...definitions.map(spellCatalog),
   ];
-  const input: CharacterSheetInput = {
+  const input = {
     entries,
     catalogEntries,
     characterKind: 'pc',
-  } as CharacterSheetInput;
+  } satisfies CharacterSheetInput;
   return {
     ...base,
     entries,

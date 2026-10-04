@@ -9,17 +9,30 @@ import {
   representativeWeapon,
   type AttackRoutineFixture,
 } from './character-sheet-test-fixture';
+import type * as StatBreakdownModule from './stat-breakdown';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // One routine's attack lines (#314): separate single and full attacks, each
 // number a breakdown of its own resolver statistic.
 
 let snapshot: CharacterSheetSnapshot | undefined;
+// Each number's breakdown address, by its accessible name.
+const targets = vi.hoisted(() => new Map<string, unknown>());
 const maintenance = vi.fn<() => MigrationMaintenance>();
 
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));
+vi.mock('./stat-breakdown', async (importOriginal) => {
+  const actual = await importOriginal<typeof StatBreakdownModule>();
+  return {
+    ...actual,
+    StatBreakdown: (props: Parameters<typeof actual.StatBreakdown>[0]) => {
+      targets.set(props.label, props.target);
+      return <actual.StatBreakdown {...props} />;
+    },
+  };
+});
 vi.mock('@convex/_generated/api', async () => {
   const { createCharacterSheetApiMock } =
     await import('./character-sheet-api-test-fixture');
@@ -33,6 +46,7 @@ vi.mock('convex/react', () => ({
 }));
 
 beforeEach(() => {
+  targets.clear();
   maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
 });
 
@@ -50,6 +64,7 @@ function fighter(level: number, routines: AttackRoutineFixture[]) {
     sheetEntries: [
       representativeWeapon('longsword', 'sword'),
       representativeWeapon('longbow', 'bow'),
+      representativeWeapon('dagger', 'dagger'),
     ],
     attackRoutines: routines,
   });
@@ -160,4 +175,60 @@ test('a ranged routine shows its range increment and its source', () => {
       name: 'Sword strike single attack: attack +3, breakdown',
     }),
   ).toBeVisible();
+});
+
+test('an off-hand line names its hand and opens breakdowns at its own place in the full attack', () => {
+  const card = renderAttacks(
+    fighter(6, [
+      {
+        ...strike,
+        offHand: { kind: 'weapon', weaponEntryId: 'dagger', mode: 'melee' },
+      },
+    ]),
+  );
+  const full = list(card, 'Full attack');
+  expect(numbers(full, 'attack')).toEqual([
+    expect.stringMatching(
+      /^Sword strike full attack 1 of 3, main hand: attack /,
+    ),
+    expect.stringMatching(
+      /^Sword strike full attack 2 of 3, main hand: attack /,
+    ),
+    expect.stringMatching(
+      /^Sword strike full attack 3 of 3, off hand: attack /,
+    ),
+  ]);
+  const off = within(full).getAllByRole('listitem')[2];
+  if (!off) throw new Error('Expected the off-hand line');
+  expect(within(off).getByText('Off hand')).toBeVisible();
+  expect(within(off).getByText('Dagger')).toBeVisible();
+  // The single attack is the main hand alone, without a hand to name.
+  expect(numbers(list(card, 'Single attack'), 'attack')).toEqual([
+    expect.stringMatching(/^Sword strike single attack: attack /),
+  ]);
+  expect(within(list(card, 'Single attack')).queryByText('Off hand')).toBe(
+    null,
+  );
+
+  const name = 'Sword strike full attack 3 of 3, off hand';
+  const damage = within(off).getByRole('button', {
+    name: /^Sword strike full attack 3 of 3, off hand: damage 1d4/,
+  });
+  for (const [statistic, label] of [
+    ['attackBonus', 'attack'],
+    ['damageBonus', 'damage'],
+    ['criticalThreat', 'critical threat'],
+    ['criticalMultiplier', 'critical multiplier'],
+  ] as const)
+    expect(targets.get(`${name}: ${label}`)).toEqual({
+      kind: 'attackRoutine',
+      entryId: 'strike',
+      sequence: 'full',
+      attackIndex: 2,
+      statistic,
+    });
+  fireEvent.click(damage);
+  expect(
+    screen.getByRole('group', { name: `${name}: damage breakdown` }),
+  ).toHaveTextContent(/Dagger\s*damage dice\s*1d4/);
 });

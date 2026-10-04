@@ -374,7 +374,7 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(134);
+    expect(sheet?.catalogEntries).toHaveLength(139);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -390,6 +390,7 @@ describe('internal fixture boundary', () => {
       'Bastard sword',
       'Composite longbow (+2 Strength)',
       'Dagger',
+      'Gnome hooked hammer',
       'Greatsword',
       'Light crossbow',
       'Longbow',
@@ -445,8 +446,18 @@ describe('internal fixture boundary', () => {
     ).toEqual([
       { name: 'Additional Traits', ruleIdentity: 'additional-traits' },
       { name: 'Cleave', ruleIdentity: 'cleave' },
+      { name: 'Double Slice', ruleIdentity: 'double-slice' },
+      {
+        name: 'Greater Two-Weapon Fighting',
+        ruleIdentity: 'greater-two-weapon-fighting',
+      },
+      {
+        name: 'Improved Two-Weapon Fighting',
+        ruleIdentity: 'improved-two-weapon-fighting',
+      },
       { name: 'Power Attack', ruleIdentity: 'power-attack' },
       { name: 'Skill Focus', ruleIdentity: 'skill-focus' },
+      { name: 'Two-Weapon Fighting', ruleIdentity: 'two-weapon-fighting' },
       { name: 'Weapon Focus', ruleIdentity: 'weapon-focus' },
     ]);
     for (const entry of sheet?.catalogEntries ?? []) {
@@ -548,7 +559,7 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
-    expect(sheet?.catalogEntries).toHaveLength(134);
+    expect(sheet?.catalogEntries).toHaveLength(139);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -567,7 +578,7 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 136, acceptedWarnings: 0 });
+    ).toEqual({ entries: 2, catalogEntries: 141, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

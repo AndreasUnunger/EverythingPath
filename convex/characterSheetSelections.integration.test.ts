@@ -1945,3 +1945,153 @@ test('recorded warning acceptance survives unrelated Selection removal and relin
   ).toBe(false);
   expect(after?.acceptedWarnings).toEqual([]);
 });
+
+test('seeded two-weapon feats fill ordinary slots with typed advisory prerequisites and remain reusable after clearing', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const expected = [
+    {
+      identity: 'two-weapon-fighting',
+      page: '136',
+      prerequisites: [{ ability: 'dexterity', min: 15 }],
+    },
+    {
+      identity: 'improved-two-weapon-fighting',
+      page: '127',
+      prerequisites: [
+        { ability: 'dexterity', min: 17 },
+        { feat: 'two-weapon-fighting' },
+        { bab: 6 },
+      ],
+    },
+    {
+      identity: 'greater-two-weapon-fighting',
+      page: '125',
+      prerequisites: [
+        { ability: 'dexterity', min: 19 },
+        { feat: 'improved-two-weapon-fighting' },
+        { feat: 'two-weapon-fighting' },
+        { bab: 11 },
+      ],
+    },
+    {
+      identity: 'double-slice',
+      page: '122',
+      prerequisites: [
+        { ability: 'dexterity', min: 15 },
+        { feat: 'two-weapon-fighting' },
+      ],
+    },
+  ];
+  for (const { identity, page, prerequisites } of expected) {
+    const definitions = initial?.catalogEntries.filter(
+      (row) => row.ruleIdentity === identity,
+    );
+    expect(definitions).toHaveLength(1);
+    const definition = definitions?.[0];
+    if (!definition) throw new Error(`Missing seeded ${identity}`);
+    expect(definition).toMatchObject({
+      detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+      sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: page }],
+      prerequisites,
+    });
+    const entryId = await member.mutation(
+      api.characterSheet.fillSelectionSlot,
+      {
+        ...scope,
+        slotId: 'feat:general',
+        position: 0,
+        catalogEntryId: definition._id,
+        operationId: `select-${identity}`,
+      },
+    );
+    const selected = await owner.query(api.characterSheet.read, scope);
+    expect(selected?.entries.find((row) => row._id === entryId)).toMatchObject({
+      active: true,
+      selectionSlot: { id: 'feat:general', position: 0 },
+      catalogEntryId: definition._id,
+    });
+    expect(
+      selected?.calculated.warnings.some(
+        (warning) =>
+          warning.check === 'prerequisites.current' &&
+          warning.subject.startsWith(`${entryId}:`),
+      ),
+    ).toBe(true);
+    await owner.mutation(api.characterSheet.clearSelectionSlot, {
+      ...scope,
+      entryId,
+      operationId: `clear-${identity}`,
+    });
+    expect(
+      (await member.query(api.characterSheet.read, scope))?.catalogEntries.some(
+        (row) => row._id === definition._id,
+      ),
+    ).toBe(true);
+  }
+});
+
+test('seeded Improved Two-Weapon Fighting checks its BAB +6 prerequisite at the recorded Class Level', async () => {
+  const { owner, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const fighter = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'fighter',
+  );
+  const improved = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'improved-two-weapon-fighting',
+  );
+  const first = initial?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!fighter || !improved || !first)
+    throw new Error('Missing Fighter, seeded feat or Class Level');
+  await owner.mutation(api.characterSheet.editClassLevel, {
+    ...scope,
+    entryId: first._id,
+    classEntryId: fighter._id,
+    operationId: 'fighter-1',
+  });
+  const levels = [first._id];
+  for (let position = 2; position <= 6; position += 1)
+    levels.push(
+      await owner.mutation(api.characterSheet.addClassLevel, {
+        ...scope,
+        classEntryId: fighter._id,
+        operationId: `fighter-${position}`,
+      }),
+    );
+  const feat = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: improved._id,
+    gainedAtClassLevel: first._id,
+    operationId: 'improved-two-weapon-fighting',
+  });
+  const babChecks = async () =>
+    Object.fromEntries(
+      (
+        (await owner.query(api.characterSheet.read, scope))?.calculated
+          .prerequisites ?? []
+      )
+        .filter(
+          (check) =>
+            check.entryId === feat &&
+            'bab' in check.clause &&
+            check.clause.bab === 6,
+        )
+        .map((check) => [check.view, check.met]),
+    );
+  expect(await babChecks()).toEqual({ current: true, recorded: false });
+  const warnings = (
+    await owner.query(api.characterSheet.read, scope)
+  )?.calculated.warnings.filter(
+    (warning) =>
+      warning.check === 'prerequisites.recordedLevel' &&
+      warning.subject.startsWith(feat),
+  );
+  expect(warnings?.length).toBeGreaterThan(0);
+  await owner.mutation(api.characterSheet.editSelection, {
+    ...scope,
+    entryId: feat,
+    gainedAtClassLevel: levels[5],
+    operationId: 'record-at-sixth',
+  });
+  expect(await babChecks()).toEqual({ current: true, recorded: true });
+});

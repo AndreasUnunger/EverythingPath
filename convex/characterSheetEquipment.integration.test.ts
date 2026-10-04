@@ -416,16 +416,15 @@ test('all equipment writers reject unauthorized callers, foreign rows, maintenan
   expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
 });
 
-test('equipment edits reject owned items without armor detail and preserve their state', async () => {
+test('equipment edits reject owned items without weapon or armor detail and preserve their state', async () => {
   const { owner, member, scope } = await fixture();
   const item = await owner.mutation(api.characterSheet.createSheetEntry, {
     ...scope,
-    name: 'Longsword',
+    name: 'Rope',
     modifiers: [],
     detail: {
       kind: 'item',
       consumable: false,
-      weapon: { baseType: 'longsword', proficiency: 'martial' },
     },
     operationId: 'weapon',
   });
@@ -438,7 +437,7 @@ test('equipment edits reject owned items without armor detail and preserve their
       active: false,
       operationId: 'invalid-equipment',
     }),
-  ).rejects.toThrow('Choose armor or a shield');
+  ).rejects.toThrow('Choose a weapon, armor or a shield');
   expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
 });
 
@@ -575,4 +574,29 @@ test('unsafe recorded-order edits are refused before they can block a later sele
       (row) => row._id === second,
     ),
   ).toMatchObject({ choiceOrder: 1 });
+});
+
+test('the other end requires an actual double weapon and cannot be added to ordinary equipment', async () => {
+  const { owner, member, scope } = await fixture();
+  const initial = await owner.query(api.characterSheet.read, scope);
+  const sword = initial?.catalogEntries.find(
+    (entry) => entry.ruleIdentity === 'longsword',
+  );
+  if (!sword) throw new Error('Missing longsword');
+  const weapon = await owner.mutation(api.characterSheet.selectEntry, {
+    ...scope,
+    catalogEntryId: sword._id,
+    operationId: 'ordinary-weapon',
+  });
+  const before = await member.query(api.characterSheet.read, scope);
+  await expect(
+    owner.mutation(api.characterSheet.editEquipment, {
+      ...scope,
+      entryId: weapon,
+      end: 'otherEnd',
+      enhancement: 1,
+      operationId: 'nonexistent-other-end',
+    }),
+  ).rejects.toThrow('other end');
+  expect(await member.query(api.characterSheet.read, scope)).toEqual(before);
 });

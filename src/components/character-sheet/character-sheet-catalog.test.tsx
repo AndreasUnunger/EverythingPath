@@ -1,4 +1,11 @@
 import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+  characterId,
+  type Adjustment,
+  type CatalogSheetEntry,
+} from './character-sheet-test-fixture';
+import {
   act,
   cleanup,
   fireEvent,
@@ -10,14 +17,9 @@ import {
 import { ConvexError } from 'convex/values';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
+
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
-import {
-  buildSheet,
-  characterId,
-  type Adjustment,
-  type CatalogSheetEntry,
-} from './character-sheet-test-fixture';
+
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Catalog Copies on the living sheet (#308): one-offs, Save to catalog,

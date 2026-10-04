@@ -1,9 +1,12 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import { act, renderHook } from '@testing-library/react';
 import { getFunctionName } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
-import { buildSheet } from './character-sheet-test-fixture';
+
 import { useCharacterSheetAttacks } from './use-character-sheet-attacks';
 
 const writes = vi.hoisted(() => ({
@@ -12,6 +15,7 @@ const writes = vi.hoisted(() => ({
   edit: vi.fn(),
   remove: vi.fn(),
   restore: vi.fn(),
+  equipment: vi.fn(),
 }));
 vi.mock('convex/react', () => ({
   useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
@@ -21,6 +25,7 @@ vi.mock('convex/react', () => ({
       'characterSheet:deleteAttackRoutine': writes.remove,
       'characterSheet:restoreAttackRoutine': writes.restore,
       'characterSheet:selectEntry': writes.select,
+      'characterSheet:editEquipment': writes.equipment,
     })[getFunctionName(reference)],
 }));
 beforeEach(() =>
@@ -124,6 +129,38 @@ test('routine rows expose resolver lines and save sequential edits with the late
     operationId: expect.any(String),
     entryId: 'routine',
     hands: 'two',
+  });
+});
+
+test('routine edits retain off-hand choices and weapon-end writes target only their selected end', async () => {
+  const snapshot = weaponSheet();
+  const view = renderHook(() =>
+    useCharacterSheetAttacks({ characterId: snapshot.character._id }, snapshot),
+  );
+  await view.result.current.edit('routine', {
+    offHand: { kind: 'otherEnd', mode: 'melee' },
+  });
+  expect(writes.edit).toHaveBeenLastCalledWith({
+    characterId: snapshot.character._id,
+    operationId: expect.any(String),
+    entryId: 'routine',
+    offHand: { kind: 'otherEnd', mode: 'melee' },
+  });
+  await view.result.current.edit('routine', { offHand: null });
+  expect(writes.edit.mock.lastCall?.[0]).toMatchObject({ offHand: null });
+  await view.result.current.saveWeaponEnd('sword', 'otherEnd', {
+    enhancement: 2,
+  });
+  expect(writes.equipment).toHaveBeenLastCalledWith({
+    characterId: snapshot.character._id,
+    operationId: expect.any(String),
+    entryId: 'sword',
+    end: 'otherEnd',
+    enhancement: 2,
+  });
+  expect(view.result.current.weapons[0]).toMatchObject({
+    primaryState: { masterwork: false, enhancement: 0, material: null },
+    otherEndState: { masterwork: false, enhancement: 0, material: null },
   });
 });
 

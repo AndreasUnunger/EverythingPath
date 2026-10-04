@@ -1,3 +1,10 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+  characterId,
+  emptyOwnerCandidates,
+  type Level,
+} from './character-sheet-test-fixture';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Id } from '@convex/_generated/dataModel';
 import { ConvexError } from 'convex/values';
@@ -5,14 +12,9 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { representativeArchetypeCatalog } from '@convex/lib/representativeArchetypeCatalog';
 import { representativeClassFeatureSchedules } from '@convex/lib/representativeClassCatalog';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
+
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
-import {
-  buildSheet,
-  characterId,
-  emptyOwnerCandidates,
-  type Level,
-} from './character-sheet-test-fixture';
+
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
 // Archetypes across a class (#305): cards per class that apply to every

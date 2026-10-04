@@ -45,7 +45,7 @@ function isCatalogSelection(entry: SheetEntry): entry is CatalogSelection {
 type RequirementStatus = 'met' | 'unmet' | 'none' | 'exempt' | null;
 
 function acceptedWarning(
-  snapshot: CharacterSheetSnapshot,
+  snapshot: Pick<CharacterSheetSnapshot, 'acceptedWarnings'>,
   warning: SheetWarning,
 ): SheetWarningView {
   return {
@@ -97,7 +97,7 @@ function selectionPrerequisiteText(
 }
 
 function entryChecks(
-  calculated: CharacterSheetSnapshot['calculated'],
+  calculated: Pick<CharacterSheetSnapshot['calculated'], 'prerequisites'>,
   entryId: string,
 ): PrerequisiteCheck[] {
   return calculated.prerequisites.filter((check) => check.entryId === entryId);
@@ -127,7 +127,15 @@ export function buildEntryPrerequisiteView({
   exempt = false,
   warnings: warningSource = snapshot.calculated.warnings,
 }: {
-  snapshot: CharacterSheetSnapshot;
+  snapshot: Pick<
+    CharacterSheetSnapshot,
+    'acceptedWarnings' | 'catalogEntries'
+  > & {
+    calculated: Pick<
+      CharacterSheetSnapshot['calculated'],
+      'prerequisites' | 'warnings'
+    >;
+  };
   entryId: string;
   recordedLevelPosition?: number | null;
   exempt?: boolean;

@@ -32,6 +32,88 @@ test('routine fields persist immediately and an empty name stays local with its 
   expect(save).toHaveBeenLastCalledWith({ name: 'Sword in two hands' });
 });
 
+test('off-hand weapon and double end choices save immediately, and None clears the choice', async () => {
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useAttackRoutineForm({ value, save }));
+  await act(async () => {
+    expect(
+      await view.result.current.change('offHand', {
+        kind: 'weapon',
+        weaponEntryId: 'dagger',
+        mode: 'thrown',
+      }),
+    ).toBe(true);
+  });
+  expect(save).toHaveBeenLastCalledWith({
+    offHand: { kind: 'weapon', weaponEntryId: 'dagger', mode: 'thrown' },
+  });
+  await act(async () => {
+    await view.result.current.change('offHand', {
+      kind: 'otherEnd',
+      mode: 'melee',
+    });
+  });
+  expect(save).toHaveBeenLastCalledWith({
+    offHand: { kind: 'otherEnd', mode: 'melee' },
+  });
+  await act(async () => {
+    await view.result.current.change('offHand', null);
+  });
+  expect(save).toHaveBeenLastCalledWith({ offHand: null });
+  expect(view.result.current.statusFor('offHand')).toEqual({ kind: 'saved' });
+});
+
+test('an off-hand weapon reference named otherEnd remains a weapon choice', async () => {
+  const save = vi.fn().mockResolvedValue(null);
+  const view = renderHook(() => useAttackRoutineForm({ value, save }));
+  await act(async () => {
+    await view.result.current.change('offHand', {
+      kind: 'weapon',
+      weaponEntryId: 'otherEnd',
+      mode: 'melee',
+    });
+  });
+  expect(save).toHaveBeenLastCalledWith({
+    offHand: { kind: 'weapon', weaponEntryId: 'otherEnd', mode: 'melee' },
+  });
+});
+
+test('a refused off-hand draft survives remote main-hand edits and retries independently', async () => {
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new ConvexError('Character is read only'))
+    .mockResolvedValue(null);
+  const incoming = { ...value, offHand: null };
+  const view = renderHook(
+    ({ value: next }) => useAttackRoutineForm({ value: next, save }),
+    { initialProps: { value: incoming } },
+  );
+  await act(async () => {
+    // Same weapon in both hands is unsuitable, but remains a table choice.
+    expect(
+      await view.result.current.change('offHand', {
+        kind: 'weapon',
+        weaponEntryId: 'sword',
+        mode: 'melee',
+      }),
+    ).toBe(false);
+  });
+  view.rerender({ value: { ...incoming, hands: 'two' } });
+  expect(view.result.current.form.getValues()).toEqual({
+    ...incoming,
+    hands: 'two',
+    offHand: { kind: 'weapon', weaponEntryId: 'sword', mode: 'melee' },
+  });
+  expect(view.result.current.hasRemoteChange).toBe(true);
+  expect(view.result.current.statusFor('offHand').kind).toBe('error');
+  await act(async () => {
+    expect(await view.result.current.retry('offHand')).toBe(true);
+  });
+  expect(save).toHaveBeenLastCalledWith({
+    offHand: { kind: 'weapon', weaponEntryId: 'sword', mode: 'melee' },
+  });
+});
+
 test('quick edits are saved in order without discarding a newer draft', async () => {
   let complete: (() => void) | undefined;
   const save = vi

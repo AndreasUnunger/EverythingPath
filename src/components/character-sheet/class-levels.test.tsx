@@ -1,4 +1,13 @@
 import {
+  calculateFixtureSheetProjections as calculateCharacterSheetProjections,
+  buildSheet,
+  emptyOwnerCandidates,
+  findCalculatedWarning,
+  isClassCatalogEntry,
+  type Adjustment,
+  type Level,
+} from './character-sheet-test-fixture';
+import {
   act,
   fireEvent,
   render,
@@ -12,15 +21,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
-import { calculateCharacterSheetProjections } from '~/lib/character-sheet';
-import {
-  buildSheet,
-  emptyOwnerCandidates,
-  findCalculatedWarning,
-  isClassCatalogEntry,
-  type Adjustment,
-  type Level,
-} from './character-sheet-test-fixture';
+
 import { formatModifier } from './sheet-parts';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 

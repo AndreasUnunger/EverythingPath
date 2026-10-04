@@ -99,6 +99,8 @@ The adapter reports all four current byte SHA-256 hashes in `catalog.localResour
 
 **Recorded-level prerequisite integration (#320, 2026-10-04).** The combined linked-input (#317), reviewed casting-resource (#318), initial-backfill (#319) and recorded-prefix calculator has SHA-256 `e812105323f25d69634a895c9317d08a87ecf7f8bd8b32a81fd0a2e2ed572550`. The ordinary `pnpm -s catalog:conditions` command regenerated the current report with all 34 Conditions admitted, no holds, failures or outstanding notices. Condition definitions, resolver bytes, Attribution Assessments, evidence and historical calculation provenance remain unchanged.
 
+**Off-hand and double-weapon integration (#321, 2026-10-04).** The combined calculator's `src/lib/character-sheet.ts` resource has SHA-256 `b84093b54a62de216b9890f8a24bef16f8e5c93375d80c1e345fbd7fbd34ac1d`; the explicit calculation closure is pinned at `cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539`. The ordinary `pnpm -s catalog:conditions` command refreshed the current report with 34 admitted Conditions, no holds, no failures and no outstanding notices. Existing Attribution Assessments, evidence, reviewed resources and historical calculation provenance remain intact.
+
 ```sh
 pnpm -s catalog:conditions > /tmp/conditions-admission.json
 pnpm -s catalog:preview --system /path/to/pf1 --content /path/to/pf1-content --conditions --out /tmp/full-catalog-preview

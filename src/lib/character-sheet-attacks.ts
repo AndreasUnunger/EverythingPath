@@ -1,3 +1,7 @@
+import type {
+  AttackHand,
+  AttackWeaponEnd,
+} from './character-sheet-attack-types';
 import {
   builtIn,
   composeStatistics,
@@ -31,6 +35,8 @@ export type AttackStatistic =
   | 'criticalMultiplier'
   | 'rangeIncrement';
 export type AttackLine = {
+  hand: AttackHand;
+  end: AttackWeaponEnd;
   weaponEntryId: string;
   weaponName: string;
   mode: AttackRoutineState['mode'];
@@ -49,6 +55,8 @@ export type ResolvedAttackRoutine = {
   weaponEntryId: string;
   hands: AttackRoutineState['hands'];
   mode: AttackRoutineState['mode'];
+  offHand?: AttackRoutineState['offHand'];
+  twoWeaponPenaltySummary: string | null;
   single: AttackLine[];
   full: AttackLine[];
   warnings: SheetWarning[];
@@ -70,25 +78,43 @@ export function formatCriticalRange(threat: number) {
 export function attackRoutineWeaponUses(input: CharacterSheetInput) {
   return input.entries.flatMap((entry) => {
     if (entry.kind !== 'attackRoutine' || !entry.active) return [];
-    const item = input.entries.find(
-      (candidate) => candidate._id === entry.state.weaponEntryId,
-    );
-    if (item?.kind !== 'item' || !item.active) return [];
-    const catalog = input.catalogEntries.find(
-      (candidate) => candidate._id === item.catalogEntryId,
-    );
-    if (catalog?.detail?.kind !== 'item' || !catalog.detail.weapon) return [];
-    return [
+    const hands = [
       {
-        entryId: item._id,
-        routineEntryId: entry._id,
+        hand: 'main' as const,
+        weaponEntryId: entry.state.weaponEntryId,
         hands: entry.state.hands,
-        attack:
-          entry.state.mode === 'melee'
-            ? ('melee' as const)
-            : ('ranged' as const),
+        mode: entry.state.mode,
       },
+      ...(entry.state.offHand?.kind === 'weapon'
+        ? [
+            {
+              ...entry.state.offHand,
+              hand: 'off' as const,
+              hands: 'one' as const,
+            },
+          ]
+        : []),
     ];
+    return hands.flatMap((hand) => {
+      const item = input.entries.find(
+        (candidate) => candidate._id === hand.weaponEntryId,
+      );
+      if (item?.kind !== 'item' || !item.active) return [];
+      const catalog = input.catalogEntries.find(
+        (candidate) => candidate._id === item.catalogEntryId,
+      );
+      if (catalog?.detail?.kind !== 'item' || !catalog.detail.weapon) return [];
+      return [
+        {
+          entryId: item._id,
+          routineEntryId: entry._id,
+          hand: hand.hand,
+          hands: hand.hands,
+          attack:
+            hand.mode === 'melee' ? ('melee' as const) : ('ranged' as const),
+        },
+      ];
+    });
   });
 }
 
@@ -107,6 +133,12 @@ type AvailableWeapon = {
   source: string;
 };
 type AttackCalculation = {
+  hand: AttackLine['hand'];
+  end: AttackLine['end'];
+  twoWeaponPenalty?: number;
+  twoWeaponFeatEntryId?: string;
+  doubleSliceEntryId?: string;
+  usesBothEnds?: boolean;
   entry: RoutineEntry;
   equippedWeapon: AvailableWeapon;
   abilities: Record<Ability, { score: number; modifier: number }>;
@@ -116,6 +148,31 @@ type AttackCalculation = {
     | undefined;
   options: ResolveOptions;
 };
+
+function activeFeatSelections(input: CharacterSheetInput) {
+  return new Map(
+    input.entries.flatMap((entry) => {
+      if (entry.kind !== 'feat' || !entry.active) return [];
+      const definition = input.catalogEntries.find(
+        (candidate) => candidate._id === entry.catalogEntryId,
+      );
+      return definition ? [[definition.ruleIdentity, entry] as const] : [];
+    }),
+  );
+}
+
+/** CRB Table 8–7; only the off-hand weapon determines light status. */
+function twoWeaponPenalties({
+  light,
+  trained,
+}: {
+  light: boolean;
+  trained: boolean;
+}) {
+  return trained
+    ? { main: light ? -2 : -4, off: light ? -2 : -4 }
+    : { main: light ? -4 : -6, off: light ? -8 : -10 };
+}
 
 function routineWarning({
   entry,
@@ -144,10 +201,12 @@ function resolveRoutineWeapon({
   entry,
   input,
   recordedEntries,
+  hand = 'main',
 }: {
   entry: RoutineEntry;
   input: CharacterSheetInput;
   recordedEntries: readonly SheetEntry[];
+  hand?: AttackHand;
 }): AvailableWeapon | { kind: 'unavailable'; warning: SheetWarning } {
   const state = entry.state;
   const effectiveItem = input.entries.find(
@@ -164,6 +223,12 @@ function resolveRoutineWeapon({
       : undefined;
   const weapon =
     catalog?.detail?.kind === 'item' ? catalog.detail.weapon : undefined;
+  const weaponName = catalog?.name ?? weapon?.baseType ?? 'The selected weapon';
+  const subject = hand === 'off' ? weaponName : `${state.name}'s weapon`;
+  const repair =
+    hand === 'off'
+      ? 'choose another weapon. Off-hand attacks are skipped.'
+      : 'choose another weapon to use this routine.';
   if (!item || item.kind !== 'item' || !weapon) {
     return {
       kind: 'unavailable',
@@ -173,8 +238,8 @@ function resolveRoutineWeapon({
         check: item ? 'invalidAttackWeapon' : 'missingAttackWeapon',
         facts: [state.weaponEntryId],
         message: item
-          ? `${state.name}'s selected entry is no longer a weapon. Choose another weapon to use this routine.`
-          : `${state.name}'s weapon is no longer in Gear. Choose another weapon to use this routine.`,
+          ? `${hand === 'off' ? weaponName : `${state.name}'s selected entry`} is no longer a weapon. ${repair.charAt(0).toUpperCase()}${repair.slice(1)}`
+          : `${subject} is no longer in Gear. ${repair.charAt(0).toUpperCase()}${repair.slice(1)}`,
       }),
     };
   }
@@ -186,8 +251,8 @@ function resolveRoutineWeapon({
         check: item.active ? 'unavailableAttackWeapon' : 'inactiveAttackWeapon',
         facts: [state.weaponEntryId, item.active ? 'unavailable' : false],
         message: item.active
-          ? `${state.name}'s weapon is unavailable. Restore its source or choose another weapon to use this routine.`
-          : `${state.name}'s weapon is switched off. Switch it on in Gear or choose another weapon to use this routine.`,
+          ? `${subject} is unavailable. Restore its source or ${repair}`
+          : `${subject} is switched off. Switch it on in Gear or ${repair}`,
       }),
     };
   }
@@ -203,7 +268,10 @@ function resolveRoutineWeapon({
         kind: 'unresolved',
         check: 'attackWeaponUnresolved',
         facts: [state.weaponEntryId, weapon.dice, weapon.threat, weapon.mult],
-        message: `${state.name}'s weapon statistics are incomplete. Damage and attacks cannot be calculated.`,
+        message:
+          hand === 'off'
+            ? `${weaponName}'s statistics are incomplete. Off-hand attacks are skipped.`
+            : `${state.name}'s weapon statistics are incomplete. Damage and attacks cannot be calculated.`,
       }),
     };
   }
@@ -293,33 +361,53 @@ function routineSuitabilityWarnings({
   return warnings;
 }
 
-function damageStrength({
-  weapon,
-  state,
-  strength,
-}: {
-  weapon: WeaponDetail;
-  state: AttackRoutineState;
-  strength: number;
-}) {
-  if (state.mode === 'thrown') return strength;
-  if (state.mode === 'melee')
-    return strength < 0 ||
-      state.hands === 'one' ||
-      weapon.handedness === 'light'
-      ? strength
-      : Math.floor(strength * 1.5);
+function strengthForHand(strength: number, offHand: boolean) {
+  return strength < 0 || !offHand ? strength : Math.floor(strength / 2);
+}
+
+function rangedDamageStrength(
+  weapon: WeaponDetail,
+  strength: number,
+  offHand: boolean,
+) {
   switch (weapon.strengthDamage) {
     case 'sling':
     case 'thrown':
-      return strength;
-    case 'compositeBow':
-      return Math.min(strength, weapon.strengthRating ?? 0);
+      return strengthForHand(strength, offHand);
+    case 'compositeBow': {
+      const cappedStrength = Math.min(strength, weapon.strengthRating ?? 0);
+      return strengthForHand(cappedStrength, offHand);
+    }
     case 'bow':
       return Math.min(strength, 0);
     default:
       return 0;
   }
+}
+
+function damageStrength({
+  weapon,
+  state,
+  strength,
+  offHand = false,
+  usesBothEnds = false,
+}: {
+  weapon: WeaponDetail;
+  state: AttackRoutineState;
+  strength: number;
+  offHand?: boolean;
+  usesBothEnds?: boolean;
+}) {
+  if (state.mode === 'ranged')
+    return rangedDamageStrength(weapon, strength, offHand);
+  const singleEndTwoHanded =
+    state.mode === 'melee' &&
+    state.hands === 'two' &&
+    weapon.handedness !== 'light' &&
+    !usesBothEnds;
+  if (strength > 0 && !offHand && singleEndTwoHanded)
+    return Math.floor(strength * 1.5);
+  return strengthForHand(strength, offHand);
 }
 
 function sourced({
@@ -364,6 +452,17 @@ function resolveAttackBonus(calculation: AttackCalculation): ResolvedStatistic {
     ...leaf.suppressed,
     ...leaf.conditional,
   ];
+  if (calculation.twoWeaponPenalty) {
+    modifiers.push({
+      ...sourced({
+        calculation,
+        value: calculation.twoWeaponPenalty,
+        label: 'Two-weapon fighting',
+        sheetEntryId: calculation.twoWeaponFeatEntryId ?? calculation.entry._id,
+      }),
+      stacksWithinEntry: true,
+    });
+  }
   const enhancement = item.state.enhancement ?? 0;
   const masterwork = item.state.masterwork === true;
   const size = -specialSizeModifiers[options.size ?? 'medium'];
@@ -450,6 +549,8 @@ function resolveDamageBonus(calculation: AttackCalculation): ResolvedStatistic {
           weapon,
           state: entry.state,
           strength: abilities.strength.modifier,
+          offHand: calculation.hand === 'off',
+          usesBothEnds: calculation.usesBothEnds,
         }),
         label: 'Strength to damage',
         target,
@@ -458,6 +559,36 @@ function resolveDamageBonus(calculation: AttackCalculation): ResolvedStatistic {
       stacksWithinEntry: true,
     },
   ];
+  if (
+    calculation.doubleSliceEntryId &&
+    calculation.hand === 'off' &&
+    abilities.strength.modifier > 0
+  ) {
+    const fullStrength = damageStrength({
+      weapon,
+      state: entry.state,
+      strength: abilities.strength.modifier,
+      offHand: false,
+      usesBothEnds: calculation.usesBothEnds,
+    });
+    const halfStrength = damageStrength({
+      weapon,
+      state: entry.state,
+      strength: abilities.strength.modifier,
+      offHand: true,
+    });
+    if (fullStrength !== halfStrength)
+      modifiers.push({
+        ...sourced({
+          calculation,
+          value: fullStrength - halfStrength,
+          label: 'Double Slice',
+          target,
+          sheetEntryId: calculation.doubleSliceEntryId,
+        }),
+        stacksWithinEntry: true,
+      });
+  }
   const enhancement = item.state.enhancement ?? 0;
   if (enhancement) {
     modifiers.push({
@@ -511,6 +642,8 @@ function resolveAttackLine(calculation: AttackCalculation): AttackLine {
           : (weapon.thrownRangeIncrement ?? weapon.rangeIncrement)
         : weapon.rangeIncrement;
   return {
+    hand: calculation.hand,
+    end: calculation.end,
     weaponEntryId: item._id,
     weaponName: name,
     mode,
@@ -571,7 +704,227 @@ function resolveIterativeAttacks({
   }));
 }
 
-/** CRB pp. 141–145, 179, 182: manufactured single attacks and BAB iteratives. */
+function resolveOffHandAttacks({
+  calculation,
+  feats,
+}: {
+  calculation: AttackCalculation;
+  feats: ReturnType<typeof activeFeatSelections>;
+}): AttackLine[] {
+  const line = resolveAttackLine(calculation);
+  const extras = [
+    {
+      identity: 'improved-two-weapon-fighting',
+      penalty: -5,
+      label: 'Improved Two-Weapon Fighting',
+    },
+    {
+      identity: 'greater-two-weapon-fighting',
+      penalty: -10,
+      label: 'Greater Two-Weapon Fighting',
+    },
+  ];
+  return [
+    line,
+    ...extras.flatMap(({ identity, penalty, label }) => {
+      const feat = feats.get(identity);
+      if (!feat) return [];
+      return [
+        {
+          ...line,
+          attackBonus: composeStatistics({
+            statistics: [line.attackBonus],
+            builtIns: [
+              sourced({
+                calculation,
+                value: penalty,
+                label,
+                sheetEntryId: feat._id,
+              }),
+            ],
+            includes: () => true,
+            name: 'off-hand attack',
+          }),
+        },
+      ];
+    }),
+  ];
+}
+
+type RoutineCalculationContext = Pick<
+  AttackCalculation,
+  'abilities' | 'breakdowns' | 'options'
+>;
+
+function resolveOffHandWeapon({
+  entry,
+  mainWeapon,
+  input,
+  recordedEntries,
+}: {
+  entry: RoutineEntry;
+  mainWeapon: ReturnType<typeof resolveRoutineWeapon>;
+  input: CharacterSheetInput;
+  recordedEntries: readonly SheetEntry[];
+}):
+  | { kind: 'none'; warnings: SheetWarning[] }
+  | { kind: 'unavailable'; warnings: SheetWarning[] }
+  | {
+      kind: 'available';
+      entry: RoutineEntry;
+      weapon: AvailableWeapon;
+      usesBothEnds: boolean;
+    } {
+  const state = entry.state;
+  const offState = state.offHand;
+  if (!offState) return { kind: 'none', warnings: [] };
+  const usesBothEnds = offState.kind === 'otherEnd';
+  const secondEnd =
+    mainWeapon.kind === 'available' ? mainWeapon.weapon.otherEnd : undefined;
+  const invalidOffHand = usesBothEnds
+    ? mainWeapon.kind === 'available' && !secondEnd
+    : offState.weaponEntryId === state.weaponEntryId;
+  if (invalidOffHand)
+    return {
+      kind: 'unavailable',
+      warnings: [
+        routineWarning({
+          entry,
+          check: 'invalidAttackOffHand',
+          facts: [offState, state.weaponEntryId],
+          message: usesBothEnds
+            ? `${mainWeapon.kind === 'available' ? mainWeapon.name : state.name} has no recorded second end. Choose an off-hand weapon or record the weapon's other end.`
+            : 'The same Gear weapon cannot fill both hands. Choose a separate weapon or the other end of a double weapon.',
+        }),
+      ],
+    };
+  const offEntry: RoutineEntry = {
+    ...entry,
+    state: {
+      ...state,
+      weaponEntryId:
+        offState.kind === 'otherEnd'
+          ? state.weaponEntryId
+          : offState.weaponEntryId,
+      hands: usesBothEnds ? state.hands : 'one',
+      mode: offState.mode,
+    },
+  };
+  const offWeapon: ReturnType<typeof resolveRoutineWeapon> =
+    usesBothEnds && secondEnd && mainWeapon.kind === 'available'
+      ? {
+          ...mainWeapon,
+          item: {
+            ...mainWeapon.item,
+            state: { kind: 'item', ...mainWeapon.item.state.otherEnd },
+          },
+          weapon: {
+            ...mainWeapon.weapon,
+            ...secondEnd,
+            damageTypes: secondEnd.damageTypes ?? mainWeapon.weapon.damageTypes,
+          },
+        }
+      : resolveRoutineWeapon({
+          entry: offEntry,
+          input,
+          recordedEntries,
+          hand: 'off',
+        });
+  if (offWeapon.kind === 'unavailable')
+    return { kind: 'unavailable', warnings: [offWeapon.warning] };
+  return {
+    kind: 'available',
+    entry: offEntry,
+    weapon: offWeapon,
+    usesBothEnds,
+  };
+}
+
+function offHandConfigurationWarnings(entry: RoutineEntry) {
+  const { offHand, hands, mode } = entry.state;
+  if (!offHand) return [];
+  const usesBothEnds = offHand.kind === 'otherEnd';
+  if (
+    (!usesBothEnds && hands !== 'two') ||
+    (usesBothEnds && hands === 'two' && offHand.mode === mode)
+  )
+    return [];
+  return [
+    routineWarning({
+      entry,
+      check: 'unsuitableAttackOffHand',
+      facts: [hands, mode, offHand, usesBothEnds],
+      message: usesBothEnds
+        ? 'Using both ends of a double weapon normally requires two hands in the same attack mode. This routine keeps your chosen configuration.'
+        : 'The main weapon is held in two hands while an off-hand weapon is selected. This routine keeps both weapons.',
+    }),
+  ];
+}
+
+function resolveRoutineOffHand({
+  entry,
+  mainWeapon,
+  context,
+  input,
+  recordedEntries,
+  weaponProficiencies,
+  feats,
+  routineWarningFingerprints,
+}: {
+  entry: RoutineEntry;
+  mainWeapon: ReturnType<typeof resolveRoutineWeapon>;
+  context: RoutineCalculationContext;
+  input: CharacterSheetInput;
+  recordedEntries: readonly SheetEntry[];
+  weaponProficiencies: ReturnType<typeof resolveWeaponProficiencies>['weapons'];
+  feats: ReturnType<typeof activeFeatSelections>;
+  routineWarningFingerprints: ReadonlyMap<string, string>;
+}) {
+  const resolved = resolveOffHandWeapon({
+    entry,
+    mainWeapon,
+    input,
+    recordedEntries,
+  });
+  if (resolved.kind !== 'available') return resolved;
+  const { entry: offEntry, weapon: offWeapon, usesBothEnds } = resolved;
+  const light = usesBothEnds || offWeapon.weapon.handedness === 'light';
+  const penalties = twoWeaponPenalties({
+    light,
+    trained: feats.has('two-weapon-fighting'),
+  });
+  const offCalculation: AttackCalculation = {
+    ...context,
+    entry: offEntry,
+    equippedWeapon: offWeapon,
+    hand: 'off',
+    end: usesBothEnds ? 'otherEnd' : 'primary',
+    usesBothEnds,
+    twoWeaponPenalty: penalties.off,
+    twoWeaponFeatEntryId: feats.get('two-weapon-fighting')?._id,
+    doubleSliceEntryId: feats.get('double-slice')?._id,
+    proficiency: weaponProficiencies.find(
+      (use) =>
+        use.entryId === offWeapon.item._id &&
+        use.hands === offEntry.state.hands,
+    ),
+  };
+  const warnings = routineSuitabilityWarnings({
+    calculation: offCalculation,
+    proficiencyFingerprint: routineWarningFingerprints.get(`${entry._id}:off`),
+  });
+  warnings.push(...offHandConfigurationWarnings(entry));
+  const signed = (value: number) => (value < 0 ? `−${-value}` : `+${value}`);
+  return {
+    kind: 'available' as const,
+    calculation: offCalculation,
+    penalties,
+    summary: `Two-weapon fighting${light ? ', light off hand' : ''}: ${signed(penalties.main)} primary, ${signed(penalties.off)} off hand`,
+    warnings,
+  };
+}
+
+/** CRB pp. 141–145, 179, 182, 202: manufactured attacks and two-weapon chains. */
 export function resolveAttackRoutines({
   input,
   recordedEntries = input.entries,
@@ -589,6 +942,7 @@ export function resolveAttackRoutines({
   routineWarningFingerprints?: ReadonlyMap<string, string>;
   options?: ResolveOptions;
 }): ResolvedAttackRoutine[] {
+  const feats = activeFeatSelections(input);
   return input.entries.flatMap((entry): ResolvedAttackRoutine[] => {
     if (entry.kind !== 'attackRoutine' || !entry.active) return [];
     const state = entry.state;
@@ -598,6 +952,8 @@ export function resolveAttackRoutines({
       weaponEntryId: state.weaponEntryId,
       hands: state.hands,
       mode: state.mode,
+      ...(state.offHand ? { offHand: state.offHand } : {}),
+      twoWeaponPenaltySummary: null,
       single: [],
       full: [],
       warnings: [],
@@ -607,9 +963,29 @@ export function resolveAttackRoutines({
       input,
       recordedEntries,
     });
+    const offHand = resolveRoutineOffHand({
+      entry,
+      mainWeapon: equippedWeapon,
+      context: { abilities, breakdowns, options },
+      input,
+      recordedEntries,
+      weaponProficiencies,
+      feats,
+      routineWarningFingerprints,
+    });
+    const offWarnings = offHand.warnings.map((warning) => ({
+      ...warning,
+      subject: `${entry._id}:off`,
+      fingerprint: JSON.stringify(['off', warning.fingerprint]),
+      message: `Off hand: ${warning.message}`,
+    }));
     if (equippedWeapon.kind === 'unavailable')
-      return [{ ...routine, warnings: [equippedWeapon.warning] }];
+      return [
+        { ...routine, warnings: [equippedWeapon.warning, ...offWarnings] },
+      ];
     const calculation: AttackCalculation = {
+      hand: 'main',
+      end: 'primary',
       entry,
       equippedWeapon,
       abilities,
@@ -621,15 +997,36 @@ export function resolveAttackRoutines({
       options,
     };
     const line = resolveAttackLine(calculation);
+    const offCalculation =
+      offHand.kind === 'available' ? offHand.calculation : undefined;
+    const fullLine =
+      offHand.kind === 'available'
+        ? resolveAttackLine({
+            ...calculation,
+            twoWeaponPenalty: offHand.penalties.main,
+            twoWeaponFeatEntryId: feats.get('two-weapon-fighting')?._id,
+            usesBothEnds: offHand.calculation.usesBothEnds,
+          })
+        : line;
     return [
       {
         ...routine,
+        twoWeaponPenaltySummary:
+          offHand.kind === 'available' ? offHand.summary : null,
         single: [line],
-        full: resolveIterativeAttacks({ calculation, line }),
-        warnings: routineSuitabilityWarnings({
-          calculation,
-          proficiencyFingerprint: routineWarningFingerprints.get(entry._id),
-        }),
+        full: [
+          ...resolveIterativeAttacks({ calculation, line: fullLine }),
+          ...(offCalculation
+            ? resolveOffHandAttacks({ calculation: offCalculation, feats })
+            : []),
+        ],
+        warnings: [
+          ...routineSuitabilityWarnings({
+            calculation,
+            proficiencyFingerprint: routineWarningFingerprints.get(entry._id),
+          }),
+          ...offWarnings,
+        ],
       },
     ];
   });

@@ -1,10 +1,14 @@
+import {
+  calculateFixtureSheet as calculateCharacterSheet,
+  buildSheet,
+} from './character-sheet-test-fixture';
 import { act, renderHook } from '@testing-library/react';
 import { getFunctionName } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import { calculateCharacterSheet } from '~/lib/character-sheet';
+
 import { proficiencyKey } from '~/lib/character-sheet-proficiencies';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { buildSheet } from './character-sheet-test-fixture';
+
 import {
   proficiencyLabel,
   useCharacterSheetEquipment,

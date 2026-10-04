@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { equipmentFormSchema } from './equipment-form-schema';
 import { useSheetValueForm } from './use-sheet-value-form';
 
 export type EquipmentValues = {
@@ -9,23 +9,6 @@ export type EquipmentValues = {
   enhancement?: number;
   material?: string | null;
 };
-
-const schema = z.object({
-  masterwork: z.boolean(),
-  enhancement: z.string().superRefine((value, context) => {
-    if (!value.trim())
-      context.addIssue({ code: 'custom', message: 'Enhancement is required' });
-    else if (
-      !/^\d+$/.test(value.trim()) ||
-      !Number.isSafeInteger(Number(value))
-    )
-      context.addIssue({
-        code: 'custom',
-        message: 'Enhancement must be a whole number of 0 or more',
-      });
-  }),
-  material: z.string(),
-});
 
 export function useEquipmentForm({
   value,
@@ -40,9 +23,9 @@ export function useEquipmentForm({
       enhancement: String(value.enhancement ?? 0),
       material: value.material ?? '',
     },
-    resolver: zodResolver(schema),
+    resolver: zodResolver(equipmentFormSchema),
     normalize: (values) =>
-      schema.safeParse(values).success
+      equipmentFormSchema.safeParse(values).success
         ? {
             ...values,
             enhancement: String(Number(values.enhancement)),
