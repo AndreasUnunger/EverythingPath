@@ -18,6 +18,7 @@ import {
   calculateCharacterSheetForRelease,
   calculateCharacterSheetProjectionsForRelease,
 } from './catalog/calculation-dispatch';
+import { retainedPriorCalculationIdentity } from './catalog/calculation-identities';
 import { catalogRuntimeCompatibility } from './catalog/runtime-compatibility';
 
 function build(
@@ -220,8 +221,7 @@ test('the retained prior and current calculation identities both use candidate r
     ...build([['wizard', 3]]),
     resources: { castingTables: reviewedCastingTablesSchema.parse(tables) },
   };
-  const prior =
-    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
+  const prior = retainedPriorCalculationIdentity;
   for (const identity of [prior, catalogRuntimeCompatibility.calculation]) {
     expect(
       calculateCharacterSheetForRelease(identity, input).spellcastings[0]

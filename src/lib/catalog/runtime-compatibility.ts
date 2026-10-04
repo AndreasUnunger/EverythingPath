@@ -1,11 +1,12 @@
+import { currentCalculationIdentity } from './calculation-identities';
+
 // Calculation identity is provisional until the first Catalog Release activation.
-// Intentional preactivation changes update this pin and recorded expectations together.
+// Intentional preactivation changes update the pin in calculation-identities.ts.
 // After activation, retain the implementation and coordinate new identity activation.
 // See tests/catalogRuntimeCompatibility.test.ts and docs/catalog-import/releases.md.
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
-  calculation:
-    'sha256:becf4290fdf699293d79c24d577e75dddde57919ad7291d8ea7b0eaebdc73cfc',
+  calculation: currentCalculationIdentity,
 } as const;
 
 export const catalogCalculationV1Files = [

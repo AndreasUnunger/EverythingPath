@@ -9,11 +9,11 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:becf4290fdf699293d79c24d577e75dddde57919ad7291d8ea7b0eaebdc73cfc';
+    'sha256:8886e8d9739739831604b4fda6f11ea3c3b7c4a38d6a0cfc5c1492448ed93b92';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
-    'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
-    'this independent expected identity and current recorded expectations in the same change. ' +
+    'review the intentional change, run `pnpm catalog:pin` and rotate the identities in ' +
+    'src/lib/catalog/calculation-identities.ts, this independent expected identity and current recorded expectations in the same change. ' +
     'After first activation, retain the old implementation and provide new identity dispatch ' +
     'and coordinated activation (#318/#319); updating the pin alone is unsafe. ' +
     'See docs/catalog-import/releases.md for the procedure.';
@@ -211,7 +211,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       '../character-sheet-linked-inputs',
     ],
     [],
-    ['../character-sheet', './runtime-compatibility'],
+    ['../character-sheet', './calculation-identities'],
     [
       'convex/values',
       '../../src/lib/catalog/calculation-dispatch',

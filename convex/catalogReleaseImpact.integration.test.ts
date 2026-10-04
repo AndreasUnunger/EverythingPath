@@ -20,6 +20,7 @@ import {
   canonicalReleaseJson,
 } from '../src/lib/catalog/release-schema';
 import type { ReleaseRow } from '../src/lib/catalog/release-schema';
+import { retainedPriorCalculationIdentity } from '../src/lib/catalog/calculation-identities';
 import { catalogRuntimeCompatibility } from '../src/lib/catalog/runtime-compatibility';
 import resourcesData from '../src/lib/catalog/data/resources.json';
 import { buildLegalPageData } from '../src/lib/catalog/legal-page-data';
@@ -2085,8 +2086,7 @@ test('the real command resumes discovery and re-evaluates a raced worker result 
 
 test('a resolver-only candidate uses a supported coherent prior release and keeps intervening active edits', async () => {
   const { t, owner, scope } = await fixture();
-  const priorIdentity =
-    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
+  const priorIdentity = retainedPriorCalculationIdentity;
   const base = await prepare(t, [], 1, {
     compatibility: {
       schema: catalogRuntimeCompatibility.schema,
@@ -2246,8 +2246,7 @@ test('familiar release candidates fail closed until linked dependency calculatio
     baseCreatureKey: 'cat',
     operationId: 'release-familiar-species',
   });
-  const priorIdentity =
-    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
+  const priorIdentity = retainedPriorCalculationIdentity;
   const base = await prepare(t, [], 1, {
     compatibility: {
       schema: catalogRuntimeCompatibility.schema,

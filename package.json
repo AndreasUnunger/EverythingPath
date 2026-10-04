@@ -33,6 +33,7 @@
     "catalog:release": "node --import tsx scripts/catalog-release.ts",
     "catalog:conditions": "node --import tsx scripts/catalog-conditions.ts",
     "catalog:curate": "node --import tsx scripts/catalog-curate.ts",
+    "catalog:pin": "node --import tsx scripts/catalog-pin.ts",
     "check:initial-migration-writers": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-initial-migration-writers.ts"
   },
   "dependencies": {
