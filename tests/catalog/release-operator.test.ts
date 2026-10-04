@@ -77,13 +77,10 @@ afterEach(async () => {
 
 it('the CLI builds a deterministic gated artifact and prepares/inspects it through the injected remote command adapter', async () => {
   const input = await workspace();
-  const run = (args: string[]) =>
-    runCapturedProcess({
-      command: process.execPath,
-      args: ['--import', loader, script, ...args],
-    });
-  const first = run(input.args);
-  expect(first.status, first.stderr).toBe(0);
+  // The operator runs in-process; one subprocess below covers the CLI entry.
+  const build = () => runCatalogReleaseOperator({ args: input.args });
+  const first = await build();
+  expect(first).toMatchObject({ artifactPath: input.artifact });
   const bytes = await readFile(input.artifact, 'utf8');
   const artifact = await validateCatalogReleaseArtifact(JSON.parse(bytes));
   expect(
@@ -159,7 +156,7 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
   expect(
     artifact.batches.flat().find((row) => row.key === 'holds')?.payload,
   ).toMatchObject({ held: 1, gatePassed: true });
-  expect(run(input.args).status).toBe(0);
+  expect(await build()).toEqual(first);
   expect(await readFile(input.artifact, 'utf8')).toBe(bytes);
   let status: CatalogReleaseStatus | undefined;
   const adapter: CatalogReleaseCommandAdapter = {
@@ -208,9 +205,12 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
       adapter,
     }),
   ).toEqual(prepared);
-  expect(run(['prepare', '--artifact', input.artifact]).stderr).toContain(
-    '--deployment-name is required',
-  );
+  const unconfigured = runCapturedProcess({
+    command: process.execPath,
+    args: ['--import', loader, script, 'prepare', '--artifact', input.artifact],
+  });
+  expect(unconfigured.status).toBe(1);
+  expect(unconfigured.stderr).toContain('--deployment-name is required');
   await writeFile(
     join(input.system, 'packs/feats/fixture.yaml'),
     JSON.stringify({
@@ -221,9 +221,7 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
       system: {},
     }),
   );
-  const changed = run(input.args);
-  expect(changed.status).toBe(1);
-  expect(changed.stderr).toContain('already bound');
+  await expect(build()).rejects.toThrow('already bound');
   expect(await readFile(input.artifact, 'utf8')).toBe(bytes);
 });
 
