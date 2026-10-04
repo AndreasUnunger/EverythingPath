@@ -24,6 +24,14 @@ const defaultApi = {
     browse: 'browseSpells',
     browserInfo: 'spellBrowserInfo',
   },
+  characterSheetLinkedInputs: {
+    read: 'readLinkedInput',
+    list: 'listLinkedInputs',
+    saveFallback: 'saveLinkedInputFallback',
+    clearFallback: 'clearLinkedInputFallback',
+    saveInterpretation: 'saveLinkedInputInterpretation',
+    clearInterpretation: 'clearLinkedInputInterpretation',
+  },
   characterSheet: {
     read: 'read',
     selectEntry: 'selectEntry',
@@ -97,6 +105,10 @@ export function createCharacterSheetApiMock(overrides: ApiOverrides = {}) {
       characterSheetSpells: {
         ...defaultApi.characterSheetSpells,
         ...overrides.characterSheetSpells,
+      },
+      characterSheetLinkedInputs: {
+        ...defaultApi.characterSheetLinkedInputs,
+        ...overrides.characterSheetLinkedInputs,
       },
       characterSheet: {
         ...defaultApi.characterSheet,

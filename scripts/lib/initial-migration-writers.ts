@@ -24,6 +24,7 @@ const gatedBuilders = new Set([
   'legacyCharacterMutation',
 ]);
 const characterTables = new Set([
+  'characterLinkedInput',
   'character',
   'characterSheetEntry',
   'companionRelationship',

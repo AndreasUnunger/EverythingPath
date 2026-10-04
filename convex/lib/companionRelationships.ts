@@ -1,9 +1,21 @@
+import {
+  representativeCompanionRules,
+  listCuratedCompanionInputs,
+  type CompanionSourceRuleKind,
+} from '../../src/lib/catalog/representative-companion-rules';
+import {
+  linkedInputKey,
+  type CompanionLinkedInput,
+} from '../../src/lib/character-sheet-linked-inputs';
 import { ConvexError } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import type { MutationCtx } from '../_generated/server';
 import { readCharacterSheetData } from './preparedCharacterSheet';
-import { formatGrantKeyId } from '../../src/lib/character-sheet-grants';
+import {
+  characterSheetClassFamily,
+  formatGrantKeyId,
+} from '../../src/lib/character-sheet-grants';
 
 const maxRelationships = 1024;
 type Relationship = Doc<'companionRelationship'>;
@@ -175,6 +187,7 @@ export async function readCompanionGraph(
       (character?.sheetMode
         ? await readCharacterSheetData(ctx, character)
         : null);
+    if (sheet) sheets.set(row.associatedCharacterId, sheet);
     countingEntries.set(
       row.associatedCharacterId,
       getCompanionSupportingEntryKeys(sheet),
@@ -209,7 +222,7 @@ export async function readCompanionGraph(
     });
     if (!interruption) active.set(row.companionCharacterId, row);
   }
-  return { relationships, characters, states, active, countingEntries };
+  return { relationships, characters, states, active, countingEntries, sheets };
 }
 
 export function doesCreateCompanionCycle(
@@ -259,4 +272,77 @@ export async function reconcileCompanionRelationships(
         ...(operationId ? { lastOperationId: operationId } : {}),
       });
   }
+}
+
+export function deriveCompanionSourceRuleKind({
+  kind,
+  source,
+  sheet,
+}: {
+  kind: Relationship['kind'];
+  source: Relationship['sources'][number];
+  sheet: CompanionSheet | null;
+}): CompanionSourceRuleKind {
+  if (!sheet) return source.ruleKind ?? kind;
+  const sourceEntry = source.sheetEntryId
+    ? sheet.entries.find((entry) => entry._id === source.sheetEntryId)
+    : source.grantKey
+      ? sheet.calculated.resolvedEntries.find(
+          ({ entry }) => entry._id === formatGrantKeyId(source.grantKey!),
+        )?.entry
+      : null;
+  const classDefinition =
+    sourceEntry?.kind === 'classLevel'
+      ? sheet.catalogEntries.find(
+          (entry) => entry._id === sourceEntry.state.classEntryId,
+        )
+      : null;
+  const identity = classDefinition
+    ? characterSheetClassFamily(classDefinition, sheet.catalogEntries)
+    : (source.grantKey?.source ??
+      (sourceEntry && 'catalogEntryId' in sourceEntry
+        ? sheet.catalogEntries.find(
+            (entry) => entry._id === sourceEntry.catalogEntryId,
+          )?.ruleIdentity
+        : null));
+  if (kind === 'familiar') {
+    if (identity === 'wizard') return 'wizardFamiliar';
+    if (identity === 'sorcerer') return 'sorcererFamiliar';
+    if (identity === 'witch') return 'witchFamiliar';
+  }
+  if (kind === 'animalCompanion') {
+    if (identity === 'druid') return 'druidCompanion';
+    if (identity === 'ranger') return 'rangerCompanion';
+  }
+  return sourceEntry ? kind : (source.ruleKind ?? kind);
+}
+export function resolveCuratedCompanionSources({
+  relationship,
+  sheet,
+}: {
+  relationship: Relationship;
+  sheet: CompanionSheet | null;
+}) {
+  return relationship.sources.map((source) => ({
+    ...source,
+    ruleKind: deriveCompanionSourceRuleKind({
+      kind: relationship.kind,
+      source,
+      sheet,
+    }),
+  }));
+}
+export function listRelationshipLinkedInputs(
+  relationship: Pick<Relationship, 'kind' | 'sources'>,
+) {
+  return listCuratedCompanionInputs(relationship);
+}
+export function findCuratedCompanionBinding(
+  source: Relationship['sources'][number],
+  kind: Relationship['kind'],
+  input: CompanionLinkedInput,
+) {
+  return representativeCompanionRules[source.ruleKind ?? kind].inputs.find(
+    (binding) => linkedInputKey(binding.input) === linkedInputKey(input),
+  );
 }

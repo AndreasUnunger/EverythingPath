@@ -1,9 +1,262 @@
 import { expect, test } from 'vitest';
-import { calculateCharacterSheet } from './character-sheet';
+import {
+  calculateCharacterSheet,
+  calculateCharacterSheetProjections,
+} from './character-sheet';
+import { resolveCompanionLinkedInput } from './character-sheet-linked-inputs';
 import {
   prerequisiteSheet,
   selectedFeat,
 } from './character-sheet-prerequisite-fixture';
+
+test('missing linked BAB leaves current and recorded prerequisites unresolved without changing other clauses', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ bab: 2 }, { ability: 'strength', min: 11 }],
+      },
+    ],
+  );
+  const result = calculateCharacterSheet(input, {
+    companionLinkedInputs: [
+      resolveCompanionLinkedInput({
+        input: { kind: 'baseAttackBonus' },
+        candidates: [],
+      }),
+    ],
+  });
+  expect(result.prerequisites.map(({ view, met }) => [view, met])).toEqual([
+    ['current', null],
+    ['recorded', null],
+    ['current', false],
+    ['recorded', false],
+  ]);
+  expect(
+    result.warnings
+      .filter(({ check }) => check.startsWith('prerequisites.'))
+      .map(({ message }) => message),
+  ).toEqual([
+    'Entry: Strength 11 not met now.',
+    'Entry: Strength 11 not met at level 1 as recorded.',
+  ]);
+});
+
+test('linked prerequisites retain alternatives with resolved successes and unresolved dependencies', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [
+          { anyOf: [{ bab: 2 }, { ability: 'strength', min: 10 }] },
+          { anyOf: [{ bab: 2 }, { ability: 'strength', min: 11 }] },
+        ],
+      },
+    ],
+  );
+  const result = calculateCharacterSheet(input, {
+    companionLinkedInputs: [
+      resolveCompanionLinkedInput({
+        input: { kind: 'baseAttackBonus' },
+        candidates: [],
+      }),
+    ],
+  });
+  expect(result.prerequisites.map(({ met }) => met)).toEqual([
+    true,
+    true,
+    null,
+    null,
+  ]);
+  expect(
+    result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+  ).toEqual([]);
+});
+
+test('resolved fallbacks produce advisory warnings that reopen only when their evaluated value changes', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ bab: 3 }],
+      },
+    ],
+  );
+  const calculate = (
+    fallback: number,
+    candidates: { sourceKey: string; kind: 'available'; value: number }[] = [],
+  ) =>
+    calculateCharacterSheet(input, {
+      companionLinkedInputs: [
+        resolveCompanionLinkedInput({
+          input: { kind: 'baseAttackBonus' },
+          candidates,
+          fallback,
+        }),
+      ],
+    });
+  const warnings = (result: ReturnType<typeof calculateCharacterSheet>) =>
+    result.warnings.filter(({ check }) => check.startsWith('prerequisites.'));
+  const zero = calculate(0);
+  const one = calculate(1);
+  expect(zero.prerequisites.map(({ met }) => met)).toEqual([false, false]);
+  expect(warnings(zero)).toHaveLength(2);
+  expect(warnings(zero).map(({ fingerprint }) => fingerprint)).not.toEqual(
+    warnings(one).map(({ fingerprint }) => fingerprint),
+  );
+  expect(
+    warnings(
+      calculate(7, [{ sourceKey: 'returned', kind: 'available', value: 1 }]),
+    ),
+  ).toEqual(warnings(one));
+  expect(
+    calculate(0, [
+      { sourceKey: 'returned', kind: 'available', value: 3 },
+    ]).prerequisites.map(({ met }) => met),
+  ).toEqual([true, true]);
+});
+
+test('linked class and skill prerequisites match only their durable class identity and canonical skill', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [
+          { classLevel: 'class/fighter', min: 2 },
+          { classLevel: 'class/wizard', min: 2 },
+          { skillRanks: 'per', min: 2 },
+          { skillRanks: 'skill.ste', min: 2 },
+          { characterLevel: 2 },
+        ],
+      },
+    ],
+  );
+  const result = calculateCharacterSheet(input, {
+    companionLinkedInputs: [
+      resolveCompanionLinkedInput({
+        input: { kind: 'classLevels', classRuleIdentity: 'class/fighter' },
+        candidates: [],
+      }),
+      resolveCompanionLinkedInput({
+        input: { kind: 'skillRanks', skill: 'skill.per' },
+        candidates: [],
+        fallback: 2,
+      }),
+      resolveCompanionLinkedInput({
+        input: { kind: 'actualHitDice' },
+        candidates: [],
+        fallback: 20,
+      }),
+      resolveCompanionLinkedInput({
+        input: { kind: 'characterLevel' },
+        candidates: [],
+        fallback: 2,
+      }),
+    ],
+  });
+  expect(result.prerequisites.map(({ met }) => met)).toEqual([
+    null,
+    null,
+    false,
+    false,
+    true,
+    true,
+    false,
+    false,
+    true,
+    true,
+  ]);
+});
+
+test('paired linked projections keep temporary current values out of permanent prerequisite checks', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ bab: 2 }],
+      },
+    ],
+  );
+  const result = calculateCharacterSheetProjections(input, {
+    projectionInputs: {
+      current: {
+        companionLinkedInputs: [
+          resolveCompanionLinkedInput({
+            input: { kind: 'baseAttackBonus' },
+            candidates: [{ sourceKey: 'current', kind: 'available', value: 2 }],
+          }),
+        ],
+      },
+      permanent: {
+        companionLinkedInputs: [
+          resolveCompanionLinkedInput({
+            input: { kind: 'baseAttackBonus' },
+            candidates: [
+              { sourceKey: 'permanent', kind: 'available', value: 1 },
+            ],
+          }),
+        ],
+      },
+    },
+  });
+  expect(result.current.prerequisites.map(({ met }) => met)).toEqual([
+    true,
+    true,
+  ]);
+  expect(result.permanent.prerequisites.map(({ met }) => met)).toEqual([
+    false,
+    false,
+  ]);
+});
+
+test('duplicate linked values remain unresolved independently of their order', () => {
+  const input = prerequisiteSheet(
+    [selectedFeat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ bab: 2 }],
+      },
+    ],
+  );
+  const values = [0, 3].map((fallback) =>
+    resolveCompanionLinkedInput({
+      input: { kind: 'baseAttackBonus' },
+      candidates: [],
+      fallback,
+    }),
+  );
+  for (const companionLinkedInputs of [values, [...values].reverse()]) {
+    const result = calculateCharacterSheet(input, { companionLinkedInputs });
+    expect(result.prerequisites.map(({ met }) => met)).toEqual([null, null]);
+    expect(
+      result.warnings.filter(({ check }) => check.startsWith('prerequisites.')),
+    ).toEqual([]);
+  }
+});
 
 test('an unfilled race prerequisite stays unresolved in both views', () => {
   const input = prerequisiteSheet(

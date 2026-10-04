@@ -45,6 +45,7 @@ const relationship = {
   sources: [
     { key: 'bond', label: 'Arcane Bond', enabled: true, available: true },
   ],
+  linkedInputs: [],
   lastOperationId: 'seed',
 } satisfies CompanionRelationship;
 

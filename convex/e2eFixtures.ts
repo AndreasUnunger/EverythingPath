@@ -221,6 +221,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         'characterSheetEntry',
         'catalogEntry',
         'acceptedWarning',
+        'characterLinkedInput',
       ] as const) {
         const rows = bounded(
           await ctx.db

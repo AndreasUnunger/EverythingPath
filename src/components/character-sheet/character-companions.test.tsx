@@ -31,6 +31,7 @@ import type { CharacterSheetSnapshot } from './use-character-sheet';
 const server = vi.hoisted(() => ({
   relationships: undefined as unknown[] | undefined,
   candidates: [] as unknown[],
+  linkedInput: undefined as unknown,
   write: vi.fn(),
   maintenance: { kind: 'ready', readOnly: false, message: '' },
 }));
@@ -43,6 +44,8 @@ vi.mock('convex/react', () => ({
     const name = getFunctionName(reference);
     if (name === 'companionRelationships:list') return server.relationships;
     if (name === 'character:listCampaignCharacters') return server.candidates;
+    if (name === 'characterSheetLinkedInputs:list')
+      return server.linkedInput ? [server.linkedInput] : undefined;
     throw new Error(`Unexpected query: ${name}`);
   },
   useMutation:
@@ -81,6 +84,7 @@ const whisper = {
   sources: [
     { key: 'bond', label: 'Arcane Bond', enabled: true, available: true },
   ],
+  linkedInputs: [],
   lastOperationId: 'seed',
 } satisfies CompanionRelationship;
 const lord = {
@@ -114,6 +118,7 @@ const pip = {
 beforeEach(() => {
   server.relationships = [];
   server.candidates = [];
+  server.linkedInput = undefined;
   server.maintenance = { kind: 'ready', readOnly: false, message: '' };
   server.write.mockReset().mockResolvedValue(null);
 });
@@ -135,7 +140,10 @@ function Host({
   );
   return (
     <main>
-      <CharacterCompanions controller={controller} />
+      <CharacterCompanions
+        controller={controller}
+        characterId={snapshot.character._id}
+      />
     </main>
   );
 }
@@ -596,6 +604,102 @@ test('maintenance disables every writer with one reason while the sheet link sta
   expect(screen.queryByRole('form')).toBeNull();
   expect(button('Link existing Character')).toHaveFocus();
   expect(server.write).not.toHaveBeenCalled();
+});
+
+test('a relationship names the values it borrows beneath its row, sharing the one maintenance reason', () => {
+  const message = 'Editing is paused for maintenance.';
+  server.maintenance = { kind: 'maintenance', readOnly: true, message };
+  const level = { kind: 'characterLevel' } as const;
+  server.relationships = [
+    {
+      ...whisper,
+      linkedInputs: [{ input: level }],
+    },
+    lord,
+  ];
+  server.linkedInput = {
+    input: level,
+    status: 'unavailable',
+    resolution: 'unresolved',
+    value: null,
+    fallback: null,
+    fallbackState: 'none',
+    candidates: [],
+    contributions: [],
+    prerequisiteStatus: 'unresolved',
+    interpretation: null,
+    revision: 1,
+    lastOperationId: 'seed',
+    updatedBy: null,
+    sources: [],
+    unavailableReason: 'interrupted',
+  };
+  renderCompanions();
+  const linked = within(item('Companion Whisper')).getByRole('list', {
+    name: 'Linked values',
+  });
+  expect(
+    within(linked).getByRole('group', { name: 'Character level' }),
+  ).toHaveTextContent('Unresolved');
+  expect(
+    within(item('Associated Character Lord Varn')).queryByRole('list', {
+      name: 'Linked values',
+    }),
+  ).toBeNull();
+  expect(button('Set fallback for Character level')).toBeDisabled();
+  expect(
+    button('Set fallback for Character level'),
+  ).toHaveAccessibleDescription(message);
+  expect(screen.getAllByText(message)).toHaveLength(1);
+});
+
+test('curated linked values remain editable when the associated Character and its sources are hidden', async () => {
+  const input = {
+    kind: 'classLevels',
+    classRuleIdentity: 'class:wizard',
+  } as const;
+  server.relationships = [
+    {
+      ...lord,
+      endpoint: null,
+      sources: [],
+      linkedInputs: [{ input, classLabel: 'Wizard' }],
+    },
+  ];
+  server.linkedInput = {
+    input,
+    status: 'unavailable',
+    resolution: 'unresolved',
+    value: null,
+    fallback: null,
+    fallbackState: 'none',
+    candidates: [],
+    contributions: [],
+    prerequisiteStatus: 'unresolved',
+    interpretation: null,
+    revision: 1,
+    lastOperationId: null,
+    updatedBy: null,
+    sources: [],
+    unavailableReason: 'inaccessible',
+  };
+  renderCompanions();
+  const linked = screen.getByRole('group', { name: 'Wizard class levels' });
+  expect(linked).toHaveTextContent('Unresolved');
+  expect(linked).toHaveTextContent(
+    'Wizard class levels is unavailable because the linked Character cannot be accessed.',
+  );
+  expect(screen.queryByText('Lord Varn')).toBeNull();
+  expect(screen.queryByText('Leadership')).toBeNull();
+  fireEvent.click(button('Set fallback for Wizard class levels'));
+  fireEvent.change(field('Fallback for Wizard class levels'), {
+    target: { value: '-3' },
+  });
+  await act(async () => fireEvent.click(button('Save fallback')));
+  expect(server.write).toHaveBeenLastCalledWith(
+    'characterSheetLinkedInputs:saveFallback',
+    expect.objectContaining({ input, value: -3 }),
+  );
 });
 
 // Phone below 768px, tablet above; reduced motion asked for at both.

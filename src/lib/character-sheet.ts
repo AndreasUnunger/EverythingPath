@@ -8,6 +8,7 @@ import {
   type ResolvedCharacterSheetArchetypes,
 } from './character-sheet-archetypes';
 import type { Alignment } from './character-sheet-prerequisite-schema';
+import type { CompanionLinkedInputResolution } from './character-sheet-linked-inputs';
 import { resolveCharacterSheetSelectionRules } from './character-sheet-selection-rules';
 import {
   resolveCharacterSheetPrerequisites,
@@ -1137,7 +1138,11 @@ function calculateSheetProjection({
   const prerequisites = resolveCharacterSheetPrerequisites(
     recordedInput,
     effectiveInput,
-    { abilities, bab: breakdowns.bab.total },
+    {
+      abilities,
+      bab: breakdowns.bab.total,
+      companionLinkedInputs: options.companionLinkedInputs,
+    },
     (prefix): PrerequisiteFacts => {
       // Plain feats/traits do not change numeric facts. Preserve every numeric
       // contribution and conditional activation, including same-level Grants.
@@ -1175,6 +1180,7 @@ function calculateSheetProjection({
           prepared.abilityDamage,
         ),
         bab: result.breakdowns.bab.total,
+        companionLinkedInputs: options.companionLinkedInputs,
       };
       recordedFacts.set(key, facts);
       return facts;
@@ -1205,7 +1211,7 @@ function calculateSheetProjection({
             archetypes,
           )),
   });
-  const warnings = [
+  const calculationWarnings = [
     ...sheetWarnings({
       characterKind: input.characterKind,
       base,
@@ -1237,7 +1243,8 @@ function calculateSheetProjection({
       advancementResult.budgets.racialSkillRanks,
     ),
     ...spellWarnings,
-  ].filter(
+  ];
+  const warnings = calculationWarnings.filter(
     (warning) =>
       input.sheetMode !== 'militiaOnly' || warning.check === 'levelZero',
   );
@@ -1304,6 +1311,7 @@ function calculateSheetProjection({
     hp,
     creationSettings,
     pointBuy,
+    calculationWarnings,
     warnings,
     warningsForAcceptance: [
       ...warnings,
@@ -1361,6 +1369,7 @@ export function calculateCharacterSheetProjections(
         | 'casterLevels'
         | 'arcaneCasterLevel'
         | 'preModifierCasterLevel'
+        | 'companionLinkedInputs'
       >;
       permanent: Pick<
         ResolveOptions,
@@ -1368,6 +1377,7 @@ export function calculateCharacterSheetProjections(
         | 'casterLevels'
         | 'arcaneCasterLevel'
         | 'preModifierCasterLevel'
+        | 'companionLinkedInputs'
       >;
     };
   } = {},
@@ -1813,6 +1823,7 @@ export const specialSizeModifiers = {
   colossal: 8,
 };
 export type ResolveOptions = {
+  companionLinkedInputs?: readonly CompanionLinkedInputResolution[];
   size?: CreatureSize;
   weaponUses?: readonly {
     entryId: string;

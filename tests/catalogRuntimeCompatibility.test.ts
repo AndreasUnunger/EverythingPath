@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:65b39be01f2e0a0ab0abc5cf9c626b4344ed2e40f60fb1b4418ae7b9d509e6fd';
+    'sha256:7a6006e58cfc1d2ed3c438033e53b82ef1d70cc9569449ecb6d6f00d8cc3f366';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -54,6 +54,9 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-prerequisite-evaluation.ts',
     'src/lib/character-sheet-selection-slots.ts',
     'src/lib/character-sheet-selection.ts',
+    'src/lib/character-sheet-linked-inputs.ts',
+    'src/lib/catalog/representative-companion-rules.ts',
+    'src/lib/character-sheet-linked-input-evaluation.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -166,6 +169,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-proficiencies',
       './character-sheet-proficiency-prerequisites',
       './character-sheet-prerequisite-schema',
+      './character-sheet-linked-input-evaluation',
     ],
     [
       './character-sheet',
@@ -175,8 +179,23 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-prerequisite-schema',
     ],
     [],
+    [
+      'zod',
+      './character-sheet',
+      './character-sheet-class-levels',
+      './character-sheet-skills',
+    ],
+    [
+      'zod',
+      '../character-sheet-skills',
+      '../character-sheet-linked-inputs',
+    ],
+    [],
   ];
   const exportsByFile: Record<string, string[]> = {
+    'src/lib/character-sheet-linked-inputs.ts': [
+      './character-sheet-linked-input-evaluation',
+    ],
     'src/lib/character-sheet.ts': [
       './character-sheet-abilities',
       './character-sheet-proficiencies',

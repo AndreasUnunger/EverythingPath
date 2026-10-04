@@ -31,10 +31,19 @@ import {
   type Prerequisite,
   type NormalizedPrerequisiteAtom,
 } from './character-sheet-prerequisite-schema';
+import {
+  evaluateCompanionLinkedInputPrerequisite,
+  linkedInputKey,
+} from './character-sheet-linked-input-evaluation';
+import type {
+  CompanionLinkedInput,
+  CompanionLinkedInputResolution,
+} from './character-sheet-linked-inputs';
 
 export type PrerequisiteFacts = {
   abilities: Record<Ability, { score: number }>;
   bab: number;
+  companionLinkedInputs?: readonly CompanionLinkedInputResolution[];
 };
 type Evaluation = { met: boolean | null; facts: unknown };
 type EvaluationContext = {
@@ -48,6 +57,28 @@ const numeric = (value: number, minimum: number): Evaluation => ({
   facts: value,
 });
 const possession = (held: boolean): Evaluation => ({ met: held, facts: held });
+function linkedNumeric(
+  input: CompanionLinkedInput,
+  minimum: number,
+  facts: PrerequisiteFacts,
+): Evaluation | undefined {
+  const matching =
+    facts.companionLinkedInputs?.filter(
+      (resolution) =>
+        linkedInputKey(resolution.input) === linkedInputKey(input),
+    ) ?? [];
+  const resolution = matching[0];
+  if (!resolution) return undefined;
+  if (matching.length !== 1) return unresolved;
+  const status = evaluateCompanionLinkedInputPrerequisite({
+    resolution,
+    evaluate: (value) => (value >= minimum ? 'met' : 'unmet'),
+  });
+  return {
+    met: status === 'unresolved' ? null : status === 'met',
+    facts: resolution.value,
+  };
+}
 const featureName = (value: string) =>
   normalize(value).replace(/\s*\(uc\)$/, '');
 function assertNever(value: never): never {
@@ -89,10 +120,19 @@ export function evaluatePrerequisite(
     case 'ability':
       return numeric(facts.abilities[clause.ability].score, clause.min);
     case 'bab':
-      return numeric(facts.bab, clause.bab);
+      return (
+        linkedNumeric({ kind: 'baseAttackBonus' }, clause.bab, facts) ??
+        numeric(facts.bab, clause.bab)
+      );
     case 'skillRanks': {
       const key = canonicalSkillKey(clause.skillRanks);
       if (!key) return unresolved;
+      const linked = linkedNumeric(
+        { kind: 'skillRanks', skill: key },
+        clause.min,
+        facts,
+      );
+      if (linked) return linked;
       const ranks = input.entries
         .filter((row) => row.active)
         .reduce((sum, row) => {
@@ -167,16 +207,31 @@ export function evaluatePrerequisite(
       };
     }
     case 'classLevel':
-      return numeric(
-        classFamilyLevels(input, clause.classLevel).filter((row) => row.active)
-          .length,
-        clause.min,
+      return (
+        linkedNumeric(
+          { kind: 'classLevels', classRuleIdentity: clause.classLevel },
+          clause.min,
+          facts,
+        ) ??
+        numeric(
+          classFamilyLevels(input, clause.classLevel).filter(
+            (row) => row.active,
+          ).length,
+          clause.min,
+        )
       );
     case 'characterLevel':
-      return numeric(
-        input.entries.filter((row) => row.active && row.kind === 'classLevel')
-          .length,
-        clause.characterLevel,
+      return (
+        linkedNumeric(
+          { kind: 'characterLevel' },
+          clause.characterLevel,
+          facts,
+        ) ??
+        numeric(
+          input.entries.filter((row) => row.active && row.kind === 'classLevel')
+            .length,
+          clause.characterLevel,
+        )
       );
     case 'alignment': {
       const base = input.entries.find((row) => row.kind === 'base');

@@ -29,6 +29,11 @@ import {
 } from '../src/lib/character-sheet';
 import { conditionKeys } from '../src/lib/character-sheet-conditions';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
+import { companionSourceRuleKindSchema } from '../src/lib/catalog/representative-companion-rules';
+import { companionLinkedInputSchema } from '../src/lib/character-sheet-linked-inputs';
+export const companionLinkedInputValidator = zodOutputToConvex(
+  companionLinkedInputSchema,
+);
 export const archetypeReplacementValidator = v.object({
   classLevel: v.number(),
   catalogEntryId: v.id('catalogEntry'),
@@ -223,7 +228,10 @@ export const companionSourceValidator = v.object({
   enabled: v.boolean(),
   sheetEntryId: v.optional(v.id('characterSheetEntry')),
   grantKey: v.optional(grantKeyValidator),
+  ruleKind: v.optional(zodOutputToConvex(companionSourceRuleKindSchema)),
 });
+export const companionSourceWriteValidator =
+  companionSourceValidator.omit('ruleKind');
 export const companionStatusValidator = v.union(
   v.literal('active'),
   v.literal('interrupted'),
@@ -1201,6 +1209,24 @@ export default defineSchema({
   character: defineTable(characterValidator)
     .index('by_campaignId', ['campaignId'])
     .index('by_ownerId', ['ownerId']),
+  characterLinkedInput: defineTable({
+    characterId: v.id('character'),
+    relationshipId: v.id('companionRelationship'),
+    inputKey: v.string(),
+    input: companionLinkedInputValidator,
+    fallback: v.optional(v.number()),
+    interpretation: v.optional(v.object({ sourceKey: v.string() })),
+  })
+    .index('by_characterId', ['characterId'])
+    .index('by_characterId_and_relationshipId', [
+      'characterId',
+      'relationshipId',
+    ])
+    .index('by_characterId_and_relationshipId_and_inputKey', [
+      'characterId',
+      'relationshipId',
+      'inputKey',
+    ]),
   companionRelationship: defineTable({
     associatedCharacterId: v.id('character'),
     companionCharacterId: v.id('character'),

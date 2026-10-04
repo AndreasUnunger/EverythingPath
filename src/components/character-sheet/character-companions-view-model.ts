@@ -1,5 +1,6 @@
 import type { FunctionReturnType } from 'convex/server';
 import type { api } from '@convex/_generated/api';
+import { linkedInputKey } from '~/lib/character-sheet-linked-inputs';
 import {
   characterSheetPath,
   type CharacterSheetOrigin,
@@ -28,6 +29,22 @@ const interruptionLabels: Record<
   cycle: 'Restoring this relationship would create a cycle.',
   manual: 'This relationship was interrupted. Restore it when ready.',
 };
+
+/**
+ * The named values this relationship borrows, once each, from every
+ * curated Supporting Source rule: a lost or switched-off source still names
+ * what it supplied, so the value shows as unresolved rather than vanishing.
+ */
+function listLinkedInputs(inputs: CompanionRelationship['linkedInputs']) {
+  return [
+    ...new Map(
+      inputs.map((descriptor) => [
+        linkedInputKey(descriptor.input),
+        descriptor,
+      ]),
+    ).values(),
+  ];
+}
 
 export function buildCompanionRelationshipView(
   relationship: CompanionRelationship,
@@ -60,6 +77,7 @@ export function buildCompanionRelationshipView(
           ? interruptionLabels[relationship.interruption]
           : null,
     canManage,
+    linkedInputs: listLinkedInputs(relationship.linkedInputs),
     canReplace:
       relationship.role === 'companion' && relationship.status !== 'replaced',
     canInterrupt: canManage && relationship.status === 'active',

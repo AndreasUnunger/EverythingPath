@@ -312,7 +312,10 @@ export function CharacterSheetView({
                 warnings={sheet.warnings}
                 warningController={controller.warnings}
               />
-              <CharacterCompanions controller={controller.companions} />
+              <CharacterCompanions
+                controller={controller.companions}
+                characterId={sheet.character._id}
+              />
               <CharacterSheetCatalog />
               <CreationSettingsEditor
                 settings={sheet.calculated.creationSettings}

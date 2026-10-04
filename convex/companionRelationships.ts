@@ -7,6 +7,8 @@ import {
   characterKindValidator,
   companionKindValidator,
   companionSourceValidator,
+  companionSourceWriteValidator,
+  companionLinkedInputValidator,
   companionStatusValidator,
 } from './schema';
 import { requireCharacterAccess } from './lib/characterAccess';
@@ -17,7 +19,11 @@ import {
 } from './lib/characterSheet';
 import { defaultAbilityScores } from '../src/lib/character-sheet';
 import { formatGrantKeyId } from '../src/lib/character-sheet-grants';
+
 import {
+  deriveCompanionSourceRuleKind,
+  listRelationshipLinkedInputs,
+  resolveCuratedCompanionSources,
   isCompatibleCompanionEndpoint,
   hasAvailableSupportingSource,
   isSupportingSourceAvailable,
@@ -33,7 +39,7 @@ const relationshipArgs = {
 const linkArgs = {
   associatedCharacterId: v.id('character'),
   kind: companionKindValidator,
-  sources: v.array(companionSourceValidator),
+  sources: v.array(companionSourceWriteValidator),
   operationId: v.string(),
 };
 
@@ -64,6 +70,12 @@ export const list = query({
       ),
       sources: v.array(
         companionSourceValidator.extend({ available: v.boolean() }),
+      ),
+      linkedInputs: v.array(
+        v.object({
+          input: companionLinkedInputValidator,
+          classLabel: v.optional(v.string()),
+        }),
       ),
       lastOperationId: v.optional(v.string()),
     }),
@@ -98,6 +110,13 @@ export const list = query({
       }
       const state = graph.states.get(row._id);
       if (!state) continue;
+      const sources =
+        endpoint || role === 'companion'
+          ? resolveCuratedCompanionSources({
+              relationship: row,
+              sheet: graph.sheets.get(row.associatedCharacterId) ?? null,
+            })
+          : row.sources;
       result.push({
         relationshipId: row._id,
         role,
@@ -108,10 +127,11 @@ export const list = query({
         interruption:
           role === 'associated' && !endpoint ? null : state.interruption,
         endpoint,
+        linkedInputs: listRelationshipLinkedInputs({ ...row, sources }),
         sources:
           role === 'associated' && !endpoint
             ? []
-            : row.sources.map((source) => ({
+            : sources.map((source) => ({
                 ...source,
                 available: isSupportingSourceAvailable(
                   source,
@@ -259,7 +279,17 @@ async function insertRelationship(
     associatedCharacterId: args.associatedCharacterId,
     companionCharacterId: args.companionCharacterId,
     kind: args.kind,
-    sources: args.sources,
+    sources: args.sources.map((source) => ({
+      ...source,
+      ruleKind: deriveCompanionSourceRuleKind({
+        kind: args.kind,
+        source,
+        sheet:
+          loadedSheets.find(
+            (sheet) => sheet.character._id === args.associatedCharacterId,
+          ) ?? null,
+      }),
+    })),
     status: 'active',
     manuallyInterrupted: false,
     activatedAt: Date.now(),
@@ -428,7 +458,15 @@ export const setSourceEnabled = legacyCharacterMutation({
     await ctx.db.patch('companionRelationship', row._id, {
       sources: row.sources.map((source) =>
         source.key === args.sourceKey
-          ? { ...source, enabled: args.enabled }
+          ? {
+              ...source,
+              enabled: args.enabled,
+              ruleKind: deriveCompanionSourceRuleKind({
+                kind: row.kind,
+                source,
+                sheet: associated,
+              }),
+            }
           : source,
       ),
       lastOperationId: args.operationId,
@@ -444,11 +482,21 @@ export const setSourceEnabled = legacyCharacterMutation({
 });
 
 export const addSource = legacyCharacterMutation({
-  args: { ...relationshipArgs, source: companionSourceValidator },
+  args: { ...relationshipArgs, source: companionSourceWriteValidator },
   returns: v.null(),
   async handler(ctx, args) {
     const { row, associated } = await getRelationship(ctx, args.relationshipId);
-    const sources = [...row.sources, args.source];
+    const sources = [
+      ...row.sources,
+      {
+        ...args.source,
+        ruleKind: deriveCompanionSourceRuleKind({
+          kind: row.kind,
+          source: args.source,
+          sheet: associated,
+        }),
+      },
+    ];
     if (
       sources.length > 128 ||
       row.sources.some((source) => source.key === args.source.key)

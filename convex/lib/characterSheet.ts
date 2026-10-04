@@ -496,6 +496,14 @@ export async function deleteCharacterSheet(
     await deleteSpellCatalogIndex(ctx, definition._id);
     await ctx.db.delete('catalogEntry', definition._id);
   }
+  const linkedInputs = await listRowsForDeletion(
+    ctx.db
+      .query('characterLinkedInput')
+      .withIndex('by_characterId', (q) => q.eq('characterId', characterId)),
+    'Character sheet is too large to delete',
+  );
+  for (const row of linkedInputs)
+    await ctx.db.delete('characterLinkedInput', row._id);
   const acceptedWarnings = await listRowsForDeletion(
     ctx.db
       .query('acceptedWarning')

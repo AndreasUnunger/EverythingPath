@@ -357,6 +357,9 @@ const calculatedValidator = v.object({
     ),
   }),
   resolvedEntries: v.array(resolvedEntryValidator),
+  calculationWarnings: v.optional(
+    v.array(zodOutputToConvex(characterSheetWarningSchema)),
+  ),
   warningsForAcceptance: v.array(
     zodOutputToConvex(characterSheetWarningSchema),
   ),

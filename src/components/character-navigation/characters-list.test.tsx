@@ -551,6 +551,7 @@ const whisper = {
   interruption: null,
   endpoint: { characterId: 'owl' as Id<'character'>, name: 'Whisper' },
   sources: [],
+  linkedInputs: [],
   lastOperationId: 'seed',
 } satisfies CompanionRelationship;
 const hiddenLord = {

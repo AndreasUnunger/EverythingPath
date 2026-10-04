@@ -6,7 +6,9 @@ import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import type { CompanionRelationshipView } from './character-companions-view-model';
 import { CharacterCompanionEditor } from './character-companion-editor';
+import { CharacterLinkedInputs } from './character-linked-inputs';
 import type {
+  CompanionLinkedValueProps,
   CompanionOpenerProps,
   CompanionsController,
 } from './companion-props';
@@ -15,21 +17,25 @@ import { CompanionSourceSwitches } from './companion-source-switches';
 import { InlineDeleteQuestion } from './inline-delete-question';
 import { action, SaveFeedback } from './sheet-parts';
 
-type RowProps = CompanionOpenerProps & {
-  row: CompanionRelationshipView;
-  controller: CompanionsController;
-};
+type RowProps = CompanionOpenerProps &
+  CompanionLinkedValueProps & {
+    row: CompanionRelationshipView;
+    controller: CompanionsController;
+  };
 
 /**
  * One relationship (approved variant B's list rows): who, what and whether
  * it holds, its Supporting Sources, then the actions the current read permits.
  * Interrupting asks first; replacing and adding a source open the editor
  * beneath the row. A row's writes wait on its own save; other rows stay usable.
+ * The values it borrows follow beneath, each named on its own (#317).
  */
 export function CompanionRelationshipRow({
   row,
   controller,
   rememberOpener,
+  characterId,
+  maintenanceMessage,
 }: RowProps) {
   const maintenance = useInitialMigrationMaintenance();
   const reasonId = useMaintenanceReasonId(maintenance);
@@ -136,6 +142,13 @@ export function CompanionRelationshipRow({
         controller={controller}
         isDisabled={isDisabled}
         reasonId={reasonId}
+      />
+      <CharacterLinkedInputs
+        characterId={characterId}
+        relationshipId={row.relationshipId}
+        inputs={row.linkedInputs}
+        isAvailable={controller.isAvailable}
+        maintenanceMessage={maintenanceMessage}
       />
       {isAskingToInterrupt ? (
         <InlineDeleteQuestion

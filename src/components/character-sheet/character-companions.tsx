@@ -1,4 +1,5 @@
 'use client';
+import type { Id } from '@convex/_generated/dataModel';
 import { useId } from 'react';
 import {
   MaintenanceReason,
@@ -16,6 +17,8 @@ import { useFocusAfterEditorCloses } from './use-focus-after-editor-closes';
 
 type CharacterCompanionsProps = {
   controller: CompanionsController;
+  /** The viewed sheet, for the values its relationships borrow. */
+  characterId: Id<'character'>;
   /** Replaces the maintenance notice's own words beside disabled edits. */
   maintenanceMessage?: string;
 };
@@ -31,6 +34,7 @@ const emptyText = 'text-muted-foreground text-sm';
  */
 export function CharacterCompanions({
   controller,
+  characterId,
   maintenanceMessage,
 }: CharacterCompanionsProps) {
   const maintenance = useInitialMigrationMaintenance();
@@ -43,13 +47,23 @@ export function CharacterCompanions({
   const sectionStatus = (['create', 'link'] as const)
     .map(controller.statusFor)
     .find((status) => status.kind !== 'idle') ?? { kind: 'idle' as const };
-  const listProps = { controller, rememberOpener: focus.rememberOpener };
+  const listProps = {
+    controller,
+    rememberOpener: focus.rememberOpener,
+    characterId,
+    maintenanceMessage,
+  };
   return (
     <MaintenanceReasonScope id={reasonId}>
       <div ref={focus.wrapper}>
         <Block
           title="Companions"
-          aside={<CompanionSectionActions {...listProps} />}
+          aside={
+            <CompanionSectionActions
+              controller={controller}
+              rememberOpener={focus.rememberOpener}
+            />
+          }
         >
           <RemoteNotice
             isShown={controller.hasRemoteChange}
