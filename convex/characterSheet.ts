@@ -1018,6 +1018,24 @@ async function resolvePreferredCatalogEntryId(
   });
   return preferred?._id ?? catalogEntryId;
 }
+async function patchClassLevelStates(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+  nextState: (
+    row: ReturnType<typeof getClassLevel>,
+  ) => ReturnType<typeof getClassLevel>['state'],
+) {
+  let changed = false;
+  for (const row of sheet.entries) {
+    if (row.kind !== 'classLevel') continue;
+    const state = nextState(row);
+    if (compareValues(state, row.state) === 0) continue;
+    await ctx.db.patch('characterSheetEntry', row._id, { state });
+    row.state = state;
+    changed = true;
+  }
+  return changed;
+}
 async function renumberClassLevels(
   ctx: MutationCtx,
   levels: ReturnType<typeof getClassLevel>[],
@@ -1543,23 +1561,52 @@ export const editClassLevel = campaignMutation({
           }
         : {}),
     };
-    let changed = false;
-    for (const row of sheet.entries) {
-      if (row.kind !== 'classLevel') continue;
+    const changed = await patchClassLevelStates(ctx, sheet, (row) => {
+      if (row._id === entry._id) return { ...row.state, ...changes };
       const rowClass = sheet.catalogEntries.find(
         (definition) => definition._id === row.state.classEntryId,
       );
-      const switchesDefinition =
-        selected && selected.ruleIdentity === rowClass?.ruleIdentity;
-      let state = row.state;
-      if (row._id === entry._id) state = { ...row.state, ...changes };
-      else if (switchesDefinition)
-        state = { ...row.state, classEntryId: selected._id };
-      if (compareValues(state, row.state) === 0) continue;
-      changed = true;
-      await ctx.db.patch('characterSheetEntry', row._id, { state });
-      row.state = state;
-    }
+      if (selected && selected.ruleIdentity === rowClass?.ruleIdentity)
+        return { ...row.state, classEntryId: selected._id };
+      return row.state;
+    });
+    if (!changed) return null;
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+export const switchClassVersion = campaignMutation({
+  args: { ...rowScope, classEntryId: v.id('catalogEntry') },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const entry = getClassLevel(sheet, args.entryId);
+    if (!entry.state.classEntryId)
+      throw new ConvexError('Choose a class before switching its version');
+    const source = requireClassDefinition(sheet, entry.state.classEntryId);
+    const target = requireClassDefinition(
+      sheet,
+      await resolvePreferredCatalogEntryId(ctx, sheet, args.classEntryId),
+    );
+    const family = characterSheetClassFamily(source, sheet.catalogEntries);
+    if (family !== characterSheetClassFamily(target, sheet.catalogEntries))
+      throw new ConvexError(
+        'Choose the original or Unchained version of this class',
+      );
+    const changed = await patchClassLevelStates(ctx, sheet, (row) => {
+      const definition = sheet.catalogEntries.find(
+        (item) => item._id === row.state.classEntryId,
+      );
+      if (
+        !definition ||
+        characterSheetClassFamily(definition, sheet.catalogEntries) !== family
+      )
+        return row.state;
+      return { ...row.state, classEntryId: target._id };
+    });
     if (!changed) return null;
     await pruneWarningAcceptancesAndRecordChange(ctx, {
       sheet,

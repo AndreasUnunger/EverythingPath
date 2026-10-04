@@ -1,8 +1,11 @@
 import type {
   Ability,
+  CharacterSheetCatalogEntry,
   CharacterSheetInput,
   SheetEntry,
 } from './character-sheet';
+import { normalizeCharacterSheetChoiceName } from './character-sheet-archetype-helpers';
+import { characterSheetClassFamily } from './character-sheet-grants';
 import { canonicalSkillKey, skillDefinitions } from './character-sheet-skills';
 import { classFamilyLevels } from './character-sheet-class-levels';
 import {
@@ -52,6 +55,7 @@ type EvaluationContext = {
   facts: PrerequisiteFacts;
   input: CharacterSheetInput;
   entry: SheetEntry;
+  classFeatureAssociations: ClassFeatureAssociations;
 };
 const unresolved: Evaluation = { met: null, facts: null };
 const numeric = (value: number, minimum: number): Evaluation => ({
@@ -84,8 +88,89 @@ function linkedNumeric(
     facts: resolution.value,
   };
 }
-const featureName = (value: string) =>
-  normalize(value).replace(/\s*\(uc\)$/, '');
+type ClassFeatureAssociation = { classIdentity: string; family: string };
+type ClassFeatureAssociations = {
+  byFeature: ReadonlyMap<string, readonly ClassFeatureAssociation[]>;
+  familyByClass: ReadonlyMap<string, string>;
+};
+
+// All recorded prefixes share the catalog, so association discovery runs once.
+export function buildClassFeatureAssociations(
+  catalogEntries: CharacterSheetInput['catalogEntries'],
+): ClassFeatureAssociations {
+  const definitions = new Map(
+    catalogEntries.map((entry) => [entry._id, entry]),
+  );
+  const byFeature = new Map<string, ClassFeatureAssociation[]>();
+  const familyByClass = new Map<string, string>();
+  for (const definition of catalogEntries) {
+    if (
+      definition.detail?.kind !== 'class' ||
+      !('featuresByLevel' in definition.detail)
+    )
+      continue;
+    const association = {
+      classIdentity: definition.ruleIdentity,
+      family: characterSheetClassFamily(definition, catalogEntries),
+    };
+    familyByClass.set(definition.ruleIdentity, association.family);
+    for (const row of definition.detail.featuresByLevel ?? []) {
+      const feature = definitions.get(row.catalogEntryId);
+      if (!feature) continue;
+      const owners = byFeature.get(feature.ruleIdentity) ?? [];
+      if (
+        !owners.some(
+          (owner) => owner.classIdentity === association.classIdentity,
+        )
+      )
+        owners.push(association);
+      byFeature.set(feature.ruleIdentity, owners);
+    }
+  }
+  return { byFeature, familyByClass };
+}
+
+function equivalentClassFeature({
+  requiredIdentity,
+  requiredName,
+  retainedClassIdentity,
+  held,
+  associations,
+}: {
+  requiredIdentity: string;
+  requiredName: string | undefined;
+  retainedClassIdentity: string | undefined;
+  held: CharacterSheetCatalogEntry | undefined;
+  associations: ClassFeatureAssociations;
+}) {
+  if (
+    !requiredName ||
+    !held?.name ||
+    normalizeCharacterSheetChoiceName(requiredName) !==
+      normalizeCharacterSheetChoiceName(held.name)
+  )
+    return false;
+  const requiredClasses = associations.byFeature.get(requiredIdentity) ?? [];
+  const heldClasses = associations.byFeature.get(held.ruleIdentity) ?? [];
+  if (requiredClasses.length)
+    return requiredClasses.some((requiredClass) =>
+      heldClasses.some(
+        (heldClass) =>
+          requiredClass.classIdentity !== heldClass.classIdentity &&
+          requiredClass.family === heldClass.family,
+      ),
+    );
+  // An inaccessible original keeps its authored class identity beside its name.
+  if (!retainedClassIdentity) return false;
+  const requiredFamily =
+    associations.familyByClass.get(retainedClassIdentity) ??
+    retainedClassIdentity;
+  return heldClasses.some(
+    (heldClass) =>
+      heldClass.classIdentity !== retainedClassIdentity &&
+      heldClass.family === requiredFamily,
+  );
+}
 
 function castingSpells(
   input: CharacterSheetInput,
@@ -233,11 +318,15 @@ export function evaluatePrerequisite(
           const requiredName = clause.classFeatureName ?? named?.name;
           return (
             definition?.ruleIdentity === clause.classFeature ||
-            Boolean(
-              requiredName &&
-              definition?.name &&
-              featureName(requiredName) === featureName(definition.name),
-            )
+            equivalentClassFeature({
+              requiredIdentity: clause.classFeature,
+              requiredName,
+              retainedClassIdentity: !named
+                ? clause.classFeatureClass
+                : undefined,
+              held: definition,
+              associations: context.classFeatureAssociations,
+            })
           );
         }),
       );

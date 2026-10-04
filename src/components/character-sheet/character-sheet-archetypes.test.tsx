@@ -376,10 +376,8 @@ test('a class’s card applies the Archetype to all its levels with one write an
   ).toHaveTextContent('Level 4Scout’s Charge');
   for (const level of [1, 2, 3, 4])
     expect(
-      screen.getByRole<HTMLSelectElement>('combobox', {
-        name: `Class at level ${level}`,
-      }).value,
-    ).toBe('rogue');
+      screen.getByRole('combobox', { name: `Class at level ${level}` }),
+    ).toHaveTextContent('Rogue');
   expect(calls.map((call) => call.name)).toEqual(['setArchetypeSelected']);
   expect(
     screen.queryByText(/pf1\/|scout-row|talent-2/),

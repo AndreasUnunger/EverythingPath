@@ -1,11 +1,106 @@
 import { findReviewedClassCasting } from '../../src/lib/character-sheet-casting-tables';
 import type { Doc, Id } from '../_generated/dataModel';
+import type { CharacterSheetCatalogEntry } from '../../src/lib/character-sheet';
 
 // Representative prepared-sheet seed data, not a curated Catalog Release.
 // Pathfinder RPG Core Rulebook class tables: cleric p. 40, fighter p. 56,
 // rogue p. 68, sorcerer pp. 70–73 and wizard p. 80; Advanced Player’s Guide
 // alchemist pp. 26–27 and witch pp. 65–67. Feature curation is tracked separately.
-export const representativeClassCatalog = [
+const coreRepresentativeClassCatalog = [
+  {
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '382–383' }],
+    stacksWithItself: false,
+    name: 'Duelist',
+    ruleIdentity: 'duelist',
+    proficiencies: [{ category: 'simple' }, { category: 'martial' }],
+    modifiers: [],
+    prerequisiteText:
+      'Base attack bonus +6; Acrobatics 2 ranks, Perform 2 ranks; Dodge, Mobility, Weapon Finesse.',
+    prerequisites: [
+      { kind: 'bab', bab: 6 },
+      { kind: 'skillRanks', skillRanks: 'skill.acr', min: 2 },
+      { kind: 'skillRanks', skillRanks: 'skill.prf', min: 2 },
+      { kind: 'feat', feat: 'dodge' },
+      { kind: 'feat', feat: 'mobility' },
+      { kind: 'feat', feat: 'weapon-finesse' },
+    ],
+    detail: {
+      kind: 'class',
+      classKind: 'prestige',
+      hitDie: 10,
+      bab: 'full',
+      saves: { fort: 'poor', ref: 'good', will: 'poor' },
+      skillRanksPerLevel: 4,
+      classSkills: [
+        'skill.acr',
+        'skill.blf',
+        'skill.esc',
+        'skill.per',
+        'skill.prf',
+        'skill.sen',
+      ],
+      featuresByLevel: [],
+      picksByLevel: [],
+    },
+  },
+  {
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '391–393' }],
+    stacksWithItself: false,
+    name: 'Shadowdancer',
+    ruleIdentity: 'shadowdancer',
+    modifiers: [],
+    proficiencies: [
+      ...[
+        'club',
+        'light crossbow',
+        'heavy crossbow',
+        'dagger',
+        'dart',
+        'hand crossbow',
+        'light mace',
+        'heavy mace',
+        'morningstar',
+        'quarterstaff',
+        'rapier',
+        'sap',
+        'shortbow',
+        'composite shortbow',
+        'short sword',
+      ].map((baseType) => ({ baseType })),
+      { category: 'light' },
+    ],
+    prerequisiteText:
+      'Perform (dance) 2 ranks, Stealth 5 ranks; Combat Reflexes, Dodge, Mobility.',
+    prerequisites: [
+      { kind: 'skillRanks', skillRanks: 'skill.prf.dance', min: 2 },
+      { kind: 'skillRanks', skillRanks: 'skill.ste', min: 5 },
+      { kind: 'feat', feat: 'combat-reflexes' },
+      { kind: 'feat', feat: 'dodge' },
+      { kind: 'feat', feat: 'mobility' },
+    ],
+    detail: {
+      kind: 'class',
+      classKind: 'prestige',
+      hitDie: 8,
+      bab: 'threeQuarters',
+      saves: { fort: 'poor', ref: 'good', will: 'poor' },
+      skillRanksPerLevel: 6,
+      classSkills: [
+        'skill.acr',
+        'skill.blf',
+        'skill.dip',
+        'skill.dis',
+        'skill.esc',
+        'skill.per',
+        'skill.prf',
+        'skill.pro',
+        'skill.slt',
+        'skill.ste',
+      ],
+      featuresByLevel: [],
+      picksByLevel: [],
+    },
+  },
   {
     sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '56' }],
     stacksWithItself: false,
@@ -279,12 +374,423 @@ export const representativeClassCatalog = [
   '_id' | '_creationTime' | 'scope' | 'characterId'
 >[];
 
+const knowledgeSkills = [
+  'kar',
+  'kdu',
+  'ken',
+  'kge',
+  'khi',
+  'klo',
+  'kna',
+  'kno',
+  'kpl',
+  'kre',
+].map((key) => `skill.${key}`);
+const originalAdditionalClasses = [
+  {
+    name: 'Barbarian',
+    ruleIdentity: 'barbarian',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '31–34' }],
+    stacksWithItself: false,
+    modifiers: [],
+    proficiencies: [
+      { category: 'simple' },
+      { category: 'martial' },
+      { category: 'light' },
+      { category: 'medium' },
+      { category: 'shield' },
+    ],
+    prerequisites: [
+      { kind: 'alignment', alignment: ['NG', 'CG', 'N', 'CN', 'NE', 'CE'] },
+    ],
+    detail: {
+      kind: 'class',
+      classKind: 'base',
+      hitDie: 12,
+      bab: 'full',
+      saves: { fort: 'good', ref: 'poor', will: 'poor' },
+      skillRanksPerLevel: 4,
+      classSkills: [
+        'skill.acr',
+        'skill.clm',
+        'skill.crf',
+        'skill.han',
+        'skill.int',
+        'skill.kna',
+        'skill.per',
+        'skill.rid',
+        'skill.sur',
+        'skill.swm',
+      ],
+      featuresByLevel: [],
+      picksByLevel: [],
+    },
+  },
+  {
+    name: 'Monk',
+    ruleIdentity: 'monk',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '56–60' }],
+    stacksWithItself: false,
+    modifiers: [],
+    prerequisites: [{ kind: 'alignment', alignment: ['LG', 'LN', 'LE'] }],
+    proficiencies: [
+      'club',
+      'light crossbow',
+      'heavy crossbow',
+      'dagger',
+      'handaxe',
+      'javelin',
+      'kama',
+      'nunchaku',
+      'quarterstaff',
+      'sai',
+      'short sword',
+      'shortspear',
+      'shuriken',
+      'siangham',
+      'sling',
+      'spear',
+    ].map((baseType) => ({ baseType })),
+    detail: {
+      kind: 'class',
+      classKind: 'base',
+      hitDie: 8,
+      bab: 'threeQuarters',
+      saves: { fort: 'good', ref: 'good', will: 'good' },
+      skillRanksPerLevel: 4,
+      classSkills: [
+        'skill.acr',
+        'skill.clm',
+        'skill.crf',
+        'skill.esc',
+        'skill.int',
+        'skill.khi',
+        'skill.kre',
+        'skill.per',
+        'skill.prf',
+        'skill.pro',
+        'skill.rid',
+        'skill.sen',
+        'skill.ste',
+        'skill.swm',
+      ],
+      featuresByLevel: [],
+      picksByLevel: [],
+    },
+  },
+  {
+    name: 'Summoner',
+    ruleIdentity: 'summoner',
+    sources: [
+      { book: 'Pathfinder RPG Advanced Player’s Guide', pages: '54–64' },
+    ],
+    stacksWithItself: false,
+    modifiers: [],
+    proficiencies: [{ category: 'simple' }, { category: 'light' }],
+    detail: {
+      kind: 'class',
+      classKind: 'base',
+      hitDie: 8,
+      bab: 'threeQuarters',
+      saves: { fort: 'poor', ref: 'poor', will: 'good' },
+      skillRanksPerLevel: 2,
+      casting: findReviewedClassCasting('summoner'),
+      classSkills: [
+        'skill.crf',
+        'skill.fly',
+        'skill.han',
+        ...knowledgeSkills,
+        'skill.lin',
+        'skill.pro',
+        'skill.rid',
+        'skill.spl',
+        'skill.umd',
+      ],
+      featuresByLevel: [],
+      picksByLevel: [],
+    },
+  },
+] satisfies Omit<
+  Extract<Doc<'catalogEntry'>, { detail: { kind: 'class' } }>,
+  '_id' | '_creationTime' | 'scope' | 'characterId'
+>[];
+
+// Real counterpart references are written only after class document IDs exist.
+export const representativeClassCounterparts: Readonly<Record<string, string>> =
+  {
+    'unchained-barbarian': 'barbarian',
+    'unchained-monk': 'monk',
+    'unchained-rogue': 'rogue',
+    'unchained-summoner': 'summoner',
+  };
+const unchainedPages: Readonly<Record<string, string>> = {
+  barbarian: '8–13',
+  monk: '14–19',
+  rogue: '20–24',
+  summoner: '25–39',
+};
+const unchainedClasses = [
+  ...coreRepresentativeClassCatalog,
+  ...originalAdditionalClasses,
+]
+  .filter((entry) => Object.hasOwn(unchainedPages, entry.ruleIdentity))
+  .map((entry) => ({
+    ...entry,
+    name: `${entry.name} (Unchained)`,
+    ruleIdentity: `unchained-${entry.ruleIdentity}`,
+    sources: [
+      {
+        book: 'Pathfinder Unchained',
+        pages: unchainedPages[entry.ruleIdentity] ?? '',
+      },
+    ],
+    detail: {
+      ...entry.detail,
+      ...(entry.ruleIdentity === 'monk'
+        ? {
+            hitDie: 10,
+            bab: 'full',
+            saves: { fort: 'good', ref: 'good', will: 'poor' },
+          }
+        : {}),
+      ...(entry.ruleIdentity === 'summoner'
+        ? { casting: findReviewedClassCasting('summonerUnchained') }
+        : {}),
+    },
+  })) satisfies Omit<
+  Extract<Doc<'catalogEntry'>, { detail: { kind: 'class' } }>,
+  '_id' | '_creationTime' | 'scope' | 'characterId'
+>[];
+
+export const representativeClassCatalog = [
+  ...coreRepresentativeClassCatalog,
+  ...originalAdditionalClasses,
+  ...unchainedClasses,
+];
+
+// Acquisition rows from CRB Tables 12–5 and 12–10. Feature mechanics remain
+// representative prose; these seeds are never admitted as a reviewed release.
+type AdditionalFeatureRow = {
+  classLevel: number;
+  key: string;
+  name: string;
+  grants?: CharacterSheetCatalogEntry['grants'];
+  pick?: { list: string; count: number };
+};
+const additionalFeatureRows: Record<string, readonly AdditionalFeatureRow[]> = {
+  duelist: [
+    { classLevel: 1, key: 'canny-defense', name: 'Canny Defense' },
+    { classLevel: 1, key: 'precise-strike', name: 'Precise Strike' },
+    { classLevel: 2, key: 'improved-reaction-2', name: 'Improved Reaction +2' },
+    { classLevel: 2, key: 'parry', name: 'Parry' },
+    { classLevel: 3, key: 'enhanced-mobility', name: 'Enhanced Mobility' },
+    { classLevel: 4, key: 'combat-reflexes', name: 'Combat Reflexes' },
+    { classLevel: 4, key: 'grace', name: 'Grace' },
+    { classLevel: 5, key: 'riposte', name: 'Riposte' },
+    { classLevel: 6, key: 'acrobatic-charge', name: 'Acrobatic Charge' },
+    { classLevel: 7, key: 'elaborate-defense', name: 'Elaborate Defense' },
+    { classLevel: 8, key: 'improved-reaction-4', name: 'Improved Reaction +4' },
+    { classLevel: 9, key: 'deflect-arrows', name: 'Deflect Arrows' },
+    { classLevel: 9, key: 'no-retreat', name: 'No Retreat' },
+    { classLevel: 10, key: 'crippling-critical', name: 'Crippling Critical' },
+  ],
+  shadowdancer: [
+    { classLevel: 1, key: 'hide-in-plain-sight', name: 'Hide in Plain Sight' },
+    { classLevel: 2, key: 'darkvision', name: 'Darkvision' },
+    { classLevel: 2, key: 'evasion', name: 'Evasion' },
+    { classLevel: 2, key: 'uncanny-dodge', name: 'Uncanny Dodge' },
+    {
+      classLevel: 3,
+      key: 'rogue-talent-3',
+      name: 'Rogue Talent',
+      pick: { list: 'Rogue talents', count: 1 },
+    },
+    { classLevel: 3, key: 'shadow-illusion', name: 'Shadow Illusion' },
+    { classLevel: 3, key: 'summon-shadow', name: 'Summon Shadow' },
+    { classLevel: 4, key: 'shadow-call', name: 'Shadow Call' },
+    { classLevel: 4, key: 'shadow-jump-40', name: 'Shadow Jump (40 feet)' },
+    { classLevel: 5, key: 'defensive-roll', name: 'Defensive Roll' },
+    {
+      classLevel: 5,
+      key: 'improved-uncanny-dodge',
+      name: 'Improved Uncanny Dodge',
+    },
+    {
+      classLevel: 6,
+      key: 'rogue-talent-6',
+      name: 'Rogue Talent',
+      pick: { list: 'Rogue talents', count: 1 },
+    },
+    { classLevel: 6, key: 'shadow-jump-80', name: 'Shadow Jump (80 feet)' },
+    { classLevel: 7, key: 'slippery-mind', name: 'Slippery Mind' },
+    { classLevel: 8, key: 'shadow-jump-160', name: 'Shadow Jump (160 feet)' },
+    { classLevel: 8, key: 'shadow-power', name: 'Shadow Power' },
+    {
+      classLevel: 9,
+      key: 'rogue-talent-9',
+      name: 'Rogue Talent',
+      pick: { list: 'Rogue talents', count: 1 },
+    },
+    { classLevel: 10, key: 'improved-evasion', name: 'Improved Evasion' },
+    { classLevel: 10, key: 'shadow-jump-320', name: 'Shadow Jump (320 feet)' },
+    { classLevel: 10, key: 'shadow-mastery', name: 'Shadow Master' },
+  ],
+  barbarian: [
+    { classLevel: 1, key: 'rage', name: 'Rage' },
+    { classLevel: 1, key: 'fast-movement', name: 'Fast Movement' },
+    {
+      classLevel: 2,
+      key: 'rage-power-2',
+      name: 'Rage Power',
+      pick: { list: 'Rage powers', count: 1 },
+    },
+    { classLevel: 2, key: 'uncanny-dodge', name: 'Uncanny Dodge' },
+    { classLevel: 3, key: 'trap-sense-3', name: 'Trap Sense +1' },
+  ],
+  'unchained-barbarian': [
+    { classLevel: 1, key: 'rage', name: 'Rage (UC)' },
+    { classLevel: 1, key: 'fast-movement', name: 'Fast Movement (UC)' },
+    {
+      classLevel: 2,
+      key: 'rage-power-2',
+      name: 'Rage Power (UC)',
+      pick: { list: 'Rage powers', count: 1 },
+    },
+    { classLevel: 2, key: 'uncanny-dodge', name: 'Uncanny Dodge (UC)' },
+    { classLevel: 3, key: 'danger-sense-3', name: 'Danger Sense +1 (UC)' },
+  ],
+  monk: [
+    { classLevel: 1, key: 'flurry', name: 'Flurry of Blows' },
+    { classLevel: 1, key: 'unarmed-strike', name: 'Unarmed Strike' },
+    { classLevel: 1, key: 'bonus-feat-1', name: 'Bonus Feat' },
+    { classLevel: 2, key: 'evasion', name: 'Evasion' },
+    { classLevel: 4, key: 'ki-pool', name: 'Ki Pool' },
+  ],
+  'unchained-monk': [
+    { classLevel: 1, key: 'flurry', name: 'Flurry of Blows (UC)' },
+    { classLevel: 1, key: 'unarmed-strike', name: 'Unarmed Strike (UC)' },
+    { classLevel: 1, key: 'bonus-feat-1', name: 'Bonus Feat (UC)' },
+    { classLevel: 2, key: 'evasion', name: 'Evasion (UC)' },
+    { classLevel: 3, key: 'ki-pool', name: 'Ki Pool (UC)' },
+  ],
+  summoner: [
+    { classLevel: 1, key: 'eidolon', name: 'Eidolon' },
+    { classLevel: 1, key: 'life-link', name: 'Life Link' },
+    { classLevel: 1, key: 'summon-monster', name: 'Summon Monster' },
+    { classLevel: 2, key: 'bond-senses', name: 'Bond Senses' },
+  ],
+  'unchained-summoner': [
+    { classLevel: 1, key: 'eidolon', name: 'Eidolon (UC)' },
+    { classLevel: 1, key: 'life-link', name: 'Life Link (UC)' },
+    { classLevel: 1, key: 'summon-monster', name: 'Summon Monster (UC)' },
+    { classLevel: 2, key: 'bond-senses', name: 'Bond Senses (UC)' },
+  ],
+  'unchained-rogue': (
+    [
+      ...[1, 3, 5, 7, 9, 11, 13, 15, 17, 19].map(
+        (classLevel, index): AdditionalFeatureRow => ({
+          classLevel,
+          key: `sneak-attack-${classLevel}`,
+          name: `Sneak Attack +${index + 1}d6 (UC)`,
+        }),
+      ),
+      { classLevel: 1, key: 'trapfinding', name: 'Trapfinding (UC)' },
+      {
+        classLevel: 1,
+        key: 'finesse-training-1',
+        name: 'Finesse Training (UC)',
+        grants: [{ catalogEntryId: 'weapon-finesse' }],
+      },
+      ...[3, 11, 19].map(
+        (classLevel): AdditionalFeatureRow => ({
+          classLevel,
+          key: `finesse-training-${classLevel}`,
+          name: 'Finesse Training (UC)',
+          pick: { list: 'Finesse weapons', count: 1 },
+        }),
+      ),
+      { classLevel: 2, key: 'evasion', name: 'Evasion (UC)' },
+      ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20].map(
+        (classLevel): AdditionalFeatureRow => ({
+          classLevel,
+          key: `talent-${classLevel}`,
+          name: 'Rogue Talent (UC)',
+          pick: { list: 'Rogue talents', count: 1 },
+        }),
+      ),
+      ...[3, 6, 9, 12, 15, 18].map(
+        (classLevel, index): AdditionalFeatureRow => ({
+          classLevel,
+          key: `danger-sense-${classLevel}`,
+          name: `Danger Sense +${index + 1} (UC)`,
+        }),
+      ),
+      {
+        classLevel: 4,
+        key: 'debilitating-injury',
+        name: 'Debilitating Injury (UC)',
+      },
+      { classLevel: 4, key: 'uncanny-dodge', name: 'Uncanny Dodge (UC)' },
+      ...[5, 10, 15, 20].map(
+        (classLevel): AdditionalFeatureRow => ({
+          classLevel,
+          key: `rogues-edge-${classLevel}`,
+          name: "Rogue's Edge (UC)",
+          pick: { list: 'Skill unlocks', count: 1 },
+        }),
+      ),
+      {
+        classLevel: 8,
+        key: 'improved-uncanny-dodge',
+        name: 'Improved Uncanny Dodge (UC)',
+      },
+      {
+        classLevel: 10,
+        key: 'advanced-talents',
+        name: 'Advanced Talents (UC)',
+      },
+      { classLevel: 20, key: 'master-strike', name: 'Master Strike (UC)' },
+    ] satisfies AdditionalFeatureRow[]
+  ).sort((left, right) => left.classLevel - right.classLevel),
+};
+
+export const representativeAdditionalClassFeatures: (CharacterSheetCatalogEntry & {
+  sources: { book: string; pages: string }[];
+})[] = Object.entries(additionalFeatureRows).flatMap(([identity, rows]) =>
+  rows.map(({ classLevel, key, name, grants, pick }) => ({
+    _id: `${identity}-${key}`,
+    ruleIdentity: `${identity}-${key}`,
+    name,
+    ...(grants ? { grants } : {}),
+    modifiers: [],
+    sources:
+      representativeClassCatalog.find(
+        (entry) => entry.ruleIdentity === identity,
+      )?.sources ?? [],
+    detail: {
+      kind: 'classFeature',
+      parentFeature: `${identity}-${key.replace(/-\d+$/, '')}`,
+      part: String(classLevel),
+      ...(pick ? { picksByLevel: [{ classLevel, ...pick }] } : {}),
+    },
+  })),
+);
+
 // Exact feature rows from CRB Tables 3-9 and 3-13, through class level 20.
 // Keys are materialized after all feature definitions have durable document IDs.
 export const representativeClassFeatureSchedules: Record<
   string,
   { classLevel: number; catalogEntryId: string }[]
 > = {
+  ...Object.fromEntries(
+    Object.entries(additionalFeatureRows).map(([identity, rows]) => [
+      identity,
+      rows.map(({ classLevel, key }) => ({
+        classLevel,
+        catalogEntryId: `${identity}-${key}`,
+      })),
+    ]),
+  ),
   fighter: [
     { classLevel: 1, catalogEntryId: 'fighter-bonus-feat-1' },
     ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20].map((classLevel) => ({
@@ -338,4 +844,24 @@ export function materializeRepresentativeClassFeatureSchedule(
       catalogEntryId: idForKey(catalogEntryId),
     }),
   );
+}
+
+export function materializeRepresentativeClassDetail(
+  classIdentity: string,
+  idForKey: (key: string) => Id<'catalogEntry'>,
+) {
+  const definition = representativeClassCatalog.find(
+    (entry) => entry.ruleIdentity === classIdentity,
+  );
+  if (!definition)
+    throw new Error(`Representative class is unavailable: ${classIdentity}`);
+  const counterpart = representativeClassCounterparts[classIdentity];
+  return {
+    ...definition.detail,
+    ...(counterpart ? { counterpartOf: idForKey(counterpart) } : {}),
+    featuresByLevel: materializeRepresentativeClassFeatureSchedule(
+      classIdentity,
+      idForKey,
+    ),
+  };
 }

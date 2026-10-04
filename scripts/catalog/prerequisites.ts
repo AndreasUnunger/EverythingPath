@@ -15,6 +15,7 @@ import type { ManualProficiency } from '../../src/lib/character-sheet-proficienc
 import { skillDefinitions } from '../../src/lib/character-sheet-skills.ts';
 import { sourceDescription, uuidKey, type LoadedRecord } from './records.ts';
 import { reviewedDeityRequirements } from './selection-import-rules.ts';
+import { readArray, readObject, readText } from './values.ts';
 
 type ParseContext = {
   source: LoadedRecord;
@@ -108,6 +109,24 @@ function namedReference(text: string, context: ParseContext) {
   const match = matches[0];
   const identity = match && context.resolveKey(match[0]);
   return match && identity ? { source: match[1], identity } : undefined;
+}
+function classFeatureClass(identity: string, context: ParseContext) {
+  const owners = new Set<string>();
+  for (const [key, source] of context.lookup) {
+    if (source.record.type !== 'class') continue;
+    const associations = readArray(
+      readObject(source.record.system.links).classAssociations,
+    );
+    const ownsFeature = associations.some((association) => {
+      const featureKey = uuidKey(
+        readText({ value: readObject(association).uuid }),
+      );
+      return featureKey && context.resolveKey(featureKey) === identity;
+    });
+    const classIdentity = context.resolveKey(key);
+    if (ownsFeature && classIdentity) owners.add(classIdentity);
+  }
+  return owners.size === 1 ? [...owners][0] : undefined;
 }
 function atom(
   text: string,
@@ -216,14 +235,17 @@ function atom(
         ? { feat: reference.identity, choice: featChoice[2] }
         : { feat: reference.identity };
     if (kind === 'race') return { race: [reference.identity] };
-    if (kind === 'classFeature')
+    if (kind === 'classFeature') {
+      const owner = classFeatureClass(reference.identity, context);
       return {
         classFeature: reference.identity,
         classFeatureName: reference.source.record.name.replace(
           /\s*\(UC\)$/,
           '',
         ),
+        ...(owner ? { classFeatureClass: owner } : {}),
       };
+    }
     if (kind === 'racialTrait') return { racialTrait: reference.identity };
   }
   return { unchecked: readableText(clean, context) };

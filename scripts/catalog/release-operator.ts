@@ -480,8 +480,23 @@ async function buildReleaseArtifact(
           featureSchedules:
             implementation.ruleResources.representativeClassCatalog
               .featureSchedules,
+          counterparts:
+            implementation.ruleResources.representativeClassCatalog
+              .counterparts,
           sourceFingerprint: await releaseFingerprint(
             implementation.ruleResources.representativeClassCatalog.source,
+          ),
+          compatibility,
+        },
+      },
+      {
+        key: 'builtin:representative-selection-catalog',
+        payload: {
+          definitions:
+            implementation.ruleResources.representativeSelectionCatalog
+              .definitions,
+          sourceFingerprint: await releaseFingerprint(
+            implementation.ruleResources.representativeSelectionCatalog.source,
           ),
           compatibility,
         },

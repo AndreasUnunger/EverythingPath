@@ -1,4 +1,6 @@
 'use client';
+import type { Id } from '@convex/_generated/dataModel';
+import type { ReactNode } from 'react';
 import { useMaintenanceReasonId } from '~/components/campaign-shell/maintenance-reason';
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
@@ -13,6 +15,7 @@ import { Input } from '~/components/ui/input';
 import { abilityKeys, abilityLabels } from '~/lib/character-sheet';
 import { cn } from '~/lib/utils';
 import { ChoiceSelect, type ChoiceOption } from './choice-select';
+import { ClassPicker } from './class-level-class-picker';
 import { isChoiceMissing, listFieldWarnings } from './class-level-warnings';
 import { InlineWarnings } from './inline-warning';
 import { fieldLabel, RemoteNotice, SaveFeedback } from './sheet-parts';
@@ -24,6 +27,7 @@ import type { useClassLevelChoicesForm } from './use-sheet-forms';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type ChoicesEditor = ReturnType<typeof useClassLevelChoicesForm>;
+type Classes = Controller['classes'];
 
 const favoredBonusOptions: ChoiceOption[] = [
   { value: 'hp', label: '+1 hp' },
@@ -45,19 +49,26 @@ type CellProps = {
   className?: string;
 };
 
-/** The class, chosen in place and saved as soon as it is chosen. */
+/**
+ * The class, chosen among cards in place and saved as soon as it is chosen,
+ * with its Original or Unchained version under it where it has both.
+ */
 export function ClassChoiceCell({
   level,
   editor,
   warnings,
   warningController,
-  classOptions,
+  classes,
+  entryId,
   classLabel,
+  versionControl,
   className,
 }: CellProps & {
-  classOptions: ChoiceOption[];
+  classes: Classes;
+  entryId: Id<'characterSheetEntry'>;
   /** "Fighter 2": the class and how many levels of it so far. */
   classLabel: string | null;
+  versionControl?: ReactNode;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   return (
@@ -65,19 +76,23 @@ export function ClassChoiceCell({
       control={editor.form.control}
       name="classEntryId"
       render={({ field, fieldState }) => (
-        <FormItem className={cn('gap-1', className)}>
+        <FormItem className={cn('min-w-0 gap-1', className)}>
           <span aria-hidden className={cellLabel}>
             Class
           </span>
-          <ChoiceSelect
+          <ClassPicker
             label={`Class at level ${level}`}
-            value={field.value}
-            options={classOptions}
-            emptyLabel="Unspecified"
+            value={
+              classes.choices.find(
+                (choice) => choice.classEntryId === field.value,
+              )?.classEntryId ?? null
+            }
+            classes={classes}
+            entryId={entryId}
             isMissing={isChoiceMissing(warnings, 'class')}
             disabled={maintenance.readOnly}
-            onValueChange={(value) => {
-              field.onChange(value);
+            onValueChange={(classEntryId) => {
+              field.onChange(classEntryId ?? '');
               void editor.save();
             }}
             renderTrigger={(trigger) => <FormControl>{trigger}</FormControl>}
@@ -88,6 +103,7 @@ export function ClassChoiceCell({
             </p>
           ) : null}
           {fieldState.error ? <FormMessage role="alert" /> : null}
+          {versionControl}
           <InlineWarnings
             warnings={listFieldWarnings(warnings, 'class')}
             controller={warningController}

@@ -166,6 +166,80 @@ export function representativeWeapon(
   };
 }
 
+type ClassDefinition = Extract<CatalogEntry, { detail: { kind: 'class' } }>;
+/** A class shaped like a representative one: a Prestige Class or a version. */
+export type ExtraClass = {
+  id: string;
+  name: string;
+  /** The representative class it copies, Fighter unless named. */
+  like?: ClassKey;
+  classKind?: 'base' | 'prestige';
+  /** The original class this is the Unchained version of. */
+  counterpartOf?: string;
+  prerequisites?: unknown[];
+  prerequisiteText?: string;
+  /** Class detail that differs from the copied class, such as its features. */
+  detail?: Record<string, unknown>;
+};
+
+/**
+ * The sheet with further class definitions, some of its Class Levels moved
+ * onto them (`classOf`: entry ID to class ID), and the sheet recalculated.
+ */
+export function withClasses(
+  snapshot: CharacterSheetSnapshot,
+  classes: ExtraClass[],
+  classOf: Record<string, string> = {},
+): CharacterSheetSnapshot {
+  const definitions = classes.map((extra) => {
+    const like = snapshot.catalogEntries.find(
+      (entry): entry is ClassDefinition =>
+        isClassCatalogEntry(entry) && entry._id === (extra.like ?? 'fighter'),
+    );
+    if (!like) throw new Error(`Missing ${extra.like ?? 'fighter'}`);
+    return {
+      ...like,
+      _id: extra.id,
+      name: extra.name,
+      ruleIdentity: extra.id,
+      detail: {
+        ...like.detail,
+        ...(extra.classKind ? { classKind: extra.classKind } : {}),
+        ...(extra.counterpartOf ? { counterpartOf: extra.counterpartOf } : {}),
+        ...extra.detail,
+      },
+      ...(extra.prerequisites ? { prerequisites: extra.prerequisites } : {}),
+      ...(extra.prerequisiteText
+        ? { prerequisiteText: extra.prerequisiteText }
+        : {}),
+    } as unknown as CatalogEntry;
+  });
+  const catalogEntries = [...snapshot.catalogEntries, ...definitions];
+  const entries = snapshot.entries.map((entry) =>
+    entry.kind === 'classLevel' && classOf[entry._id] !== undefined
+      ? ({
+          ...entry,
+          state: {
+            ...entry.state,
+            classEntryId: classOf[entry._id] as Id<'catalogEntry'>,
+          },
+        } as Entry)
+      : entry,
+  );
+  const calculated = calculateFixtureSheetProjections({
+    characterKind: 'pc',
+    entries,
+    catalogEntries,
+  });
+  return {
+    ...snapshot,
+    entries,
+    catalogEntries,
+    calculated: calculated.current,
+    permanentCalculated: calculated.permanent,
+  };
+}
+
 /** The calculated warning for one check, to accept it as the sheet states it. */
 export function findCalculatedWarning(
   snapshot: CharacterSheetSnapshot,

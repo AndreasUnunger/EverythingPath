@@ -98,6 +98,47 @@ test('UUID labels containing or stay one clause and unlabelled links remain read
   );
 });
 
+test('linked class feature prerequisites retain their owning class identity from class associations', () => {
+  const feature = source('Rage', 'Rage', 'feat');
+  feature.pack = 'class-abilities';
+  const barbarian = source('Barbarian', 'Unrelated display name', 'class');
+  barbarian.record.system.links = {
+    classAssociations: [
+      { level: 1, uuid: 'Compendium.pf1.class-abilities.Rage' },
+    ],
+  };
+  const target = source(
+    'Target',
+    'Test feat',
+    'feat',
+    '<p>Prerequisites: @UUID[Compendium.pf1.class-abilities.Rage].</p>',
+  );
+  const lookup = new Map(
+    [feature, barbarian, target].map((record) => [
+      `pf1/${record.record._id}`,
+      record,
+    ]),
+  );
+  const entry = mapEntry({
+    source: target,
+    kind: 'feat',
+    lookup,
+    resolveKey: (key) => (lookup.has(key) ? key : undefined),
+    spellClassTags: new Set(),
+  });
+  expect(entry.prerequisites).toEqual([
+    {
+      kind: 'classFeature',
+      classFeature: 'pf1/Rage',
+      classFeatureName: 'Rage',
+      classFeatureClass: 'pf1/Barbarian',
+    },
+  ]);
+  expect(importedCatalogEntrySchema.parse(entry).prerequisites).toEqual(
+    entry.prerequisites,
+  );
+});
+
 test('linked proficiency feats use their resolved rule name and class grants satisfy their requirements', () => {
   const martial = source('Martial', 'Martial Weapon Proficiency', 'feat');
   const target = source(

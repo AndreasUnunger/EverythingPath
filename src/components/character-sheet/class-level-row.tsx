@@ -3,7 +3,6 @@ import { useId } from 'react';
 import { Form } from '~/components/ui/form';
 import { cn } from '~/lib/utils';
 import { RowCatalogDefinition } from './row-catalog-definition';
-import type { ChoiceOption } from './choice-select';
 import { ClassLevelActions } from './class-level-actions';
 import {
   AbilityIncreaseCell,
@@ -12,6 +11,7 @@ import {
   FavoredClassBonusCell,
 } from './class-level-choices';
 import { ClassLevelHitPoints } from './class-level-hit-points';
+import { ClassVersionControl } from './class-version-control';
 import { PrerequisiteGroups } from './prerequisite-groups';
 import type {
   SheetWarningView,
@@ -23,6 +23,7 @@ type Controller = ReturnType<typeof useCharacterSheet>;
 type ReadySheet = NonNullable<Controller['sheet']>;
 type LevelRow = ReadySheet['levels'][number];
 type LevelMetadata = ReadySheet['calculated']['classLevels'][number];
+type Classes = Controller['classes'];
 
 /** The row's DOM anchor: found again after an append or a deletion. */
 export function getLevelAnchorId(entryId: string) {
@@ -37,16 +38,22 @@ const cell = 'col-span-2 md:col-span-1 md:row-start-1';
 const actionsCell =
   'col-start-2 row-start-1 flex items-center justify-end md:col-start-6';
 
-function findClass(
-  classChoices: ReadySheet['classChoices'],
-  id: string | null,
-) {
-  const classChoice = classChoices.find((choice) => choice._id === id);
-  if (classChoice?.detail.kind !== 'class') return null;
+function findClass(classes: Classes, id: string | null) {
+  const choice = classes.choices.find((item) => item.classEntryId === id);
+  if (!choice) return null;
   return {
-    name: classChoice.name,
-    hitDie: 'hitDie' in classChoice.detail ? classChoice.detail.hitDie : null,
+    name: choice.name,
+    hitDie: choice.hitDie,
   };
+}
+
+/** The class's own name for its versions: the original's, where offered. */
+function findFamilyName(classes: Classes, row: LevelRow, fallback: string) {
+  return (
+    classes
+      .versionChoicesFor(row._id)
+      .find((version) => version.kind === 'original')?.name ?? fallback
+  );
 }
 
 /**
@@ -58,14 +65,15 @@ function findClass(
  * rank allocation is spent and warned about in the Skills block, and its
  * class's weapon proficiency choice is made in the Proficiencies block. A
  * Prestige Class's first level shows its entry prerequisites now and at
- * that level, apart from the level's own order.
+ * that level, apart from the level's own order. A class with an Unchained
+ * version offers the switch for all its levels under the class.
  */
 export function ClassLevelRow({
   row,
   index,
   count,
   metadata,
-  classChoices,
+  classes,
   warnings,
   warningController,
   saveHitPoints,
@@ -79,7 +87,7 @@ export function ClassLevelRow({
   index: number;
   count: number;
   metadata: LevelMetadata | undefined;
-  classChoices: ReadySheet['classChoices'];
+  classes: Classes;
   warnings: SheetWarningView[];
   warningController: Controller['warnings'];
   saveHitPoints: Controller['saveHitPoints'];
@@ -91,14 +99,12 @@ export function ClassLevelRow({
 }) {
   const level = index + 1;
   const headingId = useId();
-  const chosenClass = findClass(classChoices, row.state.classEntryId);
-  const classOptions: ChoiceOption[] = classChoices.map((choice) => ({
-    value: choice._id,
-    label: choice.name,
-  }));
+  const chosenClass = findClass(classes, row.state.classEntryId);
   const choices = useClassLevelChoicesForm({
     classEntryId: row.state.classEntryId,
-    classChoices,
+    operationId: classes.lastOperationId,
+    isClassVersionChange: classes.isVersionChange,
+    classChoices: classes.choices.map((choice) => choice.definition),
     favoredClassBonus: row.state.favoredClassBonus,
     abilityIncrease: row.state.abilityIncrease,
     save: async (changes) => {
@@ -125,7 +131,18 @@ export function ClassLevelRow({
       <Form {...choices.form}>
         <ClassChoiceCell
           {...cellProps}
-          classOptions={classOptions}
+          classes={classes}
+          entryId={row._id}
+          versionControl={
+            chosenClass ? (
+              <ClassVersionControl
+                entryId={row._id}
+                className={findFamilyName(classes, row, chosenClass.name)}
+                classes={classes}
+                disabled={isChangingLevels}
+              />
+            ) : null
+          }
           classLabel={
             chosenClass && metadata?.classLevel
               ? `${chosenClass.name} ${metadata.classLevel}`

@@ -48,6 +48,7 @@ export const prerequisiteAtomSchema = z.union([
   atomSchema('classFeature', {
     classFeature: z.string(),
     classFeatureName: z.string().optional(),
+    classFeatureClass: z.string().optional(),
   }),
   atomSchema('racialTrait', { racialTrait: z.string() }),
   atomSchema('classLevel', { classLevel: z.string(), min: z.number() }),

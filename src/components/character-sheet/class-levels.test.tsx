@@ -4,7 +4,9 @@ import {
   emptyOwnerCandidates,
   findCalculatedWarning,
   isClassCatalogEntry,
+  withClasses,
   type Adjustment,
+  type ExtraClass,
   type Level,
 } from './character-sheet-test-fixture';
 import {
@@ -21,7 +23,6 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import type * as NavigationGuard from '~/components/campaign-shell/navigation-guard';
 import { CharacterSheetBlocks } from './character-sheet-blocks-test-fixture';
-
 import { formatModifier } from './sheet-parts';
 import type { CharacterSheetSnapshot } from './use-character-sheet';
 
@@ -130,6 +131,19 @@ const noteInput = (level: number) =>
   });
 const pick = (select: HTMLElement, value: string) =>
   fireEvent.change(select, { target: { value } });
+/** Opens a class picker and chooses the named card. */
+function chooseClass(picker: HTMLElement, name: string) {
+  fireEvent.click(picker);
+  fireEvent.click(
+    within(screen.getByRole('dialog')).getByRole('radio', { name }),
+  );
+}
+/** Reduced motion and the tablet width answer the same media query here. */
+const media = (matches: boolean) => ({
+  matches,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+});
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
 function lastCall() {
   const call = calls.at(-1);
@@ -161,18 +175,18 @@ beforeEach(() => {
   snapshot = undefined;
   scrollIntoView = vi.fn();
   Element.prototype.scrollIntoView = scrollIntoView;
-  window.matchMedia = vi.fn().mockReturnValue({ matches: false });
+  window.matchMedia = vi.fn().mockReturnValue(media(false));
 });
 
 test('a class, plain hit points, an alternative favored class bonus and an ability increase are chosen in place on a row and saved as recorded, with no wizard and no HP fill', async () => {
   const view = renderSheet(
     buildSheet({ hasClasses: true, levels: [{ id: 'a', hp: null }] }),
   );
-  expect(classPicker(1)).toHaveValue('none');
+  expect(classPicker(1)).toHaveTextContent('Unspecified');
   expect(classPicker(1)).toHaveClass('ring-sky-400/80');
   expect(hpInput(1)).toHaveValue('');
 
-  pick(classPicker(1), 'fighter');
+  chooseClass(classPicker(1), 'Fighter');
   await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().name).toBe('editLevel');
   expect(lastCall().args).toMatchObject({
@@ -248,15 +262,15 @@ test('a class, plain hit points, an alternative favored class bonus and an abili
 });
 
 test('Level up as the chosen next class appends an empty-HP row that only this device scrolls to and focuses, honouring reduced motion; a remote append is announced without moving', async () => {
-  window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+  window.matchMedia = vi.fn().mockReturnValue(media(true));
   const fighter: Level = { id: 'a', hp: 8, classId: 'fighter' };
   const view = renderSheet(buildSheet({ levels: [fighter] }));
   const nextClass = screen.getByRole('combobox', {
     name: 'Class for the next level',
   });
-  expect(nextClass).toHaveValue('fighter');
+  expect(nextClass).toHaveTextContent('Fighter');
   expect(screen.getByText('Level 2 as')).toBeVisible();
-  pick(nextClass, 'wizard');
+  chooseClass(nextClass, 'Wizard');
   fireEvent.click(button('Level up'));
   await waitFor(() => expect(calls).toHaveLength(1));
   expect(lastCall().name).toBe('add');
@@ -327,7 +341,7 @@ test('insert, move and change keep each row its identity, draft and choices; del
   await settle(view, { levels: [a, inserted, b, c], adjustments }, 'n');
   await waitFor(() => expect(hpInput(2)).toHaveFocus());
   expect(row(2)).toHaveAttribute('id', 'sheet-level-n');
-  expect(classPicker(2)).toHaveValue('none');
+  expect(classPicker(2)).toHaveTextContent('Unspecified');
   expect(row(3)).toHaveAttribute('id', 'sheet-level-b');
   expect(within(row(3)).getByText('Rogue 1')).toBeVisible();
   expect(favoredPicker(1)).toHaveValue('hp');
@@ -342,11 +356,11 @@ test('insert, move and change keep each row its identity, draft and choices; del
   await settle(view, { levels: [a, b, inserted, c], adjustments });
   expect(row(2)).toHaveAttribute('id', 'sheet-level-b');
   expect(hpInput(2)).toHaveValue('7');
-  expect(classPicker(2)).toHaveValue('rogue');
+  expect(classPicker(2)).toHaveTextContent('Rogue');
   expect(favoredPicker(1)).toHaveValue('hp');
   expect(row(3)).toHaveAttribute('id', 'sheet-level-n');
 
-  pick(classPicker(2), 'cleric');
+  chooseClass(classPicker(2), 'Cleric');
   await waitFor(() => expect(calls).toHaveLength(3));
   expect(lastCall().args).toMatchObject({
     entryId: 'b',
@@ -452,7 +466,7 @@ test("a refused choice is reported on its row with the draft kept and retried fr
       lastOperationId: 'other-player',
     }),
   );
-  expect(classPicker(1)).toHaveValue('rogue');
+  expect(classPicker(1)).toHaveTextContent('Rogue');
   expect(within(row(1)).getByText('Rogue 1')).toBeVisible();
   expect(favoredPicker(1)).toHaveValue('alt');
   expect(noteInput(1)).toBeVisible();
@@ -679,7 +693,8 @@ test('maintenance disables every Class Level choice, insertion, warning action a
   ).toHaveAccessibleDescription(message);
   expect(accept).toHaveAccessibleDescription(`${firstLevelRule} ${message}`);
   expect(button('Level up')).toHaveAccessibleDescription(message);
-  pick(classPicker(1), 'wizard');
+  fireEvent.click(classPicker(1));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   fireEvent.click(accept);
   fireEvent.click(screen.getByRole('checkbox', { name: 'Fighter favored' }));
   expect(calls).toEqual([]);
@@ -790,7 +805,7 @@ test('hit points above the hit die and a first PC level below it warn at the HP 
   }
   expect(within(levelsRegion()).queryByText(/favored class\./)).toBeNull();
 
-  expect(classPicker(3)).toHaveValue('none');
+  expect(classPicker(3)).toHaveTextContent('Unspecified');
   expect(within(row(3)).getByText('Choose a class.')).toHaveClass(
     'text-sky-300',
   );
@@ -853,7 +868,7 @@ test.each(['deleted', 'legacy'])(
       };
     }
     renderSheet(input);
-    expect(classPicker(1)).toHaveValue('none');
+    expect(classPicker(1)).toHaveTextContent('Unspecified');
     expect(within(row(1)).getByText('Choose a class.')).toBeVisible();
     pick(abilityPicker(1), 'strength');
     await waitFor(() => expect(calls).toHaveLength(1));
@@ -945,4 +960,258 @@ test('a Prestige Class shows its entry prerequisites now and at its first level 
   expect(
     screen.queryByRole('button', { name: /(earlier|later) at level/ }),
   ).toBeNull();
+});
+
+// Prestige Classes in the class picker (#406): entry requirements checked
+// before the class's own first-level benefits, previewed at an edited
+// level, never invented while a clause is unresolved, and never blocking.
+
+const duelist: ExtraClass = {
+  id: 'duelist',
+  name: 'Duelist',
+  classKind: 'prestige',
+  prerequisites: [{ bab: 2 }],
+};
+const initiate: ExtraClass = {
+  id: 'initiate',
+  name: 'Initiate',
+  classKind: 'prestige',
+  prerequisites: [{ bab: 1 }],
+};
+const dialog = () => within(screen.getByRole('dialog'));
+const card = (name: string) => dialog().getByRole('radio', { name });
+function openRequirements(name: string) {
+  fireEvent.click(
+    dialog().getByRole('button', { name: `Entry requirements for ${name}` }),
+  );
+}
+
+test('Prestige cards show entry met or not met before their first-level benefits; an unmet one is still chosen and added with only its class and empty hit points', async () => {
+  const fighter: Level = { id: 'a', hp: 10, classId: 'fighter' };
+  const view = renderSheet(
+    withClasses(buildSheet({ levels: [fighter] }), [duelist, initiate]),
+  );
+  const nextClass = screen.getByRole('combobox', {
+    name: 'Class for the next level',
+  });
+  fireEvent.click(nextClass);
+  expect(card('Fighter')).toBeChecked();
+  expect(card('Fighter')).not.toHaveAccessibleDescription(/Prestige/);
+  // Fighter 1 has BAB +1: Duelist's +2 would only come from its own level.
+  expect(card('Duelist')).toHaveAccessibleDescription(
+    'd10 Prestige Class Entry requirements not met',
+  );
+  expect(card('Initiate')).toHaveAccessibleDescription(
+    'd10 Prestige Class Entry requirements met',
+  );
+  openRequirements('Duelist');
+  expect(
+    dialog().getByRole('button', { name: 'Entry requirements for Duelist' }),
+  ).toHaveAttribute('aria-expanded', 'true');
+  expect(
+    dialog().getByRole('list', { name: 'Prerequisites at recorded level 2' }),
+  ).toHaveTextContent('BAB +2 not met');
+  expect(
+    dialog().queryByRole('group', { name: 'Prerequisites now' }),
+  ).not.toBeInTheDocument();
+
+  fireEvent.click(card('Duelist'));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(nextClass).toHaveTextContent('Duelist');
+  expect(within(levelsRegion()).getAllByRole('listitem')).toHaveLength(1);
+  expect(calls).toEqual([]);
+
+  fireEvent.click(button('Level up'));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().name).toBe('add');
+  expect(lastCall().args).toMatchObject({ classEntryId: 'duelist' });
+  expect(lastCall().args).not.toHaveProperty('hpGained');
+  view.show(
+    withClasses(
+      buildSheet({
+        levels: [fighter, { id: 'b', hp: null, classId: 'fighter' }],
+        lastOperationId: operationOf(lastCall()),
+      }),
+      [duelist, initiate],
+      { b: 'duelist' },
+    ),
+  );
+  await act(async () => {
+    lastCall().resolve('b');
+  });
+  expect(classPicker(2)).toHaveTextContent('Duelist');
+  expect(hpInput(2)).toHaveValue('');
+});
+
+test('choosing a class for an earlier level previews entry at that level, without the later levels; once saved, its first level shows prerequisites now and at that level apart', async () => {
+  const levels: Level[] = [
+    { id: 'a', hp: 10, classId: 'fighter' },
+    { id: 'b', hp: 10, classId: 'fighter' },
+  ];
+  const view = renderSheet(withClasses(buildSheet({ levels }), [duelist]));
+  fireEvent.click(
+    screen.getByRole('combobox', { name: 'Class for the next level' }),
+  );
+  expect(card('Duelist')).toHaveAccessibleDescription(
+    /Entry requirements met$/,
+  );
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+  fireEvent.click(classPicker(1));
+  expect(card('Duelist')).toHaveAccessibleDescription(
+    /Entry requirements not met$/,
+  );
+  openRequirements('Duelist');
+  expect(
+    dialog().getByRole('list', { name: 'Prerequisites at recorded level 1' }),
+  ).toHaveTextContent('BAB +2 not met');
+  // A hypothetical edit claims nothing about the current build.
+  expect(
+    dialog().queryByRole('group', { name: 'Prerequisites now' }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(card('Duelist'));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().args).toMatchObject({
+    entryId: 'a',
+    classEntryId: 'duelist',
+  });
+  view.show(
+    withClasses(
+      buildSheet({ levels, lastOperationId: operationOf(lastCall()) }),
+      [duelist],
+      { a: 'duelist' },
+    ),
+  );
+  await act(async () => {
+    lastCall().resolve(null);
+  });
+  const first = within(row(1));
+  expect(
+    within(first.getByRole('group', { name: 'Prerequisites now' })).getByText(
+      'Prerequisites met',
+    ),
+  ).toBeVisible();
+  expect(
+    within(
+      first.getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+    ).getByText('Prerequisites not met'),
+  ).toBeVisible();
+  expect(
+    within(row(2)).queryByRole('group', { name: /^Prerequisites/ }),
+  ).not.toBeInTheDocument();
+  expect(hpInput(1)).toHaveValue('10');
+
+  fireEvent.click(
+    screen.getByRole('combobox', { name: 'Class for the next level' }),
+  );
+  openRequirements('Duelist');
+  expect(
+    within(
+      dialog().getByRole('group', { name: 'Prerequisites now' }),
+    ).getByText('Prerequisites met'),
+  ).toBeVisible();
+  expect(
+    dialog().getByRole('group', { name: 'Prerequisites at recorded level 1' }),
+  ).toBeVisible();
+});
+
+test('an unresolved Perform (dance) requirement keeps its wording and its checked clauses with no met or failed status, even with generic Perform ranks', () => {
+  const shadowdancer: ExtraClass = {
+    id: 'shadowdancer',
+    name: 'Shadowdancer',
+    classKind: 'prestige',
+    prerequisiteText: 'Perform (dance) 5 ranks; base attack bonus +1.',
+    prerequisites: [{ skillRanks: 'skill.prf.dance', min: 5 }, { bab: 1 }],
+  };
+  renderSheet(
+    withClasses(
+      buildSheet({
+        levels: [
+          {
+            id: 'a',
+            hp: 10,
+            classId: 'fighter',
+            skillRanks: { 'skill.prf': 5 },
+          },
+        ],
+      }),
+      [shadowdancer],
+    ),
+  );
+  fireEvent.click(
+    screen.getByRole('combobox', { name: 'Class for the next level' }),
+  );
+  expect(card('Shadowdancer')).toHaveAccessibleDescription(
+    'd10 Prestige Class',
+  );
+  openRequirements('Shadowdancer');
+  expect(
+    dialog().getByText(
+      'Prerequisites: Perform (dance) 5 ranks; base attack bonus +1.',
+    ),
+  ).toBeVisible();
+  const checked = dialog().getByRole('list', {
+    name: 'Prerequisites at recorded level 2',
+  });
+  expect(checked).toHaveTextContent('BAB +1 met');
+  expect(checked).not.toHaveTextContent(/Perform/);
+  expect(
+    dialog().queryByText(/^(Prerequisites|Entry requirements) (met|not met)$/),
+  ).not.toBeInTheDocument();
+});
+
+test('loading and an unavailable sheet show no class message; an empty catalog offers Unspecified with "No classes available." in a bottom sheet on the phone', () => {
+  snapshot = undefined;
+  const view = render(page());
+  expect(screen.queryByText('No classes available.')).not.toBeInTheDocument();
+  snapshot = null;
+  view.rerender(page());
+  expect(screen.queryByText('No classes available.')).not.toBeInTheDocument();
+  view.unmount();
+
+  renderSheet(buildSheet({ levels: [], hasClasses: false }));
+  fireEvent.click(
+    screen.getByRole('combobox', { name: 'Class for the next level' }),
+  );
+  expect(screen.getByRole('dialog')).toHaveAttribute('data-side', 'bottom');
+  expect(dialog().getByText('No classes available.')).toBeVisible();
+  expect(card('Unspecified')).toBeChecked();
+  expect(card('Unspecified')).toHaveFocus();
+});
+
+test('the class cards are one keyboard stop: arrows, Home and End move between them without choosing, a card chooses on activation, and focus returns to the field in the tablet side panel', async () => {
+  window.matchMedia = vi.fn().mockReturnValue(media(true));
+  renderSheet(
+    withClasses(
+      buildSheet({ levels: [{ id: 'a', hp: 10, classId: 'fighter' }] }),
+      [duelist],
+    ),
+  );
+  fireEvent.click(classPicker(1));
+  expect(screen.getByRole('dialog')).toHaveAttribute('data-side', 'right');
+  const group = dialog().getByRole('radiogroup', { name: 'Class at level 1' });
+  const radios = within(group).getAllByRole('radio');
+  expect(card('Fighter')).toHaveFocus();
+  expect(radios.filter((radio) => radio.tabIndex === 0)).toEqual([
+    card('Fighter'),
+  ]);
+  fireEvent.keyDown(card('Fighter'), { key: 'ArrowRight' });
+  expect(radios[2]).toHaveFocus();
+  fireEvent.keyDown(radios[2]!, { key: 'Home' });
+  expect(card('Unspecified')).toHaveFocus();
+  fireEvent.keyDown(card('Unspecified'), { key: 'ArrowUp' });
+  expect(card('Duelist')).toHaveFocus();
+  fireEvent.keyDown(card('Duelist'), { key: 'End' });
+  expect(card('Duelist')).toHaveFocus();
+  expect(card('Fighter')).toBeChecked();
+  expect(calls).toEqual([]);
+  // A native button: Enter and Space activate it as a tap does.
+  expect(card('Duelist').tagName).toBe('BUTTON');
+  fireEvent.click(card('Duelist'));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().args).toMatchObject({
+    entryId: 'a',
+    classEntryId: 'duelist',
+  });
+  await waitFor(() => expect(classPicker(1)).toHaveFocus());
 });

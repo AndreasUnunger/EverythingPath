@@ -13,7 +13,7 @@ import {
 } from './representativeRaceCatalog';
 import {
   representativeClassCatalog,
-  materializeRepresentativeClassFeatureSchedule,
+  materializeRepresentativeClassDetail,
 } from './representativeClassCatalog';
 import { representativeSpellCatalog } from './representativeSpellCatalog';
 import { installPreparedSpells } from './spellCatalogInstall';
@@ -175,7 +175,10 @@ export async function initializeCharacterSheet(
     });
     classCatalogIds.set(definition.ruleIdentity, id);
   }
-  const archetypeCatalogIds = new Map(classCatalogIds);
+  const archetypeCatalogIds = new Map([
+    ...selectionCatalogIds,
+    ...classCatalogIds,
+  ]);
   for (const definition of representativeArchetypeCatalog) {
     const id = await ctx.db.insert('catalogEntry', {
       scope: 'character',
@@ -210,13 +213,10 @@ export async function initializeCharacterSheet(
       'catalogEntry',
       idForArchetypeKey(definition.ruleIdentity),
       {
-        detail: {
-          ...definition.detail,
-          featuresByLevel: materializeRepresentativeClassFeatureSchedule(
-            definition.ruleIdentity,
-            idForArchetypeKey,
-          ),
-        },
+        detail: materializeRepresentativeClassDetail(
+          definition.ruleIdentity,
+          idForArchetypeKey,
+        ),
       },
     );
   for (const definition of representativeWeaponCatalog) {

@@ -7,14 +7,15 @@
 // 3. push the old prior identity onto the front of supersededCalculationIdentities.
 // See docs/catalog-import/releases.md.
 export const currentCalculationIdentity =
-  'sha256:8886e8d9739739831604b4fda6f11ea3c3b7c4a38d6a0cfc5c1492448ed93b92';
+  'sha256:4f2501f66eae519f7aad1c967ad5c8e47bde6c36ffecb26daceb8529def924cd';
 
 // #318 retains the previous identity: the dispatcher accepts it alongside the current one.
 export const retainedPriorCalculationIdentity =
-  'sha256:becf4290fdf699293d79c24d577e75dddde57919ad7291d8ea7b0eaebdc73cfc';
+  'sha256:8886e8d9739739831604b4fda6f11ea3c3b7c4a38d6a0cfc5c1492448ed93b92';
 
 // Earlier identities, newest first. The dispatcher rejects them.
 export const supersededCalculationIdentities = [
+  'sha256:becf4290fdf699293d79c24d577e75dddde57919ad7291d8ea7b0eaebdc73cfc',
   'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6',
   'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539',
   'sha256:a0a094c701ddeb6123a372b6106ae32d22969bdf4a256c1bfaf2320c34d48bf0',

@@ -1,6 +1,9 @@
 import type { CharacterSheetCatalogEntry } from '../../src/lib/character-sheet';
 import type { Doc, Id } from '../_generated/dataModel';
-import { representativeClassFeatureSchedules } from './representativeClassCatalog';
+import {
+  representativeClassFeatureSchedules,
+  representativeAdditionalClassFeatures,
+} from './representativeClassCatalog';
 
 type Seed = CharacterSheetCatalogEntry & {
   sources: { book: string; pages: string }[];
@@ -73,6 +76,7 @@ function increments({
 // Source URLs, coverage limits and prose mechanics are recorded in
 // docs/catalog-import/archetypes.md. Every schedule reference has a definition.
 export const representativeArchetypeCatalog: Seed[] = [
+  ...representativeAdditionalClassFeatures,
   ...[1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20].map((level) =>
     feature({
       key: `fighter-bonus-feat-${level}`,
@@ -339,6 +343,14 @@ export function materializeRepresentativeArchetypeCatalog(
         stacksWithItself: false,
         sources: entry.sources,
         modifiers: [],
+        ...(entry.grants
+          ? {
+              grants: entry.grants.map((grant) => ({
+                ...grant,
+                catalogEntryId: idForKey(grant.catalogEntryId),
+              })),
+            }
+          : {}),
         ...(entry.grantsSlots
           ? {
               grantsSlots: entry.grantsSlots.map((slot) => ({

@@ -1603,3 +1603,84 @@ test('Situation previews remain stable through local interaction and refresh wit
       .total,
   ).toBe(2);
 });
+
+test('an original to Unchained switch acknowledges a save beside the class and retries a refused switch without changing recorded levels', async () => {
+  snapshot = buildSheet({
+    levels: [{ id: 'rogue-1', hp: 8, classId: 'rogue' }],
+  });
+  const original = snapshot.catalogEntries.find(
+    (
+      entry,
+    ): entry is Extract<
+      CharacterSheetSnapshot['catalogEntries'][number],
+      { detail: { kind: 'class'; hitDie: number } }
+    > =>
+      entry.ruleIdentity === 'rogue' &&
+      entry.detail.kind === 'class' &&
+      'hitDie' in entry.detail,
+  );
+  if (!original) throw new Error('Missing Rogue');
+  const target = {
+    ...original,
+    _id: 'unchained-rogue' as typeof original._id,
+    ruleIdentity: 'unchained-rogue',
+    name: 'Rogue (Unchained)',
+    detail: { ...original.detail, counterpartOf: original._id },
+  };
+  catalogChoices = [target];
+  const row = snapshot.entries.find((entry) => entry.kind === 'classLevel');
+  if (!row) throw new Error('Missing Class Level');
+  const view = renderHook(() =>
+    useCharacterSheet({ organizationId: 'org', characterId: row.characterId }),
+  );
+  let pending: Promise<boolean> | undefined;
+  act(() => {
+    pending = view.result.current.classes.switchVersion(row._id, target._id);
+  });
+  expect(view.result.current.classes.statusFor(row._id)).toEqual({
+    kind: 'saving',
+  });
+  expect(calls[0]).toMatchObject({
+    name: 'switchClassVersion',
+    args: {
+      entryId: row._id,
+      classEntryId: target._id,
+      organizationId: 'org',
+      characterId: row.characterId,
+      operationId: expect.any(String),
+    },
+  });
+  await act(async () => {
+    calls[0]?.reject(new ConvexError('Editing is paused'));
+    await pending;
+  });
+  expect(view.result.current.classes.statusFor(row._id)).toEqual({
+    kind: 'error',
+    message: "Class version wasn't saved: Editing is paused. Try again.",
+  });
+  expect(view.result.current.sheet?.levels[0]?.state.classEntryId).toBe(
+    original._id,
+  );
+  act(() => {
+    pending = view.result.current.classes.switchVersion(row._id, target._id);
+  });
+  await act(async () => {
+    calls[1]?.resolve(null);
+    await pending;
+  });
+  expect(view.result.current.classes.statusFor(row._id)).toEqual({
+    kind: 'saved',
+  });
+});
+
+test('class choices keep their memoized read when the catalog has not loaded and an unrelated render occurs', () => {
+  const initial = buildSheet();
+  snapshot = initial;
+  catalogChoices = undefined;
+  const view = renderHook(() =>
+    useCharacterSheet({ characterId: initial.character._id }),
+  );
+  const choices = view.result.current.classes.choices;
+  view.rerender();
+  expect(view.result.current.classes.choices).toBe(choices);
+});

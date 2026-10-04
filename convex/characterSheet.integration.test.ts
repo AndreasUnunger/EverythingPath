@@ -7,7 +7,11 @@ import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { initializeCharacterSheet } from './lib/characterSheet';
 import { initializationEdits } from '../tests/rules/initialization-edits';
 import { loadPreparedCharacterSheet } from './lib/preparedCharacterSheet';
-import { readCharacterSheetData } from './lib/characterSheetData';
+import {
+  readCharacterSheetData,
+  maxCharacterChildRows,
+} from './lib/characterSheetData';
+import { deleteSpellCatalogIndex } from './lib/spellCatalog';
 afterEach(() => vi.useRealTimers());
 const modules = import.meta.glob('./**/*.ts');
 
@@ -52,8 +56,29 @@ async function fixture() {
   return { t, owner, member, outsider, campaignId, characterId, scope };
 }
 
+async function boundedReadFixture() {
+  const result = await fixture();
+  await result.t.run(async (ctx) => {
+    const definitions = await ctx.db
+      .query('catalogEntry')
+      .withIndex('by_characterId', (q) =>
+        q.eq('characterId', result.characterId),
+      )
+      .take(maxCharacterChildRows + 1);
+    if (definitions.length > maxCharacterChildRows)
+      throw new Error('Fixture exceeds its catalog row limit');
+    for (const definition of definitions) {
+      if (definition.detail.kind === 'base') continue;
+      if (definition.importedSpell)
+        await deleteSpellCatalogIndex(ctx, definition._id);
+      await ctx.db.delete('catalogEntry', definition._id);
+    }
+  });
+  return result;
+}
+
 test('bounded sheet reads share one byte budget across entries and catalog definitions', async () => {
-  const { t, characterId } = await fixture();
+  const { t, characterId } = await boundedReadFixture();
   await t.run(async (ctx) => {
     const definition = await ctx.db
       .query('catalogEntry')
@@ -101,7 +126,7 @@ test('bounded sheet reads share one byte budget across entries and catalog defin
 });
 
 test('bounded sheet reads include accepted warnings unless separately excluded', async () => {
-  const { t, characterId } = await fixture();
+  const { t, characterId } = await boundedReadFixture();
   await t.run(async (ctx) => {
     const definition = await ctx.db
       .query('catalogEntry')
@@ -140,7 +165,7 @@ test('bounded sheet reads include accepted warnings unless separately excluded',
 });
 
 test('bounded sheet reads count dependency documents in the same budget before scope validation', async () => {
-  const { t, owner, campaignId, characterId } = await fixture();
+  const { t, owner, campaignId, characterId } = await boundedReadFixture();
   const otherCharacterId = await owner.mutation(api.characterSheet.create, {
     organizationId: 'org',
     campaignId,
@@ -191,7 +216,7 @@ test('bounded sheet reads count dependency documents in the same budget before s
 });
 
 test('bounded dependency reads count preferred campaign copies and exclude unrelated shared and browse-only rows', async () => {
-  const { t, characterId, campaignId } = await fixture();
+  const { t, characterId, campaignId } = await boundedReadFixture();
   const { globalId, preferredId } = await t.run(async (ctx) => {
     const base = await ctx.db
       .query('catalogEntry')
@@ -269,7 +294,7 @@ test('bounded dependency reads count preferred campaign copies and exclude unrel
 });
 
 test('bounded attack source reads share catalog budgets before rejecting a foreign weapon', async () => {
-  const { t, owner, campaignId, characterId } = await fixture();
+  const { t, owner, campaignId, characterId } = await boundedReadFixture();
   const otherCharacterId = await owner.mutation(api.characterSheet.create, {
     organizationId: 'org',
     campaignId,
@@ -326,7 +351,7 @@ test('bounded attack source reads share catalog budgets before rejecting a forei
 });
 
 test('bounded prepared loading preserves the live fixture eligibility rule', async () => {
-  const { t, characterId, campaignId } = await fixture();
+  const { t, characterId, campaignId } = await boundedReadFixture();
   await t.run((ctx) =>
     ctx.db.patch('campaign', campaignId, { e2eFixture: undefined }),
   );
@@ -345,7 +370,7 @@ test('bounded prepared loading preserves the live fixture eligibility rule', asy
 });
 
 test('bounded prepared loading counts a campaign it fetches in the sheet budget', async () => {
-  const { t, characterId, campaignId } = await fixture();
+  const { t, characterId, campaignId } = await boundedReadFixture();
   await t.run(async (ctx) => {
     await ctx.db.patch('campaign', campaignId, {
       description: 'x'.repeat(400 * 1024),

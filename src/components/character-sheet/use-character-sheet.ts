@@ -24,6 +24,7 @@ import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
 import { useCharacterSheetRaces } from './use-character-sheet-races';
 import { useCharacterSheetArchetypes } from './use-character-sheet-archetypes';
+import { useCharacterSheetClasses } from './use-character-sheet-classes';
 import { useCharacterSheetSelections } from './use-character-sheet-selections';
 import { createSelectionSlotPreview } from './character-sheet-selections-view-model';
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
@@ -81,6 +82,7 @@ export function useCharacterSheet(
     snapshot,
     catalogChoices,
   );
+  const classes = useCharacterSheetClasses(scope, snapshot, catalogChoices);
   const selections = useCharacterSheetSelections(scope, snapshot);
   const previewSituation = useMemo(
     () => (situations: readonly RequestedSituation[]) =>
@@ -278,6 +280,7 @@ export function useCharacterSheet(
     familiar,
     races,
     archetypes,
+    classes,
     selections: {
       ...selections,
       preview: previewSelection,

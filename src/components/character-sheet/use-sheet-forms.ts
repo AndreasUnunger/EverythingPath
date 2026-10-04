@@ -18,6 +18,7 @@ import {
   type FavoredClassBonus,
 } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
+import { isOwnCharacterSheetOperation } from '~/lib/character-sheet-operations';
 import type { SaveStatus } from './save-status';
 import {
   numberField,
@@ -74,10 +75,14 @@ function useSheetForm<T extends FieldValues>({
   values,
   resolver,
   write,
+  operationId,
+  isRemoteChange = () => true,
   isEqual = isSameNumber,
 }: {
   values: T;
   resolver: Resolver<T>;
+  operationId?: string | null;
+  isRemoteChange?: (key: keyof T, previous: unknown, next: unknown) => boolean;
   isEqual?: (left: unknown, right: unknown) => boolean;
   write: (changes: Partial<T>, submitted: T) => Promise<void>;
 }) {
@@ -108,11 +113,14 @@ function useSheetForm<T extends FieldValues>({
       next[key] = values[key];
       if (isEqual(expected.current[key], values[key])) {
         delete expected.current[key];
-      } else hasRemoteChanges = true;
+      } else if (isRemoteChange(key, source[key], values[key])) {
+        hasRemoteChanges = true;
+      }
     }
     setSource(values);
     setBaseline(next);
-    if (hasRemoteChanges) setHasRemoteChange(true);
+    if (hasRemoteChanges && !isOwnCharacterSheetOperation(operationId))
+      setHasRemoteChange(true);
   }
 
   async function submit(valuesToSave: T) {
@@ -311,8 +319,12 @@ export function useClassLevelChoicesForm<ClassId extends string>({
   classChoices,
   favoredClassBonus,
   abilityIncrease,
+  operationId,
+  isClassVersionChange,
   save,
 }: {
+  operationId?: string | null;
+  isClassVersionChange?: (previous: string, next: string) => boolean;
   classEntryId: ClassId | null;
   classChoices: readonly { _id: ClassId; name: string }[];
   favoredClassBonus: FavoredClassBonus | null | undefined;
@@ -362,6 +374,14 @@ export function useClassLevelChoicesForm<ClassId extends string>({
       abilityIncrease: ability,
     },
     resolver: zodResolver(schema),
+    operationId,
+    isRemoteChange: (key, previous, next) =>
+      !(
+        key === 'classEntryId' &&
+        typeof previous === 'string' &&
+        typeof next === 'string' &&
+        isClassVersionChange?.(previous, next)
+      ),
     isEqual: (left, right) => left === right,
     write: async (changes, values) => {
       const selected = classChoices.find(

@@ -92,6 +92,12 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
       .find((row) => row.key === 'builtin:representative-class-catalog')
       ?.payload,
   ).toMatchObject({
+    counterparts: {
+      'unchained-barbarian': 'barbarian',
+      'unchained-monk': 'monk',
+      'unchained-rogue': 'rogue',
+      'unchained-summoner': 'summoner',
+    },
     definitions: expect.arrayContaining([
       expect.objectContaining({ name: 'Fighter' }),
     ]),
@@ -105,6 +111,25 @@ it('the CLI builds a deterministic gated artifact and prepares/inspects it throu
     definitions: expect.arrayContaining([
       expect.objectContaining({ name: 'Archer' }),
       expect.objectContaining({ name: 'Scout' }),
+      expect.objectContaining({
+        ruleIdentity: 'unchained-rogue-finesse-training-1',
+        grants: [{ catalogEntryId: 'weapon-finesse' }],
+      }),
+    ]),
+    sourceFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    compatibility: { schema: 'character-sheet-v1', calculation: 'facts-v1' },
+  });
+  expect(
+    artifact.batches
+      .flat()
+      .find((row) => row.key === 'builtin:representative-selection-catalog')
+      ?.payload,
+  ).toMatchObject({
+    definitions: expect.arrayContaining([
+      expect.objectContaining({
+        ruleIdentity: 'weapon-finesse',
+        detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+      }),
     ]),
     sourceFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
     compatibility: { schema: 'character-sheet-v1', calculation: 'facts-v1' },

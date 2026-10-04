@@ -1212,6 +1212,35 @@ test('evaluates race equivalence, racial traits, class families, features, align
         detail: { kind: 'classFeature' },
       },
       {
+        _id: 'barbarian',
+        ruleIdentity: 'barbarian',
+        modifiers: [],
+        detail: {
+          kind: 'class',
+          classKind: 'base',
+          hitDie: 12,
+          bab: 'full',
+          saves: { fort: 'good', ref: 'poor', will: 'poor' },
+          skillRanksPerLevel: 4,
+          featuresByLevel: [{ classLevel: 1, catalogEntryId: 'rage' }],
+        },
+      },
+      {
+        _id: 'barbarian-uc',
+        ruleIdentity: 'barbarian-uc',
+        modifiers: [],
+        detail: {
+          kind: 'class',
+          classKind: 'base',
+          counterpartOf: 'barbarian',
+          hitDie: 12,
+          bab: 'full',
+          saves: { fort: 'good', ref: 'poor', will: 'poor' },
+          skillRanksPerLevel: 4,
+          featuresByLevel: [{ classLevel: 1, catalogEntryId: 'rage-uc' }],
+        },
+      },
+      {
         _id: 'checks',
         ruleIdentity: 'feat/checks',
         modifiers: [],
@@ -1735,7 +1764,7 @@ test('named feat choice fingerprints track only normalized choices of the requir
   expect(fingerprints()).toEqual(changed);
 });
 
-test('retained feature names match Unchained features without loading an unavailable original', () => {
+test('a UC display suffix cannot establish equivalence to an unavailable original feature', () => {
   const input = prerequisiteSheet(
     [
       {
@@ -1762,6 +1791,46 @@ test('retained feature names match Unchained features without loading an unavail
         detail: { kind: 'feat' },
         prerequisites: [
           { classFeature: 'feature/original-rage', classFeatureName: 'Rage' },
+        ],
+      },
+    ],
+  );
+  expect(
+    calculateCharacterSheet(input).prerequisites.map(({ met }) => met),
+  ).toEqual([false, false]);
+});
+
+test('an edited feature copy satisfies exact possession without names or class metadata', () => {
+  const input = prerequisiteSheet(
+    [
+      {
+        _id: 'copy',
+        kind: 'classFeature',
+        catalogEntryId: 'copy',
+        active: true,
+        state: { kind: 'classFeature' },
+      },
+      selectedFeat('required'),
+    ],
+    [
+      {
+        _id: 'copy',
+        name: 'Edited copy name',
+        ruleIdentity: 'feature/original-rage',
+        modifiers: [],
+        detail: { kind: 'classFeature' },
+      },
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [
+          {
+            classFeature: 'feature/original-rage',
+            classFeatureName: 'Rage',
+            classFeatureClass: 'barbarian',
+          },
         ],
       },
     ],

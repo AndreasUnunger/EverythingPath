@@ -9,7 +9,10 @@ export function compareClassLevelPosition(a: SheetEntry, b: SheetEntry) {
   return position(a) - position(b);
 }
 
-export function classFamilyLevels(input: CharacterSheetInput, family: string) {
+export function classFamilyLevels(
+  input: CharacterSheetInput,
+  classIdentity: string,
+) {
   return input.entries
     .filter((entry): entry is ClassLevel => {
       if (entry.kind !== 'classLevel') return false;
@@ -18,7 +21,9 @@ export function classFamilyLevels(input: CharacterSheetInput, family: string) {
       );
       return (
         definition?.detail?.kind === 'class' &&
-        characterSheetClassFamily(definition, input.catalogEntries) === family
+        (definition.ruleIdentity === classIdentity ||
+          characterSheetClassFamily(definition, input.catalogEntries) ===
+            classIdentity)
       );
     })
     .sort(compareClassLevelPosition);

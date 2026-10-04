@@ -22,6 +22,7 @@ import type { Prerequisite } from './character-sheet-prerequisite-schema';
 export { prerequisiteLabel } from './character-sheet-prerequisite-evaluation';
 export type { PrerequisiteFacts } from './character-sheet-prerequisite-evaluation';
 import {
+  buildClassFeatureAssociations,
   evaluatePrerequisite,
   prerequisiteLabel,
   resolvedPrerequisiteProficiency,
@@ -131,6 +132,9 @@ export function resolveCharacterSheetPrerequisites(
   currentFacts: PrerequisiteFacts,
   reconstruct: (input: CharacterSheetInput) => PrerequisiteFacts,
 ) {
+  const classFeatureAssociations = buildClassFeatureAssociations(
+    effectiveInput.catalogEntries,
+  );
   const checks: PrerequisiteCheck[] = [];
   const proficiencyChecks: {
     entryId: string;
@@ -201,6 +205,7 @@ export function resolveCharacterSheetPrerequisites(
             view === 'recorded' && recordedFacts ? recordedFacts : currentFacts,
           input: view === 'recorded' && prefix ? prefix.input : effectiveInput,
           entry,
+          classFeatureAssociations,
         });
         checks.push({
           entryId: entry._id,

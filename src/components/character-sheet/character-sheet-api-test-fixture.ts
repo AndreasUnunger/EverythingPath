@@ -47,6 +47,7 @@ const defaultApi = {
     setProficiencyChoice: 'setProficiencyChoice',
     editBaseScores: 'scores',
     editClassLevel: 'hp',
+    switchClassVersion: 'switchClassVersion',
     addClassLevel: 'add',
     moveClassLevel: 'move',
     deleteClassLevel: 'delete',

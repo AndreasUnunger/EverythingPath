@@ -9,8 +9,31 @@ import { canonicalCaseKeys, type FixtureScope } from '../e2e/fixtures/catalog';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import { weeklyDraftSchema } from '../src/lib/weekly-draft-contract';
 import { projectUpkeep } from '../src/lib/rules-upkeep';
+import { representativeArchetypeCatalog } from './lib/representativeArchetypeCatalog';
+import { representativeClassCatalog } from './lib/representativeClassCatalog';
+import { representativeRaceCatalog } from './lib/representativeRaceCatalog';
+import { representativeSelectionCatalog } from './lib/representativeSelectionCatalog';
+import { representativeSpellCatalog } from './lib/representativeSpellCatalog';
+import { representativeWeaponCatalog } from './lib/representativeWeaponCatalog';
 
 const modules = import.meta.glob('./**/*.ts');
+// Mirrors initializeCharacterSheet: Base scores plus each representative
+// catalog, where races already seeded as selections are reused. Prepared
+// sheets also import the representative Spells, which the sheet read omits.
+const selectionRuleIdentities = new Set(
+  representativeSelectionCatalog.map((definition) => definition.ruleIdentity),
+);
+const seededSheetCatalogRows =
+  1 +
+  representativeSelectionCatalog.length +
+  representativeClassCatalog.length +
+  representativeArchetypeCatalog.length +
+  representativeWeaponCatalog.length +
+  representativeRaceCatalog.filter(
+    (definition) => !selectionRuleIdentities.has(definition.ruleIdentity),
+  ).length;
+const seededCatalogRows =
+  seededSheetCatalogRows + representativeSpellCatalog.length;
 const scope: FixtureScope = {
   namespace: deploymentFixture.namespace,
   version: 1,
@@ -451,7 +474,7 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(139);
+    expect(sheet?.catalogEntries).toHaveLength(seededSheetCatalogRows);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -485,10 +508,19 @@ describe('internal fixture boundary', () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     ).toEqual([
       { name: 'Alchemist', ruleIdentity: 'alchemist' },
+      { name: 'Barbarian', ruleIdentity: 'barbarian' },
+      { name: 'Barbarian (Unchained)', ruleIdentity: 'unchained-barbarian' },
       { name: 'Cleric', ruleIdentity: 'cleric' },
+      { name: 'Duelist', ruleIdentity: 'duelist' },
       { name: 'Fighter', ruleIdentity: 'fighter' },
+      { name: 'Monk', ruleIdentity: 'monk' },
+      { name: 'Monk (Unchained)', ruleIdentity: 'unchained-monk' },
       { name: 'Rogue', ruleIdentity: 'rogue' },
+      { name: 'Rogue (Unchained)', ruleIdentity: 'unchained-rogue' },
+      { name: 'Shadowdancer', ruleIdentity: 'shadowdancer' },
       { name: 'Sorcerer', ruleIdentity: 'sorcerer' },
+      { name: 'Summoner', ruleIdentity: 'summoner' },
+      { name: 'Summoner (Unchained)', ruleIdentity: 'unchained-summoner' },
       { name: 'Witch', ruleIdentity: 'witch' },
       { name: 'Wizard', ruleIdentity: 'wizard' },
     ]);
@@ -523,6 +555,8 @@ describe('internal fixture boundary', () => {
     ).toEqual([
       { name: 'Additional Traits', ruleIdentity: 'additional-traits' },
       { name: 'Cleave', ruleIdentity: 'cleave' },
+      { name: 'Combat Reflexes', ruleIdentity: 'combat-reflexes' },
+      { name: 'Dodge', ruleIdentity: 'dodge' },
       { name: 'Double Slice', ruleIdentity: 'double-slice' },
       {
         name: 'Greater Two-Weapon Fighting',
@@ -532,9 +566,11 @@ describe('internal fixture boundary', () => {
         name: 'Improved Two-Weapon Fighting',
         ruleIdentity: 'improved-two-weapon-fighting',
       },
+      { name: 'Mobility', ruleIdentity: 'mobility' },
       { name: 'Power Attack', ruleIdentity: 'power-attack' },
       { name: 'Skill Focus', ruleIdentity: 'skill-focus' },
       { name: 'Two-Weapon Fighting', ruleIdentity: 'two-weapon-fighting' },
+      { name: 'Weapon Finesse', ruleIdentity: 'weapon-finesse' },
       { name: 'Weapon Focus', ruleIdentity: 'weapon-focus' },
     ]);
     for (const entry of sheet?.catalogEntries ?? []) {
@@ -636,7 +672,7 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
-    expect(sheet?.catalogEntries).toHaveLength(139);
+    expect(sheet?.catalogEntries).toHaveLength(seededSheetCatalogRows);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -655,7 +691,11 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 141, acceptedWarnings: 0 });
+    ).toEqual({
+      entries: 2,
+      catalogEntries: seededCatalogRows,
+      acceptedWarnings: 0,
+    });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

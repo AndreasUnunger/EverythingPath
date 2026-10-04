@@ -241,7 +241,7 @@ function SheetBlocks({
                   key={block}
                   rows={sheet.levels}
                   metadata={sheet.calculated.classLevels}
-                  classChoices={sheet.classChoices}
+                  classes={controller.classes}
                   unplacedSelections={listUnplacedSelections(sheet)}
                   warnings={sheet.warnings}
                   advisory={sheet.warning}

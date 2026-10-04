@@ -43,6 +43,39 @@ export function listUngroupedWarnings(
   return warnings.filter((warning) => !grouped.has(warningKey(warning)));
 }
 
+/** A Prestige Class's entry requirements, as the classes view gives them. */
+type EntryRequirementsView = {
+  status: Status;
+  currentStatus: Status;
+  checks: CheckView[];
+  warnings: SheetWarningView[];
+  recordedLevelLabel: string | null;
+};
+
+/**
+ * A Prestige Class's entry requirements as prerequisite groups: entry at its
+ * first Class Level, and now only for a class already entered (its current
+ * clauses are not listed). While a clause is unresolved the entry has no
+ * status, yet its checked clauses still show, with no met or failed chip.
+ */
+export function listEntryRequirementGroups(
+  requirements: EntryRequirementsView,
+): PrerequisiteGroupsView {
+  return {
+    currentStatus: requirements.currentStatus,
+    currentChecks: [],
+    currentWarnings: [],
+    recordedStatus:
+      requirements.status ??
+      (requirements.checks.length > 0 || requirements.warnings.length > 0
+        ? 'none'
+        : null),
+    recordedChecks: requirements.checks,
+    recordedWarnings: requirements.warnings,
+    recordedLevelLabel: requirements.recordedLevelLabel,
+  };
+}
+
 /** A group with nothing checked, nothing waived and no warning is left out. */
 function hasGroup(
   status: Status,

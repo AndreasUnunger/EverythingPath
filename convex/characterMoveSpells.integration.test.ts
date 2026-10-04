@@ -1,6 +1,7 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeAll, expect, test, vi } from 'vitest';
+import { TransactionMetricsTracker } from 'convex-test/dist/transactionMetrics.js';
 import { api } from './_generated/api';
 import schema from './schema';
 import { writeCatalogDefinition } from './lib/catalogCopies';
@@ -17,18 +18,38 @@ afterEach(async () => {
 });
 
 // Lowered convex-test budgets let small catalogs reach the same move guards.
-// The former freshness scans needed 1,024 reads in reserve; this budget
-// reproduces their failure with small catalogs. Discovery reads 32 Spells
-// per resume, keeping each scan page within the same lowered budget.
-function readBudget(unrelatedDefinitions: number) {
-  return { documentsRead: unrelatedDefinitions + 768 };
+// Each budget sits on the heaviest transaction of a plain move of the
+// prepared Character, measured once so it follows the seeded catalogs, and
+// leaves no room to also scan the given unrelated rows in that transaction.
+// Discovery reads 32 Spells per resume, keeping each scan page within the
+// same lowered budget.
+let baselineMoveReads = 0;
+function readBudget(unscannedRows: number) {
+  if (!(baselineMoveReads > 0))
+    throw new Error('Baseline move reads are unmeasured');
+  return { documentsRead: baselineMoveReads + unscannedRows - 1 };
 }
+const largeCatalogRows = 768;
 const maxMoveResumes = 24;
 
+beforeAll(async () => {
+  const { move } = await fixture();
+  const reads = vi.spyOn(TransactionMetricsTracker.prototype, 'trackRead');
+  try {
+    await move('baseline');
+    const perTransaction = new Map<unknown, number>();
+    for (const tracker of reads.mock.contexts)
+      perTransaction.set(tracker, (perTransaction.get(tracker) ?? 0) + 1);
+    baselineMoveReads = Math.max(...perTransaction.values());
+  } finally {
+    reads.mockRestore();
+  }
+});
+
 test('a move publishes within the read budget with thousands of global Spells', async () => {
-  const { t, owner, characterId, campaigns } = await fixture({
-    documentsRead: 1792,
-  });
+  const { t, owner, characterId, campaigns } = await fixture(
+    readBudget(largeCatalogRows),
+  );
   for (let offset = 0; offset < 3072; offset += 512)
     await t.run(async (ctx) => {
       for (let i = offset; i < offset + 512; i++)
@@ -271,7 +292,7 @@ test('spell expansion beyond the transaction budget leaves the old campaign and 
 });
 
 test('a destination with more than 128 matching spells and more unrelated definitions than a Spell scan can read remains movable', async () => {
-  // 160 Spells raise publication reads beyond a 1,792-read budget.
+  // 160 Spells raise publication reads beyond the large-catalog budget.
   const unrelatedDefinitions = 1536;
   const { t, owner, characterId, campaigns, wizard, move } = await fixture(
     readBudget(unrelatedDefinitions),
@@ -685,9 +706,9 @@ test('public numeric Spell edits and reordered list keys retain staging and curr
 test.each([0, 1])(
   'a campaign %i Spell created after readiness restarts discovery before publication',
   async (campaignIndex) => {
-    const { t, owner, characterId, campaigns, wizard } = await fixture({
-      documentsRead: 1792,
-    });
+    const { t, owner, characterId, campaigns, wizard } = await fixture(
+      readBudget(largeCatalogRows),
+    );
     const campaignId = campaigns[campaignIndex];
     if (!campaignId) throw new Error('Missing campaign');
     const command = { characterId, operationId: 'membership-changed' };
@@ -738,9 +759,9 @@ test.each(
 )(
   'deleting a campaign $campaignIndex Spell while $state restarts from current members',
   async ({ campaignIndex, state }) => {
-    const { t, owner, characterId, campaigns, wizard, spell } = await fixture({
-      documentsRead: 1792,
-    });
+    const { t, owner, characterId, campaigns, wizard, spell } = await fixture(
+      readBudget(largeCatalogRows),
+    );
     const campaignId = campaigns[campaignIndex];
     if (!campaignId) throw new Error('Missing campaign');
     const ids: Id<'catalogEntry'>[] = [];
@@ -777,9 +798,9 @@ test.each(
 );
 
 test('a public Spell list-key edit restarts discovery', async () => {
-  const { owner, characterId, campaigns, wizard, spell } = await fixture({
-    documentsRead: 1792,
-  });
+  const { owner, characterId, campaigns, wizard, spell } = await fixture(
+    readBudget(largeCatalogRows),
+  );
   const campaignId = campaigns[0];
   if (!campaignId) throw new Error('Missing source');
   const catalogEntryId = await spell(campaignId, 'List-key Spell');
@@ -811,13 +832,13 @@ test('a public Spell list-key edit restarts discovery', async () => {
 test.each([0, 1])(
   'publication reads only required definitions from a large campaign %i Spell catalog',
   async (campaignIndex) => {
-    const { t, owner, characterId, campaigns } = await fixture({
-      documentsRead: 1792,
-    });
+    const { t, owner, characterId, campaigns } = await fixture(
+      readBudget(largeCatalogRows),
+    );
     const campaignId = campaigns[campaignIndex];
     if (!campaignId) throw new Error('Missing campaign');
     await t.run(async (ctx) => {
-      for (let i = 0; i < 768; i++)
+      for (let i = 0; i < largeCatalogRows; i++)
         await ctx.db.insert('catalogEntry', {
           scope: 'campaign',
           campaignId,
@@ -851,9 +872,9 @@ test.each([0, 1])(
 );
 
 test('a release changed during global discovery restarts before publishing newly matching global Spells', async () => {
-  const { t, owner, characterId, campaigns, wizard } = await fixture({
-    documentsRead: 1792,
-  });
+  const { t, owner, characterId, campaigns, wizard } = await fixture(
+    readBudget(largeCatalogRows),
+  );
   const spellId = await t.run(async (ctx) => {
     const ids: Id<'catalogEntry'>[] = [];
     for (let i = 0; i < 33; i++)

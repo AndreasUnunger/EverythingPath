@@ -2,7 +2,7 @@ import {
   resolveCharacterSheetArchetypes,
   type ResolvedCharacterSheetArchetypes,
 } from './character-sheet-archetypes';
-import { characterSheetClassFamily } from './character-sheet-archetype-helpers';
+import { characterSheetClassFamily } from './character-sheet-grants';
 import {
   abilityTargets,
   type CharacterSheetCatalogEntry,
@@ -20,7 +20,8 @@ import {
   type SkillRankBudget,
 } from './character-sheet-skills';
 
-type Progression = Pick<CharacterSheetClassDetail, 'bab' | 'saves'>;
+type Progression = Pick<CharacterSheetClassDetail, 'bab' | 'saves'> &
+  Partial<Pick<CharacterSheetClassDetail, 'classKind'>>;
 
 function contribution({
   target,
@@ -66,17 +67,15 @@ function progressionModifiers({
       entryId,
       name,
     }),
-    ...(['fort', 'ref', 'will'] as const).map((save) =>
-      contribution({
-        target: `save.${save}`,
-        value:
-          progression.saves[save] === 'good'
-            ? 2 + Math.floor(count / 2)
-            : Math.floor(count / 3),
-        entryId,
-        name,
-      }),
-    ),
+    ...(['fort', 'ref', 'will'] as const).map((save) => {
+      const goodSave = progression.saves[save] === 'good';
+      let value: number;
+      if (progression.classKind === 'prestige')
+        value = Math.floor((count + 1) / (goodSave ? 2 : 3));
+      else if (goodSave) value = 2 + Math.floor(count / 2);
+      else value = Math.floor(count / 3);
+      return contribution({ target: `save.${save}`, value, entryId, name });
+    }),
   ];
 }
 
@@ -266,8 +265,12 @@ function classLevelCountsFor(
   const classLevels = new Map<string, number>();
   for (const { catalog } of rows) {
     if (!catalog) continue;
-    const identity = characterSheetClassFamily(catalog, catalogEntries);
-    classLevels.set(identity, (classLevels.get(identity) ?? 0) + 1);
+    const identities = new Set([
+      catalog.ruleIdentity,
+      characterSheetClassFamily(catalog, catalogEntries),
+    ]);
+    for (const identity of identities)
+      classLevels.set(identity, (classLevels.get(identity) ?? 0) + 1);
   }
   return Object.fromEntries(classLevels);
 }

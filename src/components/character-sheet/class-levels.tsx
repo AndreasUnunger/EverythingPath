@@ -8,7 +8,7 @@ import {
 import { useInitialMigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
-import { ChoiceSelect } from './choice-select';
+import { ClassPicker } from './class-level-class-picker';
 import {
   ClassLevelRow,
   getLevelAnchorId,
@@ -130,14 +130,15 @@ function UnplacedSelections({
  * Level 1 can be appended again. Total HP is the sum of these rows, so
  * while it cannot resolve the reason reads here, under them. Under
  * maintenance the block states the reason once, beside Level up; every
- * disabled save in it is described by that one sentence.
+ * disabled save in it is described by that one sentence. Another player's
+ * change to the levels or their class versions is announced once, here.
  */
 export function ClassLevels({
   rows,
   metadata,
   advisory,
   showMissingChoices,
-  classChoices,
+  classes,
   unplacedSelections,
   warnings,
   warningController,
@@ -149,7 +150,7 @@ export function ClassLevels({
   metadata: ReadySheet['calculated']['classLevels'];
   advisory: string | null;
   showMissingChoices: boolean;
-  classChoices: ReadySheet['classChoices'];
+  classes: Controller['classes'];
   unplacedSelections: UnplacedSelection[];
   warnings: SheetWarningView[];
   warningController: Controller['warnings'];
@@ -170,9 +171,13 @@ export function ClassLevels({
   // The next level's class: the last level's until the player picks one.
   const [pickedNextClass, setPickedNextClass] = useState<string | null>(null);
   const nextClass = pickedNextClass ?? rows.at(-1)?.state.classEntryId ?? '';
-  const nextClassChoice = classChoices.find(
-    (choice) => choice._id === nextClass,
+  const nextClassChoice = classes.choices.find(
+    (choice) => choice.classEntryId === nextClass,
   );
+  // One notice for the section: a version switch also changes the levels.
+  const remoteMessage = levels.hasRemoteChange
+    ? 'Class Levels updated by another player.'
+    : 'Class versions updated by another player.';
 
   return (
     <Block
@@ -186,10 +191,13 @@ export function ClassLevels({
       <MaintenanceReasonScope id={reasonId}>
         <div className="space-y-2">
           <RemoteNotice
-            isShown={levels.hasRemoteChange}
-            message="Class Levels updated by another player."
+            isShown={levels.hasRemoteChange || classes.hasRemoteChange}
+            message={remoteMessage}
             subject="Class Levels"
-            onDismiss={levels.dismissRemoteChange}
+            onDismiss={() => {
+              levels.dismissRemoteChange();
+              classes.dismissRemoteChange();
+            }}
           />
           {rows.length === 0 ? (
             <p className="text-muted-foreground text-sm">
@@ -216,7 +224,7 @@ export function ClassLevels({
                     index={index}
                     count={rows.length}
                     metadata={metadata.find((item) => item.entryId === row._id)}
-                    classChoices={classChoices}
+                    classes={classes}
                     warnings={warnings.filter(
                       (warning) =>
                         warning.target.kind === 'classLevel' &&
@@ -249,23 +257,29 @@ export function ClassLevels({
               controller={warningController}
             />
           ) : (
-            <Advisory message={advisory} />
+            <>
+              <Advisory message={advisory} />
+              <InlineWarnings
+                warnings={classes.warnings.filter(
+                  (warning) => warning.check === 'classVersions',
+                )}
+                controller={warningController}
+              />
+            </>
           )}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-sm">
             <span className="text-muted-foreground">
               Level {rows.length + 1} as
             </span>
-            <ChoiceSelect
+            <ClassPicker
               label="Class for the next level"
-              value={nextClassChoice?._id ?? ''}
-              options={classChoices.map((choice) => ({
-                value: choice._id,
-                label: choice.name,
-              }))}
-              emptyLabel="Unspecified"
+              value={nextClassChoice?.classEntryId ?? null}
+              classes={classes}
               disabled={maintenance.readOnly}
-              className="w-40"
-              onValueChange={setPickedNextClass}
+              className="w-44 max-w-full"
+              onValueChange={(classEntryId) =>
+                setPickedNextClass(classEntryId ?? '')
+              }
             />
             <Button
               ref={levelUp}
@@ -277,7 +291,7 @@ export function ClassLevels({
               disabled={isBusy || maintenance.readOnly}
               onClick={() => {
                 if (maintenance.readOnly) return;
-                void levels.add(nextClassChoice?._id);
+                void levels.add(nextClassChoice?.classEntryId);
               }}
             >
               Level up

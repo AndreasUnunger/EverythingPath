@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:8886e8d9739739831604b4fda6f11ea3c3b7c4a38d6a0cfc5c1492448ed93b92';
+    'sha256:4f2501f66eae519f7aad1c967ad5c8e47bde6c36ffecb26daceb8529def924cd';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change, run `pnpm catalog:pin` and rotate the identities in ' +
@@ -106,7 +106,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ],
     [
       './character-sheet-archetypes',
-      './character-sheet-archetype-helpers',
+      './character-sheet-grants',
       './character-sheet',
       './character-sheet-skills',
     ],
@@ -182,6 +182,8 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-proficiency-schema',
     ],
     [
+      './character-sheet-archetype-helpers',
+      './character-sheet-grants',
       './character-sheet-skills',
       './character-sheet-class-levels',
       './character-sheet-spellcasting',
