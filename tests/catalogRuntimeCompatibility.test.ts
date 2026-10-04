@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
+    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -60,6 +60,16 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/catalog/calculation-dispatch.ts',
     'convex/lib/catalogReleaseCompatibility.ts',
     'convex/lib/representativeSelectionCatalog.ts',
+    'src/lib/character-sheet-familiar.ts',
+    'src/lib/catalog/representative-familiars.ts',
+    'convex/lib/characterSheetFamiliar.ts',
+    'convex/lib/characterSheetLinkedInputs.ts',
+    'src/lib/character-sheet-skill-definitions.ts',
+    'src/lib/character-sheet-familiar-targets.ts',
+    'convex/lib/characterSheetData.ts',
+    'convex/lib/characterSheetLinkedInputReader.ts',
+    'convex/lib/companionRelationshipGraph.ts',
+    'convex/lib/preparedCharacterSheet.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -80,6 +90,8 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       'zod',
       './character-sheet-grants',
       './character-sheet-skills',
+      './character-sheet-familiar',
+      './catalog/representative-familiars',
       './character-sheet-equipment',
       './character-sheet-proficiencies',
       './character-sheet-conditions',
@@ -98,6 +110,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ],
     [],
     [
+      './characterSheetData',
       'convex/values',
       '../../src/lib/character-sheet',
       './preparedCharacterSheet',
@@ -110,7 +123,7 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-entries',
     ],
     [],
-    ['./character-sheet'],
+    ['./character-sheet', './character-sheet-skill-definitions'],
     ['zod', './catalog/data/reviewed-conditions.json'],
     [],
     [
@@ -190,7 +203,11 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       './character-sheet-class-levels',
       './character-sheet-skills',
     ],
-    ['zod', '../character-sheet-skills', '../character-sheet-linked-inputs'],
+    [
+      'zod',
+      '../character-sheet-skill-definitions',
+      '../character-sheet-linked-inputs',
+    ],
     [],
     ['../character-sheet', './runtime-compatibility'],
     [
@@ -199,8 +216,58 @@ test('v1 calculation identity matches its pinned implementation and militia proj
       '../../src/lib/catalog/runtime-compatibility',
     ],
     [],
+    [
+      './character-sheet-familiar-targets',
+      './catalog/representative-familiars',
+      './character-sheet-linked-input-evaluation',
+      './character-sheet-skill-definitions',
+    ],
+    ['zod'],
+    [
+      'convex/values',
+      './catalogReleaseCompatibility',
+      './characterAccess',
+      './characterSheetLinkedInputReader',
+      './characterSheetData',
+      './companionRelationshipGraph',
+    ],
+    [
+      'convex/values',
+      './characterSheet',
+      './characterAccess',
+      './characterSheetFamiliar',
+      '../../src/lib/character-sheet-linked-inputs',
+      './characterSheetLinkedInputReader',
+    ],
+    [],
+    ['zod', './character-sheet-skill-definitions'],
+    [
+      '../../src/lib/catalog-copy-references',
+      './catalogCopies',
+      'convex/values',
+      '../../src/lib/json-bytes',
+      '../../src/lib/character-sheet',
+      './catalogReleaseCompatibility',
+    ],
+    [
+      '../../src/lib/catalog/representative-companion-rules',
+      'convex/values',
+      './companionRelationshipGraph',
+      '../../src/lib/character-sheet-linked-inputs',
+    ],
+    [
+      '../../src/lib/catalog/representative-companion-rules',
+      '../../src/lib/character-sheet-linked-inputs',
+      'convex/values',
+      './characterSheetData',
+      '../../src/lib/character-sheet-grants',
+    ],
+    ['convex/values', './characterSheetFamiliar', './characterSheetData'],
   ];
   const exportsByFile: Record<string, string[]> = {
+    'src/lib/character-sheet-skills.ts': [
+      './character-sheet-skill-definitions',
+    ],
     'src/lib/character-sheet-linked-inputs.ts': [
       './character-sheet-linked-input-evaluation',
     ],

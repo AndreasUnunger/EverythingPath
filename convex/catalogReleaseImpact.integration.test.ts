@@ -2086,7 +2086,7 @@ test('the real command resumes discovery and re-evaluates a raced worker result 
 test('a resolver-only candidate uses a supported coherent prior release and keeps intervening active edits', async () => {
   const { t, owner, scope } = await fixture();
   const priorIdentity =
-    'sha256:a0a094c701ddeb6123a372b6106ae32d22969bdf4a256c1bfaf2320c34d48bf0';
+    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
   const base = await prepare(t, [], 1, {
     compatibility: {
       schema: catalogRuntimeCompatibility.schema,
@@ -2229,4 +2229,75 @@ test('discarded release metadata still consumes the candidate read budget and ne
     (await owner.query(api.characterSheet.read, scope))?.calculated.abilities
       .strength.score,
   ).toBe(18);
+});
+
+test('familiar release candidates fail closed until linked dependency calculation is available', async () => {
+  const { t, owner, scope } = await fixture();
+  const familiar = await owner.mutation(api.companionRelationships.create, {
+    associatedCharacterId: scope.characterId,
+    kind: 'familiar',
+    name: 'Release familiar',
+    sources: [{ key: 'bond', label: 'Arcane bond', enabled: true }],
+    operationId: 'release-familiar',
+  });
+  await owner.mutation(api.characterSheetFamiliars.selectBaseCreature, {
+    characterId: familiar.companionCharacterId,
+    relationshipId: familiar.relationshipId,
+    baseCreatureKey: 'cat',
+    operationId: 'release-familiar-species',
+  });
+  const priorIdentity =
+    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
+  const base = await prepare(t, [], 1, {
+    compatibility: {
+      schema: catalogRuntimeCompatibility.schema,
+      calculation: priorIdentity,
+    },
+  });
+  await t.run((ctx) =>
+    ctx.db.insert('catalogReleaseControl', {
+      key: 'global',
+      releaseNumber: 1,
+      schemaIdentity: catalogRuntimeCompatibility.schema,
+      calculationIdentity: priorIdentity,
+    }),
+  );
+  await prepare(t, [], 2, {
+    baseRelease: {
+      releaseNumber: 1,
+      artifactFingerprint: base.manifest.artifactFingerprint,
+    },
+  });
+  const runId = await t.mutation(internal.catalogReleaseImpact.start, {
+    releaseNumber: 2,
+  });
+  await discover(t, runId);
+  const evaluation = await t.query(internal.catalogReleaseImpact.evaluate, {
+    runId,
+    characterId: familiar.companionCharacterId,
+  });
+  expect(evaluation.result).toMatchObject({
+    kind: 'failed',
+    error: expect.stringContaining('linked Familiar'),
+  });
+  await t.mutation(internal.catalogReleaseImpact.complete, {
+    runId,
+    characterId: familiar.companionCharacterId,
+    evaluation,
+  });
+  expect(
+    await t.query(internal.catalogReleaseImpact.status, { runId }),
+  ).toMatchObject({ isReady: false, failedCount: 1 });
+  await owner.mutation(api.characterSheet.editBaseScores, {
+    characterId: familiar.companionCharacterId,
+    scores: { strength: 17 },
+    operationId: 'active-familiar-edit',
+  });
+  expect(
+    (
+      await owner.query(api.characterSheet.read, {
+        characterId: familiar.companionCharacterId,
+      })
+    )?.calculated.abilities.strength.score,
+  ).toBe(17);
 });

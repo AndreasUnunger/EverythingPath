@@ -207,6 +207,7 @@ export function BaseScoresEditor({
                       label={abilityLabels[ability]}
                       statistic={breakdowns[abilityTargets[ability]]}
                       target={abilityTargets[ability]}
+                      isNarrow
                       className="text-base"
                     />
                   </span>
@@ -216,6 +217,7 @@ export function BaseScoresEditor({
                       statistic={modifierBreakdowns[ability]}
                       target={abilityTargets[ability]}
                       format={formatModifier}
+                      isNarrow
                       className="text-base"
                     />
                   </span>

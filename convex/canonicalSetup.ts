@@ -62,7 +62,12 @@ export const options = query({
       .take(257);
     if (characters.length > 256)
       throw new ConvexError('This campaign exceeds the setup character limit');
-    const sheets = await loadPreparedCharacterSheets(ctx, characters, campaign);
+    const sheets = await loadPreparedCharacterSheets(
+      ctx,
+      characters,
+      campaign,
+      { trustedLinkedInputs: true },
+    );
     const draft = await ctx.db
       .query('canonicalWeeklyDraft')
       .withIndex('by_campaignId_and_status', (q) =>
@@ -78,6 +83,7 @@ export const options = query({
             ctx,
             character,
             sheets[index] ?? null,
+            { trustedLinkedInputs: true },
           )),
           name: character.name,
         })),
@@ -200,7 +206,12 @@ async function requireReviewedCharacters(
     const character = id && (await ctx.db.get('character', id));
     if (character?.campaignId !== campaignId)
       throw new ConvexError('Choose characters belonging to this campaign');
-    const facts = await calculateMilitiaCharacterFacts(ctx, character);
+    const facts = await calculateMilitiaCharacterFacts(
+      ctx,
+      character,
+      undefined,
+      { trustedLinkedInputs: true },
+    );
     if (weeklySourceKey(person) !== weeklySourceKey(facts))
       throw new ConvexError(
         'Character facts changed. Reload setup to review the ledger.',

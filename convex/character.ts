@@ -130,6 +130,7 @@ export const reassignOwner = mutation({
 
 const militiaCharacterValidator = schema.doc('character').extend({
   ownershipAvailable: v.boolean(),
+  racialHitDice: v.optional(v.number()),
   classLevels: v.optional(
     v.array(
       v.object({

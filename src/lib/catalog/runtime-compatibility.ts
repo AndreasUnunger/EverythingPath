@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539',
+    'sha256:c34f3f686fc800ec766394a7a8fb747d317da5de31e4d00def22c25c6542e5c6',
 } as const;
 
 export const catalogCalculationV1Files = [
@@ -47,4 +47,14 @@ export const catalogCalculationV1Files = [
   'src/lib/catalog/calculation-dispatch.ts',
   'convex/lib/catalogReleaseCompatibility.ts',
   'convex/lib/representativeSelectionCatalog.ts',
+  'src/lib/character-sheet-familiar.ts',
+  'src/lib/catalog/representative-familiars.ts',
+  'convex/lib/characterSheetFamiliar.ts',
+  'convex/lib/characterSheetLinkedInputs.ts',
+  'src/lib/character-sheet-skill-definitions.ts',
+  'src/lib/character-sheet-familiar-targets.ts',
+  'convex/lib/characterSheetData.ts',
+  'convex/lib/characterSheetLinkedInputReader.ts',
+  'convex/lib/companionRelationshipGraph.ts',
+  'convex/lib/preparedCharacterSheet.ts',
 ] as const;

@@ -6,7 +6,7 @@ import {
 import { catalogRuntimeCompatibility } from './runtime-compatibility';
 
 const priorCalculationIdentity =
-  'sha256:a0a094c701ddeb6123a372b6106ae32d22969bdf4a256c1bfaf2320c34d48bf0';
+  'sha256:cbdc087920f8f8027046422551e15dbb0151488bffd07ddc9375bead9021e539';
 
 export function isSupportedCatalogCalculation(identity: string) {
   return (

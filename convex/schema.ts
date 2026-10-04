@@ -35,6 +35,10 @@ import {
 import { conditionKeys } from '../src/lib/character-sheet-conditions';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
 import { companionSourceRuleKindSchema } from '../src/lib/catalog/representative-companion-rules';
+import { familiarBaseCreatureKeySchema } from '../src/lib/catalog/representative-familiars';
+export const familiarBaseCreatureKeyValidator = zodOutputToConvex(
+  familiarBaseCreatureKeySchema,
+);
 import { companionLinkedInputSchema } from '../src/lib/character-sheet-linked-inputs';
 export const companionLinkedInputValidator = zodOutputToConvex(
   companionLinkedInputSchema,
@@ -171,6 +175,20 @@ export const characterValidator = v.object({
   kind: characterKindValidator,
   isActive: v.boolean(),
   sheetMode: v.optional(characterSheetModeValidator),
+  familiarBaseCreatureKey: v.optional(familiarBaseCreatureKeyValidator),
+  familiarBaseScoresPending: v.optional(v.literal(true)),
+  sheetPermanentFacts: v.optional(
+    v.object({
+      level: v.number(),
+      racialHitDice: v.number(),
+      strength: v.number(),
+      dexterity: v.number(),
+      constitution: v.number(),
+      intelligence: v.number(),
+      wisdom: v.number(),
+      charisma: v.number(),
+    }),
+  ),
   sheetRevision: v.optional(v.number()),
   sheetLastOperationId: v.optional(v.string()),
   sheetUpdatedBy: v.optional(v.string()),
@@ -1481,7 +1499,15 @@ export default defineSchema({
     lastOperationId: v.string(),
   })
     .index('by_associatedCharacterId', ['associatedCharacterId'])
-    .index('by_companionCharacterId', ['companionCharacterId']),
+    .index('by_companionCharacterId', ['companionCharacterId'])
+    .index('by_associatedCharacterId_and_kind', [
+      'associatedCharacterId',
+      'kind',
+    ])
+    .index('by_companionCharacterId_and_kind', [
+      'companionCharacterId',
+      'kind',
+    ]),
   campaign: defineTable(campaignValidator)
     .index('by_organization', ['organizationId'])
     .index('by_e2eFixture_namespace_and_workerKey_and_caseKey', [

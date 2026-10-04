@@ -6,7 +6,10 @@ import { cn } from '~/lib/utils';
 import { InlineWarnings } from './inline-warning';
 import { Block, chip, fieldLabel } from './sheet-parts';
 import { SpellRow, type RecordedSpell } from './spell-row';
-import { formatSpellLevelHeading } from './spellcasting-parts';
+import {
+  describeCollectionNote,
+  formatSpellLevelHeading,
+} from './spellcasting-parts';
 import { useFocusAfterSpellRemoval } from './use-focus-after-spell-removal';
 import type { useCharacterSpellsPage } from './use-character-spells-page';
 
@@ -117,7 +120,8 @@ function LevelGroup({
  * A recording Spellcasting's default view: its Spells known, Spellbook,
  * Formula book or Familiar, grouped by level with each level's count (and
  * allowance where the class table sets one) and its count warnings. Each
- * check removes its Spell; Add Spells opens the class list.
+ * check removes its Spell; Add Spells opens the class list. A witch's
+ * Familiar says its Spells stay with the witch.
  */
 export function SpellCollection({ page }: { page: Page }) {
   const focus = useFocusAfterSpellRemoval(
@@ -127,11 +131,17 @@ export function SpellCollection({ page }: { page: Page }) {
   if (!collection?.heading) return null;
   const heading = collection.heading;
   const isEmpty = page.recordedSpells.length === 0;
+  const note = describeCollectionNote(page.selected);
   return (
     <Block
       title={heading}
       aside={isEmpty ? null : <AddSpellsButton onClick={page.enterBrowser} />}
     >
+      {note ? (
+        <p className="text-muted-foreground mb-2 text-xs [overflow-wrap:anywhere]">
+          {note}
+        </p>
+      ) : null}
       <div ref={focus.container}>
         {isEmpty ? (
           <div className="border-foreground/20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border border-dashed p-3">

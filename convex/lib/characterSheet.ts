@@ -2,6 +2,7 @@ import {
   projectCampaignCopies,
   type CatalogLoadReference,
 } from './catalogCopies';
+import { getCompanionSupportingEntryKeys } from './companionRelationshipGraph';
 import { markCatalogImpactDirty } from './catalogReleaseImpact';
 import { listCatalogReferences } from '../../src/lib/catalog-copy-references';
 import { resolveCharacterSheetGrants } from '../../src/lib/character-sheet-grants';
@@ -22,10 +23,7 @@ import {
 } from './representativeArchetypeCatalog';
 import { representativeWeaponCatalog } from './representativeWeaponCatalog';
 import { representativeSelectionCatalog } from './representativeSelectionCatalog';
-import {
-  getCompanionSupportingEntryKeys,
-  reconcileCompanionRelationships,
-} from './companionRelationships';
+import { reconcileCompanionRelationships } from './companionRelationships';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { ReadCtx } from '../types';
@@ -43,17 +41,15 @@ import {
   deleteSpellCatalogIndex,
 } from './spellCatalog';
 import { internal } from '../_generated/api';
-import {
-  calculateActiveCharacterSheet,
-  requireCompatibleActiveRelease,
-} from './catalogReleaseCompatibility';
+import { requireCompatibleActiveRelease } from './catalogReleaseCompatibility';
+import { applyFamiliarToSheet } from './characterSheetFamiliar';
 import {
   readCharacterSheetData,
   maxCharacterChildRows,
   maxAcceptedWarnings,
   requireAbilityScore,
   requireWholeCalculatedAbilities,
-} from './preparedCharacterSheet';
+} from './characterSheetData';
 
 export function isManualCatalogEntry(
   entry: Doc<'catalogEntry'>,
@@ -402,15 +398,13 @@ export async function pruneWarningAcceptancesAndRecordChange(
 ) {
   const calculationIdentity = await requireCompatibleActiveRelease(ctx);
   const catalogEntries = projectCampaignCopies(sheet.catalogEntries);
-  const { current: calculated, permanent } = calculateActiveCharacterSheet(
-    {
-      entries: sheet.entries,
-      catalogEntries,
-      characterKind: sheet.character.kind,
-      sheetMode: sheet.character.sheetMode,
-    },
-    calculationIdentity,
+  const projected = await applyFamiliarToSheet(
+    ctx,
+    { ...sheet, catalogEntries },
+    { trustedLinkedInputs: true, recalculate: true, calculationIdentity },
   );
+  const calculated = projected.calculated;
+  const permanent = projected.permanentCalculated;
   requireWholeCalculatedAbilities(calculated);
   requireWholeCalculatedAbilities(permanent);
   const availableGrantIds = resolveCharacterSheetGrants({
@@ -450,16 +444,13 @@ export async function pruneWarningAcceptancesAndRecordChange(
     sheetLastOperationId: operationId,
     sheetUpdatedBy: sheet.actor,
   });
-  const { resolvedEntries: _resolvedEntries, ...permanentCalculated } =
-    permanent;
+  const permanentCalculated = permanent;
   await updateCanonicalCharacter(ctx, sheet.character._id, {
-    ...sheet,
-    catalogEntries,
-    calculated,
     permanentCalculated,
   });
   sheet.calculated = calculated;
   sheet.permanentCalculated = permanentCalculated;
+  sheet.permanentResolvedEntries = projected.permanentResolvedEntries;
   await reconcileCompanionRelationships(
     ctx,
     sheet.character._id,

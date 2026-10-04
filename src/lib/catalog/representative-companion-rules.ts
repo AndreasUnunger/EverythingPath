@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { skillDefinitions } from '../character-sheet-skills';
+import { skillDefinitions } from '../character-sheet-skill-definitions';
 import {
   linkedInputKey,
   type CompanionLinkedInput,
@@ -81,6 +81,7 @@ export const representativeCompanionRules: Record<
   familiar: {
     inputs: [
       ...familiarInputs,
+      sameInput({ kind: 'familiarProgressionLevels' }),
       sameInput(classLevels('wizard')),
       sameInput(classLevels('sorcerer')),
       sameInput(classLevels('witch')),

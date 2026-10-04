@@ -2081,3 +2081,65 @@ test('a public edit to unrelated campaign homebrew preserves the mover preparati
     await owner.mutation(api.characterMoves.resume, command),
   ).toMatchObject({ generation: first.generation, prepared: 64 });
 });
+
+test('a familiar keeps its base creature, recorded scores and relationship across a round-trip move', async () => {
+  const { t, owner, characterId, campaigns } = await fixture();
+  const masterId = await owner.mutation(api.characterSheet.create, {
+    campaignId: campaigns[0],
+    organizationId: 'org',
+    name: 'Familiar master',
+    kind: 'pc',
+    operationId: 'familiar-master',
+  });
+  const relationshipId = await owner.mutation(api.companionRelationships.link, {
+    associatedCharacterId: masterId,
+    companionCharacterId: characterId,
+    kind: 'familiar',
+    sources: [{ key: 'bond', label: 'Arcane bond', enabled: true }],
+    operationId: 'familiar-link',
+  });
+  await owner.mutation(api.characterSheetFamiliars.selectBaseCreature, {
+    characterId,
+    relationshipId,
+    baseCreatureKey: 'cat',
+    operationId: 'familiar-species',
+  });
+  const familiarState = async () => {
+    const sheet = await owner.query(api.characterSheet.read, { characterId });
+    const character = await t.run((ctx) =>
+      ctx.db.get('character', characterId),
+    );
+    return {
+      baseCreatureKey: character?.familiarBaseCreatureKey,
+      baseScoresPending: character?.familiarBaseScoresPending,
+      abilities: sheet?.permanentCalculated.abilities,
+      familiarRelationshipId: sheet?.familiarRelationshipId,
+      familiar: sheet?.calculated.familiar,
+    };
+  };
+  const before = await familiarState();
+  expect(before).toMatchObject({
+    baseCreatureKey: 'cat',
+    familiarRelationshipId: relationshipId,
+  });
+  expect(before.familiar).toBeTruthy();
+  await completeMove(owner, characterId, 'familiar-away', campaigns[1]);
+  const away = await familiarState();
+  expect(away).toMatchObject({
+    baseCreatureKey: 'cat',
+    baseScoresPending: before.baseScoresPending,
+    abilities: before.abilities,
+    familiarRelationshipId: relationshipId,
+  });
+  const relationship = await t.run((ctx) =>
+    ctx.db.get('companionRelationship', relationshipId),
+  );
+  expect(relationship).toMatchObject({
+    kind: 'familiar',
+    associatedCharacterId: masterId,
+    companionCharacterId: characterId,
+    sources: [{ key: 'bond', label: 'Arcane bond', enabled: true }],
+  });
+  await completeMove(owner, characterId, 'familiar-home', campaigns[0]);
+  expect(await familiarState()).toEqual(before);
+});

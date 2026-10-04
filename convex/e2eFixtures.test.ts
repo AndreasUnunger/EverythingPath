@@ -51,6 +51,83 @@ describe('internal fixture boundary', () => {
     vi.stubEnv('CONVEX_CLOUD_URL', deploymentFixture.convexUrl);
   });
   afterEach(() => vi.unstubAllEnvs());
+  it('prepares an opt-in familiar demo and removes the linked graph on cleanup', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(
+      internal.e2eFixtures.seedIdentityProjection,
+      characterSheet,
+    );
+    const { campaignId } = await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterSheet,
+      now: 0,
+      familiarDemo: true,
+    });
+    const owner = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    const characters = await owner.query(api.character.listByCampaign, {
+      organizationId: 'org_members',
+      campaignId,
+    });
+    const familiar = characters.find((row) => row.name === 'E2E familiar-cat');
+    expect(familiar).toBeDefined();
+    if (!familiar) throw new Error('Missing demo familiar');
+    const sheet = await owner.query(api.characterSheet.read, {
+      organizationId: 'org_members',
+      characterId: familiar._id,
+    });
+    expect(sheet).toMatchObject({
+      character: { familiarBaseCreatureKey: 'cat' },
+      calculated: {
+        familiar: { actualHitDice: 1, maximumHp: 3, progression: { level: 1 } },
+      },
+    });
+    expect(
+      await owner.query(api.companionRelationships.list, {
+        characterId: familiar._id,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'familiar',
+        role: 'associated',
+        status: 'active',
+      }),
+    ]);
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
+    expect(
+      await owner.query(api.character.listByCampaign, {
+        organizationId: 'org_members',
+        campaignId,
+      }),
+    ).toEqual([]);
+    expect(
+      await t.run(async (ctx) => ({
+        relationships: await ctx.db.query('companionRelationship').collect(),
+        linkedInputs: await ctx.db.query('characterLinkedInput').collect(),
+      })),
+    ).toEqual({ relationships: [], linkedInputs: [] });
+  });
+  it('refuses familiar demo requests outside prepared sheet cases and the preview capability gate', async () => {
+    const t = convexTest({ schema, modules });
+    await expect(
+      t.mutation(internal.e2eFixtures.resetCase, {
+        ...scope,
+        now: 0,
+        familiarDemo: true,
+      }),
+    ).rejects.toThrow('Familiar demonstration requires a prepared sheet case');
+    vi.stubEnv('E2E_ENABLED', 'false');
+    await expect(
+      t.mutation(internal.e2eFixtures.resetCase, {
+        ...characterSheet,
+        now: 0,
+        familiarDemo: true,
+      }),
+    ).rejects.toThrow();
+    expect(await t.run((ctx) => ctx.db.query('campaign').collect())).toEqual(
+      [],
+    );
+  });
   it('reset and cleanup remove campaign homebrew created by Save and Customize while retaining unrelated catalogs', async () => {
     const t = convexTest({ schema, modules });
     await t.mutation(

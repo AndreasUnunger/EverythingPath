@@ -11,7 +11,11 @@ import { v } from 'convex/values';
 import {
   deleteCharacterSheet,
   initializeCharacterSheet,
+  pruneWarningAcceptancesAndRecordChange,
 } from './lib/characterSheet';
+import { representativeFamiliars } from '../src/lib/catalog/representative-familiars';
+import { getCompanionSupportingEntryKeys } from './lib/companionRelationshipGraph';
+import { readCharacterSheetData } from './lib/characterSheetData';
 import type { Id } from './_generated/dataModel';
 import {
   internalQuery,
@@ -164,6 +168,33 @@ async function listSheetDemoUsers(
   return users.filter((user) => user !== null);
 }
 
+async function removeFixtureRelationships(
+  ctx: MutationCtx,
+  characterId: Id<'character'>,
+) {
+  const groups = await Promise.all([
+    ctx.db
+      .query('companionRelationship')
+      .withIndex('by_associatedCharacterId', (q) =>
+        q.eq('associatedCharacterId', characterId),
+      )
+      .take(101),
+    ctx.db
+      .query('companionRelationship')
+      .withIndex('by_companionCharacterId', (q) =>
+        q.eq('companionCharacterId', characterId),
+      )
+      .take(101),
+  ]);
+  const relationships = new Map(
+    groups.flatMap((rows) =>
+      bounded(rows).map((row) => [row._id, row] as const),
+    ),
+  );
+  for (const row of relationships.values())
+    await ctx.db.delete('companionRelationship', row._id);
+}
+
 async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
   for (const user of await listSheetDemoUsers(ctx, scope)) {
     const owned = bounded(
@@ -173,8 +204,10 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         .take(101),
     );
     for (const character of owned) {
-      if (!character.campaignId && character.sheetDemo)
+      if (!character.campaignId && character.sheetDemo) {
+        await removeFixtureRelationships(ctx, character._id);
         await deleteCharacterSheet(ctx, character._id);
+      }
     }
     await ctx.db.patch('user', user._id, { characterSheetDemo: undefined });
   }
@@ -215,6 +248,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         .take(101),
     );
     for (const character of characters) {
+      await removeFixtureRelationships(ctx, character._id);
       if (character.sheetMode) {
         await deleteCharacterSheet(ctx, character._id);
         continue;
@@ -322,11 +356,100 @@ export const seedIdentityProjection = generalInternalMutation({
   },
 });
 
+async function seedFamiliarDemo(
+  ctx: MutationCtx,
+  {
+    characterId,
+    campaignId,
+    ownerId,
+    now,
+  }: {
+    characterId: Id<'character'>;
+    campaignId: Id<'campaign'>;
+    ownerId: string;
+    now: number;
+  },
+) {
+  const masterCharacter = await ctx.db.get('character', characterId);
+  if (!masterCharacter)
+    throw new Error('Prepared familiar demo master is missing');
+  const master = await readCharacterSheetData(ctx, masterCharacter);
+  const wizard = master?.catalogEntries.find(
+    (entry) => entry.detail.kind === 'class' && entry.ruleIdentity === 'wizard',
+  );
+  const level = master?.entries.find((entry) => entry.kind === 'classLevel');
+  if (!wizard || level?.state.kind !== 'classLevel')
+    throw new Error('Prepared familiar demo needs the Wizard class');
+  await ctx.db.patch('characterSheetEntry', level._id, {
+    state: { ...level.state, classEntryId: wizard._id, hpGained: 6 },
+  });
+  const creature = representativeFamiliars.cat;
+  const familiarId = await ctx.db.insert('character', {
+    campaignId,
+    ownerId,
+    name: 'E2E familiar-cat',
+    description: 'Synthetic familiar demonstration',
+    kind: 'npc',
+    isActive: true,
+    level: 0,
+    ...creature.abilityScores,
+    familiarBaseCreatureKey: creature.key,
+  });
+  await initializeCharacterSheet(ctx, {
+    characterId: familiarId,
+    operationId: 'fixture:familiar',
+    updatedBy: ownerId,
+    level: 0,
+    scores: creature.abilityScores,
+  });
+  await ctx.db.insert('companionRelationship', {
+    associatedCharacterId: characterId,
+    companionCharacterId: familiarId,
+    kind: 'familiar',
+    sources: [
+      {
+        key: 'fixture:wizard',
+        label: 'Wizard Familiar',
+        enabled: true,
+        sheetEntryId: level._id,
+        ruleKind: 'wizardFamiliar',
+      },
+    ],
+    status: 'active',
+    manuallyInterrupted: false,
+    activatedAt: now,
+    lastOperationId: 'fixture:familiar',
+  });
+  for (const id of [characterId, familiarId]) {
+    const character = await ctx.db.get('character', id);
+    if (!character)
+      throw new Error('Prepared familiar demo Character is missing');
+    const sheet = await readCharacterSheetData(ctx, character);
+    if (!sheet) throw new Error('Prepared familiar demo sheet is missing');
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet: {
+        ...sheet,
+        actor: ownerId,
+        campaign: null,
+        initialSupportingEntryKeys: getCompanionSupportingEntryKeys(sheet),
+      },
+      operationId: 'fixture:familiar',
+    });
+  }
+}
+
 export const resetCase = gatedInternalMutation({
-  args: { ...scopeArgs, ...isolationArgs, now: v.number() },
+  args: {
+    ...scopeArgs,
+    ...isolationArgs,
+    now: v.number(),
+    familiarDemo: v.optional(v.boolean()),
+  },
   returns: v.object({ campaignId: v.id('campaign'), campaignKey: v.string() }),
   handler: async (ctx, args) => {
     const { config, worker, domain } = authorize(args);
+    if (args.familiarDemo && !isSheetCase(args.caseKey))
+      throw new Error('Familiar demonstration requires a prepared sheet case');
     if (!Number.isSafeInteger(args.now) || args.now < 0)
       throw new Error('Fixture time must be a nonnegative integer');
     await removeGraph(ctx, args);
@@ -381,6 +504,13 @@ export const resetCase = gatedInternalMutation({
         characterId,
         operationId: 'fixture:character-sheet',
         updatedBy: `https://${config.clerkHost}|${worker.gm.userId}`,
+      });
+    if (args.familiarDemo && characterId)
+      await seedFamiliarDemo(ctx, {
+        characterId,
+        campaignId,
+        now: args.now,
+        ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,
       });
     if (args.caseKey === 'characterNavigation')
       return { campaignId, campaignKey: domain.campaign };

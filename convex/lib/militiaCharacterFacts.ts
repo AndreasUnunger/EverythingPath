@@ -1,12 +1,10 @@
+import { requireAbilityScore } from './characterSheetData';
 import type { Doc } from '../_generated/dataModel';
 import type { CanonicalWeekState } from '../../src/lib/canonical-weekly-source';
 import type { ReadCtx } from '../types';
 import { ConvexError } from 'convex/values';
 import { abilityKeys, type Ability } from '../../src/lib/character-sheet';
-import {
-  loadPreparedCharacterSheet,
-  requireAbilityScore,
-} from './preparedCharacterSheet';
+import { loadPreparedCharacterSheet } from './preparedCharacterSheet';
 
 export function requireWholeCharacterStatistics(
   statistics: Partial<Pick<Doc<'character'>, 'level' | Ability>>,
@@ -23,12 +21,21 @@ export async function calculateMilitiaCharacterFacts(
   ctx: ReadCtx,
   character: Doc<'character'>,
   preparedSheet:
-    | Awaited<ReturnType<typeof loadPreparedCharacterSheet>>
+    | {
+        permanentCalculated: Pick<
+          NonNullable<
+            Awaited<ReturnType<typeof loadPreparedCharacterSheet>>
+          >['permanentCalculated'],
+          'abilities' | 'level' | 'racialHitDice'
+        >;
+      }
+    | null
     | undefined = undefined,
+  options: { trustedLinkedInputs?: boolean } = { trustedLinkedInputs: true },
 ): Promise<CanonicalWeekState['militiaSnapshot']['characters'][number]> {
   const sheet =
     preparedSheet === undefined
-      ? await loadPreparedCharacterSheet(ctx, character)
+      ? await loadPreparedCharacterSheet(ctx, character, undefined, options)
       : preparedSheet;
   const calculated = sheet?.permanentCalculated;
   const racialHitDice = calculated?.racialHitDice ?? 0;

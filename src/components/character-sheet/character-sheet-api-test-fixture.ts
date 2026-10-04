@@ -24,6 +24,9 @@ const defaultApi = {
     browse: 'browseSpells',
     browserInfo: 'spellBrowserInfo',
   },
+  characterSheetFamiliars: {
+    selectBaseCreature: 'selectFamiliarBaseCreature',
+  },
   characterSheetLinkedInputs: {
     read: 'readLinkedInput',
     list: 'listLinkedInputs',
@@ -106,6 +109,10 @@ export function createCharacterSheetApiMock(overrides: ApiOverrides = {}) {
       characterSheetSpells: {
         ...defaultApi.characterSheetSpells,
         ...overrides.characterSheetSpells,
+      },
+      characterSheetFamiliars: {
+        ...defaultApi.characterSheetFamiliars,
+        ...overrides.characterSheetFamiliars,
       },
       characterSheetLinkedInputs: {
         ...defaultApi.characterSheetLinkedInputs,

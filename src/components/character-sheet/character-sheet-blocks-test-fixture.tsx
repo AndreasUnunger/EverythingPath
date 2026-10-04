@@ -5,6 +5,7 @@ import { BaseScoresEditor } from './base-scores-editor';
 import { BreakdownResolverProvider } from './breakdown-resolver';
 import { CharacterSheetCatalog } from './character-sheet-catalog';
 import { CharacterSheetEntries } from './character-sheet-entries';
+import { CharacterSheetFamiliar } from './character-sheet-familiar';
 import { CharacterSheetRaces } from './character-sheet-races';
 import { CharacterSheetArchetypes } from './character-sheet-archetypes';
 import { CharacterSheetGrants } from './character-sheet-grants';
@@ -26,6 +27,7 @@ import { Skills } from './skills';
 import { characterId } from './character-sheet-test-fixture';
 import { useCharacterSheet } from './use-character-sheet';
 import {
+  describeFamiliarUnresolved,
   describeIncompleteHp,
   findArchetypeSection,
   listGrantBlockSections,
@@ -51,7 +53,8 @@ type SheetBlock =
   | 'archetypes'
   | 'grants'
   | 'catalog'
-  | 'attacks';
+  | 'attacks'
+  | 'familiar';
 
 // Exercise the real controller and selected public blocks against the same
 // read snapshots as page integration tests, without rendering unrelated UI.
@@ -96,6 +99,7 @@ function SheetBlocks({
       spellcastings={sheet.calculated.spellcastings}
       previewSituation={controller.previewSituation}
       adjustments={sheet.adjustments}
+      unresolved={describeFamiliarUnresolved(sheet, controller.familiar)}
     >
       <SelectionOrderProvider
         controls={controller.selections}
@@ -276,6 +280,13 @@ function SheetBlocks({
               );
             case 'catalog':
               return <CharacterSheetCatalog key={block} />;
+            case 'familiar':
+              return (
+                <CharacterSheetFamiliar
+                  key={block}
+                  controller={controller.familiar}
+                />
+              );
             case 'grants':
               return (
                 <CharacterSheetGrants

@@ -6,6 +6,7 @@ import { SituationMarker } from './situation-marker';
 import type { BreakdownTarget } from './stat-breakdown-content';
 import { hasSituationalContributions } from './stat-breakdown-groups';
 import { StatBreakdownPanel } from './stat-breakdown-panel';
+import { useUnresolvedReason } from './unresolved-statistics';
 import { useStatBreakdownPopup } from './use-stat-breakdown-popup';
 
 /**
@@ -14,7 +15,8 @@ import { useStatBreakdownPopup } from './use-stat-breakdown-popup';
  * voice-control user can say it) and announcing whether it is expanded,
  * controlling the labelled group it opens beneath. Tap, click, Enter or Space
  * pin the group open; a mouse resting on the number shows it too and may move
- * into it.
+ * into it. A statistic the sheet marks unresolved (#326) reads Unresolved,
+ * and its breakdown shows the known contributions as partial.
  */
 export function StatBreakdown({
   label,
@@ -24,6 +26,7 @@ export function StatBreakdown({
   format = String,
   formatContribution,
   lead,
+  isNarrow = false,
   className,
 }: {
   label: string;
@@ -38,21 +41,36 @@ export function StatBreakdown({
   formatContribution?: (value: number) => string;
   /** What the total stands on before its contributions, such as damage dice. */
   lead?: ReactNode;
+  /** Too narrow to spell out Unresolved: a dash stands in, the name says it. */
+  isNarrow?: boolean;
   className?: string;
 }) {
   const popup = useStatBreakdownPopup();
   const panelId = useId();
-  const totalText =
-    incompleteReason === null ? format(statistic.total) : 'not complete';
-  const total =
-    incompleteReason === null ? (
-      totalText
+  const unresolvedReason = useUnresolvedReason(target);
+  const isUnresolved = unresolvedReason !== null;
+  const totalText = isUnresolved
+    ? 'Unresolved'
+    : incompleteReason === null
+      ? format(statistic.total)
+      : 'not complete';
+  const dash = (
+    <>
+      <span aria-hidden>—</span>
+      <span className="sr-only">{totalText}</span>
+    </>
+  );
+  const total = isUnresolved ? (
+    isNarrow ? (
+      dash
     ) : (
-      <>
-        <span aria-hidden>—</span>
-        <span className="sr-only">{totalText}</span>
-      </>
-    );
+      <span className="text-muted-foreground text-sm">{totalText}</span>
+    )
+  ) : incompleteReason === null ? (
+    totalText
+  ) : (
+    dash
+  );
   return (
     <span
       ref={popup.wrapper}
@@ -89,7 +107,8 @@ export function StatBreakdown({
           target={target}
           formatContribution={formatContribution}
           lead={lead}
-          incompleteReason={incompleteReason}
+          incompleteReason={unresolvedReason ?? incompleteReason}
+          isPartial={isUnresolved}
           trigger={popup.trigger}
           onClose={popup.closeAndRefocus}
         />

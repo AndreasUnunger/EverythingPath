@@ -282,7 +282,38 @@ export function resolveAdvancement(
 ) {
   const { levels, rows, classes } = resolveClassRows({ ...input, archetypes });
   const racial = resolveRacialProgression(input.racialHitDice);
+  const classModifiers = classModifiersFor(classes);
+  function baseStatistics({ includeRacial }: { includeRacial: boolean }) {
+    const unresolved =
+      rows.some((row) => row.classLevel === null) ||
+      (includeRacial && racial.missingRacialProgression);
+    const modifiers = includeRacial
+      ? [...classModifiers, ...racial.modifiers]
+      : classModifiers;
+    function total(target: ModifierTarget) {
+      if (unresolved) return null;
+      return modifiers
+        .filter((modifier) => modifier.builtIn && modifier.target === target)
+        .reduce(
+          (sum, modifier) =>
+            sum + (typeof modifier.value === 'number' ? modifier.value : 0),
+          0,
+        );
+    }
+    return {
+      bab: total('bab'),
+      saves: {
+        fort: total('save.fort'),
+        ref: total('save.ref'),
+        will: total('save.will'),
+      },
+    };
+  }
   return {
+    ownProgression: {
+      classBases: baseStatistics({ includeRacial: false }),
+      totalBases: baseStatistics({ includeRacial: true }),
+    },
     levels,
     rows,
     classLevelCounts: classLevelCountsFor(rows, input.catalogEntries),
@@ -304,7 +335,7 @@ export function resolveAdvancement(
         ? (input.racialHitDice?.progression?.classSkills ?? [])
         : [],
     modifiers: [
-      ...classModifiersFor(classes),
+      ...classModifiers,
       ...racial.modifiers,
       ...abilityIncreaseModifiersFor(levels),
       ...hpModifiersFor(levels),

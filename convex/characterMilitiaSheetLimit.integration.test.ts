@@ -3,10 +3,11 @@ import { convexTest } from 'convex-test';
 import { expect, test, vi } from 'vitest';
 import { api } from './_generated/api';
 import schema from './schema';
+import type * as CharacterSheetData from './lib/characterSheetData';
 
 // Keep the real mutation and reads; scale only the imported entry cap.
-vi.mock('./lib/preparedCharacterSheet', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./lib/preparedCharacterSheet')>()),
+vi.mock('./lib/characterSheetData', async (importOriginal) => ({
+  ...(await importOriginal<typeof CharacterSheetData>()),
   maxCharacterChildRows: 8,
 }));
 

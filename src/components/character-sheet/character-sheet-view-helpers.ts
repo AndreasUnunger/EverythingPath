@@ -62,3 +62,25 @@ export function listSelectionSections(sections: ReadySheet['grants']) {
     (section) => section.kind === 'feat' || section.kind === 'trait',
   );
 }
+
+/**
+ * A familiar's statistics whose finished value is unavailable (#326), with
+ * why, for every number on the sheet. The targets come with the sheet read,
+ * so they hold while the relationship is still loading.
+ */
+export function describeFamiliarUnresolved(
+  sheet: Pick<ReadySheet, 'calculated'>,
+  familiar: ReturnType<typeof useCharacterSheet>['familiar'],
+) {
+  const reason = [
+    familiar.view?.baseCreatureMessage,
+    familiar.view?.unresolvedMessage,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return {
+    targets: sheet.calculated.familiar?.affectedStatisticTargets ?? [],
+    reason:
+      reason || 'Some familiar statistics need values that are not available.',
+  };
+}

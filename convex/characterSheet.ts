@@ -7,6 +7,7 @@ import {
   replaceRecordedSelection,
 } from '../src/lib/character-sheet-selection';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
+import { familiarFactsSchema } from '../src/lib/character-sheet-familiar-schema';
 import { type SelectionSlot } from '../src/lib/character-sheet-selection-rules';
 import {
   manualProficiencySchema,
@@ -24,7 +25,7 @@ import {
   maxAcceptedWarnings,
   requireAbilityScore,
   listCatalogDependencies,
-} from './lib/preparedCharacterSheet';
+} from './lib/characterSheetData';
 import {
   characterSheetClassFamily,
   hasGrantAncestor,
@@ -60,6 +61,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { WithoutSystemFields } from 'convex/server';
 import type { MutationCtx } from './_generated/server';
 import { query } from './_generated/server';
+import { applyFamiliarToSheet } from './lib/characterSheetFamiliar';
 import { legacyCharacterMutation as campaignMutation } from './lib/campaignRuntime';
 import schema, {
   creationSettingsValidator,
@@ -291,6 +293,7 @@ function attackLineValidator() {
   });
 }
 const calculatedValidator = v.object({
+  familiar: v.union(zodOutputToConvex(familiarFactsSchema), v.null()),
   spellCollections: v.object({
     collections: v.array(
       v.object({
@@ -412,12 +415,32 @@ const calculatedValidator = v.object({
     skillRanks: v.union(v.number(), v.null()),
     skillRankCap: v.number(),
   }),
+  ownProgression: v.object({
+    classBases: v.object({
+      bab: v.union(v.number(), v.null()),
+      saves: v.object({
+        fort: v.union(v.number(), v.null()),
+        ref: v.union(v.number(), v.null()),
+        will: v.union(v.number(), v.null()),
+      }),
+    }),
+    totalBases: v.object({
+      bab: v.union(v.number(), v.null()),
+      saves: v.object({
+        fort: v.union(v.number(), v.null()),
+        ref: v.union(v.number(), v.null()),
+        will: v.union(v.number(), v.null()),
+      }),
+    }),
+  }),
   skills: v.array(
     v.object({
       key: v.union(...skillDefinitions.map(({ key }) => v.literal(key))),
       name: v.string(),
       ability: abilityValidator,
       ranks: v.number(),
+      ownRanks: v.number(),
+      recordedRanks: v.number(),
       classSkill: v.boolean(),
       armorCheckPenalty: v.number(),
     }),
@@ -622,6 +645,7 @@ export const read = query({
       entries: v.array(schema.doc('characterSheetEntry')),
       catalogEntries: v.array(schema.doc('catalogEntry')),
       baseScoresEntry: schema.doc('catalogEntry'),
+      familiarRelationshipId: v.union(v.id('companionRelationship'), v.null()),
       calculated: calculatedValidator,
       permanentCalculated: calculatedValidator.omit('resolvedEntries'),
       acceptedWarnings: v.array(schema.doc('acceptedWarning')),
@@ -633,10 +657,12 @@ export const read = query({
   async handler(ctx, args) {
     const characterId = ctx.db.normalizeId('character', args.characterId);
     if (!characterId) throw new ConvexError('Character not found');
-    const sheet = await loadCharacterSheet(ctx, { ...args, characterId });
-    if (!sheet) return null;
+    const baseline = await loadCharacterSheet(ctx, { ...args, characterId });
+    if (!baseline) return null;
+    const sheet = await applyFamiliarToSheet(ctx, baseline);
     const {
       actor: _actor,
+      permanentResolvedEntries: _permanentResolvedEntries,
       initialSupportingEntryKeys: _initialSupportingEntryKeys,
       ...result
     } = sheet;
@@ -1315,11 +1341,27 @@ export const editBaseScores = campaignMutation({
       ...modifier,
       value: values.get(modifier.target) ?? modifier.value,
     }));
-    const hasChanges = modifiers.some(
-      (modifier, index) =>
-        modifier.value !== catalogEntry.modifiers[index]?.value,
-    );
-    if (!hasChanges) return null;
+    for (const [target, value] of values)
+      if (!modifiers.some((modifier) => modifier.target === target))
+        modifiers.push({ target, bonusType: 'base', value });
+    const hasChanges =
+      modifiers.length !== catalogEntry.modifiers.length ||
+      modifiers.some(
+        (modifier, index) =>
+          modifier.value !== catalogEntry.modifiers[index]?.value,
+      );
+    const recordsPendingScores =
+      sheet.character.familiarBaseScoresPending && values.size > 0;
+    if (!hasChanges && !recordsPendingScores) return null;
+    if (recordsPendingScores) {
+      await ctx.db.patch('character', args.characterId, {
+        familiarBaseScoresPending: undefined,
+      });
+      sheet.character = {
+        ...sheet.character,
+        familiarBaseScoresPending: undefined,
+      };
+    }
     await ctx.db.patch('catalogEntry', catalogEntry._id, { modifiers });
     sheet.catalogEntries = sheet.catalogEntries.map((entry) =>
       entry._id === catalogEntry._id ? { ...catalogEntry, modifiers } : entry,

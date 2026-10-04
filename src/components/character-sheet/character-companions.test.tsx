@@ -16,8 +16,12 @@ import {
   characterSheetPath,
   type CharacterSheetOrigin,
 } from '~/lib/campaign-routes';
+import { BreakdownResolverProvider } from './breakdown-resolver';
 import { CharacterCompanions } from './character-companions';
 import { buildSheet } from './character-sheet-test-fixture';
+import { buildCharacterSheetView } from './character-sheet-view-model';
+import { buildSpellSheet, spells } from './character-spells-test-fixture';
+import { SpellcastingBlock } from './spellcasting-block';
 import {
   useCharacterCompanions,
   type CompanionRelationship,
@@ -752,3 +756,156 @@ test.each([
     );
   },
 );
+
+// #326: the witch's Familiar collection belongs to the witch. Replacing or
+// restoring its familiar writes only the relationship and leaves the
+// collection, its count and its note exactly as they were.
+const spellWrites = {
+  record: vi.fn(),
+  editLevel: vi.fn(),
+  remove: vi.fn(),
+  statusForSpell: () => ({ kind: 'idle' as const }),
+  statusForEntry: () => ({ kind: 'idle' as const }),
+  hasRemoteChange: false,
+  dismissRemoteChange: vi.fn(),
+};
+const warningControls = {
+  accept: vi.fn(),
+  reopen: vi.fn(),
+  statusFor: () => ({ kind: 'idle' as const }),
+  hasRemoteChange: false,
+  dismissRemoteChange: vi.fn(),
+};
+function WitchHost({ snapshot }: { snapshot: CharacterSheetSnapshot }) {
+  const controller = useCharacterCompanions(
+    { characterId: snapshot.character._id },
+    snapshot,
+  );
+  const view = buildCharacterSheetView(snapshot);
+  return (
+    <main>
+      <CharacterCompanions
+        controller={controller}
+        characterId={snapshot.character._id}
+      />
+      <BreakdownResolverProvider
+        previewSituation={() => null}
+        adjustments={[]}
+        spellcastings={view.calculated.spellcastings}
+      >
+        <SpellcastingBlock
+          characterName={snapshot.character.name}
+          spellcastings={view.calculated.spellcastings}
+          unresolved={view.calculated.spellcastingUnresolved}
+          spells={{
+            characterId: snapshot.character._id,
+            collections: view.calculated.spellCollections,
+            warnings: view.warnings,
+            warningController: warningControls,
+            writes: spellWrites,
+          }}
+        />
+      </BreakdownResolverProvider>
+    </main>
+  );
+}
+
+test('replacing and restoring the witch’s familiar writes only the relationship; the witch keeps the same Familiar Spells, count and note, and an inaccessible familiar stays unlinked', async () => {
+  const witch = buildSpellSheet({
+    classes: ['witch'],
+    recorded: [
+      { id: 'row-detect', spell: spells.detectMagic, castingClassId: 'witch' },
+      {
+        id: 'row-cure',
+        spell: spells.cureLightWounds,
+        castingClassId: 'witch',
+      },
+    ],
+  });
+  const hidden = {
+    ...whisper,
+    relationshipId: 'rel-hidden' as Id<'companionRelationship'>,
+    status: 'replaced',
+    endpoint: null,
+  } satisfies CompanionRelationship;
+  server.relationships = [whisper, hidden];
+  server.candidates = [
+    { character: { ...witch.character, _id: 'cat', name: 'Pip' } },
+  ];
+  const view = render(<WitchHost snapshot={witch} />);
+  const spellcasting = () =>
+    within(screen.getByRole('region', { name: 'Spellcasting' }));
+  const witchLine = () =>
+    within(
+      spellcasting()
+        .getByRole('button', {
+          name: 'View Witch spellcasting',
+        })
+        .closest('li') as HTMLElement,
+    );
+  const note =
+    'Witch Spells stay with the witch through familiar replacement and restoration.';
+  const expectCollectionKept = () => {
+    expect(witchLine().getByText('Familiar')).toBeVisible();
+    expect(witchLine().getByText('2 in familiar')).toBeVisible();
+    expect(witchLine().getByText(note)).toBeVisible();
+    expect(screen.getAllByText(note)).toHaveLength(1);
+  };
+  expectCollectionKept();
+  expect(
+    within(item('Companion Character unavailable')).queryByRole('link'),
+  ).toBeNull();
+
+  fireEvent.click(button('Replace Companion Whisper'));
+  const replaceForm = within(item('Companion Whisper')).getByRole('form', {
+    name: 'Replace Companion',
+  });
+  fireEvent.click(within(replaceForm).getByRole('radio', { name: 'Pip' }));
+  fireEvent.click(
+    within(replaceForm).getByRole('button', { name: 'Replace Companion' }),
+  );
+  await waitFor(() => expect(server.write).toHaveBeenCalledTimes(1));
+  expect(lastCall()?.[0]).toBe('companionRelationships:replace');
+
+  server.relationships = [
+    { ...whisper, status: 'replaced' },
+    {
+      ...whisper,
+      relationshipId: 'rel-pip' as Id<'companionRelationship'>,
+      endpoint: { characterId: 'cat' as Id<'character'>, name: 'Pip' },
+    },
+    hidden,
+  ];
+  view.rerender(<WitchHost snapshot={witch} />);
+  expectCollectionKept();
+  fireEvent.click(button('Reselect Companion Whisper'));
+  await waitFor(() => expect(server.write).toHaveBeenCalledTimes(2));
+  expect(lastCall()?.[0]).toBe('companionRelationships:restore');
+  expectCollectionKept();
+  expect(
+    server.write.mock.calls.every(([name]) =>
+      String(name).startsWith('companionRelationships:'),
+    ),
+  ).toBe(true);
+  expect(spellWrites.record).not.toHaveBeenCalled();
+  expect(spellWrites.remove).not.toHaveBeenCalled();
+  expect(
+    within(screen.getByRole('region', { name: 'Companions' }))
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'))
+      .sort(),
+  ).toEqual(['/characters/cat', '/characters/owl']);
+});
+
+test('a familiar’s own sheet has no Familiar Spells collection of its own', () => {
+  const owl = buildSheet({ name: 'Whisper', levels: [] });
+  server.relationships = [{ ...lord, kind: 'familiar' }];
+  render(<WitchHost snapshot={owl} />);
+  expect(screen.getByText('Whisper has no Spellcasting.')).toBeVisible();
+  expect(
+    screen.queryByText(
+      'Witch Spells stay with the witch through familiar replacement and restoration.',
+    ),
+  ).toBeNull();
+  expect(screen.queryByRole('region', { name: 'Familiar' })).toBeNull();
+});

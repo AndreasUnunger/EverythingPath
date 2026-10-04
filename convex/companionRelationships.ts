@@ -10,6 +10,7 @@ import {
   companionSourceWriteValidator,
   companionLinkedInputValidator,
   companionStatusValidator,
+  familiarBaseCreatureKeyValidator,
 } from './schema';
 import { requireCharacterAccess } from './lib/characterAccess';
 import {
@@ -29,8 +30,8 @@ import {
   isSupportingSourceAvailable,
   doesCreateCompanionCycle,
   readCompanionGraph,
-  reconcileCompanionRelationships,
-} from './lib/companionRelationships';
+} from './lib/companionRelationshipGraph';
+import { reconcileCompanionRelationships } from './lib/companionRelationships';
 
 const relationshipArgs = {
   relationshipId: v.id('companionRelationship'),
@@ -55,6 +56,7 @@ export const list = query({
       relationshipId: v.id('companionRelationship'),
       role: v.union(v.literal('companion'), v.literal('associated')),
       kind: companionKindValidator,
+      familiarBaseCreatureKey: v.optional(familiarBaseCreatureKeyValidator),
       status: v.optional(companionStatusValidator),
       interruption: v.union(
         v.null(),
@@ -121,6 +123,13 @@ export const list = query({
         relationshipId: row._id,
         role,
         kind: row.kind,
+        ...(row.kind === 'familiar' && (role === 'associated' || endpoint)
+          ? {
+              familiarBaseCreatureKey: graph.characters.get(
+                row.companionCharacterId,
+              )?.familiarBaseCreatureKey,
+            }
+          : {}),
         ...(endpoint
           ? { status: state.status, lastOperationId: row.lastOperationId }
           : {}),
@@ -338,6 +347,9 @@ export const create = legacyCharacterMutation({
       ...(sheet.character.campaignId
         ? { campaignId: sheet.character.campaignId }
         : { sheetDemo: sheet.character.sheetDemo }),
+      ...(args.kind === 'familiar'
+        ? { familiarBaseScoresPending: true as const }
+        : {}),
       name: args.name.trim(),
       description: '',
       kind: args.characterKind ?? 'npc',

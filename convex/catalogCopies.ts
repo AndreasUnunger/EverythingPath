@@ -44,7 +44,7 @@ import {
   maxCharacterChildRows,
   maxPreparedCharacters,
   listCatalogDependencies,
-} from './lib/preparedCharacterSheet';
+} from './lib/characterSheetData';
 import {
   createCatalogSheetEntryState,
   isSelectableCatalogSheetEntryKind,

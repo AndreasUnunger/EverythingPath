@@ -6,6 +6,8 @@ import {
   BreakdownExplanation,
   type BreakdownTarget,
 } from './stat-breakdown-content';
+import { cn } from '~/lib/utils';
+import { fieldLabel } from './sheet-parts';
 import { useBreakdownPlacement } from './use-breakdown-placement';
 
 /**
@@ -21,6 +23,7 @@ export function StatBreakdownPanel({
   formatContribution,
   lead,
   incompleteReason,
+  isPartial = false,
   trigger,
   onClose,
 }: {
@@ -32,6 +35,8 @@ export function StatBreakdownPanel({
   formatContribution?: (value: number) => string;
   lead?: ReactNode;
   incompleteReason: string | null;
+  /** The total is unresolved; the contributions below are only those known. */
+  isPartial?: boolean;
   trigger: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
@@ -61,6 +66,9 @@ export function StatBreakdownPanel({
         <p className="mb-2 text-xs text-amber-300">{incompleteReason}</p>
       ) : null}
       {lead ? <div className="mb-2">{lead}</div> : null}
+      {isPartial ? (
+        <p className={cn(fieldLabel, 'mb-1')}>Known contributions (partial)</p>
+      ) : null}
       <BreakdownExplanation
         statistic={statistic}
         target={target}

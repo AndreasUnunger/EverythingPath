@@ -9,7 +9,8 @@ import {
 import {
   maxCharacterChildRows,
   requireAbilityScore,
-} from './preparedCharacterSheet';
+} from './characterSheetData';
+import { applyFamiliarToSheet } from './characterSheetFamiliar';
 import { calculateMilitiaCharacterFacts } from './militiaCharacterFacts';
 import {
   calculateActiveCharacterSheet,
@@ -76,7 +77,8 @@ async function shiftBaseScores(
   const facts = await calculateMilitiaCharacterFacts(
     ctx,
     sheet.character,
-    sheet,
+    await applyFamiliarToSheet(ctx, sheet, { trustedLinkedInputs: true }),
+    { trustedLinkedInputs: true },
   );
   const modifiers = sheet.baseScoresEntry.modifiers.map((modifier) => {
     const ability = abilityKeys.find(
@@ -129,6 +131,7 @@ export async function editMilitiaOnlySheet(
         catalogEntries: sheet.catalogEntries,
         characterKind: sheet.character.kind,
         sheetMode: sheet.character.sheetMode,
+        familiarBaseCreatureKey: sheet.character.familiarBaseCreatureKey,
       },
       calculationIdentity,
     );

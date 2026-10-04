@@ -2,6 +2,7 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { fieldLabel } from './sheet-parts';
 import { StatBreakdown } from './stat-breakdown';
+import { useIsUnresolved } from './unresolved-statistics';
 import type { useCharacterSheet } from './use-character-sheet';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
@@ -72,6 +73,8 @@ export function SheetSummary({
 }) {
   const row = useRef<HTMLDivElement>(null);
   usePinnedUnderTopBar(row);
+  // A familiar without its base creature has no Hit Dice to count yet.
+  const isHitDiceUnresolved = useIsUnresolved('hitDice');
   return (
     <div
       ref={row}
@@ -83,7 +86,13 @@ export function SheetSummary({
       </h1>
       <dl className="flex flex-wrap items-end gap-x-5 gap-y-1 md:shrink-0 md:flex-nowrap md:justify-end">
         <Figure label="Level">{calculated.level}</Figure>
-        <Figure label="Hit Dice">{calculated.hitDice}</Figure>
+        <Figure label="Hit Dice">
+          {isHitDiceUnresolved ? (
+            <span className="text-muted-foreground text-sm">Unresolved</span>
+          ) : (
+            calculated.hitDice
+          )}
+        </Figure>
         <Figure label="HP">
           <StatBreakdown
             label="HP"

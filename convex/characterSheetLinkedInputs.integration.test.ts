@@ -363,7 +363,14 @@ test('legacy support declarations use the same authorized derivation for reads a
     characterId: companionId,
     relationshipId,
   });
-  expect(hidden.map(({ input }) => input)).not.toContainEqual(scope.input);
+  expect(hidden.map(({ input }) => input)).toContainEqual(scope.input);
+  expect(
+    hidden.find((row) => row.input.kind === 'familiarProgressionLevels'),
+  ).toMatchObject({
+    value: 7,
+    fallbackState: 'applied',
+    sources: [],
+  });
   const hiddenScope = { ...scope, input };
   await member.mutation(api.characterSheetLinkedInputs.saveFallback, {
     ...hiddenScope,
@@ -647,11 +654,13 @@ test.each(['disabled', 'removed'] as const)(
       resolution: 'calculated',
       interpretation: null,
       contributions: [
+        { sourceKey: 'bond', value: 3 },
         { sourceKey: 'wizard', value: 3 },
         { sourceKey: 'duplicate-wizard', value: 3 },
       ],
     });
     expect(surviving.candidates.map(({ sourceKey }) => sourceKey)).toEqual([
+      'bond',
       'wizard',
       'duplicate-wizard',
     ]);
@@ -693,6 +702,7 @@ test.each(['disabled', 'removed'] as const)(
       interpretation: { sourceKey: 'wizard' },
       fallbackState: 'suspended',
       contributions: [
+        { sourceKey: 'bond', value: 3 },
         { sourceKey: 'wizard', value: 3 },
         { sourceKey: 'duplicate-wizard', value: 3 },
       ],

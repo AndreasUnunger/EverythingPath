@@ -4,7 +4,7 @@ import {
   loadCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
 } from './lib/characterSheet';
-import { maxCharacterChildRows } from './lib/preparedCharacterSheet';
+import { maxCharacterChildRows } from './lib/characterSheetData';
 import {
   paginationOptsValidator,
   paginationResultValidator,

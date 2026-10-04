@@ -4,7 +4,7 @@ import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { api, internal } from './_generated/api';
 import schema from './schema';
 import { deleteSpellCatalogIndex } from './lib/spellCatalog';
-import { maxCharacterChildRows } from './lib/preparedCharacterSheet';
+import { maxCharacterChildRows } from './lib/characterSheetData';
 
 const modules = import.meta.glob('./**/*.ts');
 afterEach(() => vi.useRealTimers());

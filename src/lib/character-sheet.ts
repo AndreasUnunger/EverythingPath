@@ -22,6 +22,18 @@ import { resolveCharacterSheetGrants } from './character-sheet-grants';
 import type { ArmorCategory } from './character-sheet-armor-categories';
 import { resolveSkills } from './character-sheet-skills';
 import {
+  familiarModifiers,
+  familiarSkillRules,
+  prepareFamiliarCreatureInput,
+  resolveFamiliar,
+  type FamiliarCalculationInput,
+  type FamiliarFacts,
+} from './character-sheet-familiar';
+import {
+  findRepresentativeFamiliar,
+  type FamiliarBaseCreatureKey,
+} from './catalog/representative-familiars';
+import {
   resolveEquipment,
   resolveWeaponProficiencies,
 } from './character-sheet-equipment';
@@ -466,6 +478,7 @@ export function isTemporaryEffect(
 
 export type CharacterSheetInput = {
   resources?: { castingTables?: ReviewedCastingTables };
+  familiarBaseCreatureKey?: FamiliarBaseCreatureKey;
   sheetMode?: 'militiaOnly' | 'full';
   characterKind: 'pc' | 'npc';
   entries: readonly SheetEntry[];
@@ -730,6 +743,7 @@ function builtInHpModifiers(
   breakdowns: Record<LeafTarget, ResolvedStatistic>,
   options: ResolveOptions,
 ): SourcedModifier[] {
+  if (options.familiar) return [];
   const modifiers: SourcedModifier[] = [];
   const hitDice = options.hitDice ?? levels.length;
   if (hitDice)
@@ -747,45 +761,12 @@ function builtInHpModifiers(
   return modifiers;
 }
 
-function permanentIntelligenceFor(
-  input: CharacterSheetInput,
-  advancement: ReturnType<typeof resolveAdvancement>,
-  options: ResolveOptions,
-  formulaCache: FormulaCache,
-  archetypes: ResolvedCharacterSheetArchetypes,
-) {
-  const permanentOptions = { ...options, permanentOnly: true, archetypes };
-  const countingInput = {
-    ...input,
-    entries: resolveCharacterSheetGrants(input, permanentOptions)
-      .countingEntries,
-  };
-  const { drainModifiers } = abilityChangesFor(
-    countingInput.entries,
-    permanentOptions,
-  );
-  const modifiers = [
-    ...sourceCatalogModifiers(countingInput, permanentOptions),
-    ...drainModifiers,
-    ...advancement.modifiers,
-  ].filter((modifier) => modifier.target === 'ability.int');
-  const breakdowns = emptyBreakdowns();
-  const intelligence = resolveTarget(
-    'ability.int',
-    modifiers,
-    calculationContext(countingInput, advancement, {}, permanentOptions),
-    breakdowns,
-    formulaCache,
-    [],
-  );
-  return Math.floor((intelligence.total - 10) / 2);
-}
-
 function permanentAbilitiesFor(
   input: CharacterSheetInput,
   options: ResolveOptions,
   formulaCache: FormulaCache,
   archetypes: ResolvedCharacterSheetArchetypes,
+  familiar: FamiliarFacts | null,
 ) {
   const permanentOptions = { ...options, permanentOnly: true, archetypes };
   const countingInput = {
@@ -802,11 +783,17 @@ function permanentAbilitiesFor(
     effectiveInput.entries,
     permanentOptions,
   );
-  const modifiers = [
+  const ordinaryModifiers = [
     ...sourceCatalogModifiers(effectiveInput, permanentOptions),
     ...drainModifiers,
     ...advancement.modifiers,
   ].filter((modifier) => modifier.target.startsWith('ability.'));
+  const modifiers = familiar
+    ? familiarModifiers({
+        familiar,
+        modifiers: ordinaryModifiers,
+      }).filter((modifier) => modifier.target.startsWith('ability.'))
+    : ordinaryModifiers;
   const context = calculationContext(
     effectiveInput,
     advancement,
@@ -909,6 +896,7 @@ type SheetProjectionArgs = {
   baseScores?: ReturnType<typeof baseScoresFor>;
   permanentIntelligence?: number;
   permanentAbilities?: Record<Ability, { score: number; modifier: number }>;
+  preparedCalculation?: ReturnType<typeof prepareSheetCalculation>;
 };
 
 function prepareSheetCalculation({
@@ -927,9 +915,13 @@ function prepareSheetCalculation({
     entries: countingEntries,
   };
   const racial = resolveCharacterSheetRacialFacts(countingInput);
+  const baseCreature = findRepresentativeFamiliar(
+    recordedInput.familiarBaseCreatureKey ??
+      resolveOptions.familiar?.baseCreatureKey,
+  );
   const options = {
     ...resolveOptions,
-    size: resolveOptions.size ?? racial.size ?? undefined,
+    size: resolveOptions.size ?? racial.size ?? baseCreature?.size ?? undefined,
   };
   const race = countingInput.entries.find((entry) => entry.kind === 'race');
   const raceDefinition =
@@ -1050,7 +1042,23 @@ function prepareSheetCalculation({
       }),
       bonusType: 'size',
     });
-  const modifiers = [...sourced, ...drainModifiers, ...advancement.modifiers];
+  const ordinaryModifiers = [
+    ...sourced,
+    ...drainModifiers,
+    ...advancement.modifiers,
+  ];
+  const familiarFacts = resolveOptions.familiar
+    ? resolveFamiliar({
+        ...resolveOptions.familiar,
+        actualHitDice: advancement.hitDice,
+      })
+    : null;
+  const modifiers = familiarFacts
+    ? familiarModifiers({
+        familiar: familiarFacts,
+        modifiers: ordinaryModifiers,
+      })
+    : ordinaryModifiers;
   return {
     input,
     effectiveInput,
@@ -1065,6 +1073,8 @@ function prepareSheetCalculation({
     conditionEffects,
     derivedOptions,
     modifiers,
+    familiar: familiarFacts,
+    baseCreature,
     context,
   };
 }
@@ -1077,6 +1087,7 @@ function calculateSheetProjection({
   baseScores = baseScoresFor(recordedInput),
   permanentIntelligence,
   permanentAbilities,
+  preparedCalculation,
 }: SheetProjectionArgs) {
   const { base, baseModifiers } = baseScores;
   const grants = resolveCharacterSheetGrants(recordedInput, {
@@ -1098,12 +1109,16 @@ function calculateSheetProjection({
     derivedOptions,
     modifiers,
     context,
-  } = prepareSheetCalculation({
-    recordedInput,
-    resolveOptions,
-    countingEntries: grants.countingEntries,
-    archetypes,
-  });
+    familiar,
+    baseCreature,
+  } =
+    preparedCalculation ??
+    prepareSheetCalculation({
+      recordedInput,
+      resolveOptions,
+      countingEntries: grants.countingEntries,
+      archetypes,
+    });
   const {
     breakdowns,
     warnings: formulaWarnings,
@@ -1135,6 +1150,7 @@ function calculateSheetProjection({
     abilities,
     breakdowns,
     equipment,
+    rules: familiarSkillRules({ familiar, baseCreature }),
   });
   const selectionRules = resolveCharacterSheetSelectionRules(effectiveInput, {
     grantsResolved: true,
@@ -1213,11 +1229,14 @@ function calculateSheetProjection({
       return facts;
     },
   );
-  const hp =
-    advancement.missingRacialHp ||
-    levels.some((entry) => entry.state.hpGained === null)
-      ? null
-      : breakdowns.hp.total;
+  let hp: number | null = breakdowns.hp.total;
+  if (familiar?.maximumHp === null) hp = null;
+  if (
+    !familiar &&
+    (advancement.missingRacialHp ||
+      levels.some((entry) => entry.state.hpGained === null))
+  )
+    hp = null;
   const creationSettings = creationSettingsFor(base);
   const pointBuy = calculatePointBuy({
     baseModifiers,
@@ -1226,17 +1245,7 @@ function calculateSheetProjection({
   const advancementResult = advancementBudgets({
     advancement,
     bonusSkillRanksPerLevel: racial.bonusSkillRanksPerLevel,
-    intelligence:
-      permanentIntelligence ??
-      (options.permanentOnly
-        ? abilities.intelligence.modifier
-        : permanentIntelligenceFor(
-            recordedInput,
-            advancement,
-            options,
-            formulaCache,
-            archetypes,
-          )),
+    intelligence: permanentIntelligence ?? abilities.intelligence.modifier,
   });
   const calculationWarnings = [
     ...sheetWarnings({
@@ -1299,6 +1308,7 @@ function calculateSheetProjection({
     }
   }
   return {
+    familiar,
     abilities,
     attackRoutines,
     spellcastings,
@@ -1332,6 +1342,7 @@ function calculateSheetProjection({
       abilityDamage,
     ),
     level: levels.length,
+    ownProgression: advancement.ownProgression,
     racialHitDice: advancement.racialHitDice,
     hitDice: advancement.hitDice,
     ...advancementResult,
@@ -1358,6 +1369,10 @@ export function calculateCharacterSheet(
   input: CharacterSheetInput,
   options: ResolveOptions = {},
 ) {
+  input = prepareFamiliarCreatureInput({
+    input,
+    key: options.familiar?.baseCreatureKey ?? input.familiarBaseCreatureKey,
+  });
   const formulaCache: FormulaCache = new Map();
   const baseScores = baseScoresFor(input);
   const archetypes = resolveCharacterSheetArchetypes(input);
@@ -1369,11 +1384,19 @@ export function calculateCharacterSheet(
       archetypes,
       baseScores,
     });
+  const grants = resolveCharacterSheetGrants(input, { ...options, archetypes });
+  const preparedCalculation = prepareSheetCalculation({
+    recordedInput: input,
+    resolveOptions: options,
+    countingEntries: grants.countingEntries,
+    archetypes,
+  });
   const permanentAbilities = permanentAbilitiesFor(
     input,
     options,
     formulaCache,
     archetypes,
+    preparedCalculation.familiar,
   );
   return calculateSheetProjection({
     recordedInput: input,
@@ -1383,6 +1406,7 @@ export function calculateCharacterSheet(
     baseScores,
     permanentIntelligence: permanentAbilities.intelligence.modifier,
     permanentAbilities,
+    preparedCalculation,
   });
 }
 
@@ -1397,6 +1421,7 @@ export function calculateCharacterSheetProjections(
         | 'arcaneCasterLevel'
         | 'preModifierCasterLevel'
         | 'companionLinkedInputs'
+        | 'familiar'
       >;
       permanent: Pick<
         ResolveOptions,
@@ -1405,10 +1430,19 @@ export function calculateCharacterSheetProjections(
         | 'arcaneCasterLevel'
         | 'preModifierCasterLevel'
         | 'companionLinkedInputs'
+        | 'familiar'
       >;
     };
   } = {},
 ) {
+  input = prepareFamiliarCreatureInput({
+    input,
+    key:
+      options.familiar?.baseCreatureKey ??
+      options.projectionInputs?.current.familiar?.baseCreatureKey ??
+      options.projectionInputs?.permanent.familiar?.baseCreatureKey ??
+      input.familiarBaseCreatureKey,
+  });
   const { projectionInputs, ...shared } = options;
   const formulaCache: FormulaCache = new Map();
   const baseScores = baseScoresFor(input);
@@ -1850,6 +1884,7 @@ export const specialSizeModifiers = {
   colossal: 8,
 };
 export type ResolveOptions = {
+  familiar?: FamiliarCalculationInput;
   companionLinkedInputs?: readonly CompanionLinkedInputResolution[];
   size?: CreatureSize;
   weaponUses?: readonly {
@@ -2424,21 +2459,35 @@ export function composeStatistics({
   builtIns,
   includes,
   name,
+  stackBonuses = false,
 }: {
   statistics: ResolvedStatistic[];
   builtIns: SourcedModifier[];
   includes: (modifier: SourcedModifier) => boolean;
   name: string;
+  stackBonuses?: boolean;
 }): ResolvedStatistic {
   const contributions = [
     ...builtIns,
     ...statistics.flatMap((statistic) => statistic.applied),
   ];
-  const applied = contributions.filter(includes);
+  const included = contributions.filter(includes);
+  const bonuses = stackBonuses
+    ? resolveStatistic(
+        included.filter((modifier) => modifier.bonusType !== 'base'),
+      )
+    : { applied: included, suppressed: [] };
+  const applied = stackBonuses
+    ? [
+        ...included.filter((modifier) => modifier.bonusType === 'base'),
+        ...bonuses.applied,
+      ]
+    : bonuses.applied;
   return {
     total: applied.reduce((sum, item) => sum + item.value, 0),
     applied,
     suppressed: [
+      ...bonuses.suppressed,
       ...statistics.flatMap((statistic) => statistic.suppressed),
       ...contributions
         .filter((item) => !includes(item))

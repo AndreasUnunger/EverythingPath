@@ -63,6 +63,20 @@ vi.mock('~/components/use-initial-migration-maintenance', () => ({
   }),
 }));
 
+test('the sheet supplies familiar editing alongside its existing spell collection controller', () => {
+  const sheet = buildSheet();
+  snapshot = sheet;
+  const { result } = renderHook(() =>
+    useCharacterSheet({ characterId: sheet.character._id }),
+  );
+  expect(result.current.familiar).toMatchObject({
+    isAvailable: false,
+    view: null,
+    isDisabled: true,
+  });
+  expect(result.current.spells).toBeDefined();
+});
+
 async function fixture(acceptPointBuy = false) {
   const t = convexTest(schema, import.meta.glob('../../../convex/**/*.ts'));
   return await t.run(async (ctx) => {
@@ -180,6 +194,7 @@ async function fixture(acceptPointBuy = false) {
       if (accepted) acceptedWarnings.push(accepted);
     }
     return {
+      familiarRelationshipId: null,
       character,
       owner: null,
       campaign: {

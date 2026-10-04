@@ -209,6 +209,7 @@ function sheet({
     ),
   ];
   return {
+    familiarRelationshipId: null,
     owner: owner ?? null,
     campaign: campaignId
       ? {

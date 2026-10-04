@@ -131,6 +131,7 @@ async function useOwnedCase(
   testCases: (CaseKey | undefined)[],
   use: (fixture: Fixture) => Promise<void>,
   info: TestInfo,
+  familiarDemo = false,
 ) {
   const run = await loadRun();
   // Playwright never runs two workers with the same parallelIndex at once, so
@@ -166,6 +167,7 @@ async function useOwnedCase(
         await fixtureCall(run, 'resetCase', {
           ...scope,
           now: 1_700_000_000_000,
+          familiarDemo,
         }),
       ),
     ({ campaignId }) =>
@@ -188,16 +190,24 @@ async function useOwnedCase(
 
 export const test = base.extend<{
   caseKey: CaseKey;
+  familiarDemo: boolean;
   ownedCase: Fixture;
   comparisonCaseKey: CaseKey | undefined;
   comparisonCase: Fixture | undefined;
   players: Players;
 }>({
   caseKey: ['smoke', { option: true }],
+  familiarDemo: [false, { option: true }],
   comparisonCaseKey: [undefined, { option: true }],
   ownedCase: [
-    async ({ caseKey, comparisonCaseKey }, use, info) => {
-      await useOwnedCase(caseKey, [caseKey, comparisonCaseKey], use, info);
+    async ({ caseKey, comparisonCaseKey, familiarDemo }, use, info) => {
+      await useOwnedCase(
+        caseKey,
+        [caseKey, comparisonCaseKey],
+        use,
+        info,
+        familiarDemo,
+      );
     },
     { auto: true },
   ],

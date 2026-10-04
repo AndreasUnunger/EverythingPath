@@ -577,3 +577,52 @@ test('moving to another relationship hides the old editor and its status', async
   expect(screen.queryByRole('form')).toBeNull();
   expect(server.queries.at(-1)).toMatchObject({ relationshipId: 'other' });
 });
+
+// #326: a familiar borrows its master's class-derived base attack bonus and
+// base saves, recorded ranks and calculated maximum hit points, each a
+// component rather than a finished total.
+test('a familiar’s master values name class-derived bonuses and recorded ranks with their own fallbacks; unavailable ones add no hidden field and a restored fallback stays saved but suspended', () => {
+  const bab = { kind: 'baseAttackBonus' } as const;
+  const fort = { kind: 'baseSave', save: 'fort' } as const;
+  setReads(
+    read(bab, { value: 3 }),
+    unavailable(fort, 'interrupted'),
+    read(ranks, {
+      value: 4,
+      fallback: 2,
+      fallbackState: 'suspended',
+    }),
+    read(maximumHp, { value: 49 }),
+  );
+  renderInputs({
+    inputs: [
+      { input: bab },
+      { input: fort },
+      { input: ranks },
+      { input: maximumHp },
+    ],
+  });
+  expect(row('Class-derived base attack bonus').getByText('3')).toBeVisible();
+  expect(row('Calculated maximum hit points').getByText('49')).toBeVisible();
+  const inFort = row('Fortitude base save');
+  expect(inFort.getByText('Unresolved')).toBeVisible();
+  expect(
+    inFort.getByRole('button', {
+      name: 'Set fallback for Fortitude base save',
+    }),
+  ).toBeEnabled();
+  expect(screen.queryByRole('textbox')).toBeNull();
+  expect(document.querySelector('[required], input[type="hidden"]')).toBeNull();
+  const inRanks = row('Perception ranks');
+  expect(inRanks.getByText('4')).toBeVisible();
+  expect(
+    inRanks.getByText(
+      'Saved fallback 2 is suspended while Perception ranks can be calculated. Saved for when the value is unavailable.',
+    ),
+  ).toBeVisible();
+  expect(
+    inRanks.getByRole('button', {
+      name: 'Clear fallback for Perception ranks',
+    }),
+  ).toBeEnabled();
+});

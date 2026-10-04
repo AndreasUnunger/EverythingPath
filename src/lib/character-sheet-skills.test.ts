@@ -170,12 +170,12 @@ test.each([
       expect(result.breakdowns[key].applied).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            sheetEntryId: 'armor-row',
+            sheetEntryId: 'builtin:armor-check-penalty:armor-row',
             entryName: 'Armor armor check penalty',
             value: -3,
           }),
           expect.objectContaining({
-            sheetEntryId: 'shield-row',
+            sheetEntryId: 'builtin:armor-check-penalty:shield-row',
             entryName: 'Shield armor check penalty',
             value: -1,
           }),
@@ -183,6 +183,52 @@ test.each([
       );
   },
 );
+
+test('an armor check penalty stacks with an untyped penalty from the same armor', () => {
+  // CRB Skills: penalties are untyped and stack; ACP is its own contribution.
+  const input = sheet();
+  const result = calculateCharacterSheet({
+    ...input,
+    entries: [
+      ...input.entries,
+      {
+        _id: 'armor-row',
+        kind: 'item',
+        active: true,
+        catalogEntryId: 'noisy-armor',
+        state: { kind: 'item' },
+      },
+    ],
+    catalogEntries: [
+      ...input.catalogEntries,
+      {
+        _id: 'noisy-armor',
+        name: 'Noisy armor',
+        ruleIdentity: 'noisy-armor',
+        modifiers: [{ target: 'skill.ste', bonusType: 'untyped', value: -1 }],
+        detail: {
+          kind: 'item',
+          armor: { slot: 'armor', armorCheckPenalty: 3 },
+        },
+      },
+    ],
+  });
+  expect(result.breakdowns['skill.ste'].total).toBe(-4);
+  expect(result.breakdowns['skill.ste'].applied).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        entryName: 'Noisy armor armor check penalty',
+        value: -3,
+      }),
+      expect.objectContaining({
+        sheetEntryId: 'armor-row',
+        entryName: 'Noisy armor',
+        value: -1,
+      }),
+    ]),
+  );
+  expect(result.breakdowns['skill.ste'].suppressed).toEqual([]);
+});
 
 test('skill totals use current ability damage and temporary effects, while permanent skill totals exclude them', () => {
   const input = sheet();
@@ -497,7 +543,9 @@ test.each([-1, 0.5, Number.NaN, Number.POSITIVE_INFINITY])(
     for (const skill of result.skills) {
       if (skill.ability === 'strength' || skill.ability === 'dexterity')
         expect(result.breakdowns[skill.key].applied).not.toContainEqual(
-          expect.objectContaining({ sheetEntryId: 'armor-row' }),
+          expect.objectContaining({
+            sheetEntryId: 'builtin:armor-check-penalty:armor-row',
+          }),
         );
       else
         expect(result.breakdowns[skill.key]).toEqual(
@@ -557,10 +605,15 @@ test.each([-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
     for (const skill of result.skills) {
       if (skill.ability === 'strength' || skill.ability === 'dexterity') {
         expect(result.breakdowns[skill.key].applied).toContainEqual(
-          expect.objectContaining({ sheetEntryId: 'shield-row', value: -1 }),
+          expect.objectContaining({
+            sheetEntryId: 'builtin:armor-check-penalty:shield-row',
+            value: -1,
+          }),
         );
         expect(result.breakdowns[skill.key].applied).not.toContainEqual(
-          expect.objectContaining({ sheetEntryId: 'armor-row' }),
+          expect.objectContaining({
+            sheetEntryId: 'builtin:armor-check-penalty:armor-row',
+          }),
         );
       } else
         expect(result.breakdowns[skill.key]).toEqual(

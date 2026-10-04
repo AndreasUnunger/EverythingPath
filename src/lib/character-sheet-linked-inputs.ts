@@ -5,7 +5,8 @@ import {
   type SheetWarning,
 } from './character-sheet';
 import { classFamilyLevels } from './character-sheet-class-levels';
-import { skillDefinitions, sumRanksBySkill } from './character-sheet-skills';
+import { skillDefinitions } from './character-sheet-skills';
+import type { CompanionSourceRuleKind } from './catalog/representative-companion-rules';
 export {
   linkedInputKey,
   evaluateCompanionLinkedInputPrerequisite,
@@ -103,12 +104,21 @@ export function readCompanionLinkedInput({
   projection = 'current',
   calculated: loadedCalculation,
   contributingClassRuleIdentities = ['wizard', 'sorcerer', 'witch'],
+  companionKind = 'familiar',
 }: {
   input: CompanionLinkedInput;
   sheet: CharacterSheetInput | null;
   projection?: LinkedInputProjection;
-  calculated?: ReturnType<typeof calculateCharacterSheet>;
+  calculated?: Omit<
+    ReturnType<typeof calculateCharacterSheet>,
+    'resolvedEntries'
+  > & {
+    resolvedEntries?: ReturnType<
+      typeof calculateCharacterSheet
+    >['resolvedEntries'];
+  };
   contributingClassRuleIdentities?: readonly string[];
+  companionKind?: CompanionSourceRuleKind;
 }): CompanionLinkedInputValue {
   if (!sheet) return { kind: 'unavailable', reason: 'inaccessible' };
   const calculated =
@@ -132,8 +142,8 @@ export function readCompanionLinkedInput({
       return available(calculated.hitDice);
     case 'familiarProgressionLevels':
       return available(
-        classProgressionAvailable
-          ? contributingClassRuleIdentities.reduce(
+        classProgressionAvailable && contributingClassRuleIdentities.length > 0
+          ? [...new Set(contributingClassRuleIdentities)].reduce(
               (sum, identity) =>
                 sum + classFamilyLevels(sheet, identity).length,
               0,
@@ -149,36 +159,19 @@ export function readCompanionLinkedInput({
     case 'baseAttackBonus':
     case 'baseSave': {
       if (!classProgressionAvailable) return available(null);
-      const target: 'bab' | 'save.fort' | 'save.ref' | 'save.will' =
-        input.kind === 'baseAttackBonus' ? 'bab' : `save.${input.save}`;
-      const base = calculated.breakdowns[target].applied
-        .filter(
-          (modifier) =>
-            modifier.builtIn &&
-            modifier.sheetEntryId.startsWith('builtin:class:'),
-        )
-        .reduce((sum, modifier) => sum + modifier.value, 0);
-      return available(base);
+      const bases =
+        companionKind === 'familiar'
+          ? calculated.ownProgression.classBases
+          : calculated.ownProgression.totalBases;
+      return available(
+        input.kind === 'baseAttackBonus' ? bases.bab : bases.saves[input.save],
+      );
     }
     case 'skillRanks': {
-      const finalLevel = calculated.classLevels.at(-1);
-      if (finalLevel)
-        return available(
-          finalLevel.cumulativeSkillRanks.find(
-            ({ skill }) => skill === input.skill,
-          )?.ranks ?? 0,
-        );
-      const racialRanks = calculated.resolvedEntries.reduce(
-        (sum, { entry, counting }) =>
-          counting && entry.kind === 'race'
-            ? sum +
-              (sumRanksBySkill(entry.state.racialSkillRanks ?? {})[
-                input.skill
-              ] ?? 0)
-            : sum,
-        0,
+      const skill = calculated.skills.find(({ key }) => key === input.skill);
+      return available(
+        companionKind === 'familiar' ? skill?.ownRanks : skill?.recordedRanks,
       );
-      return available(racialRanks);
     }
     case 'maximumHp': {
       const missingModifier = calculated.calculationWarnings.some((warning) =>
@@ -196,7 +189,14 @@ function isMissingMaximumHpModifier({
 }: {
   warning: SheetWarning;
   sheet: CharacterSheetInput;
-  calculated: ReturnType<typeof calculateCharacterSheet>;
+  calculated: Omit<
+    ReturnType<typeof calculateCharacterSheet>,
+    'resolvedEntries'
+  > & {
+    resolvedEntries?: ReturnType<
+      typeof calculateCharacterSheet
+    >['resolvedEntries'];
+  };
 }) {
   if (
     (warning.check !== 'unsupportedFormula' &&
@@ -207,15 +207,15 @@ function isMissingMaximumHpModifier({
   const { entryId, modifierIndex } = warning.target;
   const entry =
     sheet.entries.find((candidate) => candidate._id === entryId) ??
-    calculated.resolvedEntries.find(({ entry }) => entry._id === entryId)
+    calculated.resolvedEntries?.find(({ entry }) => entry._id === entryId)
       ?.entry;
-  const definition = sheet.catalogEntries.find((candidate) =>
-    entry && 'catalogEntryId' in entry
-      ? candidate._id === entry.catalogEntryId
-      : entry?.kind === 'classLevel'
-        ? candidate._id === entry.state.classEntryId
-        : entryId === `class:${candidate.ruleIdentity}`,
-  );
+  const definition = sheet.catalogEntries.find((candidate) => {
+    if (entry && 'catalogEntryId' in entry)
+      return candidate._id === entry.catalogEntryId;
+    if (entry?.kind === 'classLevel')
+      return candidate._id === entry.state.classEntryId;
+    return entryId === `class:${candidate.ruleIdentity}`;
+  });
   const target = definition?.modifiers[modifierIndex]?.target;
   return (
     target === 'hp' ||

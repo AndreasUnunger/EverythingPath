@@ -3,8 +3,10 @@ import type { Doc, Id } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import { getUserByTokenIdentifier, hasAccessToOrg } from '../user';
 import type { CampaignScope } from '../../src/lib/campaign-scope';
-import { loadPreparedCharacterSheets } from './preparedCharacterSheet';
-import { calculateMilitiaCharacterFacts } from './militiaCharacterFacts';
+import {
+  maxPreparedCharacters,
+  readCharacterSheetData,
+} from './characterSheetData';
 
 export async function requireCharacterCampaignAccess(
   ctx: ReadCtx,
@@ -45,15 +47,33 @@ export async function listAccessibleCharacters(
   const visible = args.includeInactive
     ? characters
     : characters.filter((character) => character.isActive);
-  const sheets = await loadPreparedCharacterSheets(ctx, visible, campaign);
+  if (
+    visible.filter((character) => character.sheetMode && campaign.e2eFixture)
+      .length > maxPreparedCharacters
+  )
+    throw new ConvexError('This campaign exceeds the prepared Character limit');
+  const militia = await ctx.db
+    .query('militia')
+    .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
+    .unique();
+  const source = militia
+    ? await ctx.db
+        .query('canonicalMilitiaState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+        .unique()
+    : null;
+  const publishedFacts = new Map(
+    source?.snapshot.characters.map((facts) => [facts.characterId, facts]) ??
+      [],
+  );
   return await Promise.all(
     visible.map(
       async (
         character,
-        index,
       ): Promise<
         Doc<'character'> & {
           ownershipAvailable: boolean;
+          racialHitDice?: number;
           classLevels?: {
             entryId: Id<'characterSheetEntry'>;
             position: number;
@@ -62,7 +82,10 @@ export async function listAccessibleCharacters(
           }[];
         }
       > => {
-        const sheet = sheets[index];
+        const sheet =
+          character.sheetMode && campaign.e2eFixture
+            ? await readCharacterSheetData(ctx, character)
+            : null;
         if (!sheet) {
           const { sheetMode: _sheetMode, ...legacy } = character;
           return {
@@ -70,11 +93,18 @@ export async function listAccessibleCharacters(
             ownershipAvailable: Boolean(campaign.e2eFixture),
           };
         }
-        const { characterId: _characterId, ...facts } =
-          await calculateMilitiaCharacterFacts(ctx, character, sheet);
+        const published = publishedFacts.get(character._id);
+        const facts = published
+          ? Object.fromEntries(
+              Object.entries(published).filter(
+                ([key]) => key !== 'characterId' && key !== 'isActive',
+              ),
+            )
+          : (character.sheetPermanentFacts ?? {});
         return {
           ...character,
           ...facts,
+          isActive: character.isActive,
           ownershipAvailable: Boolean(campaign.e2eFixture),
           classLevels: sheet.entries
             .filter((entry) => entry.kind === 'classLevel')

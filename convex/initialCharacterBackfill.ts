@@ -1,3 +1,4 @@
+import { hasFamiliarCalculationDependencies } from './lib/companionRelationshipGraph';
 import { ConvexError, v, type Infer } from 'convex/values';
 import { internalMutation, internalQuery } from './_generated/server';
 import {
@@ -18,7 +19,7 @@ import {
 } from '../src/lib/initial-character-backfill';
 import { catalogRuntimeCompatibility } from '../src/lib/catalog/runtime-compatibility';
 import { calculateMilitiaCharacterFacts } from './lib/militiaCharacterFacts';
-import { readCharacterSheetData } from './lib/preparedCharacterSheet';
+import { readCharacterSheetData } from './lib/characterSheetData';
 import {
   weeklySourceKey,
   militiaSnapshotSchema,
@@ -105,6 +106,10 @@ async function buildBatch(
     let mode = character.sheetMode ?? 'full';
     try {
       if (character.sheetMode) {
+        if (await hasFamiliarCalculationDependencies(ctx, character))
+          throw new ConvexError(
+            'Initial backfill linked Familiar calculations require the companion capture adapter',
+          );
         const sheet = await readCharacterSheetData(
           ctx,
           character,
@@ -344,6 +349,7 @@ async function checkCandidateInput(
         ctx,
         character,
         campaign?.e2eFixture ? sheet : null,
+        { trustedLinkedInputs: true },
       ),
     ];
     for (const militia of militias) {

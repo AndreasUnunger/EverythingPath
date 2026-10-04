@@ -1,3 +1,4 @@
+import { hasFamiliarCalculationDependencies } from './lib/companionRelationshipGraph';
 import { ConvexError, v, type Infer } from 'convex/values';
 import {
   paginationOptsValidator,
@@ -32,7 +33,7 @@ import {
   isSupportedCatalogCalculation,
 } from '../src/lib/catalog/calculation-dispatch';
 import { calculateMilitiaCharacterFacts } from './lib/militiaCharacterFacts';
-import { readCharacterSheetData } from './lib/preparedCharacterSheet';
+import { readCharacterSheetData } from './lib/characterSheetData';
 import {
   projectCampaignCopies,
   findPreferredCampaignCopy,
@@ -736,6 +737,10 @@ async function calculateCandidateOutcome(
     throw new ConvexError(
       'Candidate resource is unsupported by the prepared resolver',
     );
+  if (await hasFamiliarCalculationDependencies(ctx, character))
+    throw new ConvexError(
+      'Candidate linked Familiar calculations require the companion dependency adapter',
+    );
   const projections = calculateCharacterSheetProjectionsForRelease(
     release.manifest.compatibility.calculation,
     {
@@ -757,12 +762,14 @@ async function calculateCandidateOutcome(
     ctx,
     character,
     candidate,
+    { trustedLinkedInputs: true },
   );
   const facts = { ...calculatedFacts, characterId: character._id };
   const activeFacts = await calculateMilitiaCharacterFacts(
     ctx,
     character,
     active,
+    { trustedLinkedInputs: true },
   );
   return {
     kind: 'ready' as const,

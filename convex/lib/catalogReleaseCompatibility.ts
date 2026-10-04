@@ -34,9 +34,11 @@ export async function requireCompatibleActiveRelease(ctx: ReadCtx) {
 export function calculateActiveCharacterSheet(
   input: CharacterSheetInput,
   calculationIdentity: string,
+  options?: Parameters<typeof calculateCharacterSheetProjectionsForRelease>[2],
 ) {
   return calculateCharacterSheetProjectionsForRelease(
     calculationIdentity,
     input,
+    options,
   );
 }

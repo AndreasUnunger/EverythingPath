@@ -32,6 +32,7 @@ import { createSelectionSlotPreview } from './character-sheet-selections-view-mo
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
 import { useCharacterSheetSpells } from './use-character-sheet-spells';
 import { useCharacterCompanions } from './use-character-companions';
+import { useCharacterSheetFamiliar } from './use-character-sheet-familiar';
 import type { SaveStatus } from './save-status';
 import type { CharacterSheetOrigin } from '~/lib/campaign-routes';
 import { buildCharacterSheetView } from './character-sheet-view-model';
@@ -74,6 +75,7 @@ export function useCharacterSheet(
   const grants = useCharacterSheetGrants(scope, snapshot);
   const spells = useCharacterSheetSpells(scope, snapshot);
   const companions = useCharacterCompanions(scope, snapshot, origin);
+  const familiar = useCharacterSheetFamiliar(scope, snapshot, companions.rows);
   const races = useCharacterSheetRaces(scope, snapshot);
   const archetypes = useCharacterSheetArchetypes(
     scope,
@@ -248,6 +250,7 @@ export function useCharacterSheet(
     grants,
     spells,
     companions,
+    familiar,
     races,
     archetypes,
     selections: {

@@ -1,0 +1,43 @@
+# Prepared familiar calculations
+
+Issue #326 adds representative familiar calculations to the existing pure `calculateCharacterSheet` and `calculateCharacterSheetProjections` seams. Production retains the existing legacy authority and prepared write gates. This is representative preparation, not a complete familiar Catalog Release.
+
+`CharacterSheetInput.familiarBaseCreatureKey` supplies the creature's independent baseline. Its one actual racial Hit Die, ordinary animal progression and creature skill ranks survive a replaced or interrupted relationship; existing actual Class Levels and recorded choices remain on the same Character. Explicit racial data continues to take precedence over that default. Creature selection records editable base scores; calculation does not overwrite those saved scores.
+
+New familiar Characters have six valid placeholder scores of 10 and `familiarBaseScoresPending: true`. The first creature choice seeds that pending entry, then clears the flag. Any explicit score edit clears it, even when recording the same 10; subsequent creature choices preserve the edited scores. Existing Characters keep their recorded scores when linked as familiars.
+
+`ResolveOptions.familiar` accepts that creature key and resolved named linked inputs. The familiar module applies familiar maximum HP, class-derived master BAB, the better of animal and master class-base saves, and the better of the familiar's own recorded ranks and the master's recorded ranks. The familiar's own ability modifiers, equipment and ordinary adjustments then apply. Temporary Constitution on the master affects current calculated maximum HP; permanent filtering excludes it transitively. Temporary HP is not a maximum-HP input. Character level, actual Hit Dice, familiar effective Hit Dice and familiar progression level remain distinct.
+
+The linked-input adapter combines supported familiar-granting class families once each, independently of the number of grants referencing them. Witch-specific precedence remains an explicit source rule. A generic manual familiar source has no inferred class family and exposes unavailable progression until a supported source or explicit saved fallback supplies it. BAB, saves and recorded ranks read the master's own class/creature components even when that master is itself a familiar; inherited familiar bonuses never become its class-derived components.
+
+Missing inputs retain null familiar facts and identify typed leaf `unresolvedTargets` and expanded `affectedStatisticTargets`; ordinary numeric breakdowns contain only known contributions and must be presented as partial for those targets. Explicit fallbacks participate while calculation is unavailable and remain saved but suspended when it resumes. A missing or outside-table progression never selects a fictitious level-zero row or extrapolates beyond level 20.
+
+Canonical writes use the explicitly trusted linked-input path independently of the editing player's access to the master. They maintain the militia projection and optional `character.sheetPermanentFacts` (permanent level, racial Hit Dice and six scores), including for private Characters. Character lists reuse those facts rather than loading each familiar's master sheet. Viewer-facing reads continue to redact inaccessible inputs. Prepared reads account linked master sheets and relationship records against the same read budget as the consuming sheet.
+
+Private Catalog Release reconciliation refuses familiar candidate work while its linked-companion candidate adapter remains unavailable under ticket 76. A retained creature choice or any retained familiar relationship also triggers refusal; relationship detection includes the master and familiar endpoints. A failed candidate leaves active facts and ordinary edits available; it cannot certify an unlinked creature baseline as the familiar's candidate facts.
+
+The private initial backfill likewise refuses initialized familiar-linked candidates until that adapter exists, preserving live choices and facts rather than certifying a candidate that drops creature or linked inputs. It emits a preparation diagnostic and cannot produce a successful completion receipt. See the [initial backfill runbook](initial-character-backfill.md#validation-and-capacity) before opening a maintenance run.
+
+## Representative creature evidence
+
+The [CRB familiar rules and progression table](https://legacy.aonprd.com/coreRulebook/classes/wizard.html#familiars) (pp. 82–83) supply familiar progression through level 20, natural armor, Intelligence, special ability milestones and spell resistance. The [Bestiary familiar statblocks](https://legacy.aonprd.com/bestiary/familiar.html) supply cat (p. 131), raven and toad (p. 133) baseline creatures. Familiar progression changes no actual Class Levels. The [APG Witch's Familiar](https://legacy.aonprd.com/advancedPlayersGuide/baseClasses/witch.html#witchs-familiar) supplies compatible-class stacking and witch precedence; the product retains one unchanged witch Spell collection on the witch through replacement.
+
+The implementation uses cached statblock text from the locally pinned `pf1-content` 11.4.0 corpus, independently decomposing printed skill totals. Actor importer fields contain conversion artifacts (cat Climb rank 7, raven Fly rank −3 and toad Perception rank 5); those are not admitted as recorded ranks.
+
+| Creature | Independent ranks | Other skill components                                            |
+| -------- | ----------------- | ----------------------------------------------------------------- |
+| Cat      | Perception 1      | Climb uses Dexterity and racial +4; Stealth racial +4 and Tiny +8 |
+| Raven    | Perception 1      | Fly Tiny +4; printed Perception +6 (see discrepancy below)                             |
+| Toad     | Stealth 1         | Stealth racial +4 and Diminutive +12; Skill Focus (Perception)    |
+
+Cat Constitution is 8; raven Charisma is 7. All six familiar class skills follow the CRB: Acrobatics, Climb, Fly, Perception, Stealth and Swim. Skill Focus contributes +3, or +6 with at least 10 ranks. The raven's printed Perception +6 is preserved: one rank, the animal class-skill bonus +3 and Wisdom +2. Its printed Skill Focus conflicts with that total, so the representative numerical modifiers omit the discrepant extra +3. Familiar rules establish no additional Perception bonus over this baseline; Alertness benefits the master. The printed feat discrepancy remains a curation limitation. Baseline and active-familiar tests check the printed +6.
+
+Proximity-dependent master benefits (the species bonus within one mile and Alertness within arm's reach) are not automatically applied to the master. Natural attacks are deferred to #323: the current `character-sheet-attacks.ts` resolver reads manufactured weapons (`detail.kind === 'item'` with `detail.weapon`) and has no natural-attack input. The CRB familiar rule (pp. 82–83, linked above) requires using Dexterity or Strength, whichever is higher, for natural attacks; that substitution must accompany the natural-attack resolver. Special senses and every familiar-specific class/archetype variant are not curated by this representative ticket. The shared seam is the named linked-input projection plus separate creature/progression facts; #325 can add its distinct animal-companion progression module without reusing familiar effective HD as actual advancement.
+
+Behavior is tested through complete public sheet calculations in `src/lib/character-sheet-familiar.test.ts`, with a table-driven progression check and the existing linked-input public seam. Convex and controller tests separately cover access, retained identities, source interruption/fallback restoration and unchanged witch Spells.
+
+## Isolated demonstration
+
+The existing gated `e2eFixtures.resetCase` accepts `familiarDemo: true` only for `characterSheet` or `characterNavigation`. It seeds the master as Wizard 1 with 6 recorded maximum HP and a linked Cat familiar with no invented Class Levels. The familiar has 1 actual Hit Die, progression level 1 and 3 maximum HP. Default fixture resets keep their existing data. Reset and cleanup delete the whole owned graph, including both sheets and the relationship.
+
+The browser harness exposes this as `test.use({ caseKey: 'characterSheet', familiarDemo: true })`. A direct harness reset uses `fixtureCall(run, 'resetCase', { ...ownedCase.scope, now: 1_700_000_000_000, familiarDemo: true })`; the existing capability, preview deployment checks, Write Epoch and isolation canary still apply. This is isolated prepared data, with no production authority change.

@@ -93,6 +93,8 @@ function defineCharacterMoveRoot<Row extends RootDocument>(
 }
 // One typed list includes every per-Character sheet table. Entry unions include
 // archetypes, selections and Attack Routines; durable warning/linked-input keys stay intact.
+// Familiar species, pending seeded scores and permanent facts are Character fields
+// that the in-place arrival patch retains; Companion Relationships stay keyed by Character.
 const characterMoveSheetRoots = [
   defineCharacterMoveRoot(
     'characterSheetEntry',

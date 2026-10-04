@@ -12,6 +12,7 @@ import type { CharacterScope } from './character-scope';
 import { CharacterSheetCatalog } from './character-sheet-catalog';
 import { CharacterSheetArchetypes } from './character-sheet-archetypes';
 import { CharacterSheetEntries } from './character-sheet-entries';
+import { CharacterSheetFamiliar } from './character-sheet-familiar';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
 import { CharacterSheetRaces } from './character-sheet-races';
@@ -32,6 +33,7 @@ import { Skills } from './skills';
 import { SpellcastingBlock } from './spellcasting-block';
 import type { useCharacterSheet } from './use-character-sheet';
 import {
+  describeFamiliarUnresolved,
   describeIncompleteHp,
   findArchetypeSection,
   listGrantBlockSections,
@@ -139,7 +141,8 @@ function CampaignRow({
 
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
- * campaign row that scrolls with the body, then Character, Race, Class Levels,
+ * campaign row that scrolls with the body, then Character, Race, a familiar's
+ * own Familiar summary, Class Levels,
  * Archetypes and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns with Defenses, Equipment, Offense, Attacks and
  * Proficiencies, and the skills, Feats & traits after Skills, personal
@@ -148,7 +151,8 @@ function CampaignRow({
  * then the Spellcasting section across the full width. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
  * formula under its Modifier); only another player's acceptances are
- * announced for the sheet.
+ * announced for the sheet. A familiar's numbers that need its base creature
+ * or its associated Character read Unresolved, never a partial sum.
  */
 export function CharacterSheetView({
   scope,
@@ -177,6 +181,7 @@ export function CharacterSheetView({
           previewSituation={controller.previewSituation}
           adjustments={sheet.adjustments}
           spellcastings={sheet.calculated.spellcastings}
+          unresolved={describeFamiliarUnresolved(sheet, controller.familiar)}
         >
           <SelectionOrderProvider
             controls={controller.selections}
@@ -227,6 +232,12 @@ export function CharacterSheetView({
                   warningController={controller.warnings}
                 />
               </div>
+              {controller.familiar.isAvailable ||
+              (controller.familiar.isLoading && sheet.calculated.familiar) ? (
+                <div className="min-w-0 lg:col-span-12">
+                  <CharacterSheetFamiliar controller={controller.familiar} />
+                </div>
+              ) : null}
               <div className="min-w-0 lg:col-span-12">
                 <ClassLevels
                   rows={sheet.levels}

@@ -38,6 +38,18 @@ export function formatSpellLevel(level: number) {
 export const formatSpellLevelHeading = (level: number) =>
   `${formatSpellLevel(level)}-level`;
 
+/**
+ * The witch's familiar recording model keeps its Spells on the witch (#326);
+ * other collections need no note.
+ */
+export function describeCollectionNote(
+  casting: Pick<Spellcasting, 'record' | 'bookType'> | null | undefined,
+) {
+  return casting?.record === 'book' && casting.bookType === 'familiar'
+    ? 'Witch Spells stay with the witch through familiar replacement and restoration.'
+    : null;
+}
+
 export const capitalize = (word: string) =>
   word.charAt(0).toUpperCase() + word.slice(1);
 

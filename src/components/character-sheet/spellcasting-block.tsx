@@ -16,6 +16,7 @@ import { OrphanedSpells } from './orphaned-spells';
 import { action, Block, fieldLabel } from './sheet-parts';
 import {
   CastingFigure,
+  describeCollectionNote,
   describeUnresolved,
   formatSpellLevel,
   PerDay,
@@ -205,6 +206,7 @@ function CastingSummary({
     )?.heading ??
     spellCollectionHeading(casting) ??
     'Whole list';
+  const note = describeCollectionNote(casting);
   return (
     <li className="py-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -253,6 +255,11 @@ function CastingSummary({
           </button>
         </span>
       </div>
+      {note ? (
+        <p className="text-muted-foreground mt-1 text-xs [overflow-wrap:anywhere]">
+          {note}
+        </p>
+      ) : null}
       {isOpen ? <SpellcastingNumbers casting={casting} id={panelId} /> : null}
     </li>
   );

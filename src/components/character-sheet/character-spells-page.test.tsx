@@ -159,6 +159,51 @@ test('an empty record invites Add Spells; known, formula and familiar collection
   expect(region('Familiar')).toHaveTextContent('Nothing in the familiar yet.');
 });
 
+// #326: a witch's Familiar collection stays on the witch whatever happens to
+// the familiar, so its page never changes or links to a familiar sheet.
+test('the witch’s Familiar keeps the same Spells, heading and count through familiar replacement and restoration, with no familiar sheet link', () => {
+  const witch = (lastOperationId: string) =>
+    buildSpellSheet({
+      classes: ['witch'],
+      lastOperationId,
+      recorded: [
+        {
+          id: 'row-detect',
+          spell: spells.detectMagic,
+          castingClassId: 'witch',
+        },
+        {
+          id: 'row-cure',
+          spell: spells.cureLightWounds,
+          castingClassId: 'witch',
+        },
+      ],
+    });
+  const view = renderPage(witch('seed'));
+  const note =
+    'Witch Spells stay with the witch through familiar replacement and restoration.';
+  const recorded = () =>
+    within(region('Familiar'))
+      .getAllByRole('checkbox', { checked: true })
+      .map((box) => box.getAttribute('aria-label'));
+  expect(within(region('Familiar')).getByText(note)).toBeVisible();
+  expect(region('Witch · Familiar')).toHaveTextContent('2 in familiar');
+  const before = recorded();
+  expect(before).toEqual(['Record Detect magic', 'Record Cure light wounds']);
+
+  for (const operation of ['replaced', 'restored']) {
+    view.show(witch(operation));
+    expect(screen.getAllByRole('region', { name: 'Familiar' })).toHaveLength(1);
+    expect(recorded()).toEqual(before);
+    expect(region('Witch · Familiar')).toHaveTextContent('2 in familiar');
+    expect(screen.getAllByText(note)).toHaveLength(1);
+    expect(
+      screen.getAllByRole('link').map((link) => link.textContent?.trim()),
+    ).toEqual(['Sheet']);
+  }
+  expect(spellsTransport.writes).toEqual([]);
+});
+
 test('a whole-list cleric browses its list read-only from the first visit, with no record checks, Add Spells or other lists', () => {
   renderPage(buildSpellSheet({ classes: ['cleric'] }));
   const list = within(region('The cleric list'));

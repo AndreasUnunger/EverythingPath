@@ -3,7 +3,7 @@ import { recordCatalogImpactSpellReference } from './catalogReleaseImpact';
 import type { WithoutSystemFields } from 'convex/server';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
-import { listCatalogDependencies } from './preparedCharacterSheet';
+import { listCatalogDependencies } from './characterSheetData';
 import type { LoadedCharacterSheet } from './characterSheet';
 
 export type SpellCatalogSheet = Pick<

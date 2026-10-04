@@ -6,10 +6,8 @@ import schema from './schema';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { initializeCharacterSheet } from './lib/characterSheet';
 import { initializationEdits } from '../tests/rules/initialization-edits';
-import {
-  loadPreparedCharacterSheet,
-  readCharacterSheetData,
-} from './lib/preparedCharacterSheet';
+import { loadPreparedCharacterSheet } from './lib/preparedCharacterSheet';
+import { readCharacterSheetData } from './lib/characterSheetData';
 afterEach(() => vi.useRealTimers());
 const modules = import.meta.glob('./**/*.ts');
 

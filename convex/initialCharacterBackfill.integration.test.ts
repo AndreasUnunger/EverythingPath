@@ -1633,3 +1633,63 @@ test('budget estimates use observed work tick intervals and ignore census and po
   );
   await t.finishAllScheduledFunctions(() => vi.runAllTimers());
 });
+
+test('initial backfill refuses initialized familiar-linked candidates without certifying baseline facts', async () => {
+  const t = harness();
+  const owner = t.withIdentity({ tokenIdentifier: 'test|gm' });
+  const { characterId } = await owner.run((ctx) => seedAcceptedCampaign(ctx));
+  await t.run(async (ctx) => {
+    const character = await ctx.db.get('character', characterId);
+    if (!character) throw new Error('Missing initialized master');
+    if (!character.campaignId) throw new Error('Missing master campaign');
+    await ctx.db.patch('campaign', character.campaignId, {
+      e2eFixture: {
+        namespace: 'backfill-familiar',
+        version: 1,
+        workerKey: '0',
+        caseKey: 'linked',
+        campaignKey: 'linked',
+      },
+    });
+    await initializeCharacterSheet(ctx, {
+      characterId,
+      updatedBy: 'test|gm',
+      operationId: 'prepared-master',
+      level: 12,
+      scores: character,
+    });
+  });
+  const familiar = await owner.mutation(api.companionRelationships.create, {
+    associatedCharacterId: characterId,
+    kind: 'familiar',
+    name: 'Backfill familiar',
+    sources: [{ key: 'bond', label: 'Familiar bond', enabled: true }],
+    operationId: 'backfill-familiar',
+  });
+  await owner.mutation(api.characterSheetFamiliars.selectBaseCreature, {
+    characterId: familiar.companionCharacterId,
+    relationshipId: familiar.relationshipId,
+    baseCreatureKey: 'cat',
+    operationId: 'backfill-species',
+  });
+  const gate = await t.mutation(internal.initialMigration.start, gateArgs);
+  const receipt = { ...gate, captureId: 'unsupported-linked-capture' };
+  await capture(t, receipt);
+  expect(await validate(t, receipt)).toMatchObject({
+    stage: 'failed',
+    completion: null,
+  });
+  const status = await t.query(
+    internal.initialCharacterBackfill.status,
+    receipt,
+  );
+  for (const id of [characterId, familiar.companionCharacterId])
+    expect(status.reports).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: id,
+          message: expect.stringContaining('linked Familiar'),
+        }),
+      ]),
+    );
+});

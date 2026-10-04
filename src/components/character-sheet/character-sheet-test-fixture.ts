@@ -523,6 +523,7 @@ export function buildSheet({
   ];
   return {
     owner: null,
+    familiarRelationshipId: null,
     campaign: {
       campaignId,
       campaignName: 'Ironfang',

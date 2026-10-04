@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { api } from './_generated/api';
 import schema from './schema';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
-import { readCharacterSheetData } from './lib/preparedCharacterSheet';
+import { readCharacterSheetData } from './lib/characterSheetData';
 import { calculateMilitiaCharacterFacts } from './lib/militiaCharacterFacts';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -20,14 +20,15 @@ test.each([
       const character = await ctx.db.get('character', scope.characterId);
       if (!character) throw new Error('Missing character');
       const sheet = await readCharacterSheetData(ctx, character);
-      return await calculateMilitiaCharacterFacts(ctx, character, {
+      const projected = {
         ...sheet,
         permanentCalculated: {
           ...sheet.permanentCalculated,
           hitDice,
           racialHitDice,
         },
-      });
+      };
+      return await calculateMilitiaCharacterFacts(ctx, character, projected);
     });
     expect(facts.level).toBe(1);
     if (racialHitDice === 0) expect(facts).not.toHaveProperty('racialHitDice');

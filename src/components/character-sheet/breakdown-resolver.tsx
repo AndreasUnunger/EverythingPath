@@ -2,6 +2,8 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { useCharacterSheet } from './use-character-sheet';
 import type { ResolvedSpellcasting } from '~/lib/character-sheet-spellcasting';
+import type { FamiliarStatisticTarget } from '~/lib/character-sheet-familiar-targets';
+import { UnresolvedStatisticsProvider } from './unresolved-statistics';
 
 type Controller = ReturnType<typeof useCharacterSheet>;
 type Adjustments = NonNullable<Controller['sheet']>['adjustments'];
@@ -18,16 +20,22 @@ export type BreakdownResolver = {
 
 const BreakdownResolverContext = createContext<BreakdownResolver | null>(null);
 
-/** Provided once by the sheet; every number's breakdown resolves itself. */
+/**
+ * Provided once by the sheet; every number's breakdown resolves itself, and
+ * a number the sheet cannot finish (a familiar's, #326) reads Unresolved.
+ */
 export function BreakdownResolverProvider({
   previewSituation,
   adjustments,
   spellcastings,
+  unresolved = { targets: [], reason: '' },
   children,
 }: {
   previewSituation: Controller['previewSituation'];
   adjustments: Adjustments;
   spellcastings: readonly ResolvedSpellcasting[];
+  /** The statistics without a finished value, and why. */
+  unresolved?: { targets: readonly FamiliarStatisticTarget[]; reason: string };
   children: ReactNode;
 }) {
   const resolver: BreakdownResolver = {
@@ -41,7 +49,9 @@ export function BreakdownResolverProvider({
   };
   return (
     <BreakdownResolverContext value={resolver}>
-      {children}
+      <UnresolvedStatisticsProvider {...unresolved}>
+        {children}
+      </UnresolvedStatisticsProvider>
     </BreakdownResolverContext>
   );
 }

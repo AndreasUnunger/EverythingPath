@@ -24,6 +24,28 @@ export async function updateCanonicalCharacter(
   const character = await ctx.db.get('character', characterId);
   if (!character) throw new ConvexError('Character not found');
   if (character.sheetMode) await markCatalogImpactDirty(ctx, characterId);
+  const facts = await calculateMilitiaCharacterFacts(
+    ctx,
+    character,
+    preparedSheet,
+    { trustedLinkedInputs: true },
+  );
+  if (character.sheetMode) {
+    const {
+      characterId: _characterId,
+      isActive: _isActive,
+      ...permanentFacts
+    } = facts;
+    const sheetPermanentFacts = {
+      ...permanentFacts,
+      racialHitDice: facts.racialHitDice ?? 0,
+    };
+    if (
+      weeklySourceKey(character.sheetPermanentFacts ?? null) !==
+      weeklySourceKey(sheetPermanentFacts)
+    )
+      await ctx.db.patch('character', characterId, { sheetPermanentFacts });
+  }
   const campaignId = character.campaignId;
   if (!campaignId) return;
   const militia = await ctx.db
@@ -36,11 +58,6 @@ export async function updateCanonicalCharacter(
     .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
     .unique();
   if (!source) return;
-  const facts = await calculateMilitiaCharacterFacts(
-    ctx,
-    character,
-    preparedSheet,
-  );
   const characters = source.snapshot.characters.some(
     (c) => c.characterId === characterId,
   )
