@@ -296,7 +296,7 @@ test('a campaign move preserves accepted off-list and known-count warnings for a
     ).not.toBe(warning.fingerprint);
 });
 
-test('public definition edits prune changed warnings without discarding unrelated move preparation', async () => {
+test('public Spell list membership edits prune changed warnings and restart move discovery', async () => {
   const { owner, characterId, classId, destinationCampaignId } =
     await fixture();
   const initial = await owner.query(api.characterSheet.read, { characterId });
@@ -339,16 +339,14 @@ test('public definition edits prune changed warnings without discarding unrelate
       (warning) => warning.check === 'spellOffList',
     ),
   ).toBe(false);
-  expect(
-    await owner.mutation(api.characterMoves.resume, command),
-  ).toMatchObject({
-    generation: ready.generation,
-    prepared: ready.prepared,
-    state: 'ready',
+  let progress = await owner.mutation(api.characterMoves.resume, command);
+  expect(progress).toMatchObject({
+    generation: ready.generation + 1,
+    state: 'preparing',
   });
-  expect((await owner.mutation(api.characterMoves.resume, command)).state).toBe(
-    'completed',
-  );
+  for (let i = 0; i < 100 && progress.state !== 'completed'; i++)
+    progress = await owner.mutation(api.characterMoves.resume, command);
+  expect(progress.state).toBe('completed');
   const after = await owner.query(api.characterSheet.read, { characterId });
   expect(
     after?.acceptedWarnings.some((warning) => warning.check === 'spellOffList'),

@@ -229,15 +229,75 @@ export async function readReferencedCatalogDefinitions(
   return projectCampaignCopies(selected);
 }
 
-/** Validate every new/rescoped definition before its atomic insert or patch. */
+export async function readCampaignSpellMembershipStamp(
+  ctx: ReadCtx,
+  campaignId?: Id<'campaign'>,
+) {
+  if (!campaignId) return 0;
+  const stamp = await ctx.db
+    .query('campaignSpellMembership')
+    .withIndex('by_campaignId', (q) => q.eq('campaignId', campaignId))
+    .unique();
+  return stamp?.revision ?? 0;
+}
+
+function campaignSpellMembership(
+  definition: Infer<typeof catalogEntryValidator> | null,
+) {
+  return definition?.scope === 'campaign' &&
+    definition.campaignId &&
+    definition.detail.kind === 'spell'
+    ? {
+        campaignId: definition.campaignId,
+        keys: Object.keys(definition.detail.levels ?? {}).sort(),
+      }
+    : null;
+}
+
+/** Validate atomic insert/patch; null deletes an existing definition. */
 export async function writeCatalogDefinition(
   ctx: MutationCtx,
   definition: unknown,
   id?: Id<'catalogEntry'>,
 ) {
-  if (!validate(catalogEntryValidator, definition, { db: ctx.db }))
+  if (
+    definition !== null &&
+    !validate(catalogEntryValidator, definition, { db: ctx.db })
+  )
     throw new ConvexError('Catalog definition is invalid');
-  requireCatalogDefinitionScope(definition);
+  if (definition === null && !id)
+    throw new ConvexError('Choose a Catalog Entry to delete');
+  if (definition !== null) requireCatalogDefinitionScope(definition);
+  const previous = id ? await ctx.db.get('catalogEntry', id) : null;
+  const before = campaignSpellMembership(previous);
+  const after = campaignSpellMembership(definition);
+  if (compareValues(before, after) !== 0) {
+    const campaigns = new Set(
+      [before?.campaignId, after?.campaignId].filter(
+        (campaignId) => campaignId !== undefined,
+      ),
+    );
+    for (const campaignId of campaigns) {
+      const stamp = await ctx.db
+        .query('campaignSpellMembership')
+        .withIndex('by_campaignId', (q) => q.eq('campaignId', campaignId))
+        .unique();
+      if (stamp)
+        await ctx.db.patch('campaignSpellMembership', stamp._id, {
+          revision: stamp.revision + 1,
+        });
+      else
+        await ctx.db.insert('campaignSpellMembership', {
+          campaignId,
+          revision: 1,
+        });
+    }
+  }
+  if (definition === null) {
+    if (!id) throw new ConvexError('Choose a Catalog Entry to delete');
+    await ctx.db.delete('catalogEntry', id);
+    return id;
+  }
   const writtenId = id ?? (await ctx.db.insert('catalogEntry', definition));
   if (id) await ctx.db.patch('catalogEntry', id, definition);
   return writtenId;

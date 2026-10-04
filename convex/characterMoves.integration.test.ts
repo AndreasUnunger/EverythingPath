@@ -1696,7 +1696,7 @@ test('a campaign member added to a global keyed spell list after readiness is in
     progress = await owner.mutation(api.characterMoves.resume, command);
   expect(progress.state).toBe('ready');
   await t.run((ctx) =>
-    ctx.db.insert('catalogEntry', {
+    writeCatalogDefinition(ctx, {
       scope: 'campaign',
       campaignId: sourceCampaignId,
       name: 'New future spell',

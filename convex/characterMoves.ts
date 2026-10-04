@@ -33,6 +33,7 @@ import {
   writeCatalogDefinition,
   readReferencedCatalogDefinitions,
   calculateDefinitionFingerprint,
+  readCampaignSpellMembershipStamp,
 } from './lib/catalogCopies';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
 import { removeCharacterDepartureAssignments } from './lib/canonicalCharacterDeparture';
@@ -321,83 +322,6 @@ async function resetPreparation(
   });
   return discover(ctx, next);
 }
-async function readSpellListCandidates(
-  ctx: ReadCtx,
-  campaignId?: Id<'campaign'>,
-  scope: 'campaign' | 'global' = 'campaign',
-) {
-  const rows: Doc<'catalogEntry'>[] = [];
-  for await (const row of ctx.db
-    .query('catalogEntry')
-    .withIndex('by_campaignId_and_scope_and_detail_kind', (q) => {
-      return q
-        .eq('campaignId', campaignId)
-        .eq('scope', scope)
-        .eq('detail.kind', 'spell');
-    })) {
-    rows.push(row);
-    const metrics = await ctx.meta.getTransactionMetrics();
-    if (
-      rows.length > 8192 ||
-      metrics.documentsRead.remaining < 1024 ||
-      metrics.bytesRead.remaining < 512 * 1024
-    )
-      throw new ConvexError(
-        'Keyed catalog discovery exceeds atomic publication limits; the Character remains in its current campaign',
-      );
-  }
-  return rows;
-}
-async function refreshKeyedMembership(
-  ctx: ReadCtx,
-  character: Doc<'character'>,
-  definitions: Doc<'catalogEntry'>[],
-  destinationCampaignId?: Id<'campaign'>,
-  rootKeys: readonly string[] = [],
-) {
-  const initialKeys = new Set([
-    ...definitions.flatMap(listCatalogDependencyKeys),
-    ...rootKeys,
-  ]);
-  if (!initialKeys.size) return { definitions, destinationDefinitions: [] };
-  const source = character.campaignId
-    ? await readSpellListCandidates(ctx, character.campaignId)
-    : [];
-  const global = await readSpellListCandidates(ctx, undefined, 'global');
-  let currentDefinitions = definitions;
-  const loaded = new Set(definitions.map((row) => row._id));
-  while (true) {
-    const keys = new Set([
-      ...currentDefinitions.flatMap(listCatalogDependencyKeys),
-      ...rootKeys,
-    ]);
-    const additions = [...source, ...global].filter(
-      (row) => !loaded.has(row._id) && isCatalogKeyedListMember(row, keys),
-    );
-    if (!additions.length) break;
-    for (const row of additions) loaded.add(row._id);
-    currentDefinitions = await readReferencedCatalogDefinitions(
-      ctx,
-      character,
-      [...currentDefinitions, ...additions],
-      [],
-    );
-  }
-  const keys = new Set([
-    ...currentDefinitions.flatMap(listCatalogDependencyKeys),
-    ...rootKeys,
-  ]);
-  const destination = destinationCampaignId
-    ? await readSpellListCandidates(ctx, destinationCampaignId)
-    : [];
-  return {
-    definitions: currentDefinitions,
-    destinationDefinitions: destination.filter(
-      (row) =>
-        row.detail.kind === 'spell' && isCatalogKeyedListMember(row, keys),
-    ),
-  };
-}
 async function readInputs(
   ctx: ReadCtx,
   {
@@ -405,13 +329,11 @@ async function readInputs(
     candidateIds = [],
     destinationCampaignId,
     destinationCandidateIds = [],
-    refreshMembership = false,
   }: {
     characterId: Id<'character'>;
     candidateIds?: readonly Id<'catalogEntry'>[];
     destinationCampaignId?: Id<'campaign'>;
     destinationCandidateIds?: readonly Id<'catalogEntry'>[];
-    refreshMembership?: boolean;
   },
 ) {
   const sheet = await loadCharacterSheet(
@@ -455,7 +377,7 @@ async function readInputs(
     throw new ConvexError(
       'A catalog dependency disappeared; cancel and start a new move',
     );
-  let definitions = await readReferencedCatalogDefinitions(
+  const definitions = await readReferencedCatalogDefinitions(
     ctx,
     sheet.character,
     [
@@ -465,7 +387,7 @@ async function readInputs(
     ],
     roots.flatMap((root) => listCatalogReferences(root.rows)),
   );
-  let destinationDefinitions = await Promise.all(
+  const destinationDefinitions = await Promise.all(
     destinationCandidateIds.map((id) => ctx.db.get('catalogEntry', id)),
   );
   if (
@@ -477,17 +399,6 @@ async function readInputs(
     throw new ConvexError(
       'Destination catalog changed; cancel and start a new move',
     );
-  if (refreshMembership) {
-    const fresh = await refreshKeyedMembership(
-      ctx,
-      sheet.character,
-      definitions,
-      destinationCampaignId,
-      roots.flatMap((root) => listCatalogDependencyKeys(root.rows)),
-    );
-    definitions = fresh.definitions;
-    destinationDefinitions = fresh.destinationDefinitions;
-  }
   const plan = await planCharacterMove({
     characterId,
     sourceCampaignId: sheet.character.campaignId,
@@ -525,6 +436,14 @@ async function readInputs(
   return {
     sheet,
     roots,
+    sourceSpellMembershipStamp: await readCampaignSpellMembershipStamp(
+      ctx,
+      sheet.character.campaignId,
+    ),
+    destinationSpellMembershipStamp: await readCampaignSpellMembershipStamp(
+      ctx,
+      destinationCampaignId,
+    ),
     fingerprint,
     sourceFingerprints,
     destinationDefinitions: destinationDefinitions.filter(
@@ -709,6 +628,12 @@ async function publishCharacterArrival(
     destinationDefinitions: inputs.destinationDefinitions,
     definitions: [
       ...published.catalogEntries,
+      ...definitions.filter(
+        (row) =>
+          row.scope === 'global' &&
+          row.detail.kind === 'spell' &&
+          !published.catalogEntries.some((current) => current._id === row._id),
+      ),
       ...copies.filter((row) => row !== null),
     ],
   });
@@ -741,6 +666,8 @@ function buildPreparation(inputs: Awaited<ReturnType<typeof readInputs>>) {
     scanCursor: null,
     fingerprint: inputs.fingerprint,
     sourceRevision: inputs.sheet.character.sheetRevision ?? 0,
+    sourceSpellMembershipStamp: inputs.sourceSpellMembershipStamp,
+    destinationSpellMembershipStamp: inputs.destinationSpellMembershipStamp,
     definitionIds: inputs.definitions.map((row) => row._id),
     total: inputs.definitions.length,
   };
@@ -766,6 +693,22 @@ async function advance(ctx: MutationCtx, storedMove: Doc<'characterMove'>) {
     return moveProgress(move);
   if (access.character.campaignId !== move.sourceCampaignId)
     throw new ConvexError('Character campaign changed; start a new move');
+  const [sourceStamp, destinationStamp] = await Promise.all([
+    readCampaignSpellMembershipStamp(ctx, move.sourceCampaignId),
+    readCampaignSpellMembershipStamp(ctx, move.destinationCampaignId),
+  ]);
+  if (
+    sourceStamp !== move.sourceSpellMembershipStamp ||
+    destinationStamp !== move.destinationSpellMembershipStamp
+  )
+    return resetPreparation(
+      ctx,
+      move,
+      await readInputs(ctx, {
+        characterId: move.characterId,
+        destinationCampaignId: move.destinationCampaignId,
+      }),
+    );
   const hasRevisionChanged =
     (access.character.sheetRevision ?? 0) !== move.sourceRevision;
   const currentInputs =
@@ -775,7 +718,6 @@ async function advance(ctx: MutationCtx, storedMove: Doc<'characterMove'>) {
           candidateIds: move.candidateIds,
           destinationCampaignId: move.destinationCampaignId,
           destinationCandidateIds: move.destinationCandidateIds,
-          refreshMembership: move.state === 'ready',
         })
       : undefined;
   if (hasRevisionChanged && currentInputs) {
@@ -883,6 +825,9 @@ async function discover(
   const newKeys = [...keys].some((key) => !move.requiredKeys.includes(key));
   const next = {
     ...buildPreparation(inputs),
+    fingerprint: move.fingerprint,
+    sourceSpellMembershipStamp: move.sourceSpellMembershipStamp,
+    destinationSpellMembershipStamp: move.destinationSpellMembershipStamp,
     candidateIds: move.candidateIds,
     destinationCandidateIds: move.destinationCandidateIds,
     scanPhase: newKeys ? ('campaignSpells' as const) : ('done' as const),

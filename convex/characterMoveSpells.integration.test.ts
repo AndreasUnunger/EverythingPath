@@ -3,6 +3,8 @@ import { convexTest } from 'convex-test';
 import { afterEach, expect, test, vi } from 'vitest';
 import { api } from './_generated/api';
 import schema from './schema';
+import { writeCatalogDefinition } from './lib/catalogCopies';
+import { catalogRuntimeCompatibility } from '../src/lib/catalog/runtime-compatibility';
 import type { Id } from './_generated/dataModel';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -15,13 +17,47 @@ afterEach(async () => {
 });
 
 // Lowered convex-test budgets let small catalogs reach the same move guards.
-// Keyed Spell scans stop with 1,024 reads in reserve, so this budget leaves
-// them 256 rows short of the unrelated definitions. Discovery reads 32 Spells
-// per resume, so paging through those definitions would exceed the resume cap.
+// The former freshness scans needed 1,024 reads in reserve; this budget
+// reproduces their failure with small catalogs. Discovery reads 32 Spells
+// per resume, keeping each scan page within the same lowered budget.
 function readBudget(unrelatedDefinitions: number) {
   return { documentsRead: unrelatedDefinitions + 768 };
 }
 const maxMoveResumes = 24;
+
+test('a move publishes within the read budget with thousands of global Spells', async () => {
+  const { t, owner, characterId, campaigns } = await fixture({
+    documentsRead: 1792,
+  });
+  for (let offset = 0; offset < 3072; offset += 512)
+    await t.run(async (ctx) => {
+      for (let i = offset; i < offset + 512; i++)
+        await ctx.db.insert('catalogEntry', {
+          scope: 'global',
+          name: `Global Spell ${i}`,
+          ruleIdentity: `global-spell-${i}`,
+          sources: [],
+          modifiers: [],
+          stacksWithItself: false,
+          detail: { kind: 'spell', levels: { 'other-list': 1 } },
+        });
+    });
+  const command = { characterId, operationId: 'thousands-of-global-spells' };
+  let progress = await owner.mutation(api.characterMoves.start, {
+    ...command,
+    destinationCampaignId: campaigns[1],
+  });
+  for (let i = 0; i < 120 && progress.state !== 'ready'; i++)
+    progress = await owner.mutation(api.characterMoves.resume, command);
+  expect(progress.state).toBe('ready');
+  expect((await owner.mutation(api.characterMoves.resume, command)).state).toBe(
+    'completed',
+  );
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))?.character
+      .campaignId,
+  ).toBe(campaigns[1]);
+}, 20_000);
 async function fixture(
   transactionLimits:
     | { documentsRead?: number; documentsWritten?: number }
@@ -81,7 +117,7 @@ async function fixture(
     tag = 'wizard',
   ) {
     return t.run((ctx) =>
-      ctx.db.insert('catalogEntry', {
+      writeCatalogDefinition(ctx, {
         scope: 'campaign',
         campaignId,
         name,
@@ -576,11 +612,24 @@ test('source and global catalogs with more unrelated non-Spell definitions than 
   await move('large-unrelated-new-discovery');
 });
 
-test('public Spell edits refresh only the staged definition while keeping the current browser fields', async () => {
-  const { owner, characterId, campaigns, wizard, spell } = await fixture();
+test('public numeric Spell edits and reordered list keys retain staging and current browser fields', async () => {
+  const { t, owner, characterId, campaigns, wizard, spell } = await fixture();
   const campaignId = campaigns[0];
   if (!campaignId) throw new Error('Missing source');
   const catalogEntryId = await spell(campaignId, 'Original spell');
+  await t.run(async (ctx) => {
+    const definition = await ctx.db.get('catalogEntry', catalogEntryId);
+    if (!definition) throw new Error('Missing Spell');
+    const { _id, _creationTime, ...body } = definition;
+    await writeCatalogDefinition(
+      ctx,
+      {
+        ...body,
+        detail: { kind: 'spell', levels: { wizard: 3, cleric: 4 } },
+      },
+      catalogEntryId,
+    );
+  });
   await owner.mutation(api.characterSheetSpells.record, {
     characterId,
     castingClassId: wizard._id,
@@ -600,7 +649,11 @@ test('public Spell edits refresh only the staged definition while keeping the cu
     characterId,
     catalogEntryId,
     name: 'Edited spell',
-    detail: { kind: 'spell', levels: { wizard: 2 }, school: 'evocation' },
+    detail: {
+      kind: 'spell',
+      levels: { cleric: 4, wizard: 2 },
+      school: 'evocation',
+    },
     operationId: 'edit-spell-fields',
   });
   expect(
@@ -629,102 +682,305 @@ test('public Spell edits refresh only the staged definition while keeping the cu
   ]);
 });
 
-test.each(['campaign', 'global'] as const)(
-  'the atomic %s Spell freshness limit preserves a small prepared move and its live militia state',
-  async (scope) => {
-    const { t, owner, characterId, campaigns, wizard, spell } = await fixture();
-    const campaignId = campaigns[0];
-    if (!campaignId) throw new Error('Missing source');
-    const catalogEntryId = await spell(campaignId, 'Required retained spell');
-    await owner.mutation(api.characterSheetSpells.record, {
-      characterId,
-      castingClassId: wizard._id,
-      catalogEntryId,
-      level: 3,
-      operationId: 'record-before-freshness-limit',
+test.each([0, 1])(
+  'a campaign %i Spell created after readiness restarts discovery before publication',
+  async (campaignIndex) => {
+    const { t, owner, characterId, campaigns, wizard } = await fixture({
+      documentsRead: 1792,
     });
-    const { acceptedCampaignSetup } =
-      await import('../tests/rules/accepted-campaign');
-    const setup = acceptedCampaignSetup(characterId);
-    const sourceSheet = await owner.query(api.characterSheet.read, {
-      characterId,
-    });
-    if (!sourceSheet) throw new Error('Missing sheet');
-    const facts = sourceSheet.permanentCalculated;
-    setup.state.militiaSnapshot.characters = [
-      {
-        characterId,
-        level: facts.level,
-        strength: facts.abilities.strength.score,
-        dexterity: facts.abilities.dexterity.score,
-        constitution: facts.abilities.constitution.score,
-        intelligence: facts.abilities.intelligence.score,
-        wisdom: facts.abilities.wisdom.score,
-        charisma: facts.abilities.charisma.score,
-        isActive: true,
-      },
-    ];
-    const key = await owner.mutation(api.canonicalSetup.initialize, {
-      campaignId,
-      initializationId: 'freshness-limit-militia',
-      setup,
-    });
-    const command = { characterId, operationId: 'bounded-spell-freshness' };
-    let ready = await owner.mutation(api.characterMoves.start, {
+    const campaignId = campaigns[campaignIndex];
+    if (!campaignId) throw new Error('Missing campaign');
+    const command = { characterId, operationId: 'membership-changed' };
+    let progress = await owner.mutation(api.characterMoves.start, {
       ...command,
       destinationCampaignId: campaigns[1],
     });
-    for (let i = 0; i < 100 && ready.state !== 'ready'; i++)
-      ready = await owner.mutation(api.characterMoves.resume, command);
-    expect(ready.state).toBe('ready');
-    expect(ready.total).toBeLessThan(300);
-    const beforeSheet = await owner.query(api.characterSheet.read, {
-      characterId,
-    });
-    const beforeLedger = await owner.query(api.canonicalLedger.read, {
-      campaignId,
-      militiaId: key.militiaId,
-    });
-    const catalogState = () =>
-      t.run(async (ctx) => ({
-        required: await ctx.db.get('catalogEntry', catalogEntryId),
-        own: await ctx.db
-          .query('catalogEntry')
-          .withIndex('by_characterId', (q) => q.eq('characterId', characterId))
-          .take(8193),
-      }));
-    const beforeCatalog = await catalogState();
-    for (let offset = 0; offset < 8200; offset += 2000)
-      await t.run(async (ctx) => {
-        for (let i = offset; i < Math.min(offset + 2000, 8200); i++)
-          await ctx.db.insert('catalogEntry', {
-            scope,
-            campaignId: scope === 'campaign' ? campaignId : undefined,
-            name: `Unrelated Spell ${i}`,
-            ruleIdentity: `unrelated-limit-${i}`,
-            sources: [],
-            modifiers: [],
-            stacksWithItself: false,
-            detail: { kind: 'spell', levels: { 'unrelated-limit-list': 1 } },
-          });
-      });
-    await expect(
-      owner.mutation(api.characterMoves.resume, command),
-    ).rejects.toThrow(
-      'Keyed catalog discovery exceeds atomic publication limits',
-    );
-    expect(await owner.query(api.characterMoves.status, command)).toEqual(
-      ready,
-    );
-    expect(await owner.query(api.characterSheet.read, { characterId })).toEqual(
-      beforeSheet,
-    );
-    expect(
-      await owner.query(api.canonicalLedger.read, {
+    for (let i = 0; i < 100 && progress.state !== 'ready'; i++)
+      progress = await owner.mutation(api.characterMoves.resume, command);
+    expect(progress.state).toBe('ready');
+    const generation = progress.generation;
+    await t.run((ctx) =>
+      writeCatalogDefinition(ctx, {
+        scope: 'campaign',
         campaignId,
-        militiaId: key.militiaId,
+        name: 'New list member',
+        ruleIdentity: 'new-list-member',
+        sources: [],
+        modifiers: [],
+        stacksWithItself: false,
+        detail: { kind: 'spell', levels: { wizard: 3 } },
       }),
-    ).toEqual(beforeLedger);
-    expect(await catalogState()).toEqual(beforeCatalog);
+    );
+    progress = await owner.mutation(api.characterMoves.resume, command);
+    expect(progress.generation).toBe(generation + 1);
+    expect(progress.state).not.toBe('completed');
+    expect(
+      (await owner.query(api.characterSheet.read, { characterId }))?.character
+        .campaignId,
+    ).toBe(campaigns[0]);
+    for (let i = 0; i < 100 && progress.state !== 'completed'; i++)
+      progress = await owner.mutation(api.characterMoves.resume, command);
+    expect(progress.state).toBe('completed');
+    const browser = await owner.query(api.characterSheetSpells.browse, {
+      characterId,
+      castingClassId: wizard._id,
+      search: 'New list member',
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(browser.page.map((row) => row.name)).toEqual(['New list member']);
   },
 );
+
+test.each(
+  [0, 1].flatMap((campaignIndex) =>
+    ['preparing', 'ready'].map((state) => ({ campaignIndex, state })),
+  ),
+)(
+  'deleting a campaign $campaignIndex Spell while $state restarts from current members',
+  async ({ campaignIndex, state }) => {
+    const { t, owner, characterId, campaigns, wizard, spell } = await fixture({
+      documentsRead: 1792,
+    });
+    const campaignId = campaigns[campaignIndex];
+    if (!campaignId) throw new Error('Missing campaign');
+    const ids: Id<'catalogEntry'>[] = [];
+    for (let i = 0; i < 33; i++)
+      ids.push(await spell(campaignId, `Paged Spell ${i}`));
+    const removedId = ids[0];
+    if (!removedId) throw new Error('Missing Spell');
+    const command = { characterId, operationId: 'deleted-during-discovery' };
+    let first = await owner.mutation(api.characterMoves.start, {
+      ...command,
+      destinationCampaignId: campaigns[1],
+    });
+    expect(first.state).toBe('preparing');
+    if (state === 'ready')
+      for (let i = 0; i < 100 && first.state !== 'ready'; i++)
+        first = await owner.mutation(api.characterMoves.resume, command);
+    expect(first.state).toBe(state);
+    await t.run((ctx) => writeCatalogDefinition(ctx, null, removedId));
+    let progress = await owner.mutation(api.characterMoves.resume, command);
+    expect(progress.generation).toBe(first.generation + 1);
+    for (let i = 0; i < 100 && progress.state !== 'completed'; i++)
+      progress = await owner.mutation(api.characterMoves.resume, command);
+    expect(progress.state).toBe('completed');
+    const browser = await owner.query(api.characterSheetSpells.browse, {
+      characterId,
+      castingClassId: wizard._id,
+      paginationOpts: { cursor: null, numItems: 100 },
+    });
+    expect(
+      browser.page.filter((row) => row.name.startsWith('Paged Spell ')),
+    ).toHaveLength(32);
+    expect(browser.page.map((row) => row.name)).not.toContain('Paged Spell 0');
+  },
+);
+
+test('a public Spell list-key edit restarts discovery', async () => {
+  const { owner, characterId, campaigns, wizard, spell } = await fixture({
+    documentsRead: 1792,
+  });
+  const campaignId = campaigns[0];
+  if (!campaignId) throw new Error('Missing source');
+  const catalogEntryId = await spell(campaignId, 'List-key Spell');
+  await owner.mutation(api.characterSheetSpells.record, {
+    characterId,
+    castingClassId: wizard._id,
+    catalogEntryId,
+    operationId: 'record-list-key-spell',
+  });
+  const command = { characterId, operationId: 'changed-list-key' };
+  let ready = await owner.mutation(api.characterMoves.start, {
+    ...command,
+    destinationCampaignId: campaigns[1],
+  });
+  for (let i = 0; i < 100 && ready.state !== 'ready'; i++)
+    ready = await owner.mutation(api.characterMoves.resume, command);
+  expect(ready.state).toBe('ready');
+  await owner.mutation(api.catalogCopies.editDefinition, {
+    characterId,
+    catalogEntryId,
+    detail: { kind: 'spell', levels: { wizard: 3, cleric: 2 } },
+    operationId: 'add-list-key',
+  });
+  const restarted = await owner.mutation(api.characterMoves.resume, command);
+  expect(restarted.generation).toBe(ready.generation + 1);
+  expect(restarted.state).not.toBe('completed');
+});
+
+test.each([0, 1])(
+  'publication reads only required definitions from a large campaign %i Spell catalog',
+  async (campaignIndex) => {
+    const { t, owner, characterId, campaigns } = await fixture({
+      documentsRead: 1792,
+    });
+    const campaignId = campaigns[campaignIndex];
+    if (!campaignId) throw new Error('Missing campaign');
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 768; i++)
+        await ctx.db.insert('catalogEntry', {
+          scope: 'campaign',
+          campaignId,
+          name: `Unrelated campaign Spell ${i}`,
+          ruleIdentity: `unrelated-campaign-spell-${i}`,
+          sources: [],
+          modifiers: [],
+          stacksWithItself: false,
+          detail: { kind: 'spell', levels: { 'other-list': 1 } },
+        });
+    });
+    const command = {
+      characterId,
+      operationId: 'large-campaign-spell-catalog',
+    };
+    let progress = await owner.mutation(api.characterMoves.start, {
+      ...command,
+      destinationCampaignId: campaigns[1],
+    });
+    for (let i = 0; i < 100 && progress.state !== 'ready'; i++)
+      progress = await owner.mutation(api.characterMoves.resume, command);
+    expect(progress.state).toBe('ready');
+    expect(
+      (await owner.mutation(api.characterMoves.resume, command)).state,
+    ).toBe('completed');
+    expect(
+      (await owner.query(api.characterSheet.read, { characterId }))?.character
+        .campaignId,
+    ).toBe(campaigns[1]);
+  },
+);
+
+test('a release changed during global discovery restarts before publishing newly matching global Spells', async () => {
+  const { t, owner, characterId, campaigns, wizard } = await fixture({
+    documentsRead: 1792,
+  });
+  const spellId = await t.run(async (ctx) => {
+    const ids: Id<'catalogEntry'>[] = [];
+    for (let i = 0; i < 33; i++)
+      ids.push(
+        await ctx.db.insert('catalogEntry', {
+          scope: 'global',
+          name: `Live global Spell ${i}`,
+          ruleIdentity: `live-global-spell-${i}`,
+          sources: [],
+          modifiers: [],
+          stacksWithItself: false,
+          detail: { kind: 'spell', levels: { 'other-list': 1 } },
+        }),
+      );
+    return ids[0];
+  });
+  if (!spellId) throw new Error('Missing global Spell');
+  const command = {
+    characterId,
+    operationId: 'global-release-during-discovery',
+  };
+  const first = await owner.mutation(api.characterMoves.start, {
+    ...command,
+    destinationCampaignId: campaigns[1],
+  });
+  expect(first.state).toBe('preparing');
+  await t.run(async (ctx) => {
+    await ctx.db.patch('catalogEntry', spellId, {
+      detail: { kind: 'spell', levels: { wizard: 3 } },
+    });
+    await ctx.db.insert('catalogReleaseControl', {
+      key: 'global',
+      releaseNumber: 1,
+      schemaIdentity: catalogRuntimeCompatibility.schema,
+      calculationIdentity: catalogRuntimeCompatibility.calculation,
+    });
+  });
+  let progress = first;
+  for (let i = 0; i < 100 && progress.state !== 'completed'; i++)
+    progress = await owner.mutation(api.characterMoves.resume, command);
+  expect(progress.state).toBe('completed');
+  expect(progress.generation).toBe(first.generation + 1);
+  const browser = await owner.query(api.characterSheetSpells.browse, {
+    characterId,
+    castingClassId: wizard._id,
+    paginationOpts: { cursor: null, numItems: 100 },
+  });
+  expect(browser.page).toContainEqual(
+    expect.objectContaining({
+      catalogEntryId: spellId,
+      name: 'Live global Spell 0',
+    }),
+  );
+});
+
+test('an unstamped retained move checkpoint resumes by discovering current membership again', async () => {
+  const { t, owner, characterId, campaigns } = await fixture();
+  const command = { characterId, operationId: 'retained-checkpoint' };
+  const first = await owner.mutation(api.characterMoves.start, {
+    ...command,
+    destinationCampaignId: campaigns[1],
+  });
+  await t.run(async (ctx) => {
+    const move = await ctx.db
+      .query('characterMove')
+      .withIndex('by_characterId_and_operationId', (q) =>
+        q.eq('characterId', characterId).eq('operationId', command.operationId),
+      )
+      .unique();
+    if (!move) throw new Error('Missing move');
+    await ctx.db.patch('characterMove', move._id, {
+      sourceSpellMembershipStamp: undefined,
+      destinationSpellMembershipStamp: undefined,
+    });
+  });
+  let progress = await owner.mutation(api.characterMoves.resume, command);
+  expect(progress.generation).toBe(first.generation + 1);
+  for (let i = 0; i < 100 && progress.state !== 'completed'; i++)
+    progress = await owner.mutation(api.characterMoves.resume, command);
+  expect(progress.state).toBe('completed');
+  expect(
+    (await owner.query(api.characterSheet.read, { characterId }))?.character
+      .campaignId,
+  ).toBe(campaigns[1]);
+});
+
+test('a campaign Spell without levels remains valid and an empty level map retains move preparation', async () => {
+  const { t, owner, characterId, campaigns } = await fixture();
+  const campaignId = campaigns[0];
+  if (!campaignId) throw new Error('Missing campaign');
+  const definition = {
+    scope: 'campaign' as const,
+    campaignId,
+    name: 'Spell without a list',
+    ruleIdentity: 'spell-without-a-list',
+    sources: [],
+    modifiers: [],
+    stacksWithItself: false,
+    detail: { kind: 'spell' as const },
+  };
+  const catalogEntryId = await t.run((ctx) =>
+    writeCatalogDefinition(ctx, definition),
+  );
+  expect(
+    (await owner.query(api.catalogCopies.list, { characterId })).some(
+      (row) => row._id === catalogEntryId,
+    ),
+  ).toBe(true);
+  const command = { characterId, operationId: 'empty-spell-membership' };
+  let ready = await owner.mutation(api.characterMoves.start, {
+    ...command,
+    destinationCampaignId: campaigns[1],
+  });
+  for (let i = 0; i < 100 && ready.state !== 'ready'; i++)
+    ready = await owner.mutation(api.characterMoves.resume, command);
+  expect(ready.state).toBe('ready');
+  await t.run((ctx) =>
+    writeCatalogDefinition(
+      ctx,
+      { ...definition, detail: { kind: 'spell', levels: {} } },
+      catalogEntryId,
+    ),
+  );
+  expect(
+    await owner.mutation(api.characterMoves.resume, command),
+  ).toMatchObject({
+    generation: ready.generation,
+    state: 'completed',
+  });
+});

@@ -510,6 +510,50 @@ test('a failed read offers Try again and nothing else; a newer refusal is never 
   expect(announced()).toBe('');
 });
 
+test('Complete move names only the lost assignments and explains copied homebrew for a private departure', () => {
+  render(
+    <Host
+      isMilitiaOnly
+      state={movement({
+        departureRoles: ['Officer: marshal', 'Team manager: Scouts'],
+        progress: progress('ready', 6),
+        canStart: false,
+        canResume: true,
+      })}
+    />,
+  );
+  const panel = within(screen.getByRole('region', { name: 'Move progress' }));
+  expect(panel.getByRole('button', { name: 'Complete move' })).toBeEnabled();
+  expect(
+    panel.getByText(
+      'Officer: marshal assignment removed. Finished weeks keep it as it was. Team manager: Scouts assignment removed. Finished weeks keep it as it was. Campaign homebrew is kept as its own copy; the sheet doesn’t change. As a Militia-only character it becomes a Full character, which can’t be undone. Only you can see it afterwards, until you add it to a campaign.',
+    ),
+  ).toBeVisible();
+  expect(panel.queryByText(/militia roster/)).not.toBeInTheDocument();
+});
+
+test('Complete move preserves homebrew without claiming lost assignments when departure roles are empty', () => {
+  render(
+    <Host
+      state={movement({
+        departureRoles: [],
+        progress: progress('ready', 6),
+        canStart: false,
+        canResume: true,
+      })}
+    />,
+  );
+  const panel = within(screen.getByRole('region', { name: 'Move progress' }));
+  expect(panel.getByRole('button', { name: 'Complete move' })).toBeEnabled();
+  expect(
+    panel.getByText(
+      'Campaign homebrew is kept as its own copy; the sheet doesn’t change. Only you can see it afterwards, until you add it to a campaign.',
+    ),
+  ).toBeVisible();
+  expect(panel.queryByText(/assignment|militia roster/)).not.toBeInTheDocument();
+  expect(panel.queryByText(/Full character/)).not.toBeInTheDocument();
+});
+
 test('leaving confirms lost assignments, copied homebrew and private access before any save', async () => {
   render(
     <Host

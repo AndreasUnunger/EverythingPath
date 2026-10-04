@@ -32,6 +32,7 @@ const characterTables = new Set([
   'characterMoveReference',
   'companionRelationship',
   'catalogEntry',
+  'campaignSpellMembership',
   'acceptedWarning',
   'characterSpell',
   'spell',

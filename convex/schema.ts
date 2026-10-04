@@ -1116,6 +1116,10 @@ export default defineSchema({
     schemaIdentity: v.string(),
     calculationIdentity: v.string(),
   }).index('by_key', ['key']),
+  campaignSpellMembership: defineTable({
+    campaignId: v.id('campaign'),
+    revision: v.number(),
+  }).index('by_campaignId', ['campaignId']),
   characterMove: defineTable({
     characterId: v.id('character'),
     operationId: v.string(),
@@ -1131,6 +1135,8 @@ export default defineSchema({
     ),
     fingerprint: v.string(),
     sourceRevision: v.number(),
+    sourceSpellMembershipStamp: v.optional(v.number()),
+    destinationSpellMembershipStamp: v.optional(v.number()),
     scanPhase: v.union(
       v.literal('campaignSpells'),
       v.literal('campaignKeys'),

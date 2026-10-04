@@ -89,7 +89,8 @@ export function MoveProgress({
         movement.pendingDestinationCampaignId ?? progress.destinationCampaignId
       ) ? (
         <p className="text-muted-foreground text-xs">
-          {departureText(isMilitiaOnly)} {privateDepartureText}
+          {departureText(isMilitiaOnly, movement.departureRoles)}{' '}
+          {privateDepartureText}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">

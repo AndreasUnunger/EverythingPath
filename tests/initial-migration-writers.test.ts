@@ -206,6 +206,7 @@ test.each(
     'characterLinkedInput',
     'companionRelationship',
     'catalogEntry',
+    'campaignSpellMembership',
     'acceptedWarning',
     'characterSpell',
     'spell',

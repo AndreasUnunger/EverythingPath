@@ -3,6 +3,7 @@ import {
   generalInternalMutation,
 } from './lib/writeGate';
 import { syncOrganizationMemberships } from './organizationMembership';
+import { writeCatalogDefinition } from './lib/catalogCopies';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
@@ -253,7 +254,13 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         .take(101),
     );
     for (const entry of campaignCatalogEntries)
-      await ctx.db.delete('catalogEntry', entry._id);
+      await writeCatalogDefinition(ctx, null, entry._id);
+    const spellMembership = await ctx.db
+      .query('campaignSpellMembership')
+      .withIndex('by_campaignId', (q) => q.eq('campaignId', campaign._id))
+      .unique();
+    if (spellMembership)
+      await ctx.db.delete('campaignSpellMembership', spellMembership._id);
     await ctx.db.delete('campaign', campaign._id);
   }
 }
