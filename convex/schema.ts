@@ -924,7 +924,126 @@ export const backfillStateValidator = v.union(
   }),
 );
 
+export const catalogImpactFactsValidator = v.object({
+  characterId: v.id('character'),
+  level: v.number(),
+  racialHitDice: v.optional(v.number()),
+  strength: v.number(),
+  dexterity: v.number(),
+  constitution: v.number(),
+  intelligence: v.number(),
+  wisdom: v.number(),
+  charisma: v.number(),
+  isActive: v.boolean(),
+});
+
+// Worker evidence is returned for inspection, never stored as sheet totals.
+export const catalogImpactEvaluationValidator = v.object({
+  revision: v.number(),
+  inputFingerprint: v.string(),
+  result: v.union(
+    v.object({
+      kind: v.literal('ready'),
+      facts: catalogImpactFactsValidator,
+      hasFactsChanged: v.boolean(),
+      reasons: v.array(v.string()),
+      castingEvidence: v.optional(
+        v.array(
+          v.object({
+            classTag: v.string(),
+            spellLevel: v.number(),
+            base: v.union(v.number(), v.null()),
+            total: v.union(v.number(), v.null()),
+          }),
+        ),
+      ),
+    }),
+    v.object({ kind: v.literal('unaffected') }),
+    v.object({ kind: v.literal('deleted') }),
+    v.object({ kind: v.literal('notPrepared') }),
+    v.object({ kind: v.literal('failed'), error: v.string() }),
+  ),
+});
+
 export default defineSchema({
+  catalogImpactControl: defineTable({
+    key: v.literal('global'),
+    runId: v.id('catalogImpactRun'),
+  }).index('by_key', ['key']),
+  catalogImpactRun: defineTable({
+    releaseId: v.id('catalogRelease'),
+    cursor: v.union(v.string(), v.null()),
+    discoveryStage: v.union(
+      v.literal('next'),
+      v.literal('base'),
+      v.literal('reverse'),
+      v.literal('sheets'),
+    ),
+    isDiscoveryComplete: v.boolean(),
+    discoveryError: v.optional(v.string()),
+    reverseKey: v.optional(v.string()),
+    reverseCursor: v.optional(v.union(v.string(), v.null())),
+    reverseDefinitionIds: v.optional(v.array(v.id('catalogEntry'))),
+    reverseDefinitionCursor: v.optional(v.union(v.string(), v.null())),
+    isReverseDefinitionsComplete: v.optional(v.boolean()),
+    reverseLookup: v.optional(
+      v.union(
+        v.literal('identity'),
+        v.literal('definitions'),
+        v.literal('catalogEntry'),
+      ),
+    ),
+    isReverseDiscoveryComplete: v.optional(v.boolean()),
+    baseReleaseNumber: v.optional(v.union(v.number(), v.null())),
+    lifecycle: v.optional(
+      v.union(
+        v.literal('active'),
+        v.literal('ready'),
+        v.literal('superseded'),
+        v.literal('abandoned'),
+      ),
+    ),
+  })
+    .index('by_releaseId', ['releaseId'])
+    .index('by_releaseId_and_lifecycle', ['releaseId', 'lifecycle']),
+  catalogImpactChange: defineTable({
+    runId: v.id('catalogImpactRun'),
+    key: v.string(),
+    hasChanged: v.boolean(),
+    hasSpellDependencies: v.optional(v.boolean()),
+  })
+    .index('by_runId_and_key', ['runId', 'key'])
+    .index('by_runId_and_hasSpellDependencies', [
+      'runId',
+      'hasSpellDependencies',
+    ]),
+  catalogImpactEdge: defineTable({
+    runId: v.id('catalogImpactRun'),
+    from: v.string(),
+    to: v.string(),
+  })
+    .index('by_runId_and_from', ['runId', 'from'])
+    .index('by_runId_and_from_and_to', ['runId', 'from', 'to']),
+  catalogImpactWork: defineTable({
+    runId: v.id('catalogImpactRun'),
+    characterId: v.id('character'),
+    revision: v.number(),
+    state: v.union(
+      v.literal('dirty'),
+      v.literal('ready'),
+      v.literal('failed'),
+      v.literal('unaffected'),
+      v.literal('deleted'),
+      v.literal('notPrepared'),
+    ),
+    facts: v.optional(catalogImpactFactsValidator),
+    hasFactsChanged: v.optional(v.boolean()),
+    reasons: v.optional(v.array(v.string())),
+    inputFingerprint: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index('by_runId_and_characterId', ['runId', 'characterId'])
+    .index('by_runId_and_state', ['runId', 'state']),
   catalogRelease: defineTable({
     releaseNumber: v.number(),
     state: v.union(v.literal('preparing'), v.literal('prepared')),
@@ -1072,6 +1191,7 @@ export default defineSchema({
     .index('by_namespace_and_workerKey', ['namespace', 'workerKey'])
     .index('by_userId', ['userId']),
   catalogEntry: defineTable(catalogEntryValidator)
+    .index('by_scope_and_ruleIdentity', ['scope', 'ruleIdentity'])
     .index('by_characterId', ['characterId'])
     .index('by_scope', ['scope'])
     .index('by_campaignId_and_scope', ['campaignId', 'scope'])
@@ -1082,6 +1202,7 @@ export default defineSchema({
       'campaignPreference',
     ])
     .index('by_characterId_and_browseOnly', ['characterId', 'browseOnly'])
+    .index('by_ruleIdentity', ['ruleIdentity'])
     .index('by_characterId_and_ruleIdentity', ['characterId', 'ruleIdentity']),
   spellCatalogIndex: defineTable({
     characterId: v.id('character'),
@@ -1096,6 +1217,7 @@ export default defineSchema({
     recorded: v.optional(v.boolean()),
   })
     .index('by_catalogEntryId', ['catalogEntryId'])
+    .index('by_ruleIdentity', ['ruleIdentity'])
     .index('by_characterId_and_catalogEntryId', [
       'characterId',
       'catalogEntryId',
@@ -1208,7 +1330,8 @@ export default defineSchema({
     ]),
   character: defineTable(characterValidator)
     .index('by_campaignId', ['campaignId'])
-    .index('by_ownerId', ['ownerId']),
+    .index('by_ownerId', ['ownerId'])
+    .index('by_sheetMode', ['sheetMode']),
   characterLinkedInput: defineTable({
     characterId: v.id('character'),
     relationshipId: v.id('companionRelationship'),

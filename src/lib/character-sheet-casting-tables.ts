@@ -36,8 +36,37 @@ export const classCastingSchema = z.object({
   record: z.enum(['known', 'book', 'none']),
   bookType: z.enum(['spellbook', 'formula', 'familiar']).optional(),
 });
+const castingAllowanceSchema = z
+  .array(z.number().int().nonnegative().nullable())
+  .length(10);
+export const reviewedCastingTablesSchema = z.object({
+  version: z.literal(1),
+  tables: z.record(
+    z.enum(castingTableKeys),
+    z.object({
+      includesZeroLevel: z.boolean(),
+      rows: z
+        .array(
+          z.object({
+            spellsPerDay: castingAllowanceSchema,
+            spellsKnown: castingAllowanceSchema.optional(),
+            preparedPerDay: castingAllowanceSchema.optional(),
+            castableSpellLevels: z
+              .array(z.number().int().min(0).max(9))
+              .optional(),
+          }),
+        )
+        .length(MAX_LEVEL),
+    }),
+  ),
+  classes: z.record(z.string(), classCastingSchema),
+});
+export type ReviewedCastingTables = z.infer<typeof reviewedCastingTablesSchema>;
+export const defaultCastingTables = reviewedCastingTablesSchema.parse(
+  reviewedCastingTables,
+);
 const classCasting: Record<string, Casting> = Object.fromEntries(
-  Object.entries(reviewedCastingTables.classes).map(([key, value]) => [
+  Object.entries(defaultCastingTables.classes).map(([key, value]) => [
     key,
     classCastingSchema.parse(value),
   ]),
@@ -55,13 +84,15 @@ export function findReviewedClassCasting(
 export function findCastingTableRow(
   table: CastingTableKey,
   castingLevel: number,
+  resources: ReviewedCastingTables = defaultCastingTables,
 ): CastingTableRow | undefined {
   if (!Number.isInteger(castingLevel) || castingLevel < 1) return undefined;
-  return reviewedCastingTables.tables[table].rows[
-    Math.min(MAX_LEVEL, castingLevel) - 1
-  ];
+  return resources.tables[table].rows[Math.min(MAX_LEVEL, castingLevel) - 1];
 }
 
-export function castingTableIncludesZeroLevel(table: CastingTableKey): boolean {
-  return reviewedCastingTables.tables[table].includesZeroLevel;
+export function castingTableIncludesZeroLevel(
+  table: CastingTableKey,
+  resources: ReviewedCastingTables = defaultCastingTables,
+): boolean {
+  return resources.tables[table].includesZeroLevel;
 }

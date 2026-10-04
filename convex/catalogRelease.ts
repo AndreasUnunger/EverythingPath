@@ -1,4 +1,5 @@
 import { ConvexError, v, type Infer } from 'convex/values';
+import { supersedeCatalogImpactTracking } from './lib/catalogReleaseImpact';
 import { internalQuery, query, type MutationCtx } from './_generated/server';
 import {
   paginationOptsValidator,
@@ -220,7 +221,7 @@ async function requireLegalGate(ctx: ReadCtx, release: Doc<'catalogRelease'>) {
   );
 }
 
-async function requireCurrentPreparation(
+export async function requireCurrentPreparation(
   ctx: ReadCtx,
   release: Doc<'catalogRelease'>,
 ) {
@@ -327,6 +328,7 @@ export const begin = generalInternalMutation({
       legalKeys: [],
     };
     await ctx.db.insert('catalogRelease', fields);
+    await supersedeCatalogImpactTracking(ctx);
     return toReleaseStatus(fields);
   },
 });

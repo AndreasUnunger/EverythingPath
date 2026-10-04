@@ -122,13 +122,16 @@ export async function editMilitiaOnlySheet(
     );
   const levelsChanged = await resizeClassLevels(ctx, args, sheet);
   if (levelsChanged) {
-    await requireCompatibleActiveRelease(ctx);
-    const projections = calculateActiveCharacterSheet({
-      entries: sheet.entries,
-      catalogEntries: sheet.catalogEntries,
-      characterKind: sheet.character.kind,
-      sheetMode: sheet.character.sheetMode,
-    });
+    const calculationIdentity = await requireCompatibleActiveRelease(ctx);
+    const projections = calculateActiveCharacterSheet(
+      {
+        entries: sheet.entries,
+        catalogEntries: sheet.catalogEntries,
+        characterKind: sheet.character.kind,
+        sheetMode: sheet.character.sheetMode,
+      },
+      calculationIdentity,
+    );
     sheet.calculated = projections.current;
     sheet.permanentCalculated = projections.permanent;
   }

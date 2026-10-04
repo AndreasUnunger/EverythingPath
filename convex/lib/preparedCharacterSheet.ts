@@ -16,7 +16,7 @@ import {
 } from '../../src/lib/character-sheet';
 import {
   calculateActiveCharacterSheet,
-  requireCompatibleActiveRelease,
+  readCompatibleActiveRelease,
 } from './catalogReleaseCompatibility';
 
 function isBaseCatalogEntry(
@@ -145,7 +145,9 @@ async function readCharacterSheetDataWithBudget(
   { resourceLimits, includeAcceptedWarnings = true }: CharacterSheetReadOptions,
   readBudget: ReturnType<typeof createReadBudget>,
 ) {
-  readBudget.accountRead(await requireCompatibleActiveRelease(ctx));
+  const { control: activeRelease, calculationIdentity } =
+    await readCompatibleActiveRelease(ctx);
+  readBudget.accountRead(activeRelease);
   async function readRows<T>(
     query: AsyncIterable<T> & { take(count: number): Promise<T[]> },
     maximumRows: number,
@@ -317,12 +319,15 @@ async function readCharacterSheetDataWithBudget(
       }
     }
   }
-  const { current: calculated, permanent } = calculateActiveCharacterSheet({
-    entries,
-    catalogEntries,
-    characterKind: character.kind,
-    sheetMode: character.sheetMode,
-  });
+  const { current: calculated, permanent } = calculateActiveCharacterSheet(
+    {
+      entries,
+      catalogEntries,
+      characterKind: character.kind,
+      sheetMode: character.sheetMode,
+    },
+    calculationIdentity,
+  );
   requireWholeCalculatedAbilities(calculated);
   requireWholeCalculatedAbilities(permanent);
   const { resolvedEntries: _resolvedEntries, ...permanentCalculated } =

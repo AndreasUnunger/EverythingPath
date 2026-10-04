@@ -1,4 +1,5 @@
 import { ConvexError } from 'convex/values';
+import { recordCatalogImpactSpellReference } from './catalogReleaseImpact';
 import type { WithoutSystemFields } from 'convex/server';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
@@ -185,6 +186,7 @@ async function syncSpellCatalogIndex({
       recorded: Boolean(recorded),
     };
     await ctx.db.insert('spellCatalogIndex', indexRow);
+    await recordCatalogImpactSpellReference(ctx, sheet.character._id, selected);
     await updateSpellCatalogSummary({ ctx, row: indexRow, delta: 1 });
   }
 }

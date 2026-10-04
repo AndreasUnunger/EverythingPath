@@ -2,6 +2,7 @@ import {
   projectCampaignCopies,
   type CatalogLoadReference,
 } from './catalogCopies';
+import { markCatalogImpactDirty } from './catalogReleaseImpact';
 import { listCatalogReferences } from '../../src/lib/catalog-copy-references';
 import { resolveCharacterSheetGrants } from '../../src/lib/character-sheet-grants';
 import { ConvexError } from 'convex/values';
@@ -383,14 +384,17 @@ export async function pruneWarningAcceptancesAndRecordChange(
     operationId: string;
   },
 ) {
-  await requireCompatibleActiveRelease(ctx);
+  const calculationIdentity = await requireCompatibleActiveRelease(ctx);
   const catalogEntries = projectCampaignCopies(sheet.catalogEntries);
-  const { current: calculated, permanent } = calculateActiveCharacterSheet({
-    entries: sheet.entries,
-    catalogEntries,
-    characterKind: sheet.character.kind,
-    sheetMode: sheet.character.sheetMode,
-  });
+  const { current: calculated, permanent } = calculateActiveCharacterSheet(
+    {
+      entries: sheet.entries,
+      catalogEntries,
+      characterKind: sheet.character.kind,
+      sheetMode: sheet.character.sheetMode,
+    },
+    calculationIdentity,
+  );
   requireWholeCalculatedAbilities(calculated);
   requireWholeCalculatedAbilities(permanent);
   const availableGrantIds = resolveCharacterSheetGrants({
@@ -520,6 +524,7 @@ export async function deleteCharacterSheet(
     'Character spell list is too large to delete',
   );
   for (const spell of spells) await ctx.db.delete('characterSpell', spell._id);
+  await markCatalogImpactDirty(ctx, characterId);
   await ctx.db.delete('character', characterId);
   if (await cleanupCharacterSpellIndex(ctx, characterId))
     await ctx.scheduler.runAfter(

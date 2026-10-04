@@ -36,7 +36,10 @@ import {
 } from './character-sheet-conditions';
 import { calculateSpellcastings } from './character-sheet-spellcasting';
 import { calculateSpellCollections } from './character-sheet-spell-collections';
-import type { Casting } from './character-sheet-casting-tables';
+import type {
+  Casting,
+  ReviewedCastingTables,
+} from './character-sheet-casting-tables';
 import {
   racialTraitWarnings,
   resolveCharacterSheetRacialFacts,
@@ -454,6 +457,7 @@ export function isTemporaryEffect(
 }
 
 export type CharacterSheetInput = {
+  resources?: { castingTables?: ReviewedCastingTables };
   sheetMode?: 'militiaOnly' | 'full';
   characterKind: 'pc' | 'npc';
   entries: readonly SheetEntry[];

@@ -16,6 +16,7 @@ import type * as canonicalPersistenceFixtures from "../canonicalPersistenceFixtu
 import type * as canonicalSetup from "../canonicalSetup.js";
 import type * as catalogCopies from "../catalogCopies.js";
 import type * as catalogRelease from "../catalogRelease.js";
+import type * as catalogReleaseImpact from "../catalogReleaseImpact.js";
 import type * as character from "../character.js";
 import type * as characterSheet from "../characterSheet.js";
 import type * as characterSheetLinkedInputs from "../characterSheetLinkedInputs.js";
@@ -39,6 +40,7 @@ import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as lib_catalogCopies from "../lib/catalogCopies.js";
 import type * as lib_catalogReleaseCompatibility from "../lib/catalogReleaseCompatibility.js";
+import type * as lib_catalogReleaseImpact from "../lib/catalogReleaseImpact.js";
 import type * as lib_characterAccess from "../lib/characterAccess.js";
 import type * as lib_characterMilitiaOnlySheet from "../lib/characterMilitiaOnlySheet.js";
 import type * as lib_characterOwnership from "../lib/characterOwnership.js";
@@ -82,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   canonicalSetup: typeof canonicalSetup;
   catalogCopies: typeof catalogCopies;
   catalogRelease: typeof catalogRelease;
+  catalogReleaseImpact: typeof catalogReleaseImpact;
   character: typeof character;
   characterSheet: typeof characterSheet;
   characterSheetLinkedInputs: typeof characterSheetLinkedInputs;
@@ -105,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   "lib/catalogCopies": typeof lib_catalogCopies;
   "lib/catalogReleaseCompatibility": typeof lib_catalogReleaseCompatibility;
+  "lib/catalogReleaseImpact": typeof lib_catalogReleaseImpact;
   "lib/characterAccess": typeof lib_characterAccess;
   "lib/characterMilitiaOnlySheet": typeof lib_characterMilitiaOnlySheet;
   "lib/characterOwnership": typeof lib_characterOwnership;

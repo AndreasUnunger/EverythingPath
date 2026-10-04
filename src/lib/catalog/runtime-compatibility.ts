@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:7a6006e58cfc1d2ed3c438033e53b82ef1d70cc9569449ecb6d6f00d8cc3f366',
+    'sha256:10de1531a3f695d0eb5a42a632047548ca7f1afd4c8b59e48d9804ec940dbc07',
 } as const;
 
 export const catalogCalculationV1Files = [
@@ -44,4 +44,6 @@ export const catalogCalculationV1Files = [
   'src/lib/character-sheet-linked-inputs.ts',
   'src/lib/catalog/representative-companion-rules.ts',
   'src/lib/character-sheet-linked-input-evaluation.ts',
+  'src/lib/catalog/calculation-dispatch.ts',
+  'convex/lib/catalogReleaseCompatibility.ts',
 ] as const;

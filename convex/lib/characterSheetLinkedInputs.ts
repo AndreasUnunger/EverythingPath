@@ -4,7 +4,10 @@ import type { Doc } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
 import type { MutationCtx } from '../_generated/server';
 import { requireCharacterAccess } from './characterAccess';
-import { calculateActiveCharacterSheet } from './catalogReleaseCompatibility';
+import {
+  calculateActiveCharacterSheet,
+  requireCompatibleActiveRelease,
+} from './catalogReleaseCompatibility';
 import {
   loadCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
@@ -103,12 +106,15 @@ async function loadLinkedInputContext(
       : endpoint;
   const calculated = associated
     ? projection === 'permanent'
-      ? calculateActiveCharacterSheet({
-          entries: associated.entries,
-          catalogEntries: associated.catalogEntries,
-          characterKind: associated.character.kind,
-          sheetMode: associated.character.sheetMode,
-        }).permanent
+      ? calculateActiveCharacterSheet(
+          {
+            entries: associated.entries,
+            catalogEntries: associated.catalogEntries,
+            characterKind: associated.character.kind,
+            sheetMode: associated.character.sheetMode,
+          },
+          await requireCompatibleActiveRelease(ctx),
+        ).permanent
       : associated.calculated
     : null;
   const countingEntries = getCompanionSupportingEntryKeys(

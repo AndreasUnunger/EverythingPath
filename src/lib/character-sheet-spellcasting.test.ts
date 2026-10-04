@@ -8,8 +8,17 @@ import {
   type CharacterSheetInput,
   type Modifier,
 } from './character-sheet';
-import { findReviewedClassCasting } from './character-sheet-casting-tables';
+import {
+  findReviewedClassCasting,
+  reviewedCastingTablesSchema,
+} from './character-sheet-casting-tables';
 import { evaluateCastingPrerequisite } from './character-sheet-spellcasting';
+import reviewedCastingTables from '../../scripts/catalog/reviewed-casting-tables.json';
+import {
+  calculateCharacterSheetForRelease,
+  calculateCharacterSheetProjectionsForRelease,
+} from './catalog/calculation-dispatch';
+import { catalogRuntimeCompatibility } from './catalog/runtime-compatibility';
 
 function build(
   classes: [string, number][],
@@ -112,6 +121,105 @@ test('Wizard 3 / Cleric 1 keeps class levels, slots and casting ability separate
       slots: [3, 2],
     },
   ]);
+});
+
+test('candidate casting tables change allowances without changing default sheet calculations', () => {
+  const input = build([['wizard', 3]]);
+  const tables = structuredClone(reviewedCastingTables);
+  tables.tables['prepared-full'].rows[2]!.spellsPerDay[1] = 7;
+  const candidateInput = {
+    ...input,
+    resources: { castingTables: reviewedCastingTablesSchema.parse(tables) },
+  };
+  const candidate = calculateCharacterSheet(candidateInput);
+  expect(candidate.spellcastings[0]?.slots[1]).toMatchObject({
+    spellLevel: 1,
+    base: 7,
+    bonus: 1,
+    total: 8,
+  });
+  const projections = calculateCharacterSheetProjections(candidateInput);
+  for (const projection of [projections.current, projections.permanent]) {
+    expect(projection.spellcastings[0]?.slots[1]).toMatchObject({
+      base: 7,
+      total: 8,
+    });
+  }
+  expect(
+    calculateCharacterSheet(input).spellcastings[0]?.slots[1],
+  ).toMatchObject({
+    spellLevel: 1,
+    base: 2,
+    bonus: 1,
+    total: 3,
+  });
+});
+
+test('the retained prior calculation identity ignores candidate resources while the current identity uses them', async () => {
+  const [{ createHash }, { readFile }] = await Promise.all([
+    import('node:crypto'),
+    import('node:fs/promises'),
+  ]);
+  const defaultBytes = await readFile(
+    'scripts/catalog/reviewed-casting-tables.json',
+  );
+  expect(
+    createHash('sha256').update(defaultBytes).digest('hex'),
+    'Bundled casting tables changed: retain the prior calculation defaults before changing this expectation.',
+  ).toBe('09bba130ca658ee49a6bd36a4d66d626beeaa8a146246ac0b1c4737c03566266');
+  const tables = structuredClone(reviewedCastingTables);
+  const wizardLevelThree = tables.tables['prepared-full'].rows[2];
+  if (!wizardLevelThree) throw new Error('Missing reviewed Wizard 3 table row');
+  wizardLevelThree.spellsPerDay[1] = 7;
+  const input = {
+    ...build([['wizard', 3]]),
+    resources: { castingTables: reviewedCastingTablesSchema.parse(tables) },
+  };
+  const prior =
+    'sha256:7a6006e58cfc1d2ed3c438033e53b82ef1d70cc9569449ecb6d6f00d8cc3f366';
+  expect(
+    calculateCharacterSheetForRelease(prior, input).spellcastings[0]?.slots[1],
+  ).toMatchObject({ base: 2, total: 3 });
+  expect(
+    calculateCharacterSheetForRelease(
+      catalogRuntimeCompatibility.calculation,
+      input,
+    ).spellcastings[0]?.slots[1],
+  ).toMatchObject({ base: 7, total: 8 });
+  const oldProjections = calculateCharacterSheetProjectionsForRelease(
+    prior,
+    input,
+  );
+  const newProjections = calculateCharacterSheetProjectionsForRelease(
+    catalogRuntimeCompatibility.calculation,
+    input,
+  );
+  for (const projection of [oldProjections.current, oldProjections.permanent])
+    expect(projection.spellcastings[0]?.slots[1]).toMatchObject({
+      base: 2,
+      total: 3,
+    });
+  for (const projection of [newProjections.current, newProjections.permanent])
+    expect(projection.spellcastings[0]?.slots[1]).toMatchObject({
+      base: 7,
+      total: 8,
+    });
+});
+
+test('release calculation dispatch refuses identities without a retained implementation', () => {
+  const input = build([['wizard', 3]]);
+  for (const identity of [
+    '',
+    'future',
+    `${catalogRuntimeCompatibility.calculation}:other`,
+  ]) {
+    expect(() => calculateCharacterSheetForRelease(identity, input)).toThrow(
+      'Unavailable Catalog Release calculation behavior',
+    );
+    expect(() =>
+      calculateCharacterSheetProjectionsForRelease(identity, input),
+    ).toThrow('Unavailable Catalog Release calculation behavior');
+  }
 });
 
 test('current Intelligence changes DC and concentration while permanent Intelligence supplies bonus slots', () => {

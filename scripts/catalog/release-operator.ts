@@ -9,6 +9,12 @@ import {
   type CatalogReleaseCommandAdapter,
   type CatalogReleaseStatus,
 } from './release-command.ts';
+import {
+  runCatalogReleaseImpactCommand,
+  DEFAULT_IMPACT_MAX_STEPS,
+  type CatalogReleaseImpactCommandAdapter,
+} from './release-impact-command.ts';
+import { createCatalogReleaseImpactRemoteAdapter } from './release-impact-remote.ts';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
 import { verifyInputs, resolveOutputPath, validateOutput } from './operator.ts';
@@ -32,7 +38,7 @@ import { reviewedAdmissionSchema } from '../../src/lib/catalog/admission-schema.
 import { legalResourcesSchema } from '../../src/lib/catalog/legal-types.ts';
 
 export const catalogReleaseUsage =
-  'Usage: pnpm catalog:release build --number N --schema ID --calculation ID --system PATH --content PATH --artifact PATH [--previous PATH] [--attribution PATH] [--curation PATH] [--remaps PATH] [--legal PATH] [--rule-resources PATH] [--allow-unverified-checkouts]\n       pnpm catalog:release prepare --artifact PATH --deployment-name NAME --deployment-url URL --target-kind KIND --admin-key-file PATH [--write-epoch N]\n       pnpm catalog:release inspect --number N --deployment-name NAME --deployment-url URL --target-kind KIND --admin-key-file PATH [--kind KIND --cursor CURSOR --limit N]\nPreparation is private and never activates a release. Remote commands never push code.\n';
+  'Usage: pnpm catalog:release build --number N --schema ID --calculation ID --system PATH --content PATH --artifact PATH [--previous PATH] [--attribution PATH] [--curation PATH] [--remaps PATH] [--legal PATH] [--rule-resources PATH] [--allow-unverified-checkouts]\n       pnpm catalog:release prepare --artifact PATH --deployment-name NAME --deployment-url URL --target-kind KIND --admin-key-file PATH [--write-epoch N]\n       pnpm catalog:release inspect --number N --deployment-name NAME --deployment-url URL --target-kind KIND --admin-key-file PATH [--kind KIND --cursor CURSOR --limit N]\n       pnpm catalog:release reconcile --number N --deployment-name NAME --deployment-url URL --target-kind KIND --admin-key-file PATH [--write-epoch N] [--max-steps N] [--retry-failed]\nPreparation and reconciliation are private and never activate a release. Remote commands never push code.\n';
 
 async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, 'utf8'));
@@ -119,7 +125,9 @@ async function createRemoteAdapter(values: {
   deploymentUrl: string;
   adminKeyFile: string;
   targetKind: string;
-}): Promise<CatalogReleaseCommandAdapter> {
+}): Promise<
+  CatalogReleaseCommandAdapter & { impact: CatalogReleaseImpactCommandAdapter }
+> {
   if (!['preview', 'development', 'production'].includes(values.targetKind))
     throw new Error(
       '--target-kind must be preview, development or production.',
@@ -143,17 +151,26 @@ async function createRemoteAdapter(values: {
     );
   const adminClient: AdministrativeHttpClient = client;
   adminClient.setAdminAuth(key);
-  async function invokeReleaseEndpoint(endpoint: string, args: unknown) {
+  async function invokeEndpoint(
+    module: string,
+    endpoint: string,
+    args: unknown,
+  ) {
     const parsed = parseReleaseJson(args);
     if (!isObject(parsed))
       throw new Error('Invalid release command arguments.');
     return await adminClient.function(
-      makeFunctionReference(`catalogRelease:${endpoint}`),
+      makeFunctionReference(`${module}:${endpoint}`),
       undefined,
       parsed,
     );
   }
+  const invokeReleaseEndpoint = (endpoint: string, args: unknown) =>
+    invokeEndpoint('catalogRelease', endpoint, args);
   return {
+    impact: createCatalogReleaseImpactRemoteAdapter((endpoint, args) =>
+      invokeEndpoint('catalogReleaseImpact', endpoint, args),
+    ),
     begin: async (args) =>
       parseStatus(await invokeReleaseEndpoint('begin', args)),
     writeBatch: async (args) =>
@@ -192,6 +209,8 @@ function parseOperatorArguments(args: string[]) {
       kind: { type: 'string' },
       cursor: { type: 'string' },
       limit: { type: 'string' },
+      'max-steps': { type: 'string' },
+      'retry-failed': { type: 'boolean' },
       'allow-unverified-checkouts': { type: 'boolean' },
       help: { type: 'boolean' },
     },
@@ -210,6 +229,40 @@ function parseWriteEpoch(value: string | undefined) {
   return writeEpoch;
 }
 
+function parseImpactMaxSteps(value: string | undefined) {
+  if (value === undefined) return DEFAULT_IMPACT_MAX_STEPS;
+  const maxSteps = Number(value);
+  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(maxSteps))
+    throw new Error('--max-steps must be a positive integer.');
+  return maxSteps;
+}
+
+async function reconcileRelease(
+  values: OperatorValues,
+  impactAdapter: CatalogReleaseImpactCommandAdapter | undefined,
+  writeEpoch: number,
+) {
+  const releaseNumber = positiveNumber(values.number);
+  const maxSteps = parseImpactMaxSteps(values['max-steps']);
+  const selectedAdapter =
+    impactAdapter ??
+    (
+      await createRemoteAdapter({
+        deploymentName: required(values['deployment-name'], 'deployment-name'),
+        deploymentUrl: required(values['deployment-url'], 'deployment-url'),
+        adminKeyFile: required(values['admin-key-file'], 'admin-key-file'),
+        targetKind: required(values['target-kind'], 'target-kind'),
+      })
+    ).impact;
+  return runCatalogReleaseImpactCommand({
+    releaseNumber,
+    adapter: selectedAdapter,
+    writeEpoch,
+    maxSteps,
+    retryFailed: values['retry-failed'],
+  });
+}
+
 async function resolveRemoteAdapter(
   values: OperatorValues,
   adapter: CatalogReleaseCommandAdapter | undefined,
@@ -226,19 +279,23 @@ async function resolveRemoteAdapter(
 export async function runCatalogReleaseOperator({
   args,
   adapter,
+  impactAdapter,
 }: {
   args: string[];
   adapter?: CatalogReleaseCommandAdapter;
+  impactAdapter?: CatalogReleaseImpactCommandAdapter;
 }): Promise<unknown> {
   const { values, positionals } = parseOperatorArguments(args);
   if (values.help) return { usage: catalogReleaseUsage };
   if (
     positionals.length !== 1 ||
-    !['build', 'prepare', 'inspect'].includes(positionals[0] ?? '')
+    !['build', 'prepare', 'inspect', 'reconcile'].includes(positionals[0] ?? '')
   )
     throw new Error(catalogReleaseUsage);
   const writeEpoch = parseWriteEpoch(values['write-epoch']);
   const command = positionals[0];
+  if (command === 'reconcile')
+    return reconcileRelease(values, impactAdapter, writeEpoch);
   if (command === 'inspect') return inspectRelease(values, adapter);
   const artifactPath = await resolveOutputPath(
     resolve(required(values.artifact, 'artifact')),

@@ -1,4 +1,5 @@
 import { ConvexError, v } from 'convex/values';
+import { markCatalogImpactDirty } from './catalogReleaseImpact';
 import { calculateMilitiaCharacterFacts } from './militiaCharacterFacts';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { MutationCtx } from '../_generated/server';
@@ -22,6 +23,7 @@ export async function updateCanonicalCharacter(
 ) {
   const character = await ctx.db.get('character', characterId);
   if (!character) throw new ConvexError('Character not found');
+  if (character.sheetMode) await markCatalogImpactDirty(ctx, characterId);
   const campaignId = character.campaignId;
   if (!campaignId) return;
   const militia = await ctx.db

@@ -14,6 +14,7 @@ import {
   MAX_LEVEL,
   type CastingTableRow,
   type Casting,
+  type ReviewedCastingTables,
 } from './character-sheet-casting-tables';
 import { calculateBonusSpells } from './character-sheet-permanent-statistics';
 import { characterSheetClassFamily } from './character-sheet-grants';
@@ -123,12 +124,14 @@ function resolveCastingBase({
   modifiers,
   options,
   resolve,
+  castingTables,
 }: {
   catalog: CharacterSheetCatalogEntry;
   castingLevel: number;
   modifiers: readonly InputSourcedModifier[];
   options: ResolveOptions;
   resolve: ResolveCastingTarget;
+  castingTables?: ReviewedCastingTables;
 }): CastingBase[] {
   if (
     catalog.detail?.kind !== 'class' ||
@@ -138,7 +141,7 @@ function resolveCastingBase({
     return [];
   const classEntryId = catalog._id;
   const casting = catalog.detail.casting;
-  const row = findCastingTableRow(casting.table, castingLevel);
+  const row = findCastingTableRow(casting.table, castingLevel, castingTables);
   const castableSpellLevels = Array.from(
     { length: 10 },
     (_, level) => level,
@@ -146,7 +149,7 @@ function resolveCastingBase({
     (level) =>
       (level > 0 ||
         casting.cantrips ||
-        castingTableIncludesZeroLevel(casting.table)) &&
+        castingTableIncludesZeroLevel(casting.table, castingTables)) &&
       ([
         row?.spellsPerDay[level],
         row?.spellsKnown?.[level],
@@ -299,7 +302,13 @@ export function calculateSpellcastings({
 }) {
   const { classes, spellcastingUnresolved } = tallyCastingClasses(input);
   const bases = classes.flatMap((entry) =>
-    resolveCastingBase({ ...entry, modifiers, options, resolve }),
+    resolveCastingBase({
+      ...entry,
+      modifiers,
+      options,
+      resolve,
+      castingTables: input.resources?.castingTables,
+    }),
   );
   const unresolvedCasterLevels = bases
     .filter((base) => base.casterLevelUnresolved)

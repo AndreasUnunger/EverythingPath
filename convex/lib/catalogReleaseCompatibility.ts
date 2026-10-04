@@ -1,12 +1,13 @@
 import { ConvexError } from 'convex/values';
 import type { ReadCtx } from '../types';
+import type { CharacterSheetInput } from '../../src/lib/character-sheet';
 import {
-  calculateCharacterSheetProjections,
-  type CharacterSheetInput,
-} from '../../src/lib/character-sheet';
+  calculateCharacterSheetProjectionsForRelease,
+  isSupportedCatalogCalculation,
+} from '../../src/lib/catalog/calculation-dispatch';
 import { catalogRuntimeCompatibility } from '../../src/lib/catalog/runtime-compatibility';
 
-export async function requireCompatibleActiveRelease(ctx: ReadCtx) {
+export async function readCompatibleActiveRelease(ctx: ReadCtx) {
   const active = await ctx.db
     .query('catalogReleaseControl')
     .withIndex('by_key', (q) => q.eq('key', 'global'))
@@ -14,14 +15,28 @@ export async function requireCompatibleActiveRelease(ctx: ReadCtx) {
   if (
     active &&
     (active.schemaIdentity !== catalogRuntimeCompatibility.schema ||
-      active.calculationIdentity !== catalogRuntimeCompatibility.calculation)
+      !isSupportedCatalogCalculation(active.calculationIdentity))
   )
     throw new ConvexError(
       'Active Catalog Release requires unavailable schema or calculation behavior',
     );
-  return active;
+  return {
+    control: active,
+    calculationIdentity:
+      active?.calculationIdentity ?? catalogRuntimeCompatibility.calculation,
+  };
 }
 
-export function calculateActiveCharacterSheet(input: CharacterSheetInput) {
-  return calculateCharacterSheetProjections(input);
+export async function requireCompatibleActiveRelease(ctx: ReadCtx) {
+  return (await readCompatibleActiveRelease(ctx)).calculationIdentity;
+}
+
+export function calculateActiveCharacterSheet(
+  input: CharacterSheetInput,
+  calculationIdentity: string,
+) {
+  return calculateCharacterSheetProjectionsForRelease(
+    calculationIdentity,
+    input,
+  );
 }

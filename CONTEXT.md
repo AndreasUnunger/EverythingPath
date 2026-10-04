@@ -113,6 +113,15 @@ _Avoid_: item definition, effect
 **Catalog Release**:
 A manually numbered set of global Catalog Entry definitions and supporting resources made available together. One release is current for everyone.
 
+**Catalog Impact Run**:
+The reconciliation of a prepared Catalog Release against current Character Sheets, recording which Characters may change and whether their candidate Militia Character Facts are ready. A completed run preserves that evidence; later edits require a fresh run before publication.
+
+**Candidate Reconciliation**:
+Calculation and comparison of a Character's Militia Character Facts under a prepared Catalog Release while the current release remains authoritative.
+
+**Dirty Candidate Work**:
+A Character's candidate reconciliation that must be repeated because its relevant inputs changed or have not yet been evaluated.
+
 **Catalog Copy**:
 A campaign or Character Catalog Entry cloned from another entry, with independent fields but the original's rule identity for prerequisites and same-Source stacking, even after editing. Its global references follow the current Catalog Release, and original-change advisories require the viewer's access to the original.
 _Avoid_: override, fork
