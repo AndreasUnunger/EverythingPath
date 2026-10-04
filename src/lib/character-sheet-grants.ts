@@ -589,7 +589,11 @@ function evaluateGrantGraph(
       (entry.kind === 'feat' &&
       entry.state.slot &&
       entry.state.slot !== 'general'
-        ? { kind: 'slot' as const, grantedBy: entry.state.slot.grantedBy }
+        ? {
+            kind: 'slot' as const,
+            grantedBy: entry.state.slot.grantedBy,
+            slotIndex: entry.state.slot.slotIndex,
+          }
         : undefined);
     const dependencyPresent = (() => {
       if (dependency?.kind === 'classPrompt') {
@@ -622,11 +626,16 @@ function evaluateGrantGraph(
         const parentCatalog =
           parent && 'catalogEntryId' in parent
             ? catalog.get(parent.catalogEntryId)
-            : undefined;
+            : parent?.kind === 'classLevel' && parent.state.classEntryId
+              ? catalog.get(parent.state.classEntryId)
+              : undefined;
         const hasEntitlement =
           dependency.kind === 'slot'
             ? parentCatalog?.grantsSlots?.some(
-                (slot) => slot.kind === entry.kind && slot.count > 0,
+                (slot, index) =>
+                  slot.kind === entry.kind &&
+                  slot.count > 0 &&
+                  index === (dependency.slotIndex ?? 0),
               )
             : parentCatalog?.detail &&
               'picksByLevel' in parentCatalog.detail &&

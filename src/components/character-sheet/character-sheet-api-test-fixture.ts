@@ -59,6 +59,8 @@ const defaultApi = {
     discardDormantEntry: 'discardDormantEntry',
     editGrantState: 'editGrantState',
     editSelection: 'editSelection',
+    fillSelectionSlot: 'fillSelectionSlot',
+    clearSelectionSlot: 'clearSelectionSlot',
     selectRace: 'selectRace',
     chooseRacialAbilityScore: 'chooseRacialAbilityScore',
     setRacialTraitSelected: 'setRacialTraitSelected',

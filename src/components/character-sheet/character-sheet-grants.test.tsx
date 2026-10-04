@@ -832,7 +832,8 @@ test('a feat whose Class Level was deleted keeps counting with Not tied to a lev
     }),
   };
   renderPage();
-  const inFeats = within(region('Feats'));
+  // Feats & traits owns the feat rows the Grants block used to list.
+  const inFeats = within(region('Feats & traits'));
   expect(inFeats.getByRole('listitem', { name: 'General feat' })).toBeVisible();
   expect(inFeats.getByText('Not tied to a level')).toBeVisible();
   expect(
@@ -848,5 +849,7 @@ test('a feat whose Class Level was deleted keeps counting with Not tied to a lev
   expect(
     screen.getByText("This character's sheet is not available here yet."),
   ).toBeVisible();
-  expect(screen.getAllByRole('region', { name: 'Feats' })).toHaveLength(1);
+  expect(
+    screen.getAllByRole('region', { name: 'Feats & traits' }),
+  ).toHaveLength(1);
 });

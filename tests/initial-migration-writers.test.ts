@@ -323,7 +323,7 @@ test('every current registration is gated or reviewed and the committed inventor
   const root = fileURLToPath(new URL('../', import.meta.url));
   const audit = auditWriters(readWriterSources(root));
   expect(audit.errors).toEqual([]);
-  expect(audit.writers).toHaveLength(130);
+  expect(audit.writers).toHaveLength(132);
   const doc = readFileSync(
     new URL(
       '../docs/initial-character-migration-write-gate.md',

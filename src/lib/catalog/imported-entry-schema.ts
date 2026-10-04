@@ -1,3 +1,7 @@
+import {
+  alignmentSchema,
+  prerequisiteSchema,
+} from '../character-sheet-prerequisite-schema.ts';
 import { z } from 'zod';
 import { abilitySchema, outputSchema } from './curation-output-schema.ts';
 
@@ -41,6 +45,7 @@ export const importedDetailSchema = z.discriminatedUnion('kind', [
     ...progression,
     tag: z.string(),
     classKind: z.enum(['base', 'prestige', 'npc']),
+    alignments: z.array(alignmentSchema).optional(),
     skillRanksPerLevel: z.number(),
     featuresByLevel: z.array(
       z.object({ classLevel: z.number(), externalKey: z.string() }),
@@ -65,7 +70,8 @@ export const importedDetailSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('feat'),
     featTypes: z.array(z.string()),
-    repeatable: z.literal('unreviewed'),
+    repeatable: z.enum(['no', 'newChoice', 'yes', 'unreviewed']),
+    additionalTraits: z.literal(true).optional(),
   }),
   z.object({ kind: z.literal('trait'), traitType: z.string() }),
   z.object({
@@ -135,6 +141,12 @@ export const importedCatalogEntrySchema = z.object({
   name: z.string().min(1),
   detail: importedDetailSchema,
   description: z.string(),
+  guidanceText: z.string().optional(),
+  prerequisiteText: z.string().optional(),
+  prerequisites: z.array(prerequisiteSchema).optional(),
+  grantsSlots: z
+    .array(z.object({ kind: z.enum(['feat', 'trait']), count: z.number() }))
+    .optional(),
   sources: z.array(
     z.object({ book: z.string(), pages: z.string().optional() }),
   ),

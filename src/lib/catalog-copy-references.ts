@@ -1,3 +1,5 @@
+// Only Catalog Entry document IDs belong here. Prerequisite clauses and Grant
+// keys hold durable rule identities; selection-slot positions hold sheet IDs.
 const referenceFields = new Set([
   'catalogEntryId',
   'classEntryId',

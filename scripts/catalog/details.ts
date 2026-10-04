@@ -1,3 +1,4 @@
+import { selectionImportRule } from './selection-import-rules.ts';
 import type { ConditionKey } from '../../src/lib/character-sheet-conditions.ts';
 import type { CuratedItemAbility } from './curation.ts';
 import type { ImportKind } from './inventory.ts';
@@ -135,11 +136,13 @@ function mapClassFeature() {
 function mapManual() {
   return { kind: 'manual' as const };
 }
-function mapFeat({ record: { system } }: DetailContext) {
+function mapFeat({ record }: DetailContext) {
+  const { system } = record;
   return {
     kind: 'feat' as const,
     featTypes: readStrings(system.tags),
     repeatable: 'unreviewed',
+    ...selectionImportRule({ kind: 'feat', record })?.detail,
   };
 }
 function mapTrait({ record: { system } }: DetailContext) {

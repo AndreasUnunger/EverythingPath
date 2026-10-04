@@ -1,30 +1,17 @@
-import type {
-  CharacterSheetInput,
-  SheetEntry,
-  SheetWarning,
-} from './character-sheet';
+import type { CharacterSheetInput, SheetEntry } from './character-sheet';
 import {
-  characterSheetClassFamily,
   formatGrantKeyId,
   resolveCharacterSheetGrants,
 } from './character-sheet-grants';
 import { classFamilyLevels } from './character-sheet-class-levels';
+import { selectionOrdersAtLevel } from './character-sheet-selection';
 import {
   matchesProficiency,
   normalizeProficiencyName,
   proficiencyKey,
-  meetsProficiencyPrerequisite,
-  resolveProficiencies,
   type ManualProficiency,
   type ResolvedProficiencies,
 } from './character-sheet-proficiencies';
-
-type PrerequisiteCheck = {
-  entryId: string;
-  view: 'current' | 'recorded';
-  proficiency: ManualProficiency;
-  met: boolean;
-};
 
 function weaponFor(proficiency: ManualProficiency, input: CharacterSheetInput) {
   if (!('baseType' in proficiency)) return undefined;
@@ -41,7 +28,7 @@ function weaponFor(proficiency: ManualProficiency, input: CharacterSheetInput) {
   return undefined;
 }
 
-function relevantFacts(
+export function relevantProficiencyFacts(
   proficiency: ManualProficiency,
   proficiencies: ResolvedProficiencies,
   input: CharacterSheetInput,
@@ -92,7 +79,7 @@ function relevantFacts(
   };
 }
 
-function canCheck(
+export function canCheckProficiency(
   proficiency: ManualProficiency,
   proficiencies: ResolvedProficiencies,
   input: CharacterSheetInput,
@@ -111,7 +98,7 @@ function canCheck(
   ].some(sameName);
 }
 
-function definitionFor(entry: SheetEntry, input: CharacterSheetInput) {
+export function definitionFor(entry: SheetEntry, input: CharacterSheetInput) {
   const id =
     entry.kind === 'classLevel'
       ? entry.state.classEntryId
@@ -121,8 +108,12 @@ function definitionFor(entry: SheetEntry, input: CharacterSheetInput) {
   return input.catalogEntries.find((definition) => definition._id === id);
 }
 
-function ignoresPrerequisites(entry: SheetEntry, input: CharacterSheetInput) {
+export function ignoresPrerequisites(
+  entry: SheetEntry,
+  input: CharacterSheetInput,
+) {
   if (entry.kind !== 'feat') return false;
+  if (entry.grantKey) return true;
   const reference =
     entry.selectionSource?.kind === 'slot'
       ? entry.selectionSource.grantedBy
@@ -138,7 +129,13 @@ function ignoresPrerequisites(entry: SheetEntry, input: CharacterSheetInput) {
   return (
     source &&
     definitionFor(source, input)?.grantsSlots?.some(
-      (slot) =>
+      (slot, index) =>
+        index ===
+          (entry.selectionSource?.kind === 'slot'
+            ? (entry.selectionSource.slotIndex ?? 0)
+            : entry.state.slot && entry.state.slot !== 'general'
+              ? (entry.state.slot.slotIndex ?? 0)
+              : 0) &&
         slot.kind === 'feat' &&
         slot.count > 0 &&
         slot.ignoresPrerequisites === true,
@@ -157,6 +154,7 @@ type RecordedContext = {
   entryId: string;
   originId: string;
   position: RecordedPosition;
+  selectionOrders: ReturnType<typeof selectionOrdersAtLevel>;
 };
 
 function entryKey(entry: SheetEntry) {
@@ -245,19 +243,20 @@ function recordedEntryEligible(entry: SheetEntry, context: RecordedContext) {
       (row) => row.kind === 'classLevel' && row._id === gainedAt,
     );
     if (level?.kind !== 'classLevel') return false;
-    const { classLevel, choiceOrder, beforeLevel } = context.position;
+    const { classLevel, beforeLevel } = context.position;
     if (level.state.position !== classLevel)
       return level.state.position < classLevel;
     if (beforeLevel) return false;
-    const order =
-      'choiceOrder' in candidate ? candidate.choiceOrder : undefined;
-    return (
-      choiceOrder !== undefined && order !== undefined && order < choiceOrder
-    );
+    const candidateOrder = context.selectionOrders.get(candidate._id);
+    const originOrder = context.selectionOrders.get(context.originId);
+    if (!candidateOrder || !originOrder) return false;
+    return candidateOrder.order === originOrder.order
+      ? candidateOrder.index < originOrder.index
+      : candidateOrder.order < originOrder.order;
   }
 }
 
-function recordedPrefix(
+export function recordedPrefix(
   entry: SheetEntry,
   input: CharacterSheetInput,
   effectiveInput: CharacterSheetInput,
@@ -298,6 +297,7 @@ function recordedPrefix(
     entryId: entry._id,
     originId: origin._id,
     position,
+    selectionOrders: selectionOrdersAtLevel(input.entries, level._id),
   };
   const eligible = (candidate: SheetEntry) =>
     recordedEntryEligible(candidate, context);
@@ -310,84 +310,4 @@ function recordedPrefix(
     },
     position,
   };
-}
-
-export function resolveProficiencyPrerequisites(
-  recordedInput: CharacterSheetInput,
-  effectiveInput: CharacterSheetInput,
-  proficiencies: ResolvedProficiencies,
-) {
-  const checks: PrerequisiteCheck[] = [];
-  const warnings: SheetWarning[] = [];
-  for (const entry of effectiveInput.entries) {
-    if (!entry.active || ignoresPrerequisites(entry, effectiveInput)) continue;
-    const definition = definitionFor(entry, effectiveInput);
-    if (!definition?.proficiencyPrerequisites?.length) continue;
-    if (entry.kind === 'classLevel') {
-      if (
-        definition.detail?.kind !== 'class' ||
-        !('classKind' in definition.detail) ||
-        definition.detail.classKind !== 'prestige'
-      )
-        continue;
-      const family = characterSheetClassFamily(
-        definition,
-        effectiveInput.catalogEntries,
-      );
-      if (
-        classFamilyLevels(effectiveInput, family).some(
-          (other) => other.state.position < entry.state.position,
-        )
-      )
-        continue;
-    }
-    const prefix = recordedPrefix(entry, recordedInput, effectiveInput);
-    for (const [index, clause] of (
-      definition?.proficiencyPrerequisites ?? []
-    ).entries()) {
-      const choice =
-        'choice' in entry.state ? entry.state.choice?.trim() : undefined;
-      const proficiency =
-        'choice' in clause.proficiency
-          ? choice
-            ? { baseType: choice }
-            : undefined
-          : clause.proficiency;
-      if (!proficiency) continue;
-      const views: PrerequisiteCheck['view'][] = ['current'];
-      if (prefix) views.push('recorded');
-      for (const view of views) {
-        const viewInput =
-          view === 'recorded' && prefix ? prefix.input : effectiveInput;
-        const viewProficiencies =
-          view === 'recorded' && prefix
-            ? resolveProficiencies(prefix.input)
-            : proficiencies;
-        if (!canCheck(proficiency, viewProficiencies, viewInput)) continue;
-        const met = meetsProficiencyPrerequisite(
-          viewProficiencies,
-          { kind: 'proficiency', proficiency },
-          viewInput,
-        );
-        checks.push({ entryId: entry._id, view, proficiency, met });
-        if (!met)
-          warnings.push({
-            kind: 'rules',
-            check: 'proficiencyPrerequisite',
-            target: { kind: 'entry', entryId: entry._id },
-            subject: `${entry._id}:${view}:${index}`,
-            fingerprint: JSON.stringify([
-              'choice' in clause.proficiency
-                ? { choice: true }
-                : proficiencyKey(clause.proficiency),
-              proficiencyKey(proficiency),
-              relevantFacts(proficiency, viewProficiencies, viewInput),
-              view === 'recorded' ? prefix?.position : undefined,
-            ]),
-            message: `${definition?.name ?? 'Entry'}: required proficiency is missing ${view === 'current' ? 'now.' : 'at its recorded level.'}`,
-          });
-      }
-    }
-  }
-  return { checks, warnings };
 }

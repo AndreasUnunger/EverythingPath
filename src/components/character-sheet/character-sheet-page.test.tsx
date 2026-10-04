@@ -1186,7 +1186,8 @@ test('a campaign sheet archives and restores without a question and never offers
   expect(
     campaignRow().getByRole('button', { name: 'Archive character' }),
   ).toBeDisabled();
-  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  // No question opens; the sheet's own named groups (slots) stay.
+  expect(screen.queryByRole('group', { name: /\?$/ })).not.toBeInTheDocument();
   view.show(
     sheet({ isActive: false, lastOperationId: operationOf(lastCall()) }),
   );
@@ -1277,7 +1278,8 @@ test('maintenance disables private deletion with the reason beside it, also when
   expect(document.activeElement).not.toBe(document.body);
   expect(campaignRow().getByText(message)).toBeVisible();
   fireEvent.click(trigger);
-  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  // No question opens; the sheet's own named groups (slots) stay.
+  expect(screen.queryByRole('group', { name: /\?$/ })).not.toBeInTheDocument();
   expect(calls).toEqual([]);
   expect(navigate).not.toHaveBeenCalled();
 });
@@ -1550,4 +1552,23 @@ test('the sheet hosts the Companions section with its actions beside the other b
   expect(
     within(companions).getByRole('button', { name: 'Create Companion' }),
   ).toBeEnabled();
+});
+
+test('Feats & traits follows Skills in the sheet column beside the scores, so the phone stack reads Skills first too', () => {
+  renderSheet(sheet());
+  const order = [
+    'Ability scores',
+    'Proficiencies',
+    'Skills',
+    'Feats & traits',
+    'Personal adjustments',
+  ].map((name) => screen.getByRole('region', { name }));
+  for (const [index, region] of order.slice(1).entries())
+    expect(
+      order[index]!.compareDocumentPosition(region) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  const skills = order[2]!;
+  const feats = order[3]!;
+  expect(skills.nextElementSibling).toBe(feats);
 });

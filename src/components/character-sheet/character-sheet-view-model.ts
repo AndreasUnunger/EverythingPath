@@ -6,6 +6,7 @@ import {
   isCatalogSheetDefinition,
 } from '~/lib/character-sheet-entries';
 import { buildCharacterSheetGrantsView } from './character-sheet-grants-view-model';
+import { buildCharacterSheetSelectionsView } from './character-sheet-selections-view-model';
 import {
   buildCharacterSheetRacesView,
   buildRaceStatisticsView,
@@ -75,6 +76,7 @@ export function buildCharacterSheetView(
       classLevelIds,
     ),
     races: buildCharacterSheetRacesView(snapshot, catalogChoices),
+    selections: buildCharacterSheetSelectionsView(snapshot),
     raceStatistics: buildRaceStatisticsView(snapshot),
     raceNames: listRaceNames(snapshot),
     classFeatureNames: Object.fromEntries(

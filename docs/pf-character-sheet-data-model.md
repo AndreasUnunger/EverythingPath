@@ -109,6 +109,7 @@ catalogEntry: {
   racialStatisticsCopy?: true,        // prepared Character-only race customization, hidden from the race picker
   unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
   prerequisites?: Prerequisite[],      // feats, traits, prestige classes, archetypes; all must hold, see "Rules checks"
+  prerequisiteText?: string,           // original readable line, including unsupported clauses
   countsAsRaces?: RuleIdentity[]      // "count as both elves and humans"; equality only, no original payload needed
     | { oneOf: RuleIdentity[] },      // "count as either": the sheet entry's `choice` picks one
   grantsSlots?: Array<{ kind: 'feat' | 'trait'; count: number;   // bonus feats (fighter, human), Additional Traits
@@ -131,6 +132,7 @@ characterSheetEntry: {
   gainedAtClassLevel?: Id<'characterSheetEntry'>, // Selections (feats, traits, prompt picks): the Class Level that dates them;
                                        // a Grant's position comes from its Grant Key
   choiceOrder?: number,                // order among choices at that Class Level; set in order added, editable
+  selectionSlot?: { id: string; position: number }, // feat/trait group and zero-based position; advisory capacity
   notes?: string,
   state: SheetEntryState,              // discriminated on `kind`
 }
@@ -198,8 +200,9 @@ type CatalogEntryDetail =
         grants?: { list: 'domain' | 'subDomain' | 'bloodline'; key: string; // a Foundry `learnedAt` list: its Spells are granted
           atClassLevel?: number[] };                              // schedule-style: the class level granting spell level 1, 2…; absent = slot-style
         school?: SchoolKey } }                                    // an arcane school: the specialist school
-  | { kind: 'feat'; featTypes: string[];                         // Foundry feat types: 'combat', 'general', 'teamwork'…
-      repeatable: 'no' | 'newChoice' | 'yes' }                    // "You can gain this feat multiple times"
+  | { kind: 'feat'; featTypes?: string[];                        // Foundry feat types: 'combat', 'general', 'teamwork'…
+      repeatable?: 'no' | 'newChoice' | 'yes' | 'unreviewed';      // missing/unreviewed invents no duplicate restriction
+      additionalTraits?: true }                                 // typed NPC entitlement; grantsSlots supplies +2 traits
   | { kind: 'trait'; traitType: string }                         // Foundry `traitType`: 'combat', 'faith', 'region', 'drawback'…
   | { kind: 'item'; consumable: boolean;                        // later: slot, weight, price
       weapon?: { baseType: string;                               // Foundry `baseTypes`: what Weapon Focus names
@@ -260,7 +263,7 @@ type SheetEntryState =
       favoredClassIds: Id<'catalogEntry'>[] }
   | { kind: 'racialTrait'; choice: string | null }                  // the ability of "+2 to one ability score", Dragon Soul's race
   | { kind: 'feat'; choice: string | null;                          // Weapon Focus's weapon (a `baseType`, Bite or Claw included), Skill Focus's skill…
-      slot: 'general' | { grantedBy: SelectionReference } } // whose `grantsSlots` it fills: a Grant by
+      slot: 'general' | { grantedBy: SelectionReference; slotIndex?: number } } // whose `grantsSlots` it fills: a Grant by
                                                                       // its Grant Key, a Selection by its id
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
   | { kind: 'abilityDrain'; ability: AbilityKey; points: number }
@@ -344,7 +347,7 @@ The prepared sheet resolver exposes `calculated.resolvedEntries` for Grants, Sel
 
 For a Grant, the effective entry's `_id` is the canonical serialization of its Grant Key, while `storedEntryId` identifies its optional persisted state row. The object shape remains `{ source, classLevel?, entry }`; `formatGrantKeyId` uses length-prefixed source and entry strings (`grant:<source length>:<source>:<class level or empty>:<entry length>:<entry>`), so nested parent keys grow linearly without escaping each previous key. The persisted row retains `grantKey`, `active`, choice state, optional `notes`, optional `kept: true`, and its catalog reference. A nested Grant's source is its parent's canonical Grant Key id or Selection id, keeping the states of children from distinct parent Grants separate. Direct race, class and Archetype sources use durable rule identity. Catalog Copies preserve that identity. An ordinary recorded Grant follows the current source's granted definition; optional stored `catalogOverride: true` records an intentionally detached Catalog Copy. Both remain Grants, and a copy edit must preserve the granted rule identity and kind.
 
-A recorded Selection can carry `selectionSource: { kind: 'slot', grantedBy: SelectionReference } | { kind: 'prompt', source: SelectionReference, list: string, classLevel?: number } | { kind: 'classPrompt', source: string, classLevel: number, list: string }`. A `SelectionReference` is `{ kind: 'grant', grantKey: GrantKey } | { kind: 'entry', entryId: string }`: Grant references use the key; Selection references use the row id. The writer checks that the referenced source belongs to the Character; the resolver checks slot or prompt availability and makes the Selection dormant while its source does not count. Slot and prompt capacity checks across consuming Selections are not yet implemented. For `classPrompt`, the writer saves the canonical class-family identity and normalized prompt list name, and validates the level and prompt against any selected member of the active class family's schedule. Corresponding original and Unchained prompt names match ignoring `(UC)`. The link follows the level within the class, so removing an earlier Class Level does not orphan a choice while its class-local entitlement still exists. `gainedAtClassLevel` remains a separate recorded acquisition link: losing it alone does not make a general feat dormant. Current non-Grant Selections with a deleted acquisition link are exposed as named `unplacedSelections` in the sheet view and retain their original link. Grant section rows additionally expose `gainedAtClassLevel` and `unplaced` for inline presentation; no successor level is guessed.
+A recorded Selection can carry `selectionSource: { kind: 'slot', grantedBy: SelectionReference, slotIndex?: number } | { kind: 'prompt', source: SelectionReference, list: string, classLevel?: number } | { kind: 'classPrompt', source: string, classLevel: number, list: string }`. A `SelectionReference` is `{ kind: 'grant', grantKey: GrantKey } | { kind: 'entry', entryId: string }`: Grant references use the key; Selection references use the row id. `slotIndex` identifies the source's zero-based `grantsSlots` declaration, defaulting to zero for older rows. `selectionSlot: { id, position }` separately records the feat/trait group and zero-based position for fill/replace operations. The writer checks that the referenced source belongs to the Character; the resolver checks slot or prompt availability and makes the Selection dormant while its source does not count. Feat/trait budgets, slot types and duplicates are advisory checks; exceeding a budget never removes a Selection. Prompt capacity checks across consuming Selections are not yet implemented. For `classPrompt`, the writer saves the canonical class-family identity and normalized prompt list name, and validates the level and prompt against any selected member of the active class family's schedule. Corresponding original and Unchained prompt names match ignoring `(UC)`. The link follows the level within the class, so removing an earlier Class Level does not orphan a choice while its class-local entitlement still exists. `gainedAtClassLevel` remains a separate recorded acquisition link: losing it alone does not make a general feat dormant. Current non-Grant Selections with a deleted acquisition link are exposed as named `unplacedSelections` in the sheet view and retain their original link. Grant section rows additionally expose `gainedAtClassLevel` and `unplaced` for inline presentation; no successor level is guessed.
 
 Prepared mutations are `characterSheet:editGrantState` (key plus optional `active`, `choice`, `notes`, or detached `catalogEntryId`), `setDormantEntryKept` (Grant Key or Selection row id, plus `kept`), `discardDormantEntry` (same target), and `selectEntry`/`editSelection` for recorded Selections. Each uses the shared maintenance/Write Epoch gate, resolves the Character's authorized campaign or private scope, checks catalog and dependent references, and prunes Accepted Warnings against the resulting in-memory sheet. Un-Keep removes a Grant's stored row when its state matches the kind-specific derived default and it has no notes, detached definition, acquisition link or Selection dependency; edited Grants and Selections retain their rows. Discard removes recorded state and its Accepted Warnings, including an unreferenced character-scoped definition belonging to a discarded Selection. Discarding a Selection also removes its descendant Grant state and warning acceptance recursively, including descendants reached through Grants without stored rows or catalog links that have since disappeared; durable Grant identities preserve the ancestry. Other sources of the same definition retain their independent state. A replaced derived Grant can still appear with default state. Accepting a warning on an untouched Grant stores only the warning acceptance, without creating Grant state. These prepared writes do not activate production sheet authority.
 
@@ -1081,25 +1084,32 @@ The class-and-race formulas below describe ordinary advancement. Companion check
 
 ### Prerequisites
 
-Implementation handoff (#304 → #313): `resolveCharacterSheetRacialFacts` exposes the counting race identities and Racial Trait identities, excluding dormant or replaced entries. The tested pure `satisfiesRacialPrerequisite` evaluates `race` and `racialTrait` clauses against those facts. It is not currently called by a prerequisite engine; #313 must wire both clause kinds into current and recorded-level checks. #304 supplies facts and the evaluator only, not integrated prerequisite warnings.
+Prepared implementation (#313): `calculateCharacterSheet` returns general `prerequisites` checks and `selectionRules` slot budgets and warnings. Race and Racial Trait clauses call `resolveCharacterSheetRacialFacts` and `satisfiesRacialPrerequisite` for both current and recorded-level checks, excluding dormant or replaced entries. Legacy proficiency clauses feed the same general checks; the separate `proficiencyPrerequisites` result remains available for existing consumers, without duplicate warnings. Unresolved clauses remain silent, and all supported failures stay advisory. Casting clause shapes remain typed extension points for later integration. Atom types are inferred from the shared Zod schema in `character-sheet-prerequisite-schema.ts`; Convex validators are generated from that same schema. New imports record each atom’s `kind`, while stored atoms without `kind` remain readable and derive their discriminant before exhaustive evaluation. This additive compatibility path requires no stored-data migration. Alignment clauses and class restrictions use the same nine-value alignment schema as editable Character facts.
+
+Prerequisite warning fingerprints retain canonical counting race identities and, for a named feat with a required choice, the normalized held choices sharing that durable rule identity. A change to those evaluated facts reopens a continuing failure. Exact Racial Trait possession tracks only its required identity, so unrelated traits do not reopen acceptance. Copy remapping and unrelated metadata preserve these fingerprints. Named proficiency feat prerequisites, including resolved UUID references, become derived category or chosen-weapon proficiency checks rather than feat-possession requirements; an unrecognized category or unspecified exotic weapon remains readable, unchecked prose.
+
+Authored Selection guidance uses `guidanceText`, separate from `prerequisiteText` and the catalog description. The prepared drawback's instruction to record narrative consequences is guidance, not a prerequisite. Saved rows, catalog candidates and previews expose all three fields independently so guidance never acquires a prerequisite label or failed check.
 
 The importer parses each Prerequisites or Requirements line into clauses ([Find how the Foundry pf1 dataset encodes prerequisites](https://github.com/AndreasUnunger/EverythingPath/issues/214), `research/pf1-prerequisite-data`). The AoN scraper does the same for prestige classes and archetypes, and its unmatched records go to hand review. The Curation Overlay corrects misparses and adds the "counts as X for prerequisites" substitutions, which exist only in prose. Counting as another race is `countsAsRaces` (see "Racial traits").
 
 ```ts
-type Prerequisite =
-  | { anyOf: Prerequisite[] }                                      // "or" clauses
-  | { ability: AbilityKey; min: number } | { bab: number }
-  | { skillRanks: SkillKey; min: number }
-  | { feat: RuleIdentity; choice?: string }                       // resolve `@UUID` first, then exact name
-  | { classFeature: RuleIdentity }                                // resolve by name, ignoring `(UC)`
-  | { racialTrait: RuleIdentity }                                 // resolve by name, ignoring a "(Race)" suffix
-  | { classLevel: RuleIdentity; min: number } | { characterLevel: number }
-  | { race: RuleIdentity[] } | { alignment: Alignment[] } | { deity: string }
-  | { casterLevel: number }                                        // the highest caster level among the Spellcastings
-  | { canCast: { spellLevel: number; kind?: 'arcane' | 'divine' | 'psychic' } } // "able to cast 3rd-level arcane spells"
-  | { castsSpell: RuleIdentity }                                  // "able to cast dimension door"
-  | { proficiency: ProficiencyGrant }                              // "Martial Weapon Proficiency"; { choice: true } = "proficiency with selected weapon"
-  | { unchecked: string };                                         // parsed but unmodelled, or unparsed: shows nothing
+type NormalizedPrerequisiteAtom =
+  | { kind: 'ability'; ability: AbilityKey; min: number } | { kind: 'bab'; bab: number }
+  | { kind: 'skillRanks'; skillRanks: SkillKey; min: number }
+  | { kind: 'feat'; feat: RuleIdentity; choice?: string }                       // resolve `@UUID` first, then exact name
+  | { kind: 'classFeature'; classFeature: RuleIdentity; classFeatureName?: string }       // retained authored name for original/Unchained equivalence
+  | { kind: 'racialTrait'; racialTrait: RuleIdentity }                                 // resolve by name, ignoring a "(Race)" suffix
+  | { kind: 'classLevel'; classLevel: RuleIdentity; min: number } | { kind: 'characterLevel'; characterLevel: number }
+  | { kind: 'race'; race: RuleIdentity[] } | { kind: 'alignment'; alignment: Alignment[] } | { kind: 'deity'; deity: string }
+  | { kind: 'casterLevel'; casterLevel: number }                                        // the highest caster level among the Spellcastings
+  | { kind: 'canCast'; canCast: { spellLevel: number; kind?: 'arcane' | 'divine' | 'psychic' } } // "able to cast 3rd-level arcane spells"
+  | { kind: 'castsSpell'; castsSpell: RuleIdentity }                                  // "able to cast dimension door"
+  | { kind: 'proficiency'; proficiency: ProficiencyGrant }                              // "Martial Weapon Proficiency"; { choice: true } = "proficiency with selected weapon"
+  | { kind: 'unchecked'; unchecked: string };                                         // parsed but unmodelled, or unparsed: shows nothing
+
+// Stored/input atoms infer the same variants with an optional kind.
+type PrerequisiteAtom = z.infer<typeof prerequisiteAtomSchema>;
+type Prerequisite = z.infer<typeof prerequisiteSchema>; // flat "or" alternatives; codegen-safe validators
 ```
 
 Clauses follow the CRB FAQ:
@@ -1108,7 +1118,7 @@ Clauses follow the CRB FAQ:
 - A feat clause needs only the feat, not that feat's own prerequisites.
 - A class feature replaced by an Archetype doesn't count. Nor does a Racial Trait replaced by an alternate.
 - A `race` clause is met by the Character's race or by any active entry's `countsAsRaces`.
-- A same-named feature of either version of an Unchained Class counts.
+- A same-named feature of either version of an Unchained Class counts, ignoring `(UC)`. The clause retains `classFeatureName` when authored/imported, so equivalence and readable labels do not require access to the original definition. The durable identity remains authoritative for exact possession.
 - Unchained Class levels count as the original's.
 - A spell-like ability meets an "able to cast" clause only when the clause names the spell. Spell-like abilities are prose, so such a clause met only by one shows nothing.
 - `canCast` is met by a Spellcasting of that `spellKind` that can cast that level (castable spell levels, see "Derived per Spellcasting"; [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218), [Prototype the spellcasting section on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/233)).
@@ -1123,6 +1133,7 @@ Clauses follow the CRB FAQ:
   - every entry without a gained level, such as items, as before.
 
   It doesn't see its own benefits or grants, or any later choice. What a choice brings, such as a bonus feat slot or a class feature, shares the choice's position and is never treated as undated.
+  Older rows with no `choiceOrder` use their recorded row position among Selections at that level as an effective order. Rows with equal effective orders use that same row position to break ties, giving one consistent order across mixed known and unknown values. Assigning or changing a Selection's recorded level appends after the target level's highest effective order; ordinary edits preserve missing or explicit recorded orders. This fallback orders the recorded build without claiming original acquisition history.
 - **Current facts.** Base scores, race, alignment, deity, the player's proficiency changes, active equipment, manual adjustments and effects, Temporary Effects included, and the current definitions of referenced Catalog Entries, Catalog Copies following "Catalog scopes". So a Strength item acquired at level 8 can meet a level-3 feat's Str 13, and editing a base score, the race, the alignment or a catalog definition rechecks every position. Nothing proves history.
 - **Derived values** are recomputed from the visible prefix: BAB, base saves, skill ranks, Hit Dice, character level, caster levels and the formulas reading them. Level-linked contributions stop at the position, and current full-level totals never leak in.
 - **A feat need only be possessed.** An earlier feat meets a feat clause even when its own prerequisites fail, and its failure doesn't disqualify the choices depending on it. With feats A and B each requiring the other, the first may warn and the second sees it. Accepting a warning changes no calculation.

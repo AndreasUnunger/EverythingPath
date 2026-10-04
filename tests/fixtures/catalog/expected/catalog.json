@@ -52,6 +52,13 @@
         "traitType": "religion"
       },
       "description": "<p><em>You carry a burning hatred in your heart for all things demonic, and have studied their weaknesses carefully.</em></p><p><strong>Requirements</strong>: Iomedae</p><p><strong>Benefits</strong>: You deal additional damage equal to your weapon's critical hit modifier when you score a successful critical hit with a weapon on a demon. This damage is added only after the damage is totaled, and is not multiplied by the critical hit multiple.</p>",
+      "prerequisiteText": "Iomedae",
+      "prerequisites": [
+        {
+          "deity": "Iomedae",
+          "kind": "deity"
+        }
+      ],
       "sources": [
         {
           "book": "PZO9267",
@@ -313,6 +320,13 @@
         "repeatable": "unreviewed"
       },
       "description": "<p><em>To the surprise of others, that strange growth on you is actually your spellcasting companion.</em></p><p><strong>Prerequisites</strong>: Aberrant bloodline.</p><p><strong>Benefits</strong>: You gain a tumor familiar, as the Tumor Familiar (Ex) alchemist discovery (Pathfinder RPG Ultimate Magic 17), with an effective alchemist level equal to the level of the class that grants your aberrant bloodline for determining the tumor familiar's abilities.</p><p>If multiple classes grant you the aberrant bloodline, those class levels stack for determining your effective alchemist level.</p>",
+      "prerequisiteText": "Aberrant bloodline",
+      "prerequisites": [
+        {
+          "unchecked": "Aberrant bloodline",
+          "kind": "unchecked"
+        }
+      ],
       "sources": [],
       "modifiers": [],
       "unsupported": [
@@ -913,6 +927,18 @@
         "repeatable": "unreviewed"
       },
       "description": "<i>You can make exceptionally deadly melee attacks by sacrificing accuracy for strength.</i><p><strong>Prerequisites</strong>: Str 13, base attack bonus +1.</p><p><strong>Benefits</strong>: You can choose to take a -1 penalty on all melee attack rolls and combat maneuver checks to gain a +2 bonus on all melee damage rolls. This bonus to damage is increased by half (+50%) if you are making an attack with a two-handed weapon, a one handed weapon using two hands, or a primary natural weapon that adds 1-1/2 times your Strength modifier on damage rolls. This bonus to damage is halved (-50%) if you are making an attack with an off-hand weapon or secondary natural weapon. When your base attack bonus reaches +4, and every 4 points thereafter, the penalty increases by -1 and the bonus to damage increases by +2. You must choose to use this feat before making an attack roll, and its effects last until your next turn. The bonus damage does not apply to touch attacks or effects that do not deal hit point damage.</p>",
+      "prerequisiteText": "Str 13, base attack bonus +1",
+      "prerequisites": [
+        {
+          "ability": "strength",
+          "min": 13,
+          "kind": "ability"
+        },
+        {
+          "bab": 1,
+          "kind": "bab"
+        }
+      ],
       "sources": [
         {
           "book": "PZO1110",

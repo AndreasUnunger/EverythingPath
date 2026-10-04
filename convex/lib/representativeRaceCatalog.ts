@@ -433,7 +433,10 @@ export function materializeRepresentativeRaceCatalog(
                 ? [...detail.unresolvedReplacements]
                 : undefined,
             }
-          : detail;
+          : {
+              ...detail,
+              featTypes: detail.featTypes ? [...detail.featTypes] : undefined,
+            };
     return {
       key: entry._id,
       definition: {

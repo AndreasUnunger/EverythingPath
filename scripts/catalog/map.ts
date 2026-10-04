@@ -1,3 +1,6 @@
+import { selectionImportRule } from './selection-import-rules.ts';
+import { mapPrerequisites } from './prerequisites.ts';
+import type { Prerequisite } from '../../src/lib/character-sheet-prerequisites.ts';
 import knownNoticeHolds from './legal/known-notice-holds.json';
 import { importedCatalogEntrySchema } from '../../src/lib/catalog/imported-entry-schema.ts';
 import {
@@ -29,6 +32,9 @@ export type PreviewEntry = {
   name: string;
   detail: PreviewDetail;
   description: string;
+  prerequisites?: Prerequisite[];
+  prerequisiteText?: string;
+  grantsSlots?: { kind: 'feat' | 'trait'; count: number }[];
   sources: { book: string; pages?: string }[];
   modifiers: (Omit<
     Extract<CurationOutput, { kind: 'modifier' }>,
@@ -177,6 +183,7 @@ export function mapEntry({
   const context = { record, kind, unsupported, sanitize };
   recordUncuratedContent(context);
   const modifiers = mapModifiers(context);
+  const selectionRule = selectionImportRule({ kind, record });
   const entry = {
     externalKey,
     upstreamKey,
@@ -184,6 +191,10 @@ export function mapEntry({
     name: record.name,
     detail,
     description,
+    ...(kind === 'feat' || kind === 'trait' || kind === 'class'
+      ? mapPrerequisites({ source, lookup, resolveKey })
+      : {}),
+    ...(selectionRule ? { grantsSlots: selectionRule.grantsSlots } : {}),
     sources,
     modifiers,
     unsupported,

@@ -19,7 +19,6 @@ import {
   ordinarySkillRanksPerLevel,
   type SkillRankBudget,
 } from './character-sheet-skills';
-import type { ResolvedSheetEntry } from './character-sheet-grants';
 
 type Progression = Pick<CharacterSheetClassDetail, 'bab' | 'saves'>;
 
@@ -327,26 +326,8 @@ function hasCompleteAbilityIncreases(
   );
 }
 
-export function generalFeatWarnings(
-  rows: readonly ResolvedSheetEntry[],
-  budget: number,
-): SheetWarning[] {
-  const feats = rows.filter(
-    (row) =>
-      row.counting &&
-      row.origin === 'selection' &&
-      row.entry.kind === 'feat' &&
-      !row.entry.selectionSource,
-  );
-  if (feats.length <= budget) return [];
-  return feats.map(({ entry }) => ({
-    kind: 'rules',
-    check: 'generalFeatBudget',
-    subject: entry._id,
-    target: { kind: 'entry', entryId: entry._id },
-    fingerprint: JSON.stringify([budget, feats.length]),
-    message: `${feats.length} ordinary feats exceed the ${budget}-feat Hit Dice budget.`,
-  }));
+export function generalFeatBudget(hitDice: number) {
+  return Math.ceil(hitDice / 2);
 }
 
 export function advancementBudgets({
@@ -422,7 +403,7 @@ export function advancementBudgets({
   const budgets = {
     kind: 'ordinary' as const,
     intelligenceModifier: intelligence,
-    generalFeats: Math.ceil(advancement.hitDice / 2),
+    generalFeats: generalFeatBudget(advancement.hitDice),
     racialSkillRanks,
     skillRanks: classLevels.reduce<number | null>(
       (sum, level) =>

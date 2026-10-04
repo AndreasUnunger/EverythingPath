@@ -9,7 +9,7 @@ import {
 
 test('v1 calculation identity matches its pinned implementation and militia projection', () => {
   const expectedIdentity =
-    'sha256:516db770a32f9bd70bf6f9f00529bd81c0073ff9d6a431feffc69d7f24ed53bf';
+    'sha256:916d72c3e6b0b8d643f62fd06db864578d93fd513925b1d122d3e447b96fae73';
   const compatibilityChangeMessage =
     'Calculation compatibility changed. Before the first Catalog Release activation, ' +
     'review the intentional change and update the pin in src/lib/catalog/runtime-compatibility.ts, ' +
@@ -47,6 +47,13 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     'src/lib/character-sheet-archetypes.ts',
     'src/lib/character-sheet-archetype-helpers.ts',
     'src/lib/character-sheet-attacks.ts',
+    'src/lib/character-sheet-prerequisites.ts',
+    'src/lib/character-sheet-selection-rules.ts',
+    'src/lib/character-sheet-proficiency-schema.ts',
+    'src/lib/character-sheet-prerequisite-schema.ts',
+    'src/lib/character-sheet-prerequisite-evaluation.ts',
+    'src/lib/character-sheet-selection-slots.ts',
+    'src/lib/character-sheet-selection.ts',
   ]);
   const fingerprint = createHash('sha256');
   for (const path of catalogCalculationV1Files) {
@@ -61,8 +68,9 @@ test('v1 calculation identity matches its pinned implementation and militia proj
   const importsByFile = [
     [
       './character-sheet-attacks',
-      './character-sheet-proficiency-prerequisites',
       './character-sheet-archetypes',
+      './character-sheet-selection-rules',
+      './character-sheet-prerequisites',
       'zod',
       './character-sheet-grants',
       './character-sheet-skills',
@@ -118,13 +126,13 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ['./character-sheet', './character-sheet-proficiencies'],
     [
       './character-sheet-grants',
-      'zod',
       './character-sheet-class-levels',
       './character-sheet-armor-categories',
     ],
     [
       './character-sheet-grants',
       './character-sheet-class-levels',
+      './character-sheet-selection',
       './character-sheet-proficiencies',
     ],
     [],
@@ -132,6 +140,41 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ['./character-sheet-archetype-helpers'],
     [],
     ['./character-sheet', './character-sheet-proficiencies'],
+    [
+      './character-sheet-grants',
+      './character-sheet-class-levels',
+      './character-sheet-proficiencies',
+      './character-sheet-proficiency-prerequisites',
+      './character-sheet-prerequisite-evaluation',
+    ],
+    [
+      './character-sheet-grants',
+      './character-sheet-proficiency-prerequisites',
+      './character-sheet-prerequisite-schema',
+      './character-sheet-selection-slots',
+    ],
+    ['zod'],
+    [
+      'zod',
+      './character-sheet-abilities',
+      './character-sheet-proficiency-schema',
+    ],
+    [
+      './character-sheet-skills',
+      './character-sheet-class-levels',
+      './character-sheet-racial',
+      './character-sheet-proficiencies',
+      './character-sheet-proficiency-prerequisites',
+      './character-sheet-prerequisite-schema',
+    ],
+    [
+      './character-sheet',
+      './character-sheet-grants',
+      './character-sheet-proficiency-prerequisites',
+      './character-sheet-advancement',
+      './character-sheet-prerequisite-schema',
+    ],
+    [],
   ];
   const exportsByFile: Record<string, string[]> = {
     'src/lib/character-sheet.ts': [
@@ -140,6 +183,12 @@ test('v1 calculation identity matches its pinned implementation and militia proj
     ],
     'src/lib/character-sheet-grants.ts': [
       './character-sheet-archetype-helpers',
+    ],
+    'src/lib/character-sheet-proficiencies.ts': [
+      './character-sheet-proficiency-schema',
+    ],
+    'src/lib/character-sheet-prerequisites.ts': [
+      './character-sheet-prerequisite-evaluation',
     ],
   };
   for (const [index, path] of catalogCalculationV1Files.entries()) {

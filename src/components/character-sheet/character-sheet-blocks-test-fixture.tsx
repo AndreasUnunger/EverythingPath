@@ -1,3 +1,4 @@
+import type { Id } from '@convex/_generated/dataModel';
 import { AbilityChanges } from './ability-changes';
 import { AttackRoutines } from './attack-routines';
 import { BaseScoresEditor } from './base-scores-editor';
@@ -7,6 +8,7 @@ import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetRaces } from './character-sheet-races';
 import { CharacterSheetArchetypes } from './character-sheet-archetypes';
 import { CharacterSheetGrants } from './character-sheet-grants';
+import { CharacterSheetSelections } from './character-sheet-selections';
 import { CharacterSheetSkeleton } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
 import { CreationSettingsEditor } from './creation-settings-editor';
@@ -44,18 +46,23 @@ type SheetBlock =
   | 'skills'
   | 'equipment'
   | 'proficiencies'
+  | 'selections'
   | 'archetypes'
   | 'grants'
   | 'catalog'
   | 'attacks';
 
-const scope = { organizationId: 'org', characterId };
-
 // Exercise the real controller and selected public blocks against the same
 // read snapshots as page integration tests, without rendering unrelated UI.
-// The catalog controller (and its reads) only joins when 'catalog' is asked
-// for; rows then carry their definition controls.
-export function CharacterSheetBlocks({ blocks }: { blocks: SheetBlock[] }) {
+export function CharacterSheetBlocks({
+  blocks,
+  scopeCharacterId = characterId,
+}: {
+  blocks: SheetBlock[];
+  /** The route's Character, for tests that switch Characters. */
+  scopeCharacterId?: Id<'character'>;
+}) {
+  const scope = { organizationId: 'org', characterId: scopeCharacterId };
   const controller = useCharacterSheet(scope);
   const sheet = controller.sheet;
   if (!sheet)
@@ -130,6 +137,21 @@ function SheetBlocks({
                 attacks={controller.attacks}
                 warnings={sheet.warnings}
                 warningController={controller.warnings}
+              />
+            );
+          case 'selections':
+            return (
+              <CharacterSheetSelections
+                key={`${block}:${sheet.character._id}`}
+                view={sheet.selections}
+                controls={controller.selections}
+                warnings={controller.warnings}
+                grantSections={sheet.grants.filter(
+                  (section) =>
+                    section.kind === 'feat' || section.kind === 'trait',
+                )}
+                grants={controller.grants}
+                sheetWarnings={sheet.warnings}
               />
             );
           case 'proficiencies':

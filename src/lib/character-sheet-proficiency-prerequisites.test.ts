@@ -82,6 +82,75 @@ function sheet(
   };
 }
 
+test('legacy proficiency Accepted Warnings retain their subject and fingerprint after typed clauses are added', () => {
+  const input = sheet(
+    [feat('required', { level: 'level-1', order: 0 })],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [{ ability: 'strength', min: 13 }],
+        proficiencyPrerequisites: [
+          { kind: 'proficiency', proficiency: { category: 'heavy' } },
+        ],
+      },
+    ],
+  );
+  const accepted = [
+    {
+      subject: 'required:current:0',
+      fingerprint:
+        '["category:heavy","category:heavy",{"granted":[],"removed":[]},null]',
+    },
+    {
+      subject: 'required:recorded:0',
+      fingerprint:
+        '["category:heavy","category:heavy",{"granted":[],"removed":[]},{"classLevel":1,"choiceOrder":0,"beforeLevel":false}]',
+    },
+  ];
+  expect(
+    calculateCharacterSheet(input)
+      .warnings.filter(({ check }) => check === 'proficiencyPrerequisite')
+      .map(({ subject, fingerprint }) => ({ subject, fingerprint })),
+  ).toEqual(accepted);
+});
+
+test('tagged typed proficiency clauses reuse matching legacy warning acceptance identities once', () => {
+  const input = sheet(
+    [feat('required')],
+    [
+      {
+        _id: 'required',
+        ruleIdentity: 'feat/required',
+        modifiers: [],
+        detail: { kind: 'feat' },
+        prerequisites: [
+          { kind: 'proficiency', proficiency: { category: 'heavy' } },
+        ],
+        proficiencyPrerequisites: [
+          { kind: 'proficiency', proficiency: { category: 'heavy' } },
+        ],
+      },
+    ],
+  );
+  const result = calculateCharacterSheet(input);
+  expect(result.prerequisites).toHaveLength(1);
+  expect(result.proficiencyPrerequisites).toHaveLength(1);
+  expect(
+    result.warnings
+      .filter(({ check }) => check === 'proficiencyPrerequisite')
+      .map(({ subject, fingerprint }) => ({ subject, fingerprint })),
+  ).toEqual([
+    {
+      subject: 'required:current:0',
+      fingerprint:
+        '["category:heavy","category:heavy",{"granted":[],"removed":[]},null]',
+    },
+  ]);
+});
+
 test('a fighter satisfies a martial proficiency prerequisite without the named feat', () => {
   const result = calculateCharacterSheet(
     sheet(

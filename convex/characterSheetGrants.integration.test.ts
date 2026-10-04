@@ -1629,20 +1629,24 @@ test('editing a dormant Bonus Feat preserves its recorded slot dependency and ne
   expect(after?.calculated.abilities.dexterity.score).toBe(10);
 });
 
-test('discarding a dormant Selection removes its unreferenced character catalog definition', async () => {
+test('discarding a dormant Selection removes its unreferenced Character Catalog Copy', async () => {
   const { t, owner, scope, characterId, level } = await fixture();
-  const catalogEntryId = await t.run((ctx) =>
-    ctx.db.insert('catalogEntry', {
-      scope: 'character',
+  const catalogEntryId = await t.run(async (ctx) => {
+    const definition = {
+      scope: 'character' as const,
       characterId,
       name: 'Saved talent',
       ruleIdentity: 'saved-talent',
       sources: [],
       stacksWithItself: false,
       modifiers: [],
-      detail: { kind: 'feat' },
-    }),
-  );
+      detail: { kind: 'feat' as const },
+    };
+    return ctx.db.insert('catalogEntry', {
+      ...definition,
+      copiedFrom: await ctx.db.insert('catalogEntry', definition),
+    });
+  });
   const entryId = await owner.mutation(api.characterSheet.selectEntry, {
     ...scope,
     catalogEntryId,

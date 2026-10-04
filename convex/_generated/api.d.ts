@@ -47,6 +47,7 @@ import type * as lib_preparedCharacterSheet from "../lib/preparedCharacterSheet.
 import type * as lib_representativeArchetypeCatalog from "../lib/representativeArchetypeCatalog.js";
 import type * as lib_representativeClassCatalog from "../lib/representativeClassCatalog.js";
 import type * as lib_representativeRaceCatalog from "../lib/representativeRaceCatalog.js";
+import type * as lib_representativeSelectionCatalog from "../lib/representativeSelectionCatalog.js";
 import type * as lib_representativeSpellCatalog from "../lib/representativeSpellCatalog.js";
 import type * as lib_representativeWeaponCatalog from "../lib/representativeWeaponCatalog.js";
 import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
@@ -108,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   "lib/representativeArchetypeCatalog": typeof lib_representativeArchetypeCatalog;
   "lib/representativeClassCatalog": typeof lib_representativeClassCatalog;
   "lib/representativeRaceCatalog": typeof lib_representativeRaceCatalog;
+  "lib/representativeSelectionCatalog": typeof lib_representativeSelectionCatalog;
   "lib/representativeSpellCatalog": typeof lib_representativeSpellCatalog;
   "lib/representativeWeaponCatalog": typeof lib_representativeWeaponCatalog;
   "lib/retiredWorkflow": typeof lib_retiredWorkflow;

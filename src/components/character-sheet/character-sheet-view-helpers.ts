@@ -42,11 +42,23 @@ export function listUnplacedSelections(sheet: ReadySheet): UnplacedSelection[] {
 
 // The race and Archetype blocks render their own sections; the Grants block
 // keeps every other kind.
-const ownBlockKinds = new Set(['race', 'racialTrait', 'archetype']);
+const ownBlockKinds = new Set([
+  'race',
+  'racialTrait',
+  'archetype',
+  'feat',
+  'trait',
+]);
 export function listGrantBlockSections(sections: ReadySheet['grants']) {
   return sections.filter((section) => !ownBlockKinds.has(section.kind));
 }
 
 export function findArchetypeSection(sections: ReadySheet['grants']) {
   return sections.find((section) => section.kind === 'archetype');
+}
+
+export function listSelectionSections(sections: ReadySheet['grants']) {
+  return sections.filter(
+    (section) => section.kind === 'feat' || section.kind === 'trait',
+  );
 }

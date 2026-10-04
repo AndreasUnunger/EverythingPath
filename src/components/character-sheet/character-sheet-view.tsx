@@ -15,6 +15,7 @@ import { CharacterSheetEntries } from './character-sheet-entries';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { CharacterSheetGrants } from './character-sheet-grants';
 import { CharacterSheetRaces } from './character-sheet-races';
+import { CharacterSheetSelections } from './character-sheet-selections';
 import { ClassLevels } from './class-levels';
 import { DefensesBlock } from './defenses-block';
 import { Equipment } from './equipment';
@@ -33,6 +34,7 @@ import {
   describeIncompleteHp,
   findArchetypeSection,
   listGrantBlockSections,
+  listSelectionSections,
   listUnplacedSelections,
 } from './character-sheet-view-helpers';
 
@@ -139,7 +141,8 @@ function CampaignRow({
  * campaign row that scrolls with the body, then Character, Race, Class Levels,
  * Archetypes and Ability scores with their damage and drain in the left five of the
  * sheet's twelve columns with Defenses, Equipment, Offense, Attacks and
- * Proficiencies, and the skills, personal adjustments, sheet entries,
+ * Proficiencies, and the skills, Feats & traits after Skills, personal
+ * adjustments, sheet entries,
  * granted and dormant entries, Companions, the catalog and the creation settings beside them,
  * then the Spellcasting section across the full width. Each calculation warning sits by its
  * subject (unresolved HP under the Class Levels it is summed from, a
@@ -278,6 +281,15 @@ export function CharacterSheetView({
             </div>
             <div className="flex min-w-0 flex-col gap-3 lg:col-span-7">
               <Skills controller={controller} />
+              <CharacterSheetSelections
+                key={sheet.character._id}
+                view={sheet.selections}
+                controls={controller.selections}
+                warnings={controller.warnings}
+                grantSections={listSelectionSections(sheet.grants)}
+                grants={controller.grants}
+                sheetWarnings={sheet.warnings}
+              />
               <PersonalAdjustments
                 rows={sheet.adjustments}
                 actions={controller.adjustments}

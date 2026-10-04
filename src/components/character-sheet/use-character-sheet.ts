@@ -7,7 +7,7 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 import { useMutation, useQuery } from 'convex/react';
-import { useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import type {
   AbilityScores,
   CreationSettings,
@@ -27,6 +27,8 @@ import type { CharacterScope } from './character-scope';
 import { useCharacterSheetEntries } from './use-character-sheet-entries';
 import { useCharacterSheetRaces } from './use-character-sheet-races';
 import { useCharacterSheetArchetypes } from './use-character-sheet-archetypes';
+import { useCharacterSheetSelections } from './use-character-sheet-selections';
+import { createSelectionSlotPreview } from './character-sheet-selections-view-model';
 import { useCharacterSheetGrants } from './use-character-sheet-grants';
 import { useCharacterSheetSpells } from './use-character-sheet-spells';
 import { useCharacterCompanions } from './use-character-companions';
@@ -77,6 +79,11 @@ export function useCharacterSheet(
     scope,
     snapshot,
     catalogChoices,
+  );
+  const selections = useCharacterSheetSelections(scope, snapshot);
+  const previewSelection = useMemo(
+    () => createSelectionSlotPreview(snapshot),
+    [snapshot],
   );
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);
@@ -241,6 +248,10 @@ export function useCharacterSheet(
     companions,
     races,
     archetypes,
+    selections: {
+      ...selections,
+      preview: previewSelection,
+    },
     sheet,
     catalogSnapshot: snapshot,
     buildOut: {

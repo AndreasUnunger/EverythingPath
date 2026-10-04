@@ -1,6 +1,12 @@
 import { findArchetypeSelection } from '../src/lib/character-sheet-archetype-helpers';
 import { defaultAttackRoutineConfiguration } from '../src/lib/character-sheet-attacks';
+import {
+  selectionMetadata,
+  buildSelectionEntry,
+  replaceRecordedSelection,
+} from '../src/lib/character-sheet-selection';
 import { classCastingSchema } from '../src/lib/character-sheet-casting-tables';
+import { type SelectionSlot } from '../src/lib/character-sheet-selection-rules';
 import {
   manualProficiencySchema,
   proficiencyKey,
@@ -60,6 +66,7 @@ import schema, {
   characterSheetEntryValidator,
   modifierValidator,
   abilityValidator,
+  alignmentValidator,
   abilityChangeKindValidator,
   sheetEntryDetailValidator,
   grantKeyValidator,
@@ -70,6 +77,7 @@ import schema, {
   archetypeFeatureChangeValidator,
   attackRoutineHandsValidator,
   attackRoutineModeValidator,
+  prerequisiteValidator,
 } from './schema';
 import { getUser } from './user';
 import {
@@ -103,6 +111,7 @@ import {
   deleteCharacterSheet,
   initializeCharacterSheet,
   isManualCatalogEntry,
+  isSeededCatalogEntry,
   loadCharacterSheet,
   pruneWarningAcceptancesAndRecordChange,
   requireFixtureCampaign,
@@ -456,6 +465,44 @@ const calculatedValidator = v.object({
       met: v.boolean(),
     }),
   ),
+  prerequisites: v.array(
+    v.object({
+      entryId: v.string(),
+      view: v.union(v.literal('current'), v.literal('recorded')),
+      clauseIndex: v.number(),
+      clause: prerequisiteValidator,
+      met: v.union(v.boolean(), v.null()),
+    }),
+  ),
+  selectionRules: v.object({
+    slots: v.array(
+      v.object({
+        id: v.string(),
+        kind: v.union(v.literal('feat'), v.literal('trait')),
+        label: v.string(),
+        count: v.number(),
+        used: v.number(),
+        remaining: v.number(),
+        grantedBy: v.optional(
+          v.union(
+            v.object({ kind: v.literal('grant'), grantKey: grantKeyValidator }),
+            v.object({ kind: v.literal('entry'), entryId: v.string() }),
+          ),
+        ),
+        slotIndex: v.optional(v.number()),
+        featTypes: v.optional(v.array(v.string())),
+        feats: v.optional(v.array(v.string())),
+        ignoresPrerequisites: v.optional(v.boolean()),
+      }),
+    ),
+    budgets: v.object({
+      generalFeats: v.number(),
+      bonusFeats: v.number(),
+      traits: v.number(),
+      drawbacks: v.number(),
+    }),
+    warnings: v.array(zodOutputToConvex(characterSheetWarningSchema)),
+  }),
   weaponProficiencies: v.array(
     v.object({
       entryId: v.string(),
@@ -1105,12 +1152,34 @@ function isCatalogDefinitionReferenced(
       ),
   );
 }
+/**
+ * Manual and sheet entries own their private definitions, including a CRB
+ * Condition stored under its canonical identity. Other Selections own only the
+ * copies and one-offs created for them. Seeded rows and statistics copies have
+ * separate lifecycles, even though they are local.
+ */
+function ownsCatalogDefinition(
+  entry: Doc<'characterSheetEntry'>,
+  definition: Doc<'catalogEntry'>,
+) {
+  if (definition.racialStatisticsCopy || isSeededCatalogEntry(definition))
+    return false;
+  return (
+    entry.kind === 'manual' ||
+    isCatalogSheetEntry(entry) ||
+    definition.copiedFrom !== undefined ||
+    definition.ruleIdentity === `one-off:${definition._id}` ||
+    definition.ruleIdentity === `manual:${definition._id}` ||
+    definition.ruleIdentity === `sheetEntry:${definition._id}`
+  );
+}
 async function removeCatalogSelection(
   ctx: MutationCtx,
   sheet: Awaited<ReturnType<typeof loadWritableSheet>>,
   entry: Doc<'characterSheetEntry'> & { catalogEntryId: Id<'catalogEntry'> },
+  { preserveEntry = false }: { preserveEntry?: boolean } = {},
 ) {
-  await ctx.db.delete('characterSheetEntry', entry._id);
+  if (!preserveEntry) await ctx.db.delete('characterSheetEntry', entry._id);
   const definition = sheet.catalogEntries.find(
     (row) => row._id === entry.catalogEntryId,
   );
@@ -1118,6 +1187,7 @@ async function removeCatalogSelection(
     definition?.scope === 'character' &&
     definition.characterId === sheet.character._id &&
     !definition.importedSpell &&
+    ownsCatalogDefinition(entry, definition) &&
     !isCatalogDefinitionReferenced(sheet, entry.catalogEntryId, {
       removedEntryId: entry._id,
     })
@@ -1128,7 +1198,8 @@ async function removeCatalogSelection(
       (row) => row._id !== entry.catalogEntryId,
     );
   }
-  sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
+  if (!preserveEntry)
+    sheet.entries = sheet.entries.filter((row) => row._id !== entry._id);
   await reconcileSpellDefinition({
     ctx,
     sheet,
@@ -1402,6 +1473,8 @@ export const editCreationSettings = campaignMutation({
     ...writeScope,
     settings: creationSettingsValidator.partial(),
     favoredClassIds: v.optional(v.array(v.id('catalogEntry'))),
+    alignment: v.optional(v.union(alignmentValidator, v.null())),
+    deity: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   async handler(ctx, args) {
@@ -1422,9 +1495,16 @@ export const editCreationSettings = campaignMutation({
       requireClassDefinition(sheet, classId);
       favoredClassIds.push(classId);
     }
+    const deity = args.deity?.trim();
     const state = {
       ...base.state,
       ...settings,
+      ...(args.alignment !== undefined
+        ? { alignment: args.alignment ?? undefined }
+        : {}),
+      ...(args.deity !== undefined
+        ? { deity: deity?.length ? deity : undefined }
+        : {}),
       ...(args.favoredClassIds !== undefined ? { favoredClassIds } : {}),
     };
     if (compareValues(base.state, state) === 0) return null;
@@ -2045,10 +2125,7 @@ async function persistRecordedEntry(
   const id = previousId ?? (await ctx.db.insert('characterSheetEntry', row));
   const stored = await ctx.db.get('characterSheetEntry', id);
   if (!stored) throw new ConvexError('Entry is unavailable');
-  sheet.entries = [
-    ...sheet.entries.filter((entry) => entry._id !== id),
-    stored,
-  ];
+  sheet.entries = replaceRecordedSelection(sheet.entries, stored);
   const spellDefinitionIds = new Set([
     ...(previous?.kind === 'spell' ? [previous.catalogEntryId] : []),
     ...(stored.kind === 'spell' ? [stored.catalogEntryId] : []),
@@ -2347,15 +2424,26 @@ function requireSelectionReferences(
     return { ...source, source: family, list };
   }
   const reference = source.kind === 'slot' ? source.grantedBy : source.source;
-  const resolved = sheet.calculated.resolvedEntries.find((row) =>
+  const resolvedEntry = sheet.calculated.resolvedEntries.find((row) =>
     reference.kind === 'entry'
       ? row.entry._id === reference.entryId ||
         row.storedEntryId === reference.entryId
       : 'grantKey' in row.entry &&
         compareValues(row.entry.grantKey, reference.grantKey) === 0,
   );
+  const sourceEntry =
+    reference.kind === 'entry'
+      ? sheet.entries.find((row) => row._id === reference.entryId)
+      : undefined;
+  const resolved =
+    resolvedEntry ??
+    (sourceEntry
+      ? { origin: 'selection' as const, entry: sourceEntry }
+      : undefined);
   if (!resolved)
     throw new ConvexError('Selection source does not belong to this Character');
+  if (source.kind === 'slot' && source.slotIndex !== undefined)
+    requireSafeWholeNumber(source.slotIndex, 'Slot index');
   if (source.kind === 'prompt') {
     if (!source.list.trim()) throw new ConvexError('Choose a prompt list');
     if (source.classLevel !== undefined)
@@ -2371,6 +2459,137 @@ function requireSelectionReferences(
     ? { ...source, grantedBy: normalizedReference }
     : { ...source, source: normalizedReference };
 }
+function selectionSlotSource(
+  ctx: MutationCtx,
+  sheet: WritableSheet,
+  slot: SelectionSlot,
+) {
+  const reference = slot.grantedBy;
+  if (!reference) return undefined;
+  if (reference.kind === 'grant') {
+    return requireSelectionReferences(sheet, {
+      kind: 'slot',
+      grantedBy: reference,
+      slotIndex: slot.slotIndex,
+    });
+  }
+  const entryId = ctx.db.normalizeId('characterSheetEntry', reference.entryId);
+  if (!entryId)
+    throw new ConvexError('Selection source does not belong to this Character');
+  return requireSelectionReferences(sheet, {
+    kind: 'slot',
+    grantedBy: { kind: 'entry', entryId },
+    slotIndex: slot.slotIndex,
+  });
+}
+
+function selectionSlotFor(sheet: WritableSheet, slotId: string) {
+  const slot = sheet.calculated.selectionRules.slots.find(
+    (candidate) => candidate.id === slotId,
+  );
+  if (!slot)
+    throw new ConvexError('Selection slot does not belong to this Character');
+  return slot;
+}
+
+export const fillSelectionSlot = campaignMutation({
+  args: {
+    ...writeScope,
+    slotId: v.string(),
+    position: v.number(),
+    catalogEntryId: v.id('catalogEntry'),
+    choice: v.optional(v.union(v.string(), v.null())),
+    notes: v.optional(v.string()),
+    gainedAtClassLevel: v.optional(
+      v.union(v.id('characterSheetEntry'), v.null()),
+    ),
+    choiceOrder: v.optional(v.union(v.number(), v.null())),
+  },
+  returns: v.id('characterSheetEntry'),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    requireSafeWholeNumber(args.position, 'Slot position');
+    const slot = selectionSlotFor(sheet, args.slotId);
+    const definition = requireCatalogSheetDefinition(
+      sheet,
+      await resolvePreferredCatalogEntryId(ctx, sheet, args.catalogEntryId),
+    );
+    if (definition.kind !== slot.kind)
+      throw new ConvexError(`Choose a ${slot.kind} for this slot`);
+    if (args.gainedAtClassLevel) getClassLevel(sheet, args.gainedAtClassLevel);
+    const previous = sheet.entries.find(
+      (
+        row,
+      ): row is Extract<
+        Doc<'characterSheetEntry'>,
+        { kind: 'feat' | 'trait' }
+      > =>
+        (row.kind === 'feat' || row.kind === 'trait') &&
+        !row.grantKey &&
+        row.selectionSlot?.id === slot.id &&
+        row.selectionSlot?.position === args.position,
+    );
+    const metadata = selectionMetadata({
+      entries: sheet.entries,
+      previous,
+      input: args,
+    });
+    if (metadata.choiceOrder !== undefined)
+      requireSafeWholeNumber(metadata.choiceOrder, 'Choice order');
+    const selectionSource = selectionSlotSource(ctx, sheet, slot);
+    const id = await persistRecordedEntry(
+      ctx,
+      sheet,
+      {
+        ...buildSelectionEntry({
+          kind: slot.kind,
+          catalogEntryId: definition._id,
+          slotId: slot.id,
+          position: args.position,
+          choice: args.choice,
+          source:
+            selectionSource?.kind === 'slot' ? selectionSource : undefined,
+        }),
+        ...metadata,
+        characterId: sheet.character._id,
+      },
+      previous?._id,
+    );
+    if (previous && previous.catalogEntryId !== definition._id)
+      await removeCatalogSelection(ctx, sheet, previous, {
+        preserveEntry: true,
+      });
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return id;
+  },
+});
+
+export const clearSelectionSlot = campaignMutation({
+  args: rowScope,
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    const previous = sheet.entries.find((row) => row._id === args.entryId);
+    if (
+      !previous ||
+      (previous.kind !== 'feat' && previous.kind !== 'trait') ||
+      previous.grantKey
+    )
+      throw new ConvexError(
+        'Feat or trait Selection does not belong to this Character',
+      );
+    await removeCatalogSelection(ctx, sheet, previous);
+    await pruneWarningAcceptancesAndRecordChange(ctx, {
+      sheet,
+      operationId: args.operationId,
+    });
+    return null;
+  },
+});
+
 export const selectEntry = campaignMutation({
   args: {
     ...writeScope,
@@ -2389,47 +2608,35 @@ export const selectEntry = campaignMutation({
     requireRacialAbilityScoreChoice(definition, args.choice);
     if (definition.kind === 'race' && args.active !== false)
       requireSingleActiveRace(sheet);
-    if (args.choiceOrder !== undefined && args.choiceOrder !== null)
-      requireSafeWholeNumber(args.choiceOrder, 'Choice order');
     const selectionSource = requireSelectionReferences(
       sheet,
       args.selectionSource,
       args.gainedAtClassLevel,
     );
-    const existingOrders = sheet.entries.flatMap((row) =>
-      'gainedAtClassLevel' in row &&
-      row.gainedAtClassLevel === args.gainedAtClassLevel &&
-      row.choiceOrder !== undefined
-        ? [row.choiceOrder]
-        : [],
-    );
-    const choiceOrder =
-      args.choiceOrder !== undefined
-        ? args.choiceOrder
-        : args.gainedAtClassLevel
-          ? Math.max(-1, ...existingOrders) + 1
-          : undefined;
-    if (choiceOrder !== undefined && choiceOrder !== null)
-      requireSafeWholeNumber(choiceOrder, 'Choice order');
+    const metadata = selectionMetadata({ entries: sheet.entries, input: args });
+    if (metadata.choiceOrder !== undefined)
+      requireSafeWholeNumber(metadata.choiceOrder, 'Choice order');
     const id = await persistRecordedEntry(ctx, sheet, {
-      ...createCatalogSheetEntryState(
-        definition.kind,
-        args.choice,
-        definition.detail.kind === 'spellEffect'
-          ? definition.detail.defaultCasterLevel
-          : undefined,
-      ),
+      ...(definition.kind === 'feat' || definition.kind === 'trait'
+        ? buildSelectionEntry({
+            kind: definition.kind,
+            catalogEntryId: definition._id,
+            choice: args.choice,
+            source:
+              selectionSource?.kind === 'slot' ? selectionSource : undefined,
+          })
+        : createCatalogSheetEntryState(
+            definition.kind,
+            args.choice,
+            definition.detail.kind === 'spellEffect'
+              ? definition.detail.defaultCasterLevel
+              : undefined,
+          )),
       characterId: sheet.character._id,
       catalogEntryId: definition._id,
       active: args.active ?? true,
-      ...(args.notes !== undefined ? { notes: args.notes } : {}),
+      ...metadata,
       ...(selectionSource ? { selectionSource } : {}),
-      ...(choiceOrder !== undefined && choiceOrder !== null
-        ? { choiceOrder }
-        : {}),
-      ...(args.gainedAtClassLevel
-        ? { gainedAtClassLevel: args.gainedAtClassLevel }
-        : {}),
     });
     if (
       definition.detail.kind === 'item' &&
@@ -2493,17 +2700,99 @@ export function buildRecordedCatalogState(
         state: {
           ...entry.state,
           ...(choice === undefined ? {} : { choice }),
-          slot: { grantedBy: { kind: 'entry', entryId } },
+          slot: {
+            grantedBy: { kind: 'entry', entryId },
+            slotIndex: typeof slot === 'object' ? slot.slotIndex : undefined,
+          },
         },
       };
     }
   }
-  // Preserve every schema-defined recorded field; the kind/state discriminants
-  // originate in the same schema member and are unchanged by a choice edit.
-  return {
-    kind: entry.kind,
-    state: { ...entry.state, ...(choice === undefined ? {} : { choice }) },
-  } as RecordedCatalogState;
+  const chosen = choice === undefined ? {} : { choice };
+  switch (entry.kind) {
+    case 'feat': {
+      const slot = entry.state.slot;
+      if (slot && typeof slot === 'object' && slot.grantedBy.kind === 'grant')
+        return {
+          kind: 'feat',
+          state: {
+            ...entry.state,
+            ...chosen,
+            slot: { grantedBy: slot.grantedBy, slotIndex: slot.slotIndex },
+          },
+        };
+      return {
+        kind: 'feat',
+        state: {
+          ...entry.state,
+          ...chosen,
+          slot: slot === 'general' ? slot : undefined,
+        },
+      };
+    }
+    case 'race':
+      return { kind: entry.kind, state: { ...entry.state, ...chosen } };
+    case 'racialTrait': {
+      const replaces = entry.state.replaces?.map((reference) => {
+        const id = ctx.db.normalizeId('catalogEntry', reference);
+        if (!id)
+          throw new ConvexError(
+            'Replacement does not belong to this Character',
+          );
+        return id;
+      });
+      return {
+        kind: entry.kind,
+        state: { ...entry.state, ...chosen, replaces },
+      };
+    }
+    case 'archetype': {
+      const classEntryId = entry.state.classEntryId
+        ? ctx.db.normalizeId('catalogEntry', entry.state.classEntryId)
+        : undefined;
+      if (classEntryId === null)
+        throw new ConvexError('Class does not belong to this Character');
+      const replaces = entry.state.replaces?.map((replacement) => {
+        const catalogEntryId = ctx.db.normalizeId(
+          'catalogEntry',
+          replacement.catalogEntryId,
+        );
+        if (!catalogEntryId)
+          throw new ConvexError(
+            'Replacement does not belong to this Character',
+          );
+        return { ...replacement, catalogEntryId };
+      });
+      return {
+        kind: entry.kind,
+        state: { ...entry.state, ...chosen, classEntryId, replaces },
+      };
+    }
+    case 'classFeature':
+      return { kind: entry.kind, state: { ...entry.state, ...chosen } };
+    case 'trait':
+      return { kind: entry.kind, state: { ...entry.state, ...chosen } };
+    case 'manual':
+      return { kind: entry.kind, state: { ...entry.state, ...chosen } };
+    case 'condition':
+      return { kind: entry.kind, state: entry.state };
+    case 'spell': {
+      const castingClassId = entry.state.castingClassId
+        ? ctx.db.normalizeId('catalogEntry', entry.state.castingClassId)
+        : undefined;
+      if (castingClassId === null)
+        throw new ConvexError(
+          'Casting Class does not belong to this Character',
+        );
+      return { kind: entry.kind, state: { ...entry.state, castingClassId } };
+    }
+    case 'item':
+      return { kind: entry.kind, state: entry.state };
+    case 'spellEffect':
+      return { kind: entry.kind, state: entry.state };
+    default:
+      throw new ConvexError('Choose a feature or Selection');
+  }
 }
 export const editSelection = campaignMutation({
   args: {
@@ -2515,8 +2804,6 @@ export const editSelection = campaignMutation({
   async handler(ctx, args) {
     const sheet = await loadWritableSheet(ctx, args);
     const previous = sheet.entries.find((row) => row._id === args.entryId);
-    if (args.choiceOrder !== undefined && args.choiceOrder !== null)
-      requireSafeWholeNumber(args.choiceOrder, 'Choice order');
     if (
       !previous ||
       !('catalogEntryId' in previous) ||
@@ -2553,22 +2840,22 @@ export const editSelection = campaignMutation({
         : 'choice' in previous.state
           ? previous.state.choice
           : undefined;
+    const metadata = selectionMetadata({
+      entries: sheet.entries,
+      previous,
+      input: args,
+    });
+    if (metadata.choiceOrder !== undefined)
+      requireSafeWholeNumber(metadata.choiceOrder, 'Choice order');
     const row = {
       ...buildRecordedCatalogState(ctx, previous, choice),
       characterId: sheet.character._id,
       catalogEntryId: definition._id,
       active: args.active ?? previous.active,
-      notes: args.notes ?? previous.notes,
       ...(previous.kept ? { kept: previous.kept } : {}),
       selectionSource: selectionSource ?? undefined,
-      choiceOrder:
-        args.choiceOrder === null
-          ? undefined
-          : (args.choiceOrder ?? previous.choiceOrder),
-      gainedAtClassLevel:
-        args.gainedAtClassLevel === null
-          ? undefined
-          : (args.gainedAtClassLevel ?? previous.gainedAtClassLevel),
+      selectionSlot: previous.selectionSlot,
+      ...metadata,
     };
     await persistRecordedEntry(ctx, sheet, row, previous._id);
     await pruneWarningAcceptancesAndRecordChange(ctx, {

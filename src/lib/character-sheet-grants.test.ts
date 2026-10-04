@@ -295,6 +295,73 @@ test('a trait slot does not entitle a dependent feat', () => {
   ).toMatchObject({ dormant: true, counting: false });
 });
 
+test('a legacy Selection without a slot index follows only slot zero when another feat slot survives', () => {
+  const input = sheet();
+  input.catalogEntries = [
+    ...input.catalogEntries,
+    {
+      _id: 'parent',
+      ruleIdentity: 'parent',
+      modifiers: [],
+      grantsSlots: [
+        { kind: 'feat', count: 1 },
+        { kind: 'feat', count: 1 },
+      ],
+      detail: { kind: 'manual' },
+    },
+    {
+      _id: 'pick',
+      ruleIdentity: 'feat/pick',
+      modifiers: [{ target: 'ability.str', bonusType: 'untyped', value: 3 }],
+      detail: { kind: 'feat' },
+    },
+  ];
+  input.entries = [
+    ...input.entries,
+    {
+      _id: 'parent-row',
+      kind: 'manual',
+      active: true,
+      catalogEntryId: 'parent',
+      state: { kind: 'manual' },
+    },
+    {
+      _id: 'pick-row',
+      kind: 'feat',
+      active: true,
+      catalogEntryId: 'pick',
+      state: { kind: 'feat' },
+      selectionSource: {
+        kind: 'slot',
+        grantedBy: { kind: 'entry', entryId: 'parent-row' },
+      },
+    },
+  ];
+  expect(
+    resolveCharacterSheetGrants(input).entries.find(
+      ({ entry }) => entry._id === 'pick-row',
+    ),
+  ).toMatchObject({ counting: true, dormant: false });
+  expect(calculateCharacterSheet(input).abilities.strength.score).toBe(15);
+  input.catalogEntries = input.catalogEntries.map((row) =>
+    row._id === 'parent'
+      ? {
+          ...row,
+          grantsSlots: [
+            { kind: 'trait', count: 1 },
+            { kind: 'feat', count: 1 },
+          ],
+        }
+      : row,
+  );
+  expect(
+    resolveCharacterSheetGrants(input).entries.find(
+      ({ entry }) => entry._id === 'pick-row',
+    ),
+  ).toMatchObject({ counting: false, dormant: true });
+  expect(calculateCharacterSheet(input).abilities.strength.score).toBe(12);
+});
+
 test('deleting an earlier Class Level makes only the highest class-local Grant dormant and a fresh level restores its exact state once', () => {
   const input = sheet();
   const fighter = input.catalogEntries.find((entry) => entry._id === 'fighter');

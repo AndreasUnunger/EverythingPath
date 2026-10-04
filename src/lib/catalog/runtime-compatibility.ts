@@ -5,7 +5,7 @@
 export const catalogRuntimeCompatibility = {
   schema: 'character-sheet-v1',
   calculation:
-    'sha256:516db770a32f9bd70bf6f9f00529bd81c0073ff9d6a431feffc69d7f24ed53bf',
+    'sha256:916d72c3e6b0b8d643f62fd06db864578d93fd513925b1d122d3e447b96fae73',
 } as const;
 
 export const catalogCalculationV1Files = [
@@ -34,4 +34,11 @@ export const catalogCalculationV1Files = [
   'src/lib/character-sheet-archetypes.ts',
   'src/lib/character-sheet-archetype-helpers.ts',
   'src/lib/character-sheet-attacks.ts',
+  'src/lib/character-sheet-prerequisites.ts',
+  'src/lib/character-sheet-selection-rules.ts',
+  'src/lib/character-sheet-proficiency-schema.ts',
+  'src/lib/character-sheet-prerequisite-schema.ts',
+  'src/lib/character-sheet-prerequisite-evaluation.ts',
+  'src/lib/character-sheet-selection-slots.ts',
+  'src/lib/character-sheet-selection.ts',
 ] as const;

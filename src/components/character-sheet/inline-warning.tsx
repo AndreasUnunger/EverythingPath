@@ -35,9 +35,11 @@ function actionLabel({
 function RulesWarning({
   warning,
   controller,
+  isNamedByMessage,
 }: {
   warning: SheetWarningView;
   controller: Controller['warnings'];
+  isNamedByMessage: boolean;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const messageId = useId();
@@ -46,6 +48,12 @@ function RulesWarning({
   const status = controller.statusFor(warning);
   const isSaving = status.kind === 'saving';
   const isDisabled = isSaving || maintenance.readOnly;
+  const label = actionLabel({ isSaving, isAccepted: warning.accepted });
+  // Named by its message, the message no longer also describes the button.
+  const describedBy = [
+    isNamedByMessage ? null : messageId,
+    maintenance.readOnly ? reasonId : null,
+  ].filter((id) => id !== null);
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       {warning.accepted ? (
@@ -69,9 +77,10 @@ function RulesWarning({
         size="sm"
         variant="outline"
         className="h-8 px-2 text-xs md:h-6"
-        aria-describedby={
-          maintenance.readOnly ? `${messageId} ${reasonId}` : messageId
+        aria-label={
+          isNamedByMessage ? `${label} ${warning.message}` : undefined
         }
+        aria-describedby={describedBy.join(' ') || undefined}
         disabled={isDisabled}
         onClick={() => {
           if (isDisabled) return;
@@ -79,7 +88,7 @@ function RulesWarning({
           else void controller.accept(warning);
         }}
       >
-        {actionLabel({ isSaving, isAccepted: warning.accepted })}
+        {label}
       </Button>
       <SaveFeedback
         status={status}
@@ -105,15 +114,22 @@ export function InlineWarning({
   warning,
   controller,
   className,
+  isNamedByMessage = false,
 }: {
   warning: SheetWarningView;
   controller: Controller['warnings'];
   className?: string;
+  /** Names Accept and Reopen "Accept {message}" rather than describing them. */
+  isNamedByMessage?: boolean;
 }) {
   if (warning.kind === 'rules')
     return (
       <div className={className}>
-        <RulesWarning warning={warning} controller={controller} />
+        <RulesWarning
+          warning={warning}
+          controller={controller}
+          isNamedByMessage={isNamedByMessage}
+        />
       </div>
     );
   return (
@@ -137,10 +153,13 @@ export function InlineWarnings({
   warnings,
   controller,
   className,
+  isNamedByMessage = false,
 }: {
   warnings: SheetWarningView[];
   controller: Controller['warnings'];
   className?: string;
+  /** Names Accept and Reopen "Accept {message}" rather than describing them. */
+  isNamedByMessage?: boolean;
 }) {
   if (warnings.length === 0) return null;
   return (
@@ -150,6 +169,7 @@ export function InlineWarnings({
           key={`${warning.check}:${warning.subject}`}
           warning={warning}
           controller={controller}
+          isNamedByMessage={isNamedByMessage}
         />
       ))}
     </div>

@@ -1,0 +1,100 @@
+import type { Doc } from '../_generated/dataModel';
+
+// Representative prepared-sheet choices; production still uses legacy authority.
+export const representativeSelectionCatalog = [
+  {
+    name: 'Power Attack',
+    ruleIdentity: 'power-attack',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '131' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+    prerequisites: [{ ability: 'strength', min: 13 }, { bab: 1 }],
+    prerequisiteText: 'Str 13, base attack bonus +1.',
+  },
+  {
+    name: 'Cleave',
+    ruleIdentity: 'cleave',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '119' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'no' },
+    prerequisites: [
+      { ability: 'strength', min: 13 },
+      { feat: 'power-attack' },
+      { bab: 1 },
+    ],
+    prerequisiteText: 'Str 13, Power Attack, base attack bonus +1.',
+  },
+  {
+    name: 'Weapon Focus',
+    ruleIdentity: 'weapon-focus',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '136' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['combat'], repeatable: 'newChoice' },
+    prerequisites: [{ bab: 1 }, { proficiency: { choice: true } }],
+    prerequisiteText: 'Proficiency with selected weapon, base attack bonus +1.',
+  },
+  {
+    name: 'Skill Focus',
+    ruleIdentity: 'skill-focus',
+    sources: [{ book: 'Pathfinder RPG Core Rulebook', pages: '134' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'feat', featTypes: ['general'], repeatable: 'newChoice' },
+  },
+  {
+    name: 'Additional Traits',
+    ruleIdentity: 'additional-traits',
+    sources: [{ book: "Pathfinder RPG Advanced Player's Guide", pages: '150' }],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: {
+      kind: 'feat',
+      featTypes: ['general'],
+      repeatable: 'no',
+      additionalTraits: true,
+    },
+    grantsSlots: [{ kind: 'trait', count: 2 }],
+  },
+  {
+    name: 'Reactionary',
+    ruleIdentity: 'reactionary',
+    sources: [{ book: "Pathfinder RPG Advanced Player's Guide", pages: '328' }],
+    stacksWithItself: false,
+    modifiers: [{ target: 'init', bonusType: 'trait', value: 2 }],
+    detail: { kind: 'trait', traitType: 'combat' },
+  },
+  {
+    name: 'Indomitable Faith',
+    ruleIdentity: 'indomitable-faith',
+    sources: [{ book: "Pathfinder RPG Advanced Player's Guide", pages: '329' }],
+    stacksWithItself: false,
+    modifiers: [{ target: 'save.will', bonusType: 'trait', value: 1 }],
+    detail: { kind: 'trait', traitType: 'faith' },
+  },
+  {
+    name: 'Prepared campaign trait',
+    ruleIdentity: 'prepared-campaign-trait',
+    sources: [],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'trait', traitType: 'campaign' },
+    prerequisites: [{ unchecked: 'Campaign-specific background agreement.' }],
+    prerequisiteText: 'Campaign-specific background agreement.',
+  },
+  {
+    name: 'Prepared drawback',
+    ruleIdentity: 'prepared-drawback',
+    sources: [],
+    stacksWithItself: false,
+    modifiers: [],
+    detail: { kind: 'trait', traitType: 'drawback' },
+    guidanceText:
+      'Record the chosen drawback and its narrative consequences in notes.',
+  },
+] satisfies Omit<
+  Doc<'catalogEntry'>,
+  '_id' | '_creationTime' | 'characterId' | 'scope'
+>[];

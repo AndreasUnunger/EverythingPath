@@ -1,5 +1,4 @@
 import { characterSheetClassFamily } from './character-sheet-grants';
-import { z } from 'zod';
 import { compareClassLevelPosition } from './character-sheet-class-levels';
 import {
   armorProficiencyCategory,
@@ -7,26 +6,16 @@ import {
 } from './character-sheet-armor-categories';
 import type { CharacterSheetInput } from './character-sheet';
 
-export const proficiencyCategories = [
-  'simple',
-  'martial',
-  'firearm',
-  'light',
-  'medium',
-  'heavy',
-  'shield',
-  'towerShield',
-] as const;
-export const manualProficiencySchema = z.union([
-  z.object({ category: z.enum(proficiencyCategories) }),
-  z.object({
-    baseType: z.string().trim().min(1),
-    asMartial: z.literal(true).optional(),
-  }),
-  z.object({ group: z.string().trim().min(1) }),
-]);
-export type ManualProficiency = z.infer<typeof manualProficiencySchema>;
-export type ProficiencyGrant = ManualProficiency | { choice: true };
+export {
+  proficiencyCategories,
+  manualProficiencySchema,
+  type ManualProficiency,
+  type ProficiencyGrant,
+} from './character-sheet-proficiency-schema';
+import type {
+  ManualProficiency,
+  ProficiencyGrant,
+} from './character-sheet-proficiency-schema';
 export type ProficiencyPrerequisite = {
   kind: 'proficiency';
   proficiency: ProficiencyGrant;

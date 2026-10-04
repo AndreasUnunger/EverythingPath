@@ -1,3 +1,8 @@
+import {
+  alignmentSchema,
+  prerequisiteAtomSchema,
+  prerequisiteSchema,
+} from '../src/lib/character-sheet-prerequisite-schema';
 import { armorCategories } from '../src/lib/character-sheet-armor-categories';
 import { proficiencyCategories } from '../src/lib/character-sheet-proficiencies';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
@@ -231,7 +236,11 @@ export const selectionSourceValidator = v.union(
     classLevel: v.number(),
     list: v.string(),
   }),
-  v.object({ kind: v.literal('slot'), grantedBy: selectionReferenceValidator }),
+  v.object({
+    kind: v.literal('slot'),
+    grantedBy: selectionReferenceValidator,
+    slotIndex: v.optional(v.number()),
+  }),
   v.object({
     kind: v.literal('prompt'),
     source: selectionReferenceValidator,
@@ -247,6 +256,7 @@ const recordedCatalogEntryFields = {
   gainedAtClassLevel: v.optional(v.id('characterSheetEntry')),
   choiceOrder: v.optional(v.number()),
   selectionSource: v.optional(selectionSourceValidator),
+  selectionSlot: v.optional(v.object({ id: v.string(), position: v.number() })),
 };
 const picksByLevelValidator = v.array(
   v.object({
@@ -280,6 +290,14 @@ export const proficiencyPrerequisiteValidator = v.object({
   kind: v.literal('proficiency'),
   proficiency: proficiencyGrantValidator,
 });
+export const abilityValidator = v.union(
+  ...abilityKeys.map((ability) => v.literal(ability)),
+);
+export const alignmentValidator = zodOutputToConvex(alignmentSchema);
+export const prerequisiteAtomValidator = zodOutputToConvex(
+  prerequisiteAtomSchema,
+);
+export const prerequisiteValidator = zodOutputToConvex(prerequisiteSchema);
 const catalogEntryFields = v.object({
   scope: v.union(
     v.literal('global'),
@@ -301,6 +319,10 @@ const catalogEntryFields = v.object({
   ),
   browseOnly: v.optional(v.literal(true)),
   importedSpell: v.optional(v.literal(true)),
+  prerequisites: v.optional(v.array(prerequisiteValidator)),
+  description: v.optional(v.string()),
+  guidanceText: v.optional(v.string()),
+  prerequisiteText: v.optional(v.string()),
   grants: v.optional(
     v.array(v.object({ catalogEntryId: v.id('catalogEntry') })),
   ),
@@ -400,9 +422,6 @@ export const sheetEntryDetailValidator = v.union(
     description: v.optional(v.string()),
   }),
 );
-export const abilityValidator = v.union(
-  ...abilityKeys.map((ability) => v.literal(ability)),
-);
 export const castingValidator = zodOutputToConvex(classCastingSchema);
 export const abilityChangeKindValidator = v.union(
   v.literal('abilityDamage'),
@@ -472,8 +491,20 @@ export const catalogEntryValidator = v.union(
         duplicateUpgrade: v.optional(v.id('catalogEntry')),
         picksByLevel: v.optional(picksByLevelValidator),
       }),
-      v.object({ kind: v.literal('feat') }),
-      v.object({ kind: v.literal('trait') }),
+      v.object({
+        kind: v.literal('feat'),
+        additionalTraits: v.optional(v.literal(true)),
+        featTypes: v.optional(v.array(v.string())),
+        repeatable: v.optional(
+          v.union(
+            v.literal('no'),
+            v.literal('newChoice'),
+            v.literal('yes'),
+            v.literal('unreviewed'),
+          ),
+        ),
+      }),
+      v.object({ kind: v.literal('trait'), traitType: v.optional(v.string()) }),
     ),
   }),
   // Prepared sheets created before advancement held class names only.
@@ -491,6 +522,7 @@ export const catalogEntryValidator = v.union(
         v.literal('prestige'),
         v.literal('npc'),
       ),
+      alignments: v.optional(v.array(alignmentValidator)),
       hitDie: v.number(),
       bab: v.union(
         v.literal('full'),
@@ -631,7 +663,10 @@ export const characterSheetEntryValidator = v.union(
       slot: v.optional(
         v.union(
           v.literal('general'),
-          v.object({ grantedBy: selectionReferenceValidator }),
+          v.object({
+            grantedBy: selectionReferenceValidator,
+            slotIndex: v.optional(v.number()),
+          }),
         ),
       ),
     }),
@@ -730,6 +765,8 @@ export const characterSheetEntryValidator = v.union(
     state: v.object({
       kind: v.literal('base'),
       ...creationSettingsValidator.partial().fields,
+      alignment: v.optional(alignmentValidator),
+      deity: v.optional(v.string()),
       favoredClassIds: v.optional(v.array(v.id('catalogEntry'))),
       proficiencies: v.optional(
         v.object({
@@ -1039,7 +1076,11 @@ export default defineSchema({
   }).index('by_characterId', ['characterId']),
   characterSheetEntry: defineTable(characterSheetEntryValidator)
     .index('by_characterId', ['characterId'])
-    .index('by_characterId_and_kind_and_active', ['characterId', 'kind', 'active']),
+    .index('by_characterId_and_kind_and_active', [
+      'characterId',
+      'kind',
+      'active',
+    ]),
   character: defineTable(characterValidator)
     .index('by_campaignId', ['campaignId'])
     .index('by_ownerId', ['ownerId']),

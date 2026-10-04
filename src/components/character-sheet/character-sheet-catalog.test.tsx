@@ -88,6 +88,7 @@ type Blocks = Array<
   | 'entries'
   | 'races'
   | 'equipment'
+  | 'selections'
 >;
 const page = (blocks: Blocks) => <CharacterSheetBlocks blocks={blocks} />;
 function renderSheet(
@@ -1392,4 +1393,80 @@ test('on a phone and a tablet the catalog keeps labeled controls and whole long 
     value: 1024,
     configurable: true,
   });
+});
+
+test('feat selection rows retain Customize for campaign and Detach definition controls', async () => {
+  const initial = withScopes(buildSheet({ adjustments: [blessing] }), {
+    'blessing-catalog': 'global',
+  });
+  const base = recalculate({
+    ...initial,
+    entries: initial.entries.map((entry) =>
+      entry.kind === 'manual'
+        ? {
+            ...entry,
+            kind: 'feat',
+            state: { kind: 'feat' },
+            selectionSlot: { id: 'feat:general', position: 0 },
+          }
+        : entry,
+    ),
+    catalogEntries: initial.catalogEntries.map((entry) =>
+      entry._id === 'blessing-catalog'
+        ? { ...entry, detail: { kind: 'feat' } }
+        : entry,
+    ),
+  });
+  definitions = base.catalogEntries;
+  renderSheet(base, ['catalog', 'selections']);
+  const row = within(
+    screen.getByRole('region', { name: 'Feats & traits' }),
+  ).getByRole('listitem', { name: 'Battle blessing' });
+  openDefinition(row, 'Battle blessing');
+  fireEvent.click(action(row, 'Customize for campaign'));
+  expect(lastCall('customizeForCampaign').args).toMatchObject({
+    catalogEntryId: 'blessing-catalog',
+  });
+  await act(async () =>
+    lastCall('customizeForCampaign').resolve('campaign-copy'),
+  );
+  fireEvent.click(action(row, 'Detach'));
+  expect(lastCall('detach').args).toMatchObject({
+    target: { kind: 'entry', entryId: 'blessing' },
+  });
+});
+
+test('a created one-off feat takes focus in Feats & traits after its saved row arrives', async () => {
+  const sheet = renderSheet(buildSheet(), ['catalog', 'selections']);
+  const { name, value, save } = openOneOff();
+  fireEvent.change(name, { target: { value: blessing.name } });
+  fireEvent.change(value, { target: { value: '2' } });
+  save();
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall('createOneOff').args).toMatchObject({
+    definition: { detail: { kind: 'feat' } },
+  });
+  await act(async () => lastCall('createOneOff').resolve('blessing'));
+  const saved = buildSheet({
+    adjustments: [blessing],
+    lastOperationId: String(lastCall('createOneOff').args.operationId),
+  });
+  sheet.show(
+    recalculate({
+      ...saved,
+      entries: saved.entries.map((entry) =>
+        entry.kind === 'manual'
+          ? { ...entry, kind: 'feat', state: { kind: 'feat' } }
+          : entry,
+      ),
+      catalogEntries: saved.catalogEntries.map((entry) =>
+        entry._id === 'blessing-catalog'
+          ? { ...entry, detail: { kind: 'feat' } }
+          : entry,
+      ),
+    }),
+  );
+  expect(
+    screen.getByRole('switch', { name: 'Battle blessing: on' }),
+  ).toHaveFocus();
 });

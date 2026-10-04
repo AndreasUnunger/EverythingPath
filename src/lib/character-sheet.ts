@@ -3,11 +3,17 @@ import {
   resolveAttackRoutines,
   type AttackRoutineState,
 } from './character-sheet-attacks';
-import { resolveProficiencyPrerequisites } from './character-sheet-proficiency-prerequisites';
 import {
   resolveCharacterSheetArchetypes,
   type ResolvedCharacterSheetArchetypes,
 } from './character-sheet-archetypes';
+import type { Alignment } from './character-sheet-prerequisite-schema';
+import { resolveCharacterSheetSelectionRules } from './character-sheet-selection-rules';
+import {
+  resolveCharacterSheetPrerequisites,
+  type Prerequisite,
+  type PrerequisiteFacts,
+} from './character-sheet-prerequisites';
 import type { Infer, GenericId } from 'convex/values';
 import type { characterSheetEntryValidator } from '../../convex/schema';
 import { z } from 'zod';
@@ -37,7 +43,6 @@ import {
 import {
   advancementBudgets,
   advancementWarnings,
-  generalFeatWarnings,
   resolveAdvancement,
 } from './character-sheet-advancement';
 import {
@@ -122,8 +127,20 @@ export const warningChecks = [
   'racialProgressionMissing',
   'racialSkillRankCap',
   'racialSkillRankBudget',
-  'generalFeatBudget',
   'proficiencyPrerequisite',
+  'prerequisites.current',
+  'prerequisites.recordedLevel',
+  'featSlotBudget',
+  'featSlotType',
+  'featDuplicate',
+  'traitCount',
+  'traitType',
+  'traitSlotType',
+  'traitDuplicate',
+  'drawbackCount',
+  'campaignTraitRequired',
+  'npcTraits',
+  'classAlignment',
   'oneHandedExotic',
   'equipmentEnhancement',
   'spellCount',
@@ -219,6 +236,7 @@ export type FavoredClassBonus =
 export type CharacterSheetClassDetail = {
   kind: 'class';
   classKind: 'base' | 'prestige' | 'npc';
+  alignments?: readonly Alignment[];
   counterpartOf?: string;
   hitDie: number;
   bab: 'full' | 'threeQuarters' | 'half';
@@ -240,6 +258,10 @@ export type CharacterSheetCatalogEntry = {
   detail?: SheetCatalogEntryDetail;
   proficiencies?: readonly ProficiencyGrant[];
   proficiencyPrerequisites?: readonly ProficiencyPrerequisite[];
+  prerequisites?: readonly Prerequisite[];
+  description?: string;
+  guidanceText?: string;
+  prerequisiteText?: string;
   grants?: readonly { catalogEntryId: string }[];
   grantsSlots?: readonly {
     kind: 'feat' | 'trait';
@@ -357,7 +379,13 @@ export type SheetCatalogEntryDetail =
         count: number;
       }[];
     }
-  | { kind: 'feat' | 'trait' }
+  | {
+      kind: 'feat';
+      featTypes?: readonly string[];
+      repeatable?: 'no' | 'newChoice' | 'yes' | 'unreviewed';
+      additionalTraits?: true;
+    }
+  | { kind: 'trait'; traitType?: string }
   | {
       kind: 'spellEffect';
       lastsOverOneDay?: boolean;
@@ -860,20 +888,31 @@ function calculateDerivedStatistics(
   };
 }
 
-function calculateSheetProjection(
-  recordedInput: CharacterSheetInput,
-  resolveOptions: ResolveOptions,
-  formulaCache: FormulaCache,
-  archetypes: ResolvedCharacterSheetArchetypes,
-  { base, baseModifiers } = baseScoresFor(recordedInput),
-  permanentIntelligence?: number,
-  permanentAbilities?: Record<Ability, { score: number; modifier: number }>,
-) {
-  const grants = resolveCharacterSheetGrants(recordedInput, {
-    ...resolveOptions,
-    archetypes,
-  });
-  const countingInput = { ...recordedInput, entries: grants.countingEntries };
+type SheetProjectionArgs = {
+  recordedInput: CharacterSheetInput;
+  resolveOptions: ResolveOptions;
+  formulaCache: FormulaCache;
+  archetypes: ResolvedCharacterSheetArchetypes;
+  baseScores?: ReturnType<typeof baseScoresFor>;
+  permanentIntelligence?: number;
+  permanentAbilities?: Record<Ability, { score: number; modifier: number }>;
+};
+
+function prepareSheetCalculation({
+  recordedInput,
+  resolveOptions,
+  countingEntries,
+  archetypes,
+}: {
+  recordedInput: CharacterSheetInput;
+  resolveOptions: ResolveOptions;
+  countingEntries: readonly SheetEntry[];
+  archetypes: ResolvedCharacterSheetArchetypes;
+}) {
+  const countingInput = {
+    ...recordedInput,
+    entries: countingEntries,
+  };
   const racial = resolveCharacterSheetRacialFacts(countingInput);
   const options = {
     ...resolveOptions,
@@ -905,11 +944,6 @@ function calculateSheetProjection(
   });
   const effectiveInput = conditions.input;
   const proficiencies = resolveProficiencies(effectiveInput);
-  const proficiencyPrerequisites = resolveProficiencyPrerequisites(
-    recordedInput,
-    effectiveInput,
-    proficiencies,
-  );
   const equipment = resolveEquipment({
     input: effectiveInput,
     proficiencies,
@@ -1004,6 +1038,59 @@ function calculateSheetProjection(
       bonusType: 'size',
     });
   const modifiers = [...sourced, ...drainModifiers, ...advancement.modifiers];
+  return {
+    input,
+    effectiveInput,
+    racial,
+    options,
+    proficiencies,
+    equipment,
+    weaponProficiencies,
+    advancement,
+    levels,
+    abilityDamage,
+    conditionEffects,
+    derivedOptions,
+    modifiers,
+    context,
+  };
+}
+
+function calculateSheetProjection({
+  recordedInput,
+  resolveOptions,
+  formulaCache,
+  archetypes,
+  baseScores = baseScoresFor(recordedInput),
+  permanentIntelligence,
+  permanentAbilities,
+}: SheetProjectionArgs) {
+  const { base, baseModifiers } = baseScores;
+  const grants = resolveCharacterSheetGrants(recordedInput, {
+    ...resolveOptions,
+    archetypes,
+  });
+  const {
+    input,
+    effectiveInput,
+    racial,
+    options,
+    proficiencies,
+    equipment,
+    weaponProficiencies,
+    advancement,
+    levels,
+    abilityDamage,
+    conditionEffects,
+    derivedOptions,
+    modifiers,
+    context,
+  } = prepareSheetCalculation({
+    recordedInput,
+    resolveOptions,
+    countingEntries: grants.countingEntries,
+    archetypes,
+  });
   const {
     breakdowns,
     warnings: formulaWarnings,
@@ -1036,6 +1123,63 @@ function calculateSheetProjection(
     breakdowns,
     equipment,
   });
+  const selectionRules = resolveCharacterSheetSelectionRules(effectiveInput, {
+    grantsResolved: true,
+  });
+  const recordedFacts = new Map<string, PrerequisiteFacts>();
+  const numericActivationIds = new Set(
+    recordedInput.catalogEntries.flatMap((definition) =>
+      definition.modifiers.flatMap((modifier) =>
+        modifier.condition?.whileActive ? [modifier.condition.whileActive] : [],
+      ),
+    ),
+  );
+  const prerequisites = resolveCharacterSheetPrerequisites(
+    recordedInput,
+    effectiveInput,
+    { abilities, bab: breakdowns.bab.total },
+    (prefix): PrerequisiteFacts => {
+      // Plain feats/traits do not change numeric facts. Preserve every numeric
+      // contribution and conditional activation, including same-level Grants.
+      const key = JSON.stringify(
+        prefix.entries.filter((entry) => {
+          if (entry.kind !== 'feat' && entry.kind !== 'trait') return true;
+          const definition = prefix.catalogEntries.find(
+            (row) => row._id === entry.catalogEntryId,
+          );
+          return (
+            !definition ||
+            definition.modifiers.length > 0 ||
+            numericActivationIds.has(entry.catalogEntryId)
+          );
+        }),
+      );
+      const cached = recordedFacts.get(key);
+      if (cached) return cached;
+      const prepared = prepareSheetCalculation({
+        recordedInput: prefix,
+        resolveOptions: options,
+        countingEntries: prefix.entries,
+        archetypes: resolveCharacterSheetArchetypes(prefix),
+      });
+      const result = resolveCalculation(
+        prepared.modifiers,
+        prepared.context,
+        formulaCache,
+        prepared.levels,
+        { input: prepared.input, abilityDamage: prepared.abilityDamage },
+      );
+      const facts = {
+        abilities: calculateAbilities(
+          result.breakdowns,
+          prepared.abilityDamage,
+        ),
+        bab: result.breakdowns.bab.total,
+      };
+      recordedFacts.set(key, facts);
+      return facts;
+    },
+  );
   const hp =
     advancement.missingRacialHp ||
     levels.some((entry) => entry.state.hpGained === null)
@@ -1083,17 +1227,14 @@ function calculateSheetProjection(
     ...skillProjection.warnings,
     ...weaponProficiencies.warnings,
     ...attackRoutines.flatMap((routine) => routine.warnings),
-    ...proficiencyPrerequisites.warnings,
+    ...prerequisites.warnings,
+    ...selectionRules.warnings,
     ...grants.warnings,
     ...archetypes.warnings,
     ...racialTraitWarnings(
       recordedInput,
       grants.allEntries,
       advancementResult.budgets.racialSkillRanks,
-    ),
-    ...generalFeatWarnings(
-      grants.allEntries,
-      advancementResult.budgets.generalFeats,
     ),
     ...spellWarnings,
   ].filter(
@@ -1148,7 +1289,9 @@ function calculateSheetProjection(
     },
     proficiencies,
     weaponProficiencies: weaponProficiencies.weapons,
-    proficiencyPrerequisites: proficiencyPrerequisites.checks,
+    proficiencyPrerequisites: prerequisites.proficiencyChecks,
+    prerequisites: prerequisites.checks,
+    selectionRules,
     conditionEffects,
     abilityModifierBreakdowns: calculateAbilityModifierBreakdowns(
       abilities,
@@ -1184,28 +1327,28 @@ export function calculateCharacterSheet(
   const baseScores = baseScoresFor(input);
   const archetypes = resolveCharacterSheetArchetypes(input);
   if (options.permanentOnly)
-    return calculateSheetProjection(
-      input,
-      options,
+    return calculateSheetProjection({
+      recordedInput: input,
+      resolveOptions: options,
       formulaCache,
       archetypes,
       baseScores,
-    );
+    });
   const permanentAbilities = permanentAbilitiesFor(
     input,
     options,
     formulaCache,
     archetypes,
   );
-  return calculateSheetProjection(
-    input,
-    options,
+  return calculateSheetProjection({
+    recordedInput: input,
+    resolveOptions: options,
     formulaCache,
     archetypes,
     baseScores,
-    permanentAbilities.intelligence.modifier,
+    permanentIntelligence: permanentAbilities.intelligence.modifier,
     permanentAbilities,
-  );
+  });
 }
 
 export function calculateCharacterSheetProjections(
@@ -1233,23 +1376,27 @@ export function calculateCharacterSheetProjections(
   const formulaCache: FormulaCache = new Map();
   const baseScores = baseScoresFor(input);
   const archetypes = resolveCharacterSheetArchetypes(input);
-  const permanent = calculateSheetProjection(
-    input,
-    { ...shared, ...projectionInputs?.permanent, permanentOnly: true },
+  const permanent = calculateSheetProjection({
+    recordedInput: input,
+    resolveOptions: {
+      ...shared,
+      ...projectionInputs?.permanent,
+      permanentOnly: true,
+    },
     formulaCache,
     archetypes,
     baseScores,
-  );
+  });
   return {
-    current: calculateSheetProjection(
-      input,
-      { ...shared, ...projectionInputs?.current },
+    current: calculateSheetProjection({
+      recordedInput: input,
+      resolveOptions: { ...shared, ...projectionInputs?.current },
       formulaCache,
       archetypes,
       baseScores,
-      permanent.abilities.intelligence.modifier,
-      permanent.abilities,
-    ),
+      permanentIntelligence: permanent.abilities.intelligence.modifier,
+      permanentAbilities: permanent.abilities,
+    }),
     permanent,
   };
 }

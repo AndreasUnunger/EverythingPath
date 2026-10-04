@@ -374,7 +374,7 @@ describe('internal fixture boundary', () => {
         hpGained: null,
       },
     });
-    expect(sheet?.catalogEntries).toHaveLength(126);
+    expect(sheet?.catalogEntries).toHaveLength(134);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -440,8 +440,15 @@ describe('internal fixture boundary', () => {
         .map((entry) => ({
           name: entry.name,
           ruleIdentity: entry.ruleIdentity,
-        })),
-    ).toEqual([{ name: 'Skill Focus', ruleIdentity: 'skill-focus' }]);
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    ).toEqual([
+      { name: 'Additional Traits', ruleIdentity: 'additional-traits' },
+      { name: 'Cleave', ruleIdentity: 'cleave' },
+      { name: 'Power Attack', ruleIdentity: 'power-attack' },
+      { name: 'Skill Focus', ruleIdentity: 'skill-focus' },
+      { name: 'Weapon Focus', ruleIdentity: 'weapon-focus' },
+    ]);
     for (const entry of sheet?.catalogEntries ?? []) {
       expect(entry).toMatchObject({
         scope: 'character',
@@ -541,7 +548,7 @@ describe('internal fixture boundary', () => {
     });
     expect(sheet?.entries).toHaveLength(2);
     expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
-    expect(sheet?.catalogEntries).toHaveLength(126);
+    expect(sheet?.catalogEntries).toHaveLength(134);
     expect(
       sheet?.catalogEntries.filter((entry) => entry.detail.kind === 'spell'),
     ).toHaveLength(0);
@@ -560,7 +567,7 @@ describe('internal fixture boundary', () => {
         acceptedWarnings: (await ctx.db.query('acceptedWarning').collect())
           .length,
       })),
-    ).toEqual({ entries: 2, catalogEntries: 128, acceptedWarnings: 0 });
+    ).toEqual({ entries: 2, catalogEntries: 136, acceptedWarnings: 0 });
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
     expect(

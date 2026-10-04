@@ -20,6 +20,7 @@ import {
   materializeRepresentativeArchetypeCatalog,
 } from './representativeArchetypeCatalog';
 import { representativeWeaponCatalog } from './representativeWeaponCatalog';
+import { representativeSelectionCatalog } from './representativeSelectionCatalog';
 import {
   getCompanionSupportingEntryKeys,
   reconcileCompanionRelationships,
@@ -57,6 +58,25 @@ export function isManualCatalogEntry(
   entry: Doc<'catalogEntry'>,
 ): entry is Extract<Doc<'catalogEntry'>, { detail: { kind: 'manual' } }> {
   return entry.detail.kind === 'manual';
+}
+
+const seededRuleIdentities = new Set<string>(
+  [
+    ...representativeSelectionCatalog,
+    ...representativeClassCatalog,
+    ...representativeArchetypeCatalog,
+    ...representativeWeaponCatalog,
+    ...representativeRaceCatalog,
+  ].map((definition) => definition.ruleIdentity),
+);
+
+/** Rows every new sheet seeds; they outlive any entry that references them. */
+export function isSeededCatalogEntry(entry: Doc<'catalogEntry'>) {
+  return (
+    entry.scope === 'character' &&
+    entry.copiedFrom === undefined &&
+    seededRuleIdentities.has(entry.ruleIdentity)
+  );
 }
 
 export function requireFixtureCampaign(
@@ -140,6 +160,15 @@ export async function initializeCharacterSheet(
     },
   });
   // Isolated prepared sheets carry representative classes, not a Catalog Release.
+  const selectionCatalogIds = new Map<string, Id<'catalogEntry'>>();
+  for (const definition of representativeSelectionCatalog) {
+    const id = await ctx.db.insert('catalogEntry', {
+      ...definition,
+      characterId,
+      scope: 'character',
+    });
+    selectionCatalogIds.set(definition.ruleIdentity, id);
+  }
   const classCatalogIds = new Map<string, Id<'catalogEntry'>>();
   for (const definition of representativeClassCatalog) {
     const id = await ctx.db.insert('catalogEntry', {
@@ -211,6 +240,11 @@ export async function initializeCharacterSheet(
     });
   const raceCatalogIds = new Map<string, Id<'catalogEntry'>>();
   for (const definition of representativeRaceCatalog) {
+    const existing = selectionCatalogIds.get(definition.ruleIdentity);
+    if (existing) {
+      raceCatalogIds.set(definition._id, existing);
+      continue;
+    }
     const id = await ctx.db.insert('catalogEntry', {
       scope: 'character',
       characterId,
@@ -233,6 +267,7 @@ export async function initializeCharacterSheet(
   )) {
     const id = raceCatalogIds.get(key);
     if (!id) throw new ConvexError('Representative race is unavailable');
+    if (selectionCatalogIds.has(definition.ruleIdentity)) continue;
     await ctx.db.replace('catalogEntry', id, {
       ...definition,
       scope: 'character',

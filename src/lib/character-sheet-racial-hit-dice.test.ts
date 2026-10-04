@@ -120,6 +120,17 @@ test.each([
     ];
     const result = calculateCharacterSheet(input);
     expect(result.budgets.generalFeats).toBe(budget);
+    expect(result.selectionRules.budgets.generalFeats).toBe(budget);
+    expect(
+      result.selectionRules.slots.find((slot) => slot.id === 'feat:general'),
+    ).toMatchObject({ count: budget, used: budget + 1, remaining: -1 });
+    expect(
+      result.warnings.filter(
+        (warning) =>
+          warning.check === 'featSlotBudget' &&
+          warning.subject === 'feat:general',
+      ),
+    ).toHaveLength(1);
     expect(
       result.resolvedEntries.filter(
         (row) => row.entry.kind === 'feat' && row.counting,
@@ -127,9 +138,10 @@ test.each([
     ).toHaveLength(budget + 1);
     expect(result.warnings).toContainEqual(
       expect.objectContaining({
-        check: 'generalFeatBudget',
+        check: 'featSlotBudget',
+        subject: 'feat:general',
         kind: 'rules',
-        target: { kind: 'entry', entryId: 'feat-0' },
+        target: { kind: 'entry', entryId: 'base-row' },
       }),
     );
     input.entries = input.entries.filter(
@@ -137,7 +149,10 @@ test.each([
     );
     expect(
       calculateCharacterSheet(input).warnings.some(
-        (warning) => warning.check === 'generalFeatBudget',
+        (warning) =>
+          warning.check === 'featSlotBudget' &&
+          warning.subject === 'feat:general' &&
+          warning.kind === 'rules',
       ),
     ).toBe(false);
   },
@@ -441,6 +456,11 @@ test('granted feats and feats chosen in named bonus slots do not consume the ord
     ),
   ).toHaveLength(3);
   expect(
-    result.warnings.some((warning) => warning.check === 'generalFeatBudget'),
+    result.warnings.some(
+      (warning) =>
+        warning.check === 'featSlotBudget' &&
+        warning.subject === 'feat:general' &&
+        warning.kind === 'rules',
+    ),
   ).toBe(false);
 });
