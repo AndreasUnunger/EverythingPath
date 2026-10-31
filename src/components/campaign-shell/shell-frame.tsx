@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { KeepIcon } from '~/components/keepIcon';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
+import { LegalFooter } from '~/components/legal/legal-footer';
 import { cn } from '~/lib/utils';
 import { GuardedLink } from './navigation-guard';
 import { MaintenanceBanner } from './maintenance-banner';
@@ -20,7 +21,10 @@ export { OrganizationControl } from './organization-control';
 // footer and phone strip stay pinned. It is clipped, not hidden, so focus
 // can never scroll the frame itself. Every other page keeps document
 // scrolling for its current forms. The maintenance banner sits above the
-// top bar on phone and below it from tablet width.
+// top bar on phone and below it from tablet width. The legal footer closes
+// every frame: after the page on a document frame, pinned under the Week's
+// own footer on a bounded one, and above the phone bottom bar (`footer`)
+// in both.
 export function ShellFrame({
   header,
   children,
@@ -45,6 +49,7 @@ export function ShellFrame({
         {header}
       </header>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <LegalFooter />
       {footer}
     </div>
   );
