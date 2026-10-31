@@ -36,6 +36,14 @@
       "https://paizo.com/licenses/communityuse (Last Updated August 22, 2024), fetched 2026-10-31; the template with Keepnet as the project name."
     ]
   },
+  "calendarCredit": {
+    "id": "calendar-credit",
+    "title": "Paizo Community Use",
+    "text": "Golarion calendar names from \"Time on Golarion—Days of the Week\" by Mike McArtor, Paizo Blog (2007).",
+    "provenance": [
+      "Owner decision, 2026-10-31: credit the Paizo Blog post the Golarion month and weekday names come from (CUP author credit)."
+    ]
+  },
   "contact": {
     "id": "contact",
     "title": "Contact",

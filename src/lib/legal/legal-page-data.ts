@@ -7,13 +7,15 @@ export type LegalSection = {
   id: string;
   title: string;
   notices: LegalNotice[];
-  link?: NoticeLink;
+  /** Each notice links the first of these whose text it contains. */
+  links?: NoticeLink[];
 };
 
 // The static legal page. Every text comes from `legal-notices.json`: the OGL
 // and Section 8 as the feature branch's reviewed resources, Section 15 for
 // the militia rules the app shows (Lands of Conflict, as printed), the
-// current Paizo Community Use notice, the contact and the copyright line.
+// current Paizo Community Use notice with the Golarion calendar's credit,
+// the contact and the copyright line.
 export const legalPage = {
   title: 'Legal notices',
   introduction:
@@ -33,17 +35,23 @@ export const legalPage = {
     {
       id: 'paizo',
       title: 'Paizo Community Use',
-      notices: [notices.paizo],
-      link: {
-        text: 'paizo.com/licenses/communityuse',
-        href: 'https://paizo.com/licenses/communityuse',
-      },
+      notices: [notices.paizo, notices.calendarCredit],
+      links: [
+        {
+          text: 'paizo.com/licenses/communityuse',
+          href: 'https://paizo.com/licenses/communityuse',
+        },
+        {
+          text: 'Time on Golarion—Days of the Week',
+          href: 'https://paizo.com/blog/time-on-golarion-mdash-days-of-the-week',
+        },
+      ],
     },
     {
       id: 'contact',
       title: 'Contact',
       notices: [notices.contact],
-      link: { text: notices.contact.text, href: notices.contact.text },
+      links: [{ text: notices.contact.text, href: notices.contact.text }],
     },
   ] satisfies LegalSection[],
   copyright: notices.copyright.text,

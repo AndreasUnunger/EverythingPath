@@ -38,7 +38,9 @@ export function LegalPage() {
                 key={notice.id}
                 notice={notice}
                 showTitle={notice.title !== section.title}
-                link={section.link}
+                link={section.links?.find(({ text }) =>
+                  notice.text.includes(text),
+                )}
               />
             ))}
           </SectionFrame>
