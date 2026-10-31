@@ -1,4 +1,5 @@
 import { CampaignHomeSkeleton } from '~/components/campaign-home/campaign-home-status';
+import { StaticLegalFooter } from '~/components/legal/static-legal-footer';
 import { Skeleton } from '~/components/ui/skeleton';
 
 // Route fallback for the campaign list and home only. It sits in this
@@ -11,6 +12,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 // classes mirror ShellFrame and TopBarRow, which are not imported here because
 // they pull in Clerk, Convex and the maintenance banner. The screen reader
 // announcement ("Loading campaigns…") lives inside CampaignHomeSkeleton.
+// The legal footer closes this frame as it closes ShellFrame.
 export default function Loading() {
   return (
     <div className="flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
@@ -30,6 +32,7 @@ export default function Loading() {
       <div className="flex min-h-0 flex-1 flex-col">
         <CampaignHomeSkeleton />
       </div>
+      <StaticLegalFooter />
     </div>
   );
 }
