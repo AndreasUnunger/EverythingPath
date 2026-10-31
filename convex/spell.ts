@@ -1,8 +1,7 @@
-import { query } from './_generated/server';
 import {
-  mutation,
   type MutationCtx,
   internalMutation,
+  internalQuery,
 } from './_generated/server';
 import { spellValidator } from './schema';
 import { TableAggregate } from '@convex-dev/aggregate';
@@ -23,21 +22,21 @@ export const aggregate = new TableAggregate<{
   sortKey: (_) => null,
 });
 
-export const get = query({
+export const get = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('spell').collect();
   },
 });
 
-export const getCount = query({
+export const getCount = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await aggregate.count(ctx);
   },
 });
 
-export const addSpellMutation = mutation({
+export const addSpellMutation = internalMutation({
   args: spellValidator,
   handler: async (ctx, spell) => {
     await addSpellMutationFunction(ctx, spell);
