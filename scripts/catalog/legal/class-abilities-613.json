@@ -1,0 +1,571 @@
+{
+  "ticket": "https://github.com/AndreasUnunger/EverythingPath/issues/613",
+  "launchSubset": {
+    "run": "#596 run B (Fighter class root and Bonus Feats)",
+    "statement": "MVP launch subset of #613: this inventory curates only pf1/CV8BsY3ciUb9TA1Y (Bonus Feats); the ticket's other 99 keys stay remaining acceptance under #613.",
+    "curatedKeys": ["pf1/CV8BsY3ciUb9TA1Y"],
+    "remainingAcceptance": [
+      "pf1/BoCVZxYpwSOmmtHm",
+      "pf1/BoEkMviJrW0PKmhj",
+      "pf1/BpWKqeBybsuPbO05",
+      "pf1/BpZ4ZcA9JiqRxCeG",
+      "pf1/Br14oRMf7TmT4Q7T",
+      "pf1/BrPcSs4XNULA5rmA",
+      "pf1/BrlJfnz5ZRKl4f9O",
+      "pf1/Bs5i98ja24ODe9WL",
+      "pf1/BsEeCbBpNaZ2V0kv",
+      "pf1/BuF64bvzoRrbYgWY",
+      "pf1/BuHgHIkacRq4QHhH",
+      "pf1/Bv4TWEti93H40Qbf",
+      "pf1/BvPQKHTrEt4YifAL",
+      "pf1/Bw3GiobZvSJb8dGI",
+      "pf1/BwDN5DEhxdzLrPLZ",
+      "pf1/BxWHV2yvMZ2rx8f7",
+      "pf1/ByK6tGzzELAxq67X",
+      "pf1/ByZBsqXi9uhbPSJn",
+      "pf1/BzU2MdQnhmr1B3dp",
+      "pf1/C0kN2Ob5gw8pFfcr",
+      "pf1/C2DvBVzMotvjAP3S",
+      "pf1/C2FVz32kc2QRrFtj",
+      "pf1/C2aOEHE9Hw9xVrkW",
+      "pf1/C2cRFzjB1r5FW1fY",
+      "pf1/C4J4sJry7lWk2UhF",
+      "pf1/C5JejqqQIZFROUwk",
+      "pf1/C5Th67iHrKgKss6o",
+      "pf1/C5tWPm12qyz5ND9u",
+      "pf1/C7UgLJt7yRHnAqyG",
+      "pf1/C7d96scKQaGqfOdL",
+      "pf1/C7tHVkvYhD9THmQx",
+      "pf1/C8M0fm2bxtkUZDwS",
+      "pf1/C9akVrvxNxZV7xY9",
+      "pf1/C9fJmerH9OrNTRYq",
+      "pf1/CAqa9MOR1j3Kq71l",
+      "pf1/CB0KQ3IRRdeZAfcN",
+      "pf1/CCSBySTjdUsohhTs",
+      "pf1/CCn98ISdNpZwfaT8",
+      "pf1/CD3ZuuzAULUXV4XX",
+      "pf1/CDukd682w0F0it7j",
+      "pf1/CEjHiIRIDWGrJjMX",
+      "pf1/CEwc60rpSMFlbjce",
+      "pf1/CFeLPB75OcS96yI4",
+      "pf1/CHB0KQWWPdWVVA5Z",
+      "pf1/CHsZctnS2oy99Ls5",
+      "pf1/CIiflPnMFK7cifb8",
+      "pf1/CItAoMTHm5BVVtVt",
+      "pf1/CJRVr4e1LHdkRBbw",
+      "pf1/CJt6AlnYI8tiRV5l",
+      "pf1/CK5L0YJDENqBxLqv",
+      "pf1/CLwSK8W2wInHRYow",
+      "pf1/CMg3XT5BWssK6tcp",
+      "pf1/CMhvFSQvAKs0HEyQ",
+      "pf1/CMm74kETONnAlydH",
+      "pf1/CN0cGYINGYNedmCc",
+      "pf1/CNwHl4YjXM4xl7MU",
+      "pf1/CO1zRIeXTn6L5yQY",
+      "pf1/CO9fhRbqFf3FElkS",
+      "pf1/COYvk4S1CTRWSloW",
+      "pf1/CQodaSz6k3JZzgyf",
+      "pf1/CRSIt2OEEJTflw52",
+      "pf1/CVyecjW52RuSAD1p",
+      "pf1/CW99G919xJkrIWAu",
+      "pf1/CWwLe0JqneG0uBil",
+      "pf1/CYOk7sUXkGbfRKPi",
+      "pf1/CZrFfvYMX3HK03lC",
+      "pf1/CaSgPmUPijRDf2Vp",
+      "pf1/Cc2eFfhJYlClCGEH",
+      "pf1/CdwaXvIhZIIwbt1T",
+      "pf1/Ce5bdKql2WZR8AsL",
+      "pf1/CeezJDXdj3IpZ61v",
+      "pf1/CfWKPS5g8TAzIGLW",
+      "pf1/CfmIVQOp1oLvtBH2",
+      "pf1/CgDxKisDe3MCRPg5",
+      "pf1/Ch7jRk3PNagRCr9D",
+      "pf1/Ch98vtjFEhuS817N",
+      "pf1/Chcpb0g6K7PsF2Xt",
+      "pf1/Ci1nJlwChZzbFxB1",
+      "pf1/CkEjJ4h7rYgzvSG9",
+      "pf1/Ckml4zakeVgbsOqx",
+      "pf1/ClCqzXy1ry2eMCuf",
+      "pf1/CmsDojp7mFWiTB4n",
+      "pf1/CnjrUVKnjFlIF67g",
+      "pf1/CqDGmAsKo4eV4WNd",
+      "pf1/Csq8jrsDVO6GtSf6",
+      "pf1/CtDtLshBC8pc64JV",
+      "pf1/Cxu9FSuqw0DJB8I4",
+      "pf1/Cy0itvjd9zV8Yl2t",
+      "pf1/CzEGD1Fv60Sa4UXe",
+      "pf1/D13TR3rNmjwMPXuD",
+      "pf1/D14Nx9ByxLvrJ8L7",
+      "pf1/D1mrANHho0iIDUlP",
+      "pf1/D1puzgiOIRi53VeN",
+      "pf1/D1zN0hcRqezZraPN",
+      "pf1/D2D3fNKKBkdxoJOs",
+      "pf1/D4DzcLyRQABhgIKt",
+      "pf1/D4oOgkYwd2ByvKFy",
+      "pf1/D5CD4KGhIkRxrtkr",
+      "pf1/D6SFoCn0BXLRhvjc"
+    ]
+  },
+  "reviewedBy": "Sol (AI curator) for the owner",
+  "reviewedOn": "2026-11-01",
+  "pinnedSources": [
+    {
+      "repo": "pf1",
+      "tag": "v11.11",
+      "commit": "418761d2e16a6037c0156bb4a241f7cea5a2986d"
+    },
+    {
+      "repo": "pf1-content",
+      "tag": "11.4.0",
+      "commit": "02f4ab0d92e0d64f9eb2d127f42fd809cb23db7d"
+    }
+  ],
+  "comparisonSources": {
+    "allowed": ["PRD", "PCGen", "books"],
+    "prohibited": ["Archives of Nethys"],
+    "pcgenCommit": "25523dbcf10e86c280fc0f447167ea43d67419d3",
+    "pcgenFiles": [
+      {
+        "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+        "sha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e"
+      }
+    ],
+    "prd": {
+      "capture": "prd-2026-10-20",
+      "path": "pages/coreRulebook/classes/fighter.html",
+      "sha256": "80143dd3794455f289892ba9c6d9642b13c581e640021e949d0bef6c4e19441c",
+      "captureUrl": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html"
+    },
+    "books": "No book PDFs are available; book-only evidence stays a named hold."
+  },
+  "reviewBoundary": "The complete pinned body and inert fields of Bonus Feats (Fighter class feature, Core Rulebook) reviewed against the PRD capture prd-2026-10-20 and PCGen's Core Rulebook rows, with its slots validated through level 20. Admitted under the reviewed Core Rulebook notice; its ten everythingpath/fighter-bonus-feats-N increments follow it through attributionFrom. Calculations the sheet does not support stay outstanding with their owners, never legal holds.",
+  "noticeRequirements": [
+    {
+      "book": "PZO1110",
+      "title": "Core Rulebook",
+      "status": "existing-reviewed",
+      "registryKeys": ["CRB"],
+      "holdId": null,
+      "candidates": ["pf1/CV8BsY3ciUb9TA1Y"]
+    }
+  ],
+  "noticeBoundary": "Observed minimum dependencies. The reviewed Core Rulebook notice (CRB, alias PZO1110) covers the body. No Registry, held-notices or clearance change.",
+  "candidates": [
+    {
+      "externalKey": "pf1/CV8BsY3ciUb9TA1Y",
+      "name": "Bonus Feats (FGT)",
+      "kind": "classFeature",
+      "grantingClass": "pf1/WLqBCT5DqmGAx8Wd",
+      "disposition": "admitted",
+      "assessmentStatus": "confirmed",
+      "rawType": "feat",
+      "rawKey": "!items!CV8BsY3ciUb9TA1Y",
+      "source": {
+        "repo": "pf1",
+        "path": "packs/class-abilities/bonus-feats-fgt.CV8BsY3ciUb9TA1Y.yaml",
+        "sha256": "ab7655c67684faa9e8d317b850c7bc9ec286f8233d2d276a397c19d67737e441",
+        "location": "https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/bonus-feats-fgt.CV8BsY3ciUb9TA1Y.yaml"
+      },
+      "descriptionSha256": "50ad6ce077d25bc3633e1e23b008b9793c17b2ab72dbf96a1af85a618ad7a1ed",
+      "citedSources": [
+        {
+          "book": "PZO1110",
+          "pages": "55"
+        }
+      ],
+      "importedSources": [
+        {
+          "book": "PZO1110",
+          "pages": "55"
+        }
+      ],
+      "requiredNotices": ["PZO1110"],
+      "noticeRequirementsComplete": true,
+      "evidenceId": "class-abilities-613-CV8BsY3ciUb9TA1Y",
+      "holdIds": [],
+      "noticeHoldIds": [],
+      "missingEvidence": null,
+      "comparison": {
+        "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+        "line": 893,
+        "literalRow": "Bonus Feats\t\t\t\tKEY:Fighter ~ Bonus Feats\tCATEGORY:Special Ability\tTYPE:FighterClassFeatures.SpecialQuality\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tDESC:At 1st level, and at every even level thereafter, a fighter gains a bonus feat in addition to those gained from normal advancement (meaning that the fighter gains a feat at every level). These bonus feats must be selected from those listed as combat feats, sometimes also called \"fighter bonus feats.\" Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level.\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tBONUS:ABILITYPOOL|Fighter Bonus Feat|FighterLvl/2+1",
+        "comparisonLineSha256": "ddcd194d0365222085c187c75587386249b685c7962d24dd5095fd9f8b09f6da",
+        "comparisonFileSha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e",
+        "publicationTitle": "Core Rulebook",
+        "publicationAnchor": {
+          "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+          "line": 3,
+          "text": "SOURCELONG:Core Rulebook",
+          "sha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e"
+        },
+        "appliesToRootBody": true,
+        "completeDirectComparison": false,
+        "book": "PZO1110",
+        "evidenceRole": "partial-root-comparison",
+        "role": "Core Rulebook Fighter ~ Bonus Feats row: DESC reproduces both paragraphs (\"combat feats\" in lower case); BONUS:ABILITYPOOL|Fighter Bonus Feat|FighterLvl/2+1 gives 1 + floor(level / 2) bonus feats, the same count as the schedule.",
+        "comparisonLocation": "https://github.com/PCGen/pcgen/blob/25523dbcf10e86c280fc0f447167ea43d67419d3/data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst#L893"
+      },
+      "prdComparison": {
+        "capture": "prd-2026-10-20",
+        "path": "pages/coreRulebook/classes/fighter.html",
+        "pageSha256": "80143dd3794455f289892ba9c6d9642b13c581e640021e949d0bef6c4e19441c",
+        "captureUrl": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html",
+        "lines": [
+          {
+            "line": 380,
+            "text": "\t\t\t\t<p id=\"bonus-feats-fighter\"><b>Bonus Feats</b>: At 1st level, and at every even level thereafter, a fighter gains a bonus feat in addition to those gained from normal advancement (meaning that the fighter gains a feat at every level). These bonus feats must be selected from those listed as <a href=\"/pathfinderRPG/prd/coreRulebook/feats.html#combat-feats\" >combat feats</a>, sometimes also called \"fighter bonus feats.\"</p>",
+            "sha256": "ca40ec86a142c3f0ece854e9f403f6d8feba56c6b02c41cd8d1594df59d15d68"
+          },
+          {
+            "line": 381,
+            "text": "\t\t\t\t<p>Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level.</p>",
+            "sha256": "e350392b8b1d9ca25b39ccc27972ff9ac4b2c6be551632b085bc12f1f5c22225"
+          }
+        ],
+        "book": "PZO1110",
+        "completeDirectComparison": true,
+        "role": "Bonus Feats: both paragraphs identical to the body after the heading, apart from Foundry's capitalised, emphasised \"Combat Feats\" where the PRD links \"combat feats\"."
+      },
+      "grantEvidence": {
+        "pcgen": [
+          {
+            "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+            "line": 257,
+            "literalRow": "CATEGORY=Class|Fighter.MOD\t\tABILITY:Fighter Class Feature|AUTOMATIC|Fighter ~ Bonus Feats|PREVAREQ:Fighter_CF_BonusFeats,0|PREVARGTEQ:Fighter_CFP_Level,1",
+            "sha256": "6d0b7eb7e2dc89348186fea5377b0715bc66abaf966b4e28295671159c9c76f6"
+          }
+        ],
+        "foundry": {
+          "path": "packs/classes/fighter.WLqBCT5DqmGAx8Wd.yaml",
+          "lines": [42, 43],
+          "literal": "- level: 1 uuid: Compendium.pf1.class-abilities.Item.CV8BsY3ciUb9TA1Y",
+          "location": "https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/classes/fighter.WLqBCT5DqmGAx8Wd.yaml#L42-43"
+        },
+        "prdTable": {
+          "path": "pages/coreRulebook/classes/fighter.html",
+          "lines": [357, 376]
+        },
+        "role": "Granted at Fighter level 1: Foundry classAssociations level 1; PCGen ABILITY Fighter ~ Bonus Feats at Fighter_CFP_Level 1 (:257); PRD table \"Bonus feat\" at 1st and every even level (:357-376). S3 schedules the later slots as ten increments, 2nd to 20th."
+      },
+      "additionalComparisonLeads": [],
+      "rejectedRootComparisonEvidence": [],
+      "inheritedRuleNotices": [
+        {
+          "book": "PZO1110",
+          "rule": "CRB fighter class feature and the rules it applies (Core Rulebook class features, p. 55-56)",
+          "location": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html",
+          "comparisonBasis": "Exact named rule in the reviewed body and its PRD Core Rulebook section; minimum notice dependency, not complete origin proof."
+        }
+      ],
+      "inheritedRuleSourceEvidence": [],
+      "inheritedRuleComparisonEvidence": [],
+      "inheritedRuleUnresolvedOrigins": [],
+      "linkedContentReview": [],
+      "sourceFields": {
+        "associations": {
+          "classes": ["Fighter"]
+        },
+        "changes": [
+          {
+            "_id": "yoxm5fp1",
+            "formula": "1 + floor(@class.level / 2)",
+            "target": "bonusFeats",
+            "type": "untyped"
+          }
+        ],
+        "description": {
+          "value": "<p>At 1st level, and at every even level thereafter, a fighter gains a bonus feat in addition to those gained from normal advancement (meaning that the fighter gains a feat at every level). These bonus feats must be selected from those listed as <em>Combat Feats</em>, sometimes also called \"fighter bonus feats.\"</p>\n<p>Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level.</p>"
+        },
+        "sources": [
+          {
+            "id": "PZO1110",
+            "pages": "55"
+          }
+        ],
+        "subType": "classFeat"
+      },
+      "fullSourceDescriptionReviewed": true,
+      "rationale": "Complete CRB class feature (p. 55) compared with the PRD capture (coreRulebook/classes/fighter.html:380-381, identical apart from Foundry's capitalised \"Combat Feats\") and PCGen's Core Rulebook row (cr_abilities_class.lst:893). Granted at 1st level (PCGen :257; Foundry classAssociations level 1) and at every even level: S3's reviewed schedule gives the acquisition and its ten everythingpath/fighter-bonus-feats-N increments (2nd to 20th) one feat slot each, {kind: feat, count: 1, featTypes: ['Combat']} (scripts/catalog/pcgen/schedule-slots.ts, printed at fighter.html:380), and the increments take this assessment through attributionFrom. Foundry's bonusFeats change (1 + floor(@class.level / 2)) has no mapped target and contributes nothing, so the slots are not doubled. The Note states the feat retraining rule (4th, 8th, ... 20th), which stays prose; retraining and the slot-type warning stay outstanding calculations. Existing reviewed CRB notice covers it.",
+      "mechanicsReview": {
+        "externalKey": "pf1/CV8BsY3ciUb9TA1Y",
+        "name": "Bonus Feats (FGT)",
+        "reviewedBy": "Sol (AI curator) for the owner",
+        "reviewedOn": "2026-11-01",
+        "descriptionText": "<p>At 1st level, and at every even level thereafter, a fighter gains a bonus feat in addition to those gained from normal advancement (meaning that the fighter gains a feat at every level). These bonus feats must be selected from those listed as <em>Combat Feats</em>, sometimes also called \"fighter bonus feats.\"</p>\n<p>Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level.</p>",
+        "rawMechanics": {
+          "changes": [
+            {
+              "formula": "1 + floor(@class.level / 2)",
+              "target": "bonusFeats",
+              "type": "untyped"
+            }
+          ],
+          "changeFlags": {},
+          "contextNotes": [],
+          "sources": [
+            {
+              "id": "PZO1110",
+              "pages": "55"
+            }
+          ],
+          "classAssociations": ["Fighter"]
+        },
+        "curationRecords": [
+          {
+            "externalKey": "pf1/CV8BsY3ciUb9TA1Y",
+            "kind": "description",
+            "target": "description",
+            "text": "<p>At 1st level, and at every even level thereafter, a fighter gains a bonus feat in addition to those gained from normal advancement (meaning that the fighter gains a feat at every level). These bonus feats must be selected from those listed as <em>Combat Feats</em>, sometimes also called \"fighter bonus feats.\"</p>\n<p>Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level.</p>",
+            "textSha256": "50ad6ce077d25bc3633e1e23b008b9793c17b2ab72dbf96a1af85a618ad7a1ed",
+            "status": "checked",
+            "outputs": [
+              {
+                "kind": "note",
+                "text": "Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level."
+              }
+            ],
+            "rationale": "#613 (#596 run B) complete pinned body and inert fields reviewed at https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/bonus-feats-fgt.CV8BsY3ciUb9TA1Y.yaml. The first paragraph is supplied by the reviewed schedule's feat slots (S3: one Combat feat slot on the 1st-level acquisition and on each even-level increment), so it adds no output. The Note states the second paragraph, the feat retraining rule, which the sheet does not calculate (#716). Attribution is assessed separately.",
+            "diagnostics": [],
+            "reviewedBy": "Sol (AI curator) for the owner",
+            "reviewedOn": "2026-11-01",
+            "seedBindings": []
+          }
+        ],
+        "mappedFacts": {
+          "sources": [
+            {
+              "book": "PZO1110",
+              "pages": "55"
+            }
+          ],
+          "detail": {
+            "kind": "classFeature"
+          },
+          "modifiers": [],
+          "sourceKey": null,
+          "situationalNotes": [
+            {
+              "text": "Upon reaching 4th level, and every four levels thereafter (8th, 12th, and so on), a fighter can choose to learn a new bonus feat in place of a bonus feat he has already learned. In effect, the fighter loses the bonus feat in exchange for the new one. The old feat cannot be one that was used as a prerequisite for another feat, prestige class, or other ability. A fighter can only change one feat at any given level and must choose whether or not to swap the feat at the time he gains a new bonus feat for the level."
+            }
+          ],
+          "grantsSlots": [
+            {
+              "kind": "feat",
+              "count": 1,
+              "featTypes": ["Combat"]
+            }
+          ],
+          "unsupportedFields": ["gameContent", "changes"]
+        },
+        "classFeatureReview": {
+          "grantingClass": "Fighter (pf1/WLqBCT5DqmGAx8Wd)",
+          "level": 1,
+          "schedule": [
+            {
+              "level": 1,
+              "value": 1
+            },
+            {
+              "level": 2,
+              "value": 2
+            },
+            {
+              "level": 3,
+              "value": 2
+            },
+            {
+              "level": 4,
+              "value": 3
+            },
+            {
+              "level": 5,
+              "value": 3
+            },
+            {
+              "level": 6,
+              "value": 4
+            },
+            {
+              "level": 7,
+              "value": 4
+            },
+            {
+              "level": 8,
+              "value": 5
+            },
+            {
+              "level": 9,
+              "value": 5
+            },
+            {
+              "level": 10,
+              "value": 6
+            },
+            {
+              "level": 11,
+              "value": 6
+            },
+            {
+              "level": 12,
+              "value": 7
+            },
+            {
+              "level": 13,
+              "value": 7
+            },
+            {
+              "level": 14,
+              "value": 8
+            },
+            {
+              "level": 15,
+              "value": 8
+            },
+            {
+              "level": 16,
+              "value": 9
+            },
+            {
+              "level": 17,
+              "value": 9
+            },
+            {
+              "level": 18,
+              "value": 10
+            },
+            {
+              "level": 19,
+              "value": 10
+            },
+            {
+              "level": 20,
+              "value": 11
+            }
+          ],
+          "scheduleRule": "Bonus feats gained by fighter level = 1 + floor(level / 2): one at 1st and one more at every even level, 11 at 20th (PRD :380 and table :357-376; PCGen BONUS:ABILITYPOOL|Fighter Bonus Feat|FighterLvl/2+1 at :893). Each is one slot restricted to Combat feats: the acquisition at 1st and increments everythingpath/fighter-bonus-feats-2 to -20.",
+          "validatedThrough": 20
+        },
+        "slotReview": {
+          "slot": {
+            "kind": "feat",
+            "count": 1,
+            "featTypes": ["Combat"]
+          },
+          "rule": "scripts/catalog/pcgen/schedule-slots.ts:35-38 (Fighter bonus-feats, printed coreRulebook/classes/fighter.html:380)",
+          "rows": [
+            {
+              "level": 1,
+              "externalKey": "pf1/CV8BsY3ciUb9TA1Y"
+            },
+            {
+              "level": 2,
+              "externalKey": "everythingpath/fighter-bonus-feats-2"
+            },
+            {
+              "level": 4,
+              "externalKey": "everythingpath/fighter-bonus-feats-4"
+            },
+            {
+              "level": 6,
+              "externalKey": "everythingpath/fighter-bonus-feats-6"
+            },
+            {
+              "level": 8,
+              "externalKey": "everythingpath/fighter-bonus-feats-8"
+            },
+            {
+              "level": 10,
+              "externalKey": "everythingpath/fighter-bonus-feats-10"
+            },
+            {
+              "level": 12,
+              "externalKey": "everythingpath/fighter-bonus-feats-12"
+            },
+            {
+              "level": 14,
+              "externalKey": "everythingpath/fighter-bonus-feats-14"
+            },
+            {
+              "level": 16,
+              "externalKey": "everythingpath/fighter-bonus-feats-16"
+            },
+            {
+              "level": 18,
+              "externalKey": "everythingpath/fighter-bonus-feats-18"
+            },
+            {
+              "level": 20,
+              "externalKey": "everythingpath/fighter-bonus-feats-20"
+            }
+          ],
+          "increments": [
+            "everythingpath/fighter-bonus-feats-2",
+            "everythingpath/fighter-bonus-feats-4",
+            "everythingpath/fighter-bonus-feats-6",
+            "everythingpath/fighter-bonus-feats-8",
+            "everythingpath/fighter-bonus-feats-10",
+            "everythingpath/fighter-bonus-feats-12",
+            "everythingpath/fighter-bonus-feats-14",
+            "everythingpath/fighter-bonus-feats-16",
+            "everythingpath/fighter-bonus-feats-18",
+            "everythingpath/fighter-bonus-feats-20"
+          ],
+          "attribution": "Each increment has attributionFrom pf1/CV8BsY3ciUb9TA1Y and upstreamKey pf1/CV8BsY3ciUb9TA1Y, so it takes this assessment, holds and notices and is admitted exactly when Bonus Feats is (scripts/catalog/admission.ts, isAttributionOwner). No increment has an assessment of its own.",
+          "foundryChange": "Foundry's change {target: bonusFeats, formula: 1 + floor(@class.level / 2), type: untyped} has no mapped target; the importer keeps it as an unsupported `changes` field that contributes nothing (scripts/catalog/map.ts), so no second slot count exists."
+        },
+        "prerequisiteReview": {
+          "authoredText": "",
+          "normalizedAtoms": [],
+          "publishedClauses": [],
+          "outstandingFacts": [],
+          "review": "A class feature has no selection prerequisite; it is granted by Fighter level (classFeatureReview). The Combat restriction is the slot's featTypes, not a prerequisite."
+        },
+        "proficiencyReview": {
+          "grants": [],
+          "outstandingFacts": [],
+          "review": "No weapon or armor proficiency grant in this body (the Fighter's proficiencies are the class's own: classes-596.json)."
+        },
+        "outstandingCalculations": [
+          {
+            "calculation": "Feat retraining at 4th, 8th, 12th, 16th and 20th level (swap one bonus feat for another)",
+            "owner": "#716",
+            "reason": "No retraining action on the sheet; the Note states the rule."
+          },
+          {
+            "calculation": "A feat of another type in a Combat slot warns rather than refuses",
+            "owner": "#313",
+            "reason": "The sheet warns, never refuses, on a feat whose type the slot does not name (schedule-slots.ts)."
+          }
+        ],
+        "proseOnlyRules": "The Note states the retraining paragraph; the first paragraph is the slots.",
+        "sourceDiscrepancies": [
+          "Foundry names the body \"Bonus Feats (FGT)\"; the PRD and PCGen name it \"Bonus Feats\". Recorded, not resolved.",
+          "Foundry capitalises and emphasises \"Combat Feats\"; the PRD and PCGen read \"combat feats\". Recorded, not resolved."
+        ],
+        "sharedSourceReview": "No rule equates this body with another effect for Source stacking; no sourceKey. Exact Rule Identity retained."
+      },
+      "launchSubset": true,
+      "currentBinding": {
+        "contentFingerprint": "d3c231bfa758cfa60f85f3dc022e4812712197bd8c43c0030c8eeb1fcd32f6bb",
+        "mappingFingerprint": "a0fa95fd810f3da04128ecfa34a9ab623578d4b2e0e46a5f08d681d74f6cd4e1",
+        "evidenceFingerprints": {
+          "class-abilities-613-CV8BsY3ciUb9TA1Y": "4f1bbcac56b9e2fd1dda5310b13f9b56abedc5bae7b2a16f0205608681320d96"
+        },
+        "noticeFingerprints": {
+          "PZO1110": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+        }
+      }
+    }
+  ],
+  "counts": {
+    "total": 1,
+    "admitted": 1,
+    "held": 0,
+    "dependentlyOmitted": 0,
+    "unsupportedProseOnly": 0,
+    "excluded": 0,
+    "excludedFolders": 0,
+    "recordLevel35Holds": 0
+  },
+  "retainedExceptions": []
+}
