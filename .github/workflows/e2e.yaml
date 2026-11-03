@@ -27,14 +27,15 @@ jobs:
   access:
     # Owner-authored, same-repository code only. Skips fail the aggregate gate.
     # Never use pull_request_target or give fork/bot jobs service credentials.
+    # The repo is org-owned: name the owner's login so only that trusted human reaches the e2e secrets.
     if: >-
-      github.actor == github.repository_owner &&
-      github.triggering_actor == github.repository_owner &&
+      github.actor == 'AndreasUnunger' &&
+      github.triggering_actor == 'AndreasUnunger' &&
       (github.event_name == 'push' ||
        (github.event_name == 'workflow_dispatch' && inputs.reviewed_sha == github.sha) ||
        (github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
-        github.event.pull_request.user.login == github.repository_owner))
+        github.event.pull_request.user.login == 'AndreasUnunger'))
     uses: ./.github/workflows/e2e-runner.yaml
     # Required for environment secrets to resolve in the called workflow.
     secrets: inherit
