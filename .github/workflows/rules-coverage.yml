@@ -21,6 +21,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -s typecheck
       - run: pnpm -s lint
+      - name: Install Chromium for geometry support tests
+        run: pnpm exec playwright install --with-deps --only-shell chromium
       - run: pnpm -s rules:check
       - uses: actions/upload-artifact@v4
         if: always()
