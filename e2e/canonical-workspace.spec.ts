@@ -815,7 +815,11 @@ test('players review and buy off carried persistent events before confirming the
   players,
   ownedCase,
 }) => {
-  test.setTimeout(80_000);
+  // Headroom, not speed: CI run 41616754864 timed out at 80 s twice, still
+  // in the reviewer's last viewports before Confirmation. 115 s is the
+  // builder branch's bound (71 s with one local worker, #729, × 1.6, #198)
+  // and still ends a hang well inside the 1050 s global run.
+  test.setTimeout(115_000);
   const run = await loadRun();
   const network = await controlNextDraftEdit(
     players.gm,

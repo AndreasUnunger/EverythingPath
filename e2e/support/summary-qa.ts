@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { expect, type Page, type Locator } from '@playwright/test';
+import { measureVisibleControls } from './control-geometry';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import {
@@ -206,25 +207,20 @@ export async function reviewSummaryWorkspace(
     await expectPinnedConfirm(page);
     // Beside the strip's compact Confirm, Training and Treasury stay whole.
     if (name === 'phone') await expectStripValuesWhole(page);
-    for (const control of await page.locator('main button, main input').all()) {
-      if (!(await control.isVisible())) continue;
-      const bounds = await control.boundingBox();
-      const label =
-        (await control.getAttribute('aria-label')) ??
-        (await control.textContent());
+    for (const control of await measureVisibleControls(
+      page.locator('main button, main input'),
+      name,
+    )) {
+      const { bounds } = control;
+      const label = control.ariaLabel ?? control.text;
       expect(bounds, `${name}: ${label}`).not.toBeNull();
       expect(bounds!.x, `${name}: ${label}`).toBeGreaterThanOrEqual(0);
       expect(
         bounds!.x + bounds!.width,
         `${name}: ${label}`,
       ).toBeLessThanOrEqual(width);
-      if (await control.evaluate((element) => element.tagName === 'BUTTON'))
-        expect(
-          await control.evaluate(
-            (element) => element.scrollWidth <= element.clientWidth,
-          ),
-          `${name}: ${label} text fits`,
-        ).toBe(true);
+      if (control.tag === 'BUTTON')
+        expect(control.contentFits, `${name}: ${label} text fits`).toBe(true);
     }
     const splitWords = await region(page)
       .locator('button')

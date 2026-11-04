@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
+import { measureVisibleControls } from './control-geometry';
 import { savePrivate } from './process';
 import type { controlNextDraftEdit } from './held-mutation';
 import { expectSaveFailed, saveState } from './week-frame';
@@ -209,20 +210,18 @@ export async function exercisePersistentWorkspace(
     ['desktop', 1440, 900],
   ] as const) {
     await gm.setViewportSize({ width, height });
-    for (const control of await gm
-      .locator('section[aria-label="Persistent preparation"]')
-      .getByRole('button')
-      .all()) {
-      if (!(await control.isVisible())) continue;
-      const bounds = await control.boundingBox();
-      expect(bounds).not.toBeNull();
-      expect(bounds!.x).toBeGreaterThanOrEqual(0);
-      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-      expect(
-        await control.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth,
-        ),
-      ).toBe(true);
+    for (const control of await measureVisibleControls(
+      gm
+        .locator('section[aria-label="Persistent preparation"]')
+        .getByRole('button'),
+      name,
+    )) {
+      const { bounds } = control;
+      const label = `${name}: ${control.ariaLabel ?? control.text}`;
+      expect(bounds, label).not.toBeNull();
+      expect(bounds!.x, label).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width, label).toBeLessThanOrEqual(width);
+      expect(control.contentFits, `${label} text fits`).toBe(true);
     }
     await savePrivate(
       join(artifactDirectory, `canonical-persistent-${name}.png`),

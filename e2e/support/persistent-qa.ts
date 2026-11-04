@@ -1,9 +1,9 @@
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
+import { expectVisibleControlsFit } from './control-geometry';
 import {
   expectBoundedWeekHost,
-  expectControlsFit,
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
@@ -115,7 +115,11 @@ export async function reviewPersistentWorkspace(
       join(artifactDirectory, `reviewer-persistent-${name}.png`),
       await page.screenshot({ fullPage: true }),
     );
-    await expectControlsFit(section.locator('button, input'), name, width);
+    await expectVisibleControlsFit(
+      section.locator('button, input'),
+      name,
+      width,
+    );
     if (closesPanel) {
       await page.getByRole('button', { name: 'Show reference panel' }).click();
       await expect(referencePanel(page)).toBeVisible();
