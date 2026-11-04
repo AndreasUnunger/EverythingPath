@@ -1,0 +1,511 @@
+{
+  "ticket": "https://github.com/AndreasUnunger/EverythingPath/issues/636",
+  "launchSubset": {
+    "run": "#596 run A (Fighter launch subset)",
+    "statement": "MVP launch subset of #636: this inventory curates only pf1/h0Brxw6khcjlEf1T (Bravery); the ticket's other 99 keys stay remaining acceptance under #636.",
+    "curatedKeys": ["pf1/h0Brxw6khcjlEf1T"],
+    "remainingAcceptance": [
+      "pf1/g3DptNZksB9HU80M",
+      "pf1/g40XCY74YoGuxlU5",
+      "pf1/g4E8wmPZMaFRThq1",
+      "pf1/g57OSIkCJoGPOdSk",
+      "pf1/g5TyBsARtE3QhXhJ",
+      "pf1/g7vw0kmmtGrjkEiB",
+      "pf1/g8bmvPclhiZID7Fo",
+      "pf1/g8yaKYZWGBiMXrNC",
+      "pf1/g9SoLRJqSd2uvkG3",
+      "pf1/gCZ8TUPc30wt6wgu",
+      "pf1/gDHMXzZhprJpf0OJ",
+      "pf1/gEmxGnWePSbMFTDX",
+      "pf1/gFBd3lJNGQIOBCzc",
+      "pf1/gFddoXISoGKCvpD2",
+      "pf1/gGUAjqp1wbDliZ2r",
+      "pf1/gHAKpLeAIPnymJoq",
+      "pf1/gIesygL1nL45vr0C",
+      "pf1/gJpPcE0uL09rBMTb",
+      "pf1/gKEulSOCaCgsIGS1",
+      "pf1/gKgi1UJ7EZCdqF9d",
+      "pf1/gMquslK2uPQHrLoC",
+      "pf1/gOGKYljCNl8JT0dK",
+      "pf1/gOMQuX8vUnNclNXT",
+      "pf1/gQ5ALLQWJ83osKcy",
+      "pf1/gQukCTMysLitL4Y8",
+      "pf1/gRnnwz48Oz0ohI6s",
+      "pf1/gSRBNwvD3ooZ895d",
+      "pf1/gUIzLmnJVLDmhnvB",
+      "pf1/gXU6euxOmAZVQ2YA",
+      "pf1/gZ1NHJ3s6IcxmdGQ",
+      "pf1/gaEu6GxQIjEsemsr",
+      "pf1/gcbR7H0CVrpmTmC6",
+      "pf1/gcbkOtnZ09HTsFzb",
+      "pf1/geePXveDLlbnCWlB",
+      "pf1/gfXQTfFuDtjuWG3N",
+      "pf1/ghBRrL2bsMAn6ySL",
+      "pf1/ghfWJqjq8wpu0VcT",
+      "pf1/giiZFEuN7c0s8UbA",
+      "pf1/gk9E1jTRwvQ9gOqi",
+      "pf1/gkfPrr7Ruv7dcVqm",
+      "pf1/gljS7pC5qGmIYXy6",
+      "pf1/glpnFHrAetXC8mTR",
+      "pf1/gmE0dZWlcNtenf4O",
+      "pf1/gnsoWNJatkJS2ioS",
+      "pf1/go7qJs57t3VWmY2M",
+      "pf1/goEzCCCCQqUpf9o3",
+      "pf1/goOJHff4FGf8J7sM",
+      "pf1/gotW1ETzGrrwVtk2",
+      "pf1/gpNTlEN8etm5CaUq",
+      "pf1/gs8tXwBidqre5Apf",
+      "pf1/gsXSohKMrCFE39Fq",
+      "pf1/gue5scimQndqsjoj",
+      "pf1/gvo9pqFOPFF6I35A",
+      "pf1/gxNLi0faH5Jg4EHw",
+      "pf1/gxiVBtQ9S1naEMJq",
+      "pf1/gzBR0qkMdu0KkLV0",
+      "pf1/gzOARsr4kFT97CtF",
+      "pf1/h0g0oAk2tYb1nrIL",
+      "pf1/h0hqYiLG7hkjPCin",
+      "pf1/h1L01lhLS70FyXPQ",
+      "pf1/h1n0Na5xSayi4x0M",
+      "pf1/h2HnbWEh7rlY0JcF",
+      "pf1/h2cnN8Gbovz9oT3Q",
+      "pf1/h4kCx2lOy8jVgTbo",
+      "pf1/h4xJ7Jq1KFm0trDa",
+      "pf1/h56K6HEBOItImPPL",
+      "pf1/h6Ook9Q9qF0lpYGL",
+      "pf1/h6TzHSq6iUwHfm6n",
+      "pf1/hAqoBq3McyMN4KDK",
+      "pf1/hArwE7SbM3qGvlMs",
+      "pf1/hBjfCZYv4qwZr101",
+      "pf1/hCT9UlbAB1U46jVc",
+      "pf1/hDf52MYziTylyfHb",
+      "pf1/hDfOrSlhompgX8TD",
+      "pf1/hEduWO7ZjxgCbrSy",
+      "pf1/hEjPsHdC3NK68ZmZ",
+      "pf1/hFHJ4B9hwrGll8o4",
+      "pf1/hFmNmqaMPjIDrnNH",
+      "pf1/hJV8YVdSn0NnTxww",
+      "pf1/hK3eV1W6GnifvoB8",
+      "pf1/hLaFeIBI4P4mpB6V",
+      "pf1/hLrCEEh06Nsfrhe9",
+      "pf1/hM1UPXko7kLCHm17",
+      "pf1/hMI3BJSP5Suq4CYs",
+      "pf1/hN7nfIgDvGMd2MZf",
+      "pf1/hNknvwRdlPfHwZJT",
+      "pf1/hPWQExlnfJd1jPAV",
+      "pf1/hPgtTh79AeIocmpt",
+      "pf1/hQzSZCgk5mImlKNi",
+      "pf1/hR2q9KsbKe1ao89Z",
+      "pf1/hSdQz5FUqScMHpEy",
+      "pf1/hSfW1GqYWnPQ5M7H",
+      "pf1/hTIPuaDnlQK9gCxv",
+      "pf1/hTZ8PPEK5xoG6KeD",
+      "pf1/hTiAiNkmRW87IyLu",
+      "pf1/hTyk49iVEU49Ms3G",
+      "pf1/hVcUG7XKMkmrDfCg",
+      "pf1/hVrmBvlqeeLbwVxn",
+      "pf1/hWRLm7E1OyoC4qtR"
+    ]
+  },
+  "reviewedBy": "Sol (AI curator) for the owner",
+  "reviewedOn": "2026-10-31",
+  "pinnedSources": [
+    {
+      "repo": "pf1",
+      "tag": "v11.11",
+      "commit": "418761d2e16a6037c0156bb4a241f7cea5a2986d"
+    },
+    {
+      "repo": "pf1-content",
+      "tag": "11.4.0",
+      "commit": "02f4ab0d92e0d64f9eb2d127f42fd809cb23db7d"
+    }
+  ],
+  "comparisonSources": {
+    "allowed": ["PRD", "PCGen", "books"],
+    "prohibited": ["Archives of Nethys"],
+    "pcgenCommit": "25523dbcf10e86c280fc0f447167ea43d67419d3",
+    "pcgenFiles": [
+      {
+        "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+        "sha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e"
+      }
+    ],
+    "prd": {
+      "capture": "prd-2026-10-20",
+      "path": "pages/coreRulebook/classes/fighter.html",
+      "sha256": "80143dd3794455f289892ba9c6d9642b13c581e640021e949d0bef6c4e19441c",
+      "captureUrl": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html"
+    },
+    "books": "No book PDFs are available; book-only evidence stays a named hold."
+  },
+  "reviewBoundary": "The complete pinned body and inert fields of Bravery (Fighter class feature, Core Rulebook) reviewed against the PRD capture prd-2026-10-20 and PCGen's Core Rulebook rows, with its class grant validated through level 20. Admitted under the reviewed Core Rulebook notice. Calculations the sheet does not support stay outstanding with their owners, never legal holds. Fighter (pf1/WLqBCT5DqmGAx8Wd) and Bonus Feats (pf1/CV8BsY3ciUb9TA1Y) wait for #596 run B.",
+  "noticeRequirements": [
+    {
+      "book": "PZO1110",
+      "title": "Core Rulebook",
+      "status": "existing-reviewed",
+      "registryKeys": ["CRB"],
+      "holdId": null,
+      "candidates": ["pf1/h0Brxw6khcjlEf1T"]
+    }
+  ],
+  "noticeBoundary": "Observed minimum dependencies. The reviewed Core Rulebook notice (CRB, alias PZO1110) covers the body. No Registry, held-notices or clearance change.",
+  "candidates": [
+    {
+      "externalKey": "pf1/h0Brxw6khcjlEf1T",
+      "name": "Bravery",
+      "kind": "classFeature",
+      "grantingClass": "pf1/WLqBCT5DqmGAx8Wd",
+      "disposition": "admitted",
+      "assessmentStatus": "confirmed",
+      "rawType": "feat",
+      "rawKey": "!items!h0Brxw6khcjlEf1T",
+      "source": {
+        "repo": "pf1",
+        "path": "packs/class-abilities/bravery.h0Brxw6khcjlEf1T.yaml",
+        "sha256": "cdb732df6ba88881a6ee7f2829ac5d6c283dce6b4c10f637004409c079f682b1",
+        "location": "https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/bravery.h0Brxw6khcjlEf1T.yaml"
+      },
+      "descriptionSha256": "1b2746b6686958f4708e33b5a4f5ecca2cd6f4e7a486eb349aa5fcbd0c86d471",
+      "citedSources": [
+        {
+          "book": "PZO1110",
+          "pages": "55"
+        }
+      ],
+      "importedSources": [
+        {
+          "book": "PZO1110",
+          "pages": "55"
+        }
+      ],
+      "requiredNotices": ["PZO1110"],
+      "noticeRequirementsComplete": true,
+      "evidenceId": "class-abilities-636-h0Brxw6khcjlEf1T",
+      "holdIds": [],
+      "noticeHoldIds": [],
+      "missingEvidence": null,
+      "comparison": {
+        "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+        "line": 888,
+        "literalRow": "Bravery\t\t\t\tKEY:Fighter ~ Bravery\t\tCATEGORY:Special Ability\tTYPE:FighterClassFeatures.SpecialQuality.Extraordinary.Bravery\t\t\t\tDEFINE:Bravery|0\tDEFINE:BraveryLVL|0\t\t\t\t\t\t\t\tDESC:You gain a +%1 bonus to Will saves against fear effects.|Bravery\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tBONUS:VAR|Bravery|(BraveryLVL+2)/4\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tSOURCEPAGE:p.55\tASPECT:SaveBonus|+%1 Will vs. fear|Bravery",
+        "comparisonLineSha256": "baecfe6425a895d6c511314e5e1fec17b3443be9e804a2f9bf7751b7c4ad1eb2",
+        "comparisonFileSha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e",
+        "publicationTitle": "Core Rulebook",
+        "publicationAnchor": {
+          "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+          "line": 3,
+          "text": "SOURCELONG:Core Rulebook",
+          "sha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e"
+        },
+        "appliesToRootBody": true,
+        "completeDirectComparison": false,
+        "book": "PZO1110",
+        "evidenceRole": "partial-root-comparison",
+        "role": "Core Rulebook Fighter ~ Bravery row (SOURCEPAGE p.55): DESC \"+%1 bonus to Will saves against fear effects\", BONUS:VAR|Bravery|(BraveryLVL+2)/4.",
+        "comparisonLocation": "https://github.com/PCGen/pcgen/blob/25523dbcf10e86c280fc0f447167ea43d67419d3/data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst#L888"
+      },
+      "prdComparison": {
+        "capture": "prd-2026-10-20",
+        "path": "pages/coreRulebook/classes/fighter.html",
+        "pageSha256": "80143dd3794455f289892ba9c6d9642b13c581e640021e949d0bef6c4e19441c",
+        "captureUrl": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html",
+        "lines": [
+          {
+            "line": 382,
+            "text": "\t\t\t\t<p id=\"bravery\"><b>Bravery <a href = \"/pathfinderRPG/prd/coreRulebook/glossary.html#extraordinary-abilities-ex\" >(Ex)</a></b>: Starting at 2nd level, a fighter gains a +1 bonus on <a href=\"/pathfinderRPG/prd/coreRulebook/combat.html#will\" >Will saves</a> against fear. This bonus increases by +1 for every four levels beyond 2nd.</p>",
+            "sha256": "78b21dcc74be7386b3a66eeb6d503cbc0db15313083562ced732076247a36911"
+          }
+        ],
+        "book": "PZO1110",
+        "completeDirectComparison": true,
+        "role": "Bravery (Ex), identical to the body after its heading."
+      },
+      "grantEvidence": {
+        "pcgen": [
+          {
+            "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+            "line": 253,
+            "literalRow": "CATEGORY=Class|Fighter.MOD\t\tBONUS:VAR|BraveryLVL|FighterLVL|TYPE=Class|PREVARGTEQ:Fighter_CFP_Level,2",
+            "sha256": "2a1e8bf414402b86bb07034856b74683d06f5e6e8daa8c81ae406bad3366ca32"
+          },
+          {
+            "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+            "line": 258,
+            "literalRow": "CATEGORY=Class|Fighter.MOD\t\tABILITY:Fighter Class Feature|AUTOMATIC|Fighter ~ Bravery|PREVAREQ:Fighter_CF_Bravery,0|PREVARGTEQ:Fighter_CFP_Level,2",
+            "sha256": "153bae74903165ed11803f941c3852841dc8109523860df01304839c4481ec55"
+          }
+        ],
+        "foundry": {
+          "path": "packs/classes/fighter.WLqBCT5DqmGAx8Wd.yaml",
+          "lines": [44, 45],
+          "literal": "- level: 2 uuid: Compendium.pf1.class-abilities.Item.h0Brxw6khcjlEf1T",
+          "location": "https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/classes/fighter.WLqBCT5DqmGAx8Wd.yaml#L44-45"
+        },
+        "prdTable": {
+          "path": "pages/coreRulebook/classes/fighter.html",
+          "lines": [356, 375]
+        },
+        "role": "Granted at Fighter level 2: PCGen ABILITY at Fighter_CFP_Level 2 (:258), BraveryLVL = FighterLVL from 2nd (:253); Foundry classAssociations level 2; PRD table \"bravery +1\" at 2nd."
+      },
+      "additionalComparisonLeads": [],
+      "rejectedRootComparisonEvidence": [],
+      "inheritedRuleNotices": [
+        {
+          "book": "PZO1110",
+          "rule": "CRB fighter class feature and the rules it applies (Core Rulebook class features, p. 55-56)",
+          "location": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html",
+          "comparisonBasis": "Exact named rule in the reviewed body and its PRD Core Rulebook section; minimum notice dependency, not complete origin proof."
+        }
+      ],
+      "inheritedRuleSourceEvidence": [],
+      "inheritedRuleComparisonEvidence": [],
+      "inheritedRuleUnresolvedOrigins": [],
+      "linkedContentReview": [],
+      "sourceFields": {
+        "abilityType": "ex",
+        "associations": {
+          "classes": ["Fighter"]
+        },
+        "contextNotes": [
+          {
+            "target": "will",
+            "text": "+[[floor((@class.level + 2) / 4)]] vs fear effects"
+          }
+        ],
+        "description": {
+          "value": "<p>Starting at 2nd level, a fighter gains a +1 bonus on <em>Will</em> saves against fear. This bonus increases by +1 for every four levels beyond 2nd.</p>"
+        },
+        "sources": [
+          {
+            "id": "PZO1110",
+            "pages": "55"
+          }
+        ],
+        "subType": "classFeat"
+      },
+      "fullSourceDescriptionReviewed": true,
+      "rationale": "Complete CRB class feature (p. 55) compared with the PRD capture (coreRulebook/classes/fighter.html:382, identical after its \"Bravery (Ex):\" heading) and PCGen's Core Rulebook row (cr_abilities_class.lst:888). Its checked note record supplies the reviewed schedule as one Modifier: Will, untyped, floor((@classLevel.fighter + 2) / 4), shared Situation fear (+1 at 2nd to +5 at 18th). Existing reviewed CRB notice covers it.",
+      "mechanicsReview": {
+        "externalKey": "pf1/h0Brxw6khcjlEf1T",
+        "name": "Bravery",
+        "reviewedBy": "Sol (AI curator) for the owner",
+        "reviewedOn": "2026-10-31",
+        "descriptionText": "<p>Starting at 2nd level, a fighter gains a +1 bonus on <em>Will</em> saves against fear. This bonus increases by +1 for every four levels beyond 2nd.</p>",
+        "rawMechanics": {
+          "changes": [],
+          "changeFlags": {},
+          "contextNotes": [
+            {
+              "target": "will",
+              "text": "+[[floor((@class.level + 2) / 4)]] vs fear effects"
+            }
+          ],
+          "sources": [
+            {
+              "id": "PZO1110",
+              "pages": "55"
+            }
+          ],
+          "classAssociations": ["Fighter"]
+        },
+        "curationRecords": [
+          {
+            "externalKey": "pf1/h0Brxw6khcjlEf1T",
+            "kind": "description",
+            "target": "description",
+            "text": "<p>Starting at 2nd level, a fighter gains a +1 bonus on <em>Will</em> saves against fear. This bonus increases by +1 for every four levels beyond 2nd.</p>",
+            "textSha256": "1b2746b6686958f4708e33b5a4f5ecca2cd6f4e7a486eb349aa5fcbd0c86d471",
+            "status": "checked",
+            "outputs": [],
+            "rationale": "#636 (#596 run A) complete pinned body and inert fields reviewed at https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/bravery.h0Brxw6khcjlEf1T.yaml. Covered/no-output: the checked note record for the body's own \"will\" context note supplies the rule as one Modifier (Will, untyped, floor((@classLevel.fighter + 2) / 4), shared Situation fear), as PRD coreRulebook/classes/fighter.html:382 and PCGen cr_abilities_class.lst:888 state it. Attribution is assessed separately.",
+            "diagnostics": [],
+            "reviewedBy": "Sol (AI curator) for the owner",
+            "reviewedOn": "2026-10-31",
+            "seedBindings": []
+          },
+          {
+            "externalKey": "pf1/h0Brxw6khcjlEf1T",
+            "kind": "note",
+            "target": "will",
+            "text": "+[[floor((@class.level + 2) / 4)]] vs fear effects",
+            "textSha256": "9a041362ac6d0436a9b74fc9fc3906b251c72d1a0823697736b6ae66e4fdb239",
+            "status": "checked",
+            "outputs": [
+              {
+                "kind": "modifier",
+                "target": "save.will",
+                "bonusType": "untyped",
+                "value": {
+                  "formula": "floor((@classLevel.fighter + 2) / 4)"
+                },
+                "condition": {
+                  "situation": "fear"
+                }
+              }
+            ],
+            "rationale": "#636 (#596 run A) required note checked against the complete pinned body at https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/bravery.h0Brxw6khcjlEf1T.yaml. \"+1 bonus on Will saves against fear ... increases by +1 for every four levels beyond 2nd\" (body; PRD coreRulebook/classes/fighter.html:382). Foundry's @class.level is the granting class's level, @classLevel.fighter in the closed grammar (docs/character-sheet/modifiers.md). The formula matches the reviewed schedule (scripts/catalog/pcgen/schedules.ts, Bravery +1 to +5 at 2, 6, 10, 14 and 18; PRD table :356-375) and PCGen BONUS:VAR|Bravery|(BraveryLVL+2)/4 with BraveryLVL = FighterLVL from 2nd level (cr_abilities_class.lst:888, :253). Untyped, as the body and PCGen give no type. The note's \"vs fear effects\" is the shared Situation fear (\"vs. fear effects\"). No separate Note: the Modifier states the whole rule.",
+            "diagnostics": [],
+            "reviewedBy": "Sol (AI curator) for the owner",
+            "reviewedOn": "2026-10-31",
+            "seedBindings": []
+          }
+        ],
+        "mappedFacts": {
+          "sources": [
+            {
+              "book": "PZO1110",
+              "pages": "55"
+            }
+          ],
+          "detail": {
+            "kind": "classFeature"
+          },
+          "modifiers": [
+            {
+              "target": "save.will",
+              "bonusType": "untyped",
+              "value": {
+                "formula": "floor((@classLevel.fighter + 2) / 4)"
+              },
+              "condition": {
+                "situation": "fear"
+              }
+            }
+          ],
+          "sourceKey": null,
+          "situationalNotes": [],
+          "unsupportedFields": ["gameContent"]
+        },
+        "classFeatureReview": {
+          "grantingClass": "Fighter (pf1/WLqBCT5DqmGAx8Wd)",
+          "level": 2,
+          "schedule": [
+            {
+              "level": 1,
+              "value": 0
+            },
+            {
+              "level": 2,
+              "value": 1
+            },
+            {
+              "level": 3,
+              "value": 1
+            },
+            {
+              "level": 4,
+              "value": 1
+            },
+            {
+              "level": 5,
+              "value": 1
+            },
+            {
+              "level": 6,
+              "value": 2
+            },
+            {
+              "level": 7,
+              "value": 2
+            },
+            {
+              "level": 8,
+              "value": 2
+            },
+            {
+              "level": 9,
+              "value": 2
+            },
+            {
+              "level": 10,
+              "value": 3
+            },
+            {
+              "level": 11,
+              "value": 3
+            },
+            {
+              "level": 12,
+              "value": 3
+            },
+            {
+              "level": 13,
+              "value": 3
+            },
+            {
+              "level": 14,
+              "value": 4
+            },
+            {
+              "level": 15,
+              "value": 4
+            },
+            {
+              "level": 16,
+              "value": 4
+            },
+            {
+              "level": 17,
+              "value": 4
+            },
+            {
+              "level": 18,
+              "value": 5
+            },
+            {
+              "level": 19,
+              "value": 5
+            },
+            {
+              "level": 20,
+              "value": 5
+            }
+          ],
+          "scheduleRule": "Will bonus vs fear = floor((fighter level + 2) / 4) from 2nd level: +1 at 2nd, +2 at 6th, +3 at 10th, +4 at 14th, +5 at 18th (PRD table :357-373; reviewed schedule scripts/catalog/pcgen/schedules.ts \"bravery\").",
+          "validatedThrough": 20
+        },
+        "prerequisiteReview": {
+          "authoredText": "",
+          "normalizedAtoms": [],
+          "publishedClauses": [],
+          "outstandingFacts": [],
+          "review": "A class feature has no selection prerequisite; it is granted by Fighter level (classFeatureReview)."
+        },
+        "proficiencyReview": {
+          "grants": [],
+          "outstandingFacts": [],
+          "review": "No weapon or armor proficiency grant in this body (the Fighter's proficiencies are the class's own, run B)."
+        },
+        "outstandingCalculations": [],
+        "proseOnlyRules": "None: the Modifier states the whole rule as a situational Will bonus under the shared Situation fear; situational Modifiers stay out of totals (docs/character-sheet/modifiers.md).",
+        "sourceDiscrepancies": [
+          "PCGen's DESC reads \"Will saves against fear effects\"; the body and PRD read \"Will saves against fear\". Literal wording recorded, not resolved."
+        ],
+        "sharedSourceReview": "No rule equates this body with another effect for Source stacking; no sourceKey. Exact Rule Identity retained."
+      },
+      "launchSubset": true,
+      "currentBinding": {
+        "contentFingerprint": "59cdb16055510d1c08c59787d3573c907b3c6f43890c7d66dbbe472a8a8fea44",
+        "mappingFingerprint": "7747ca01141070e1babc1ece2cf11f750f656f5d8a0ca627496b919c9767b1ee",
+        "evidenceFingerprints": {
+          "class-abilities-636-h0Brxw6khcjlEf1T": "781052c8586efa35ea40a959dbf10c9af17710470abc30fbac05c184a2c7b42c"
+        },
+        "noticeFingerprints": {
+          "PZO1110": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+        }
+      }
+    }
+  ],
+  "counts": {
+    "total": 1,
+    "admitted": 1,
+    "held": 0,
+    "dependentlyOmitted": 0,
+    "unsupportedProseOnly": 0,
+    "excluded": 0,
+    "excludedFolders": 0,
+    "recordLevel35Holds": 0
+  },
+  "retainedExceptions": []
+}
