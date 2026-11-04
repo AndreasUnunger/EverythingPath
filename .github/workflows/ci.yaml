@@ -32,6 +32,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Install Chromium for geometry support tests
+        run: pnpm exec playwright install --with-deps --only-shell chromium
+
       - name: Test
         run: pnpm test && pnpm test:build
 
