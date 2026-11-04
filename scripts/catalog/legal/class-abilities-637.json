@@ -1,0 +1,477 @@
+{
+  "ticket": "https://github.com/AndreasUnunger/EverythingPath/issues/637",
+  "launchSubset": {
+    "run": "#596 run A (Fighter launch subset)",
+    "statement": "MVP launch subset of #637: this inventory curates only pf1/iqeyCQIIVnNt0p3h (Armor Training (Heavy Armor)); the ticket's other 99 keys stay remaining acceptance under #637.",
+    "curatedKeys": ["pf1/iqeyCQIIVnNt0p3h"],
+    "remainingAcceptance": [
+      "pf1/hYPoefz1zLT69n09",
+      "pf1/hZGcHilMr9RCYKUZ",
+      "pf1/hZlhs7dfhWOfR2P6",
+      "pf1/hbttw8IQ2kKnpOnB",
+      "pf1/hd6MiVc69RyEuDpU",
+      "pf1/hdZN7foJ3rNkO034",
+      "pf1/hdrnifXPEgWF174e",
+      "pf1/hf8dK8G2P06QvTPm",
+      "pf1/hgaghi0o0dFOZ0hU",
+      "pf1/hgiQpbIXwLsgTvlt",
+      "pf1/hijUyzwpFjv2HLtK",
+      "pf1/hj0rfw1zr2h69wjT",
+      "pf1/hjIKtQMst5tvUUIG",
+      "pf1/hkPSfghbCwJd70An",
+      "pf1/hkTEIRhkdkhQqaYx",
+      "pf1/hl2Tfxip98tJzodz",
+      "pf1/hnZih4cTziXrf9cX",
+      "pf1/hp7tP0bRAj8eNqN9",
+      "pf1/hq27vag5DHQMOhrv",
+      "pf1/hs5NkHd0ZrDodFqF",
+      "pf1/hs8NEfISUzhVm2ce",
+      "pf1/hsPaehLs8BaMEmcj",
+      "pf1/hslkjPA3AVl3hDWu",
+      "pf1/ht94hVn9U6FmkEMz",
+      "pf1/htZNHKpcGrPHDSuB",
+      "pf1/htsBZroKHb4XNEhr",
+      "pf1/huIqZbUATwLMywBt",
+      "pf1/hwcRSJ1KAX1boUNv",
+      "pf1/hxg3hAobmaaXB0TX",
+      "pf1/hybEecH3aiZDkjNt",
+      "pf1/hydwj0irhLCGREF9",
+      "pf1/i0yrg2hLAnCWNTGh",
+      "pf1/i495GvOqGUcml6yW",
+      "pf1/i4GboHYSOofHEJ4i",
+      "pf1/i4bu46pF2Y4sYqes",
+      "pf1/i4tmM39vbDNCeLph",
+      "pf1/i50aazkiLMO0TXVK",
+      "pf1/i5vcs5NKggNreCGu",
+      "pf1/i64BU7HTfaRJEYFj",
+      "pf1/i66RXlViYbPPAKTu",
+      "pf1/i6Wn6GJkWo6wy9XJ",
+      "pf1/i7Od2w9px0gmbkjU",
+      "pf1/i8I7zEP35zyNg6s9",
+      "pf1/i9Jwvqs0A7dUPYKd",
+      "pf1/iBM8TqG9BDpCjAj7",
+      "pf1/iBTrvPtn3jczInbn",
+      "pf1/iBeDQtCPXycfpiqV",
+      "pf1/iBzsekw5n2xyVuzN",
+      "pf1/iDqsxJevHkQX4IfY",
+      "pf1/iE8VR24DwXYFN2Fe",
+      "pf1/iFDhUcsaN8l5HY5B",
+      "pf1/iFq0EX4yovswIox9",
+      "pf1/iGo5EQHzwfFmyJ0w",
+      "pf1/iGrgU1XzlweVO2tb",
+      "pf1/iHVO0z5RTRIYL7yU",
+      "pf1/iHprIxqshEcrH1XM",
+      "pf1/iKQcvCf4NMTKDzNx",
+      "pf1/iKU4dEZtK3EotBFj",
+      "pf1/iL7T2t0UKcHFDeFi",
+      "pf1/iMZTa86xlmGO77x1",
+      "pf1/iMzXKM0Dty4c5c3i",
+      "pf1/iNOUStl1danQKlFX",
+      "pf1/iOrFzxCkcsfo5QmT",
+      "pf1/iRZBA5F7n7GNDuxN",
+      "pf1/iU8Po57HZQxDl7zH",
+      "pf1/iUTsKFtIX9gfoN1o",
+      "pf1/iUXZDq4yAzpnzsvC",
+      "pf1/iUxvRQGzlArcPV1A",
+      "pf1/iVtnowDL9qh6C6RG",
+      "pf1/iX8sKYr2K97JIl0S",
+      "pf1/iXUf0hB7WYr3c2kS",
+      "pf1/iYfAYVvUjvTPrM6P",
+      "pf1/ia0D4h2Ywerw5Ohh",
+      "pf1/ia7FdrQcmfdmCwaZ",
+      "pf1/ibbnnyASQkqZ28yl",
+      "pf1/ic1tUgzcKHMyBiOr",
+      "pf1/ic7S8cCYMu0cMmf7",
+      "pf1/idjUiuwcC0iKbkeY",
+      "pf1/ieI7su1zQYRe2KzG",
+      "pf1/igyMWtX3cB2HZeSF",
+      "pf1/ihaiN17VxQ6pZdu5",
+      "pf1/ihe9gLYx5fDzL5Ly",
+      "pf1/ijE8aHAZOvoFPFr4",
+      "pf1/ijFeruWwLLZCzcxG",
+      "pf1/ik7YjF6IXgTNeqrq",
+      "pf1/ik9VVXE4jfndGa7f",
+      "pf1/ikAOdwl6gXzsm2V0",
+      "pf1/ikH0TGHH16sFSJL6",
+      "pf1/ikVwT8b9zfj701k1",
+      "pf1/iky2o8XeXcNUOVIw",
+      "pf1/imDXS79zqcY3g6Af",
+      "pf1/impwr24Tq1Wxooxn",
+      "pf1/imqKi1O6uqoov6QN",
+      "pf1/ipV5E7Fd6x0jH1PN",
+      "pf1/iqNzKtzwCxJOCfIj",
+      "pf1/iqpcm2zB588hf52q",
+      "pf1/irq2NN75xZ8uIi8b",
+      "pf1/isntpKkbAc8v2SuT",
+      "pf1/isqqGZgV63khL50R"
+    ]
+  },
+  "reviewedBy": "Sol (AI curator) for the owner",
+  "reviewedOn": "2026-10-31",
+  "pinnedSources": [
+    {
+      "repo": "pf1",
+      "tag": "v11.11",
+      "commit": "418761d2e16a6037c0156bb4a241f7cea5a2986d"
+    },
+    {
+      "repo": "pf1-content",
+      "tag": "11.4.0",
+      "commit": "02f4ab0d92e0d64f9eb2d127f42fd809cb23db7d"
+    }
+  ],
+  "comparisonSources": {
+    "allowed": ["PRD", "PCGen", "books"],
+    "prohibited": ["Archives of Nethys"],
+    "pcgenCommit": "25523dbcf10e86c280fc0f447167ea43d67419d3",
+    "pcgenFiles": [
+      {
+        "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+        "sha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e"
+      }
+    ],
+    "prd": {
+      "capture": "prd-2026-10-20",
+      "path": "pages/coreRulebook/classes/fighter.html",
+      "sha256": "80143dd3794455f289892ba9c6d9642b13c581e640021e949d0bef6c4e19441c",
+      "captureUrl": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html"
+    },
+    "books": "No book PDFs are available; book-only evidence stays a named hold."
+  },
+  "reviewBoundary": "The complete pinned body and inert fields of Armor Training (Heavy Armor) (Fighter class feature, Core Rulebook) reviewed against the PRD capture prd-2026-10-20 and PCGen's Core Rulebook rows, with its class grant validated through level 20. Admitted under the reviewed Core Rulebook notice. Calculations the sheet does not support stay outstanding with their owners, never legal holds. Fighter (pf1/WLqBCT5DqmGAx8Wd) and Bonus Feats (pf1/CV8BsY3ciUb9TA1Y) wait for #596 run B.",
+  "noticeRequirements": [
+    {
+      "book": "PZO1110",
+      "title": "Core Rulebook",
+      "status": "existing-reviewed",
+      "registryKeys": ["CRB"],
+      "holdId": null,
+      "candidates": ["pf1/iqeyCQIIVnNt0p3h"]
+    }
+  ],
+  "noticeBoundary": "Observed minimum dependencies. The reviewed Core Rulebook notice (CRB, alias PZO1110) covers the body. No Registry, held-notices or clearance change.",
+  "candidates": [
+    {
+      "externalKey": "pf1/iqeyCQIIVnNt0p3h",
+      "name": "Armor Training (Heavy Armor)",
+      "kind": "classFeature",
+      "grantingClass": "pf1/WLqBCT5DqmGAx8Wd",
+      "disposition": "admitted",
+      "assessmentStatus": "confirmed",
+      "rawType": "feat",
+      "rawKey": "!items!iqeyCQIIVnNt0p3h",
+      "source": {
+        "repo": "pf1",
+        "path": "packs/class-abilities/armor-training-heavy-armor.iqeyCQIIVnNt0p3h.yaml",
+        "sha256": "398e8b795a8658ad64fc9cabfb60bd2418d5463fa4af078b4a652c9e7ced98cc",
+        "location": "https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/armor-training-heavy-armor.iqeyCQIIVnNt0p3h.yaml"
+      },
+      "descriptionSha256": "5a7ecf2b3a4356ce797cbd03757d7d91812cb5da38681a5d3a195ca997958d62",
+      "citedSources": [
+        {
+          "book": "PZO1110",
+          "pages": "56"
+        }
+      ],
+      "importedSources": [
+        {
+          "book": "PZO1110",
+          "pages": "56"
+        }
+      ],
+      "requiredNotices": ["PZO1110"],
+      "noticeRequirementsComplete": true,
+      "evidenceId": "class-abilities-637-iqeyCQIIVnNt0p3h",
+      "holdIds": [],
+      "noticeHoldIds": [],
+      "missingEvidence": null,
+      "comparison": {
+        "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+        "line": 895,
+        "literalRow": "Armor Training ~ Heavy Armor\t\t\t\t\t\tCATEGORY:Special Ability\tTYPE:FighterClassFeatures.Internal.Armor Training Choice\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tUNENCUMBEREDMOVE:HeavyArmor",
+        "comparisonLineSha256": "3b18ad269f0e5bbfdaf6f62c98a2fd61914c31d36b6519111001816ff18c96d3",
+        "comparisonFileSha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e",
+        "publicationTitle": "Core Rulebook",
+        "publicationAnchor": {
+          "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+          "line": 3,
+          "text": "SOURCELONG:Core Rulebook",
+          "sha256": "5e1035eb2a788d7d53f724b837696e7c05847128ecfa7aa7856e522abb03686e"
+        },
+        "appliesToRootBody": true,
+        "completeDirectComparison": false,
+        "book": "PZO1110",
+        "evidenceRole": "partial-root-comparison",
+        "role": "Core Rulebook Armor Training ~ Heavy Armor row: UNENCUMBEREDMOVE:HeavyArmor, chosen from the Armor Training Choice pool at ArmorTrainingLVL 7 (:890); it has no DESC.",
+        "comparisonLocation": "https://github.com/PCGen/pcgen/blob/25523dbcf10e86c280fc0f447167ea43d67419d3/data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst#L895"
+      },
+      "prdComparison": {
+        "capture": "prd-2026-10-20",
+        "path": "pages/coreRulebook/classes/fighter.html",
+        "pageSha256": "80143dd3794455f289892ba9c6d9642b13c581e640021e949d0bef6c4e19441c",
+        "captureUrl": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html",
+        "lines": [
+          {
+            "line": 384,
+            "text": "\t\t\t\t<p>In addition, a fighter can also move at his normal speed while wearing medium armor. At 7th level, a fighter can move at his normal speed while wearing heavy armor.</p>",
+            "sha256": "146bd5422752fd4472ce0ab9c84a2f5a17930c7f84ccab9b1502f54ce0224ba3"
+          }
+        ],
+        "book": "PZO1110",
+        "completeDirectComparison": true,
+        "role": "The second sentence of :384, \"At 7th level, a fighter can move at his normal speed while wearing heavy armor.\", identical to the body."
+      },
+      "grantEvidence": {
+        "pcgen": [
+          {
+            "path": "data/pathfinder/paizo/roleplaying_game/core_rulebook/cr_abilities_class.lst",
+            "line": 890,
+            "literalRow": "Armor Training\t\t\tKEY:Fighter ~ Armor Training\tCATEGORY:Special Ability\tTYPE:FighterClassFeatures.SpecialQuality.Extraordinary\t\t\t\t\tDEFINE:ArmorTraining|0\tDEFINE:ArmorTrainingLVL|0\tDEFINE:ArmorTrainingTier|0\tDESC:You are more maneuverable while wearing armor. Whenever you are wearing armor, you reduce the armor check penalty by %1 and increase the maximum Dexterity bonus allowed by your armor by +%1|ArmorTrainingTier\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tBONUS:ABILITYPOOL|Armor Training Choice|1|PREVARGTEQ:ArmorTrainingLVL,7\t\t\t\t\t\t\t\t\t\tBONUS:MISC|MAXDEX|1|PREMULT:2,[PREEQUIP:1,TYPE=Armor],[PREVARGTEQ:ArmorTrainingTier,1]\tBONUS:MISC|MAXDEX|1|PREMULT:2,[PREEQUIP:1,TYPE=Armor],[PREVARGTEQ:ArmorTrainingTier,2]\tBONUS:MISC|MAXDEX|1|PREMULT:2,[PREEQUIP:1,TYPE=Armor],[PREVARGTEQ:ArmorTrainingTier,3]\tBONUS:MISC|MAXDEX|1|PREMULT:2,[PREEQUIP:1,TYPE=Armor],[PREVARGTEQ:ArmorTrainingTier,4]\tBONUS:MISC|ACCHECK|ArmorTrainingTier|PREEQUIP:1,TYPE=Armor\tBONUS:VAR|ArmorTrainingTier|ArmorTraining\tBONUS:VAR|ArmorTraining|min((ArmorTrainingLVL+1)/4,4)\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tSOURCEPAGE:p.55\t\t\t\t\t\t\t\t\tUNENCUMBEREDMOVE:MediumArmor",
+            "sha256": "eb6d4a75e71dd131cd154df4cd2da59a2a1ddd7f4aa656fbcae993e61465479c"
+          }
+        ],
+        "foundry": {
+          "path": "packs/classes/fighter.WLqBCT5DqmGAx8Wd.yaml",
+          "lines": [50, 51],
+          "literal": "- level: 7 uuid: Compendium.pf1.class-abilities.Item.iqeyCQIIVnNt0p3h",
+          "location": "https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/classes/fighter.WLqBCT5DqmGAx8Wd.yaml#L50-51"
+        },
+        "prdTable": {
+          "path": "pages/coreRulebook/classes/fighter.html",
+          "lines": [356, 375]
+        },
+        "role": "Granted at Fighter level 7: Foundry classAssociations level 7; PCGen through the Armor Training row's choice pool at ArmorTrainingLVL 7 (:890); PRD :384 \"At 7th level\"."
+      },
+      "additionalComparisonLeads": [],
+      "rejectedRootComparisonEvidence": [],
+      "inheritedRuleNotices": [
+        {
+          "book": "PZO1110",
+          "rule": "CRB fighter class feature and the rules it applies (Core Rulebook class features, p. 55-56)",
+          "location": "https://web.archive.org/web/20180910110056id_/http://paizo.com:80/pathfinderRPG/prd/coreRulebook/classes/fighter.html",
+          "comparisonBasis": "Exact named rule in the reviewed body and its PRD Core Rulebook section; minimum notice dependency, not complete origin proof."
+        }
+      ],
+      "inheritedRuleSourceEvidence": [],
+      "inheritedRuleComparisonEvidence": [],
+      "inheritedRuleUnresolvedOrigins": [],
+      "linkedContentReview": [],
+      "sourceFields": {
+        "abilityType": "ex",
+        "associations": {
+          "classes": ["Fighter"]
+        },
+        "changeFlags": {
+          "heavyArmorFullSpeed": true
+        },
+        "description": {
+          "value": "<p>At 7th level, a fighter can move at his normal speed while wearing heavy armor.</p>"
+        },
+        "sources": [
+          {
+            "id": "PZO1110",
+            "pages": "56"
+          }
+        ],
+        "subType": "classFeat"
+      },
+      "fullSourceDescriptionReviewed": true,
+      "rationale": "Complete CRB class feature (p. 56) compared with the PRD capture (coreRulebook/classes/fighter.html:384, its second sentence, identical) and PCGen's Core Rulebook row (cr_abilities_class.lst:895, UNENCUMBEREDMOVE:HeavyArmor). Granted at 7th level by the Fighter's class associations. The Note states the rule; heavy-armor speed stays an outstanding calculation (#716). Existing reviewed CRB notice covers it.",
+      "mechanicsReview": {
+        "externalKey": "pf1/iqeyCQIIVnNt0p3h",
+        "name": "Armor Training (Heavy Armor)",
+        "reviewedBy": "Sol (AI curator) for the owner",
+        "reviewedOn": "2026-10-31",
+        "descriptionText": "<p>At 7th level, a fighter can move at his normal speed while wearing heavy armor.</p>",
+        "rawMechanics": {
+          "changes": [],
+          "changeFlags": {
+            "heavyArmorFullSpeed": true
+          },
+          "contextNotes": [],
+          "sources": [
+            {
+              "id": "PZO1110",
+              "pages": "56"
+            }
+          ],
+          "classAssociations": ["Fighter"]
+        },
+        "curationRecords": [
+          {
+            "externalKey": "pf1/iqeyCQIIVnNt0p3h",
+            "kind": "description",
+            "target": "description",
+            "text": "<p>At 7th level, a fighter can move at his normal speed while wearing heavy armor.</p>",
+            "textSha256": "5a7ecf2b3a4356ce797cbd03757d7d91812cb5da38681a5d3a195ca997958d62",
+            "status": "checked",
+            "outputs": [
+              {
+                "kind": "note",
+                "text": "At 7th level, a fighter can move at his normal speed while wearing heavy armor."
+              }
+            ],
+            "rationale": "#637 (#596 run A) complete pinned body and inert fields reviewed at https://gitlab.com/foundryvtt_pathfinder1e/foundryvtt-pathfinder1/-/blob/418761d2e16a6037c0156bb4a241f7cea5a2986d/packs/class-abilities/armor-training-heavy-armor.iqeyCQIIVnNt0p3h.yaml. The Notes state the rule, the body's own sentences; the sheet has no target for it, so its calculation stays outstanding (#716). Attribution is assessed separately.",
+            "diagnostics": [],
+            "reviewedBy": "Sol (AI curator) for the owner",
+            "reviewedOn": "2026-10-31",
+            "seedBindings": []
+          }
+        ],
+        "mappedFacts": {
+          "sources": [
+            {
+              "book": "PZO1110",
+              "pages": "56"
+            }
+          ],
+          "detail": {
+            "kind": "classFeature"
+          },
+          "modifiers": [],
+          "sourceKey": null,
+          "situationalNotes": [
+            {
+              "text": "At 7th level, a fighter can move at his normal speed while wearing heavy armor."
+            }
+          ],
+          "unsupportedFields": ["gameContent"]
+        },
+        "classFeatureReview": {
+          "grantingClass": "Fighter (pf1/WLqBCT5DqmGAx8Wd)",
+          "level": 7,
+          "schedule": [
+            {
+              "level": 1,
+              "value": false
+            },
+            {
+              "level": 2,
+              "value": false
+            },
+            {
+              "level": 3,
+              "value": false
+            },
+            {
+              "level": 4,
+              "value": false
+            },
+            {
+              "level": 5,
+              "value": false
+            },
+            {
+              "level": 6,
+              "value": false
+            },
+            {
+              "level": 7,
+              "value": true
+            },
+            {
+              "level": 8,
+              "value": true
+            },
+            {
+              "level": 9,
+              "value": true
+            },
+            {
+              "level": 10,
+              "value": true
+            },
+            {
+              "level": 11,
+              "value": true
+            },
+            {
+              "level": 12,
+              "value": true
+            },
+            {
+              "level": 13,
+              "value": true
+            },
+            {
+              "level": 14,
+              "value": true
+            },
+            {
+              "level": 15,
+              "value": true
+            },
+            {
+              "level": 16,
+              "value": true
+            },
+            {
+              "level": 17,
+              "value": true
+            },
+            {
+              "level": 18,
+              "value": true
+            },
+            {
+              "level": 19,
+              "value": true
+            },
+            {
+              "level": 20,
+              "value": true
+            }
+          ],
+          "scheduleRule": "Normal speed in heavy armor from 7th level on.",
+          "validatedThrough": 20
+        },
+        "prerequisiteReview": {
+          "authoredText": "",
+          "normalizedAtoms": [],
+          "publishedClauses": [],
+          "outstandingFacts": [],
+          "review": "A class feature has no selection prerequisite; it is granted by Fighter level (classFeatureReview)."
+        },
+        "proficiencyReview": {
+          "grants": [],
+          "outstandingFacts": [],
+          "review": "No weapon or armor proficiency grant in this body (the Fighter's proficiencies are the class's own, run B)."
+        },
+        "outstandingCalculations": [
+          {
+            "calculation": "Normal speed in heavy armor (Foundry changeFlags.heavyArmorFullSpeed)",
+            "owner": "#716",
+            "reason": "Speed is not a sheet statistic; the record carries a Note."
+          }
+        ],
+        "proseOnlyRules": "The Note states the rule; the speed effect stays an outstanding calculation.",
+        "sourceDiscrepancies": [
+          "PCGen grants it from a choice pool (Armor Training Choice) rather than automatically; the body, PRD and Foundry's level-7 association grant it automatically to the core fighter. The pool is the later books' advanced armor training hook. Recorded, not resolved."
+        ],
+        "sharedSourceReview": "No rule equates this body with another effect for Source stacking; no sourceKey. Exact Rule Identity retained."
+      },
+      "launchSubset": true,
+      "currentBinding": {
+        "contentFingerprint": "af5f5645d01a26d5bb615ff60299cd379d60c0940f1ee15ca47033072ec7b278",
+        "mappingFingerprint": "16b83691091c492efa6f81830938da7258f23c44225271356cf0a584e1592974",
+        "evidenceFingerprints": {
+          "class-abilities-637-iqeyCQIIVnNt0p3h": "5d4864dc3ccff1c37820c98bf4d1644697ea835d1a8a11f5c329e75b85bf16d7"
+        },
+        "noticeFingerprints": {
+          "PZO1110": "3b174532c84220c604c9ccadd857165a0b05c3abf1a400f4bdbbdcefb053cf91"
+        }
+      }
+    }
+  ],
+  "counts": {
+    "total": 1,
+    "admitted": 1,
+    "held": 0,
+    "dependentlyOmitted": 0,
+    "unsupportedProseOnly": 0,
+    "excluded": 0,
+    "excludedFolders": 0,
+    "recordLevel35Holds": 0
+  },
+  "retainedExceptions": []
+}
