@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype: UI testability contract</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        color: #211b17;
+        background: #f3eee5;
+        --ink-soft: #6f6258;
+        --line: #cfc4b8;
+        --paper: #fffdf8;
+        --accent: #9d4f32;
+        --accent-soft: #f1dfd4;
+        --ok: #35684d;
+        --warn: #8b5c17;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { width: min(1120px, calc(100% - 32px)); margin: 36px auto 64px; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { font-family: Georgia, serif; font-size: clamp(2rem, 4vw, 3.5rem); margin-bottom: 8px; }
+      h2 { font-family: Georgia, serif; font-size: 1.45rem; }
+      h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.08em; }
+      code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .eyebrow { color: var(--accent); font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+      .lede { color: var(--ink-soft); max-width: 76ch; font-size: 1.05rem; line-height: 1.55; }
+      .notice { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; margin: 20px 0 28px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr); gap: 18px; }
+      .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 8px 24px rgb(47 32 20 / 7%); }
+      .state-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+      .state-cell { background: #f8f4ed; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+      .state-cell span { display: block; color: var(--ink-soft); font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.08em; }
+      .state-cell strong { display: block; margin-top: 4px; }
+      .slot { border: 2px dashed var(--line); border-radius: 12px; min-height: 180px; padding: 16px; background: #faf7f1; }
+      .slot[data-state="claimed"] { border-style: solid; border-color: var(--accent); }
+      .slot[data-state="confirmed"] { border-style: solid; border-color: var(--ok); background: #eef7f1; }
+      .slot-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .badge { border: 1px solid currentColor; border-radius: 999px; padding: 3px 8px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+      .card { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: white; }
+      .card p { margin-bottom: 4px; }
+      .feedback { min-height: 42px; margin-top: 12px; border-radius: 8px; padding: 10px 12px; background: #f8f4ed; color: var(--ink-soft); }
+      .feedback[data-kind="error"] { background: #fbe9e5; color: #842f24; }
+      .feedback[data-kind="success"] { background: #e9f4ed; color: var(--ok); }
+      .controls { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+      button { appearance: none; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: white; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+      button:hover { border-color: var(--accent); }
+      button:focus-visible { outline: 3px solid rgb(157 79 50 / 30%); outline-offset: 2px; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+      button[disabled] { opacity: 0.48; cursor: not-allowed; }
+      .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+      .tabs button[aria-selected="true"] { color: white; background: var(--accent); border-color: var(--accent); }
+      .steps { padding-left: 22px; line-height: 1.6; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { color: var(--ink-soft); font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.07em; }
+      pre { overflow: auto; border-radius: 10px; padding: 14px; background: #211b17; color: #f7efe7; font-size: 0.79rem; line-height: 1.55; }
+      .contract { margin-top: 18px; }
+      .contract ol { padding-left: 22px; line-height: 1.55; }
+      .contract li + li { margin-top: 7px; }
+      .full { grid-column: 1 / -1; }
+      @media (max-width: 800px) {
+        .grid { grid-template-columns: 1fr; }
+        .state-grid { grid-template-columns: 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Throwaway review prototype</p>
+      <h1>UI testability contract</h1>
+      <p class="lede">
+        Question: can EverythingPath expose stable, player-meaningful observations for
+        browser tests without coupling tests to CSS, component structure, database IDs, or
+        hidden front-end bypasses? Drive the Action Slot lifecycle below and inspect the
+        locator and synchronization contract it implies.
+      </p>
+      <div class="notice">
+        This file proposes a contract; it is not production UI. “Action Slot,” “Action Slot
+        Claim,” “Staged Action Choice,” and “Confirmed Action Choice” follow the project
+        glossary.
+      </div>
+      <div class="notice" style="border-left-color: var(--warn); background: #f6ead5">
+        Current baseline: production cards and Action Slots are unnamed pointer-driven
+        elements, async states are plain text, and the shared model has no claimant or
+        per-slot claim lifecycle. The initial suite can add semantic identities for current
+        staging and confirmation without waiting for that lifecycle. The contention example
+        below is a future-feature oracle that becomes executable when first-claim locking ships.
+      </div>
+
+      <div class="grid">
+        <section class="panel" aria-labelledby="demo-heading">
+          <h2 id="demo-heading">Observable state</h2>
+          <div class="state-grid" aria-live="polite">
+            <div class="state-cell"><span>Slot</span><strong>Activity Slot 1</strong></div>
+            <div class="state-cell"><span>Lifecycle</span><strong id="state-lifecycle">Available</strong></div>
+            <div class="state-cell"><span>Claimant</span><strong id="state-claimant">None</strong></div>
+            <div class="state-cell"><span>Choice</span><strong id="state-action">None</strong></div>
+            <div class="state-cell"><span>Board</span><strong id="state-busy">Ready</strong></div>
+            <div class="state-cell"><span>Last outcome</span><strong id="state-outcome">None</strong></div>
+          </div>
+
+          <div
+            id="activity-slot-1"
+            class="slot"
+            role="group"
+            aria-label="Activity Slot 1"
+            aria-describedby="activity-slot-1-status"
+            data-state="available"
+          >
+            <div class="slot-head">
+              <strong>Activity Slot 1</strong>
+              <span id="activity-slot-1-status" class="badge">Available</span>
+            </div>
+            <div id="slot-choice"></div>
+          </div>
+
+          <div id="feedback" class="feedback" role="status" aria-live="polite">
+            The board is ready.
+          </div>
+
+          <div class="controls" aria-label="Free play actions">
+            <button class="primary" data-action="alice-stage">Alice stages Earn Gold</button>
+            <button data-action="bob-stage">Bob stages Reduce Danger</button>
+            <button data-action="alice-confirm">Alice confirms</button>
+            <button data-action="cancel">Cancel or release</button>
+            <button data-action="invalid">Attempt invalid drop</button>
+            <button data-action="busy">Toggle board busy</button>
+            <button data-action="reset">Reset</button>
+          </div>
+        </section>
+
+        <aside class="panel" aria-labelledby="walkthrough-heading">
+          <h2 id="walkthrough-heading">Guided walkthroughs</h2>
+          <div class="tabs" role="tablist" aria-label="Testability scenarios">
+            <button role="tab" aria-selected="true" data-scenario="contention">Contention</button>
+            <button role="tab" aria-selected="false" data-scenario="busy">Loading</button>
+            <button role="tab" aria-selected="false" data-scenario="invalid">Invalid drop</button>
+          </div>
+          <div id="scenario-copy"></div>
+          <h3>Representative Playwright fragment</h3>
+          <pre id="test-fragment"></pre>
+        </aside>
+
+        <section class="panel full contract" aria-labelledby="contract-heading">
+          <h2 id="contract-heading">Proposed locator inventory</h2>
+          <table>
+            <thead><tr><th>Surface</th><th>Primary locator</th><th>Required observable contract</th></tr></thead>
+            <tbody>
+              <tr><td>Pages and major panels</td><td><code>getByRole('main' | 'region', { name })</code></td><td>A unique visible heading supplies the accessible name.</td></tr>
+              <tr><td>Forms and controls</td><td><code>getByRole(..., { name })</code> or <code>getByLabel(...)</code></td><td>Every control has a persistent player-facing label; errors are linked with <code>aria-describedby</code>.</td></tr>
+              <tr><td>Action cards</td><td><code>getByRole('button', { name: 'Drag Earn Gold' })</code></td><td>The drag handle is keyboard focusable and named for the Action Choice. Card styling and DOM nesting are irrelevant.</td></tr>
+              <tr><td>Action Slots</td><td><code>getByRole('group', { name: 'Activity Slot 1' })</code></td><td>The group contains visible lifecycle, claimant, and choice text. Tests scope observations to the group.</td></tr>
+              <tr><td>Async progress</td><td><code>getByRole('status')</code> and disabled initiating control</td><td>The affected region exposes <code>aria-busy</code>; readiness is proven by the resulting domain state, not a timeout.</td></tr>
+              <tr><td>Rejections and failures</td><td><code>getByRole('alert')</code></td><td>Feedback names the rejected operation and leaves the authoritative visible state unchanged.</td></tr>
+              <tr><td>Third-party or semantically opaque surface</td><td><code>getByTestId(...)</code> as a documented exception</td><td>Test IDs use stable domain language, never CSS names, array positions that can reorder, or Convex/Clerk IDs.</td></tr>
+            </tbody>
+          </table>
+
+          <h3 style="margin-top: 22px">Contract in priority order</h3>
+          <ol>
+            <li>Prefer roles and accessible names, then labels, then stable visible state text; use test IDs only where semantics cannot identify the surface reliably.</li>
+            <li>Pointer drag tests use a shared Playwright helper that moves between role-located card handles and slots. A player-visible keyboard/tap alternative must call the same production staging path; no hidden browser bypass is allowed.</li>
+            <li>Wait on domain outcomes—claimed by Alice, confirmed Earn Gold, character assigned—not sleeps, animation completion, network-idle, or implementation-specific spinners.</li>
+            <li>Test-only mutation seams live behind guarded, non-production Convex seed/reset/expire operations. No <code>window.__test</code>, query-string auth bypass, or production-enabled reset endpoint.</li>
+            <li>Loading and saving states disable conflicting actions, expose status to assistive technology, and end only when the synchronized domain outcome is visible.</li>
+          </ol>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      // Pure state model: this is the portable part of the throwaway prototype.
+      const ContractModel = (() => {
+        const initial = () => ({
+          lifecycle: 'available',
+          claimant: null,
+          action: null,
+          busy: false,
+          outcome: 'none',
+          message: 'The board is ready.',
+          messageKind: 'status',
+        });
+
+        function reduce(state, event) {
+          if (event.type === 'reset') return initial();
+          if (event.type === 'toggleBusy') {
+            const busy = !state.busy;
+            return { ...state, busy, outcome: busy ? 'loading' : 'ready', message: busy ? 'Refreshing the week board…' : 'The week board is ready.', messageKind: 'status' };
+          }
+          if (state.busy) return { ...state, outcome: 'blocked', message: 'Wait until the week board is ready.', messageKind: 'error' };
+          if (event.type === 'stage') {
+            if (state.lifecycle !== 'available') {
+              return { ...state, outcome: 'rejected', message: `Activity Slot 1 is already claimed by ${state.claimant}.`, messageKind: 'error' };
+            }
+            return { ...state, lifecycle: 'claimed', claimant: event.player, action: event.action, outcome: 'staged', message: `${event.player} claimed Activity Slot 1 with ${event.action}.`, messageKind: 'success' };
+          }
+          if (event.type === 'confirm') {
+            if (state.lifecycle !== 'claimed' || state.claimant !== event.player) {
+              return { ...state, outcome: 'rejected', message: `${event.player} cannot confirm this Action Slot Claim.`, messageKind: 'error' };
+            }
+            return { ...state, lifecycle: 'confirmed', outcome: 'confirmed', message: `${state.action} is confirmed in Activity Slot 1.`, messageKind: 'success' };
+          }
+          if (event.type === 'release') {
+            if (state.lifecycle !== 'claimed') return { ...state, outcome: 'unchanged', message: 'There is no unconfirmed Action Slot Claim to release.', messageKind: 'status' };
+            return { ...initial(), outcome: 'released', message: 'Activity Slot 1 is available again.', messageKind: 'success' };
+          }
+          if (event.type === 'invalidDrop') {
+            return { ...state, outcome: 'rejected', message: 'That Action Choice cannot be placed in Activity Slot 1. The card returned to the deck.', messageKind: 'error' };
+          }
+          return state;
+        }
+        return { initial, reduce };
+      })();
+
+      const scenarios = {
+        contention: {
+          copy: '<p>Alice claims the slot, Bob competes, and Alice confirms. Watch the slot remain authoritative after Bob’s rejection.</p><ol class="steps"><li>Alice stages Earn Gold.</li><li>Bob stages Reduce Danger.</li><li>Alice confirms.</li></ol>',
+          test: `const slot = bob.getByRole('group', { name: 'Activity Slot 1' });\nconst card = alice.getByRole('button', { name: 'Drag Earn Gold' });\n\nawait dragCardToSlot(card, alice.getByRole('group', { name: 'Activity Slot 1' }));\nawait expect(slot).toContainText('Claimed by Alice');\nawait expect(slot).toContainText('Earn Gold');\n\nawait dragCardToSlot(\n  bob.getByRole('button', { name: 'Drag Reduce Danger' }),\n  slot,\n);\nawait expect(bob.getByRole('alert')).toContainText('already claimed by Alice');\nawait expect(slot).toContainText('Earn Gold');`,
+        },
+        busy: {
+          copy: '<p>Toggle the board busy. The affected region and initiating control must expose progress, while the test waits for the resulting domain state.</p><ol class="steps"><li>Toggle board busy.</li><li>Try to stage an action.</li><li>Toggle ready and stage again.</li></ol>',
+          test: `const board = page.getByRole('region', { name: 'Week board' });\nawait expect(board).toHaveAttribute('aria-busy', 'true');\nawait expect(page.getByRole('button', { name: 'Continue to Activity' })).toBeDisabled();\n\n// Synchronize on the destination, not on a timer or network-idle.\nawait expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();\nawait expect(board).toHaveAttribute('aria-busy', 'false');`,
+        },
+        invalid: {
+          copy: '<p>An invalid drop produces an alert and returns the card without changing the shared Action Slot.</p><ol class="steps"><li>Attempt invalid drop.</li><li>Observe the rejection.</li><li>Observe the slot is still available.</li></ol>',
+          test: `const slot = page.getByRole('group', { name: 'Activity Slot 1' });\nawait dragCardToSlot(\n  page.getByRole('button', { name: 'Drag Lie Low' }),\n  slot,\n);\nawait expect(page.getByRole('alert')).toContainText('cannot be placed');\nawait expect(slot).toContainText('Available');\nawait expect(page.getByRole('button', { name: 'Drag Lie Low' })).toBeVisible();`,
+        },
+      };
+
+      let state = ContractModel.initial();
+      const $ = (selector) => document.querySelector(selector);
+      function render() {
+        $('#state-lifecycle').textContent = state.lifecycle[0].toUpperCase() + state.lifecycle.slice(1);
+        $('#state-claimant').textContent = state.claimant ?? 'None';
+        $('#state-action').textContent = state.action ?? 'None';
+        $('#state-busy').textContent = state.busy ? 'Busy' : 'Ready';
+        $('#state-outcome').textContent = state.outcome[0].toUpperCase() + state.outcome.slice(1);
+        const slot = $('#activity-slot-1');
+        slot.dataset.state = state.lifecycle;
+        slot.setAttribute('aria-busy', String(state.busy));
+        $('#activity-slot-1-status').textContent = state.lifecycle === 'claimed' ? `Claimed by ${state.claimant}` : state.lifecycle[0].toUpperCase() + state.lifecycle.slice(1);
+        $('#slot-choice').innerHTML = state.action ? `<div class="card"><p><strong>${state.action}</strong></p><p>${state.lifecycle === 'confirmed' ? 'Confirmed Action Choice' : 'Staged Action Choice'}</p><button aria-label="Drag ${state.action}" ${state.lifecycle === 'confirmed' ? 'disabled' : ''}>Drag handle</button></div>` : '<p style="color: var(--ink-soft); margin-top: 32px">Drop an Action Choice here.</p>';
+        const feedback = $('#feedback');
+        feedback.textContent = state.message;
+        feedback.dataset.kind = state.messageKind;
+        feedback.setAttribute('role', state.messageKind === 'error' ? 'alert' : 'status');
+        document.querySelectorAll('[data-action]:not([data-action="busy"]):not([data-action="reset"])').forEach((button) => { button.disabled = state.busy; });
+      }
+
+      document.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-action]')?.dataset.action;
+        const events = {
+          'alice-stage': { type: 'stage', player: 'Alice', action: 'Earn Gold' },
+          'bob-stage': { type: 'stage', player: 'Bob', action: 'Reduce Danger' },
+          'alice-confirm': { type: 'confirm', player: 'Alice' },
+          cancel: { type: 'release' },
+          invalid: { type: 'invalidDrop' },
+          busy: { type: 'toggleBusy' },
+          reset: { type: 'reset' },
+        };
+        if (events[action]) { state = ContractModel.reduce(state, events[action]); render(); }
+
+        const scenario = event.target.closest('[data-scenario]')?.dataset.scenario;
+        if (scenario) {
+          document.querySelectorAll('[data-scenario]').forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.scenario === scenario)));
+          $('#scenario-copy').innerHTML = scenarios[scenario].copy;
+          $('#test-fragment').textContent = scenarios[scenario].test;
+          state = ContractModel.initial();
+          render();
+        }
+      });
+
+      $('#scenario-copy').innerHTML = scenarios.contention.copy;
+      $('#test-fragment').textContent = scenarios.contention.test;
+      render();
+    </script>
+  </body>
+</html>

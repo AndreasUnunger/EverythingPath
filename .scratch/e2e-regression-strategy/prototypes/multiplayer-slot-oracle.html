@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shared Action Slot Oracle — Prototype</title>
+    <style>
+      :root { color-scheme: light; font-family: ui-sans-serif, system-ui, sans-serif; --ink:#17202a; --muted:#667085; --line:#d0d5dd; --accent:#3157d5; --soft:#eef2ff; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:#f8fafc; color:var(--ink); }
+      main { width:min(1040px, calc(100% - 32px)); margin:40px auto 64px; }
+      h1 { margin:0 0 8px; font-size:clamp(28px, 4vw, 42px); }
+      h2 { margin:0 0 14px; font-size:20px; }
+      p { line-height:1.55; }
+      .notice { border-left:5px solid var(--accent); background:var(--soft); padding:14px 18px; margin:22px 0; }
+      .grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }
+      .panel { background:white; border:1px solid var(--line); border-radius:12px; padding:20px; box-shadow:0 2px 8px rgb(16 24 40 / 5%); }
+      dl { display:grid; grid-template-columns:145px 1fr; gap:9px 14px; margin:0; }
+      dt { color:var(--muted); } dd { margin:0; font-weight:650; }
+      button { border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); padding:10px 13px; font:inherit; cursor:pointer; }
+      button:hover { border-color:var(--accent); }
+      button.primary { background:var(--accent); border-color:var(--accent); color:white; }
+      button:disabled { cursor:not-allowed; opacity:.45; }
+      .buttons { display:flex; flex-wrap:wrap; gap:9px; }
+      .log { min-height:54px; padding:12px; background:#101828; color:#f2f4f7; border-radius:8px; font-family:ui-monospace, monospace; font-size:14px; }
+      .tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+      .tabs button[aria-selected="true"] { background:var(--soft); border-color:var(--accent); color:var(--accent); }
+      .steps { display:grid; gap:10px; }
+      .step { display:grid; grid-template-columns:32px 1fr auto; align-items:center; gap:10px; padding:10px 0; border-top:1px solid #eaecf0; }
+      .step:first-child { border-top:0; }
+      .number { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--soft); color:var(--accent); font-weight:700; }
+      code { background:#f2f4f7; padding:2px 5px; border-radius:4px; }
+      @media (max-width:760px) { .grid { grid-template-columns:1fr; } .step { grid-template-columns:32px 1fr; } .step button { grid-column:2; justify-self:start; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Shared Action Slot Oracle</h1>
+      <p>This throwaway prototype asks: what must two players observe for a slot to be claimed, staged, confirmed, released, or expired without tests depending on arbitrary timing?</p>
+      <div class="notice"><strong>Future-feature oracle:</strong> this models only the player-visible outcomes to require when the product introduces first-claim locking. The current mandatory suite instead tests supported staging and confirmation propagation without competing writes. GM correction is omitted because GM-only controls do not yet exist.</div>
+
+      <section class="grid" aria-label="Current shared state">
+        <div class="panel">
+          <h2>Authoritative slot</h2>
+          <dl>
+            <dt>Status</dt><dd id="status"></dd>
+            <dt>Claimed by</dt><dd id="owner"></dd>
+            <dt>Staged card</dt><dd id="card"></dd>
+          </dl>
+        </div>
+        <div class="panel">
+          <h2>Last observable result</h2>
+          <div id="result" class="log" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:16px">
+        <h2>Free play</h2>
+        <div id="freePlay" class="buttons"></div>
+      </section>
+
+      <section class="panel" style="margin-top:16px">
+        <h2>Guided walkthroughs</h2>
+        <div id="tabs" class="tabs" role="tablist"></div>
+        <p id="scenarioDescription"></p>
+        <div id="steps" class="steps"></div>
+      </section>
+    </main>
+
+    <script>
+      // Portable observable-state model: no DOM access, clocks, or persistence.
+      const SlotMachine = (() => {
+        const initial = () => ({ status: 'available', owner: null, card: null });
+        const accepted = (state, message) => ({ state, outcome: 'accepted', message });
+        const rejected = (state, message) => ({ state, outcome: 'rejected', message });
+
+        function transition(state, command) {
+          if (command.type === 'reset') return accepted(initial(), 'Slot reset to available.');
+          if (command.type === 'drop') {
+            if (state.status !== 'available') return rejected(state, `${command.player} could not stage ${command.card}: slot is ${state.status} by ${state.owner}.`);
+            return accepted({ status:'claimed', owner:command.player, card:command.card }, `${command.player} claimed the slot and staged ${command.card}.`);
+          }
+          if (command.type === 'confirm') {
+            if (state.status !== 'claimed' || state.owner !== command.player) return rejected(state, `${command.player} could not confirm: only the current claimant can confirm.`);
+            return accepted({ ...state, status:'confirmed' }, `${command.player} confirmed ${state.card}; the slot is committed.`);
+          }
+          if (command.type === 'cancel') {
+            if (state.status !== 'claimed' || state.owner !== command.player) return rejected(state, `${command.player} could not cancel: only the current claimant can release a staged slot.`);
+            return accepted(initial(), `${command.player} cancelled; the slot is available again.`);
+          }
+          if (command.type === 'expire') {
+            if (state.status !== 'claimed') return rejected(state, 'Nothing expired: only an unconfirmed claim has a lease.');
+            return accepted(initial(), `${state.owner}'s claim expired; the slot is available again.`);
+          }
+          if (command.type === 'invalidDrop') return rejected(state, `${command.player}'s invalid drop returned to origin; shared slot state did not change.`);
+          return rejected(state, 'Unknown command.');
+        }
+        return { initial, transition };
+      })();
+
+      const commands = {
+        aliceDrop: { label:'Alice drops Earn Gold', value:{ type:'drop', player:'Alice', card:'Earn Gold' } },
+        bobDrop: { label:'Bob drops Reduce Danger', value:{ type:'drop', player:'Bob', card:'Reduce Danger' } },
+        aliceConfirm: { label:'Alice confirms', value:{ type:'confirm', player:'Alice' } },
+        bobConfirm: { label:'Bob confirms', value:{ type:'confirm', player:'Bob' } },
+        aliceCancel: { label:'Alice cancels', value:{ type:'cancel', player:'Alice' } },
+        bobCancel: { label:'Bob cancels', value:{ type:'cancel', player:'Bob' } },
+        currentExpiry: { label:'Fixture expires current claim', value:{ type:'expire' } },
+        invalidDrop: { label:'Bob makes invalid drop', value:{ type:'invalidDrop', player:'Bob' } },
+        reset: { label:'Reset', value:{ type:'reset' } },
+      };
+
+      const scenarios = [
+        { name:'Claim and confirm', description:'Both clients should converge on the accepted claim, the loser receives a specific rejection, and only the claimant can confirm.', steps:['aliceDrop','bobDrop','bobConfirm','aliceConfirm'] },
+        { name:'Cancel and reclaim', description:'Cancellation releases only an unconfirmed claim. A different player can then acquire a new lease.', steps:['aliceDrop','aliceCancel','bobDrop','bobConfirm'] },
+        { name:'Claim timeout', description:'The test fixture expires the claim directly; both players observe availability without waiting for wall-clock time.', steps:['aliceDrop','currentExpiry','bobDrop','bobConfirm'] },
+        { name:'Invalid drop', description:'An invalid card interaction is local feedback: it returns to origin and never mutates or claims the shared slot.', steps:['invalidDrop','aliceDrop','invalidDrop','aliceConfirm'] },
+      ];
+
+      let state = SlotMachine.initial();
+      let last = { outcome:'accepted', message:'Ready. Choose free play or start a walkthrough.' };
+      let activeScenario = 0;
+      let completedSteps = 0;
+
+      function dispatch(command) {
+        const actual = typeof command === 'function' ? command() : command;
+        const result = SlotMachine.transition(state, actual);
+        state = result.state;
+        last = result;
+        render();
+      }
+
+      function render() {
+        document.querySelector('#status').textContent = state.status;
+        document.querySelector('#owner').textContent = state.owner ?? '—';
+        document.querySelector('#card').textContent = state.card ?? '—';
+        const result = document.querySelector('#result');
+        result.textContent = `${last.outcome.toUpperCase()}: ${last.message}`;
+        result.style.borderLeft = `5px solid ${last.outcome === 'accepted' ? '#12b76a' : '#f04438'}`;
+
+        const tabs = document.querySelector('#tabs');
+        tabs.innerHTML = '';
+        scenarios.forEach((scenario, index) => {
+          const button = document.createElement('button');
+          button.textContent = scenario.name;
+          button.setAttribute('aria-selected', String(index === activeScenario));
+          button.onclick = () => { activeScenario = index; completedSteps = 0; state = SlotMachine.initial(); last = { outcome:'accepted', message:`Started “${scenario.name}”.` }; render(); };
+          tabs.append(button);
+        });
+
+        const scenario = scenarios[activeScenario];
+        document.querySelector('#scenarioDescription').textContent = scenario.description;
+        const steps = document.querySelector('#steps');
+        steps.innerHTML = '';
+        scenario.steps.forEach((key, index) => {
+          const row = document.createElement('div'); row.className = 'step';
+          const number = document.createElement('span'); number.className = 'number'; number.textContent = String(index + 1);
+          const text = document.createElement('span'); text.textContent = commands[key].label;
+          const button = document.createElement('button'); button.textContent = index < completedSteps ? 'Done' : 'Run step'; button.disabled = index !== completedSteps;
+          button.onclick = () => { dispatch(commands[key].value); completedSteps += 1; render(); };
+          row.append(number, text, button); steps.append(row);
+        });
+      }
+
+      const freePlay = document.querySelector('#freePlay');
+      Object.values(commands).forEach((command) => {
+        const button = document.createElement('button'); button.textContent = command.label;
+        if (command.label === 'Reset') button.className = 'primary';
+        button.onclick = () => dispatch(command.value); freePlay.append(button);
+      });
+      render();
+    </script>
+  </body>
+</html>
