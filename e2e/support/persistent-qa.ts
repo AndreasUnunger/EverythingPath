@@ -7,18 +7,28 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
-import { referencePanel } from './week-frame';
-import { RIVALRY_ENDED } from './persistent-workspace';
+import { referencePanel, saveState } from './week-frame';
+import {
+  BUYOFF_STAGED,
+  RIVALRY_ENDED,
+  THEFT_CHECKED,
+} from './persistent-workspace';
 
-/** Independent review of the carried-event controls on the authenticated page. */
+const theftOf = (page: Page) =>
+  page.getByRole('group', { name: 'Theft · Event 1', exact: true });
+
+/**
+ * Independent review of the carried-event controls on the authenticated page.
+ * `observer`, another member on Persistent, must see the Loyalty check that
+ * replaces the buyoff; `expectPersistentRestoreDelivered` then proves it saw
+ * the restored buyoff too, not the identical one from before the check.
+ */
 export async function reviewPersistentWorkspace(
   page: Page,
+  observer: Page,
   artifactDirectory: string,
 ) {
-  const theft = page.getByRole('group', {
-    name: 'Theft · Event 1',
-    exact: true,
-  });
+  const theft = theftOf(page);
   const rivalry = page.getByRole('group', {
     name: 'Rivalry · Event 3',
     exact: true,
@@ -75,6 +85,7 @@ export async function reviewPersistentWorkspace(
     .getByRole('textbox', { name: 'Loyalty check', exact: true })
     .fill('20');
   await expect(theft).toContainText('Success ·');
+  await expect(theftOf(observer)).toContainText(THEFT_CHECKED);
   // Tablet, phone and desktop, then (#144 §6) phone landscape and the
   // narrower tablet with the reference panel closed.
   for (const [name, width, height] of [
@@ -140,4 +151,17 @@ export async function reviewPersistentWorkspace(
   await expect(theft).toContainText('Ends · buyoff 40 gp');
   await expect(rivalry).toContainText(RIVALRY_ENDED);
   await page.setViewportSize({ width: 1194, height: 834 });
+}
+
+/**
+ * The restored buyoff is saved and has reached `observer`, so a Confirmation
+ * from that device reviews the restored week rather than the Loyalty check.
+ * Runs after `reviewPersistentWorkspace`, whose observer saw the check.
+ */
+export async function expectPersistentRestoreDelivered(
+  page: Page,
+  observer: Page,
+) {
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
+  await expect(theftOf(observer)).toContainText(BUYOFF_STAGED);
 }

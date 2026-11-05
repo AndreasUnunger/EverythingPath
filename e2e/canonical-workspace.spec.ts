@@ -33,7 +33,10 @@ import {
   reviewSummarySettlement,
 } from './support/summary-qa';
 import { resultCell } from './support/summary-result';
-import { reviewPersistentWorkspace } from './support/persistent-qa';
+import {
+  expectPersistentRestoreDelivered,
+  reviewPersistentWorkspace,
+} from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
 import {
   prepareInvasion,
@@ -838,7 +841,10 @@ test('players review and buy off carried persistent events before confirming the
       network,
       run.artifactDirectory,
     );
-    await reviewPersistentWorkspace(gm, run.artifactDirectory);
+    await reviewPersistentWorkspace(gm, player, run.artifactDirectory);
+    // The player's Confirmation must review the restored buyoff: a stale
+    // review is correctly rejected (#774).
+    await expectPersistentRestoreDelivered(gm, player);
     const beforePersistentConfirmation = confirmationInspectionSchema.parse(
       await canonicalPersistenceFixtureCall(run, 'inspect', {
         ...persistentScope,

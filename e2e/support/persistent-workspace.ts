@@ -15,8 +15,8 @@ const button = (group: Locator, name: string) =>
 const editor = (page: Page) => page.locator('[data-week-editor]');
 // The rules cost for this fixture's rank: 2 × the 20 gp minimum treasury.
 const BUY_OFF = 'Buy off · 40 gp';
-const BUYOFF_STAGED = 'Ends · buyoff 40 gp';
-const THEFT_CHECKED = 'Success · This Theft keeps 90%';
+export const BUYOFF_STAGED = 'Ends · buyoff 40 gp';
+export const THEFT_CHECKED = 'Success · This Theft keeps 90%';
 export const RIVALRY_ENDED = 'Success · Ends the Rivalry for good.';
 const reason = (group: Locator) =>
   group.getByRole('textbox', { name: 'Rules Exception reason', exact: true });
