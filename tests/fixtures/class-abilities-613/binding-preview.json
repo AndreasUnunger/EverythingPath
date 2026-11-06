@@ -1,0 +1,678 @@
+{
+  "entries": [
+    {
+      "externalKey": "pf1/CK5L0YJDENqBxLqv",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "class-abilities",
+      "name": "Fast Movement (MNK)",
+      "detail": {
+        "kind": "classFeature"
+      },
+      "description": "<p>At 3rd level, a monk gains an <em>enhancement bonus</em> to his land speed, as seen below. A monk in armor or carrying a medium or heavy load loses this extra speed.</p><table><thead><tr><th>Starting Level</th><th>Bonus Speed</th></tr></thead><tbody><tr><td>3</td><td>+10 ft.</td></tr><tr><td>6</td><td>+20 ft.</td></tr><tr><td>9</td><td>+30 ft.</td></tr><tr><td>12</td><td>+40 ft.</td></tr><tr><td>15</td><td>+50 ft.</td></tr><tr><td>18</td><td>+60 ft.</td></tr></tbody></table>",
+      "sources": [
+        {
+          "book": "PZO1110",
+          "pages": "59"
+        },
+        {
+          "book": "PZO1131",
+          "pages": "15"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [
+        {
+          "field": "gameContent",
+          "reason": "Source game-content fields retained for feature curation; only explicitly mapped detail/modifiers have an interpretation.",
+          "value": {
+            "associations": {
+              "classes": ["Monk", "Monk (Unchained)"]
+            }
+          }
+        },
+        {
+          "field": "changes",
+          "reason": "Unmapped target, bonus type, formula or calculation-stage dependency; contributes nothing.",
+          "value": {
+            "target": "landSpeed",
+            "formula": "10 * (floor(@class.level / 3))",
+            "type": "enh"
+          }
+        }
+      ]
+    }
+  ],
+  "closure": [],
+  "increments": [
+    {
+      "externalKey": "everythingpath/monk-fast-movement-12",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +40 ft.",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "12:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +40 ft.: the Monk table's 12th-level row of Fast Movement (Pathfinder RPG Core Rulebook pp. 56–60). The Fast Movement entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder RPG Core Rulebook",
+          "pages": "56–60"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/monk-fast-movement-15",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +50 ft.",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "15:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +50 ft.: the Monk table's 15th-level row of Fast Movement (Pathfinder RPG Core Rulebook pp. 56–60). The Fast Movement entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder RPG Core Rulebook",
+          "pages": "56–60"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/monk-fast-movement-18",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +60 ft.",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "18:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +60 ft.: the Monk table's 18th-level row of Fast Movement (Pathfinder RPG Core Rulebook pp. 56–60). The Fast Movement entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder RPG Core Rulebook",
+          "pages": "56–60"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/monk-fast-movement-6",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +20 ft.",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "6:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +20 ft.: the Monk table's 6th-level row of Fast Movement (Pathfinder RPG Core Rulebook pp. 56–60). The Fast Movement entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder RPG Core Rulebook",
+          "pages": "56–60"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/monk-fast-movement-9",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +30 ft.",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "9:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +30 ft.: the Monk table's 9th-level row of Fast Movement (Pathfinder RPG Core Rulebook pp. 56–60). The Fast Movement entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder RPG Core Rulebook",
+          "pages": "56–60"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/unchained-monk-fast-movement-12",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +40 ft. (UC)",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "12:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +40 ft. (UC): the Monk (Unchained) table's 12th-level row of Fast Movement (UC) (Pathfinder Unchained pp. 14–19). The Fast Movement (UC) entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder Unchained",
+          "pages": "14–19"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-12",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/unchained-monk-fast-movement-15",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +50 ft. (UC)",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "15:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +50 ft. (UC): the Monk (Unchained) table's 15th-level row of Fast Movement (UC) (Pathfinder Unchained pp. 14–19). The Fast Movement (UC) entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder Unchained",
+          "pages": "14–19"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-15",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/unchained-monk-fast-movement-18",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +60 ft. (UC)",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "18:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +60 ft. (UC): the Monk (Unchained) table's 18th-level row of Fast Movement (UC) (Pathfinder Unchained pp. 14–19). The Fast Movement (UC) entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder Unchained",
+          "pages": "14–19"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-18",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/unchained-monk-fast-movement-6",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +20 ft. (UC)",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "6:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +20 ft. (UC): the Monk (Unchained) table's 6th-level row of Fast Movement (UC) (Pathfinder Unchained pp. 14–19). The Fast Movement (UC) entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder Unchained",
+          "pages": "14–19"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-6",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    },
+    {
+      "externalKey": "everythingpath/unchained-monk-fast-movement-9",
+      "upstreamKey": "pf1/CK5L0YJDENqBxLqv",
+      "pack": "everythingpath-schedules",
+      "name": "Fast Movement +30 ft. (UC)",
+      "detail": {
+        "kind": "classFeature",
+        "parentFeature": "pf1/CK5L0YJDENqBxLqv",
+        "part": "9:pf1/CK5L0YJDENqBxLqv"
+      },
+      "description": "<p>Fast Movement +30 ft. (UC): the Monk (Unchained) table's 9th-level row of Fast Movement (UC) (Pathfinder Unchained pp. 14–19). The Fast Movement (UC) entry's own rules give its value.</p>",
+      "sources": [
+        {
+          "book": "Pathfinder Unchained",
+          "pages": "14–19"
+        }
+      ],
+      "modifiers": [],
+      "unsupported": [],
+      "provenance": {
+        "name": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "name"
+          }
+        },
+        "description": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "description"
+          }
+        },
+        "sources": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "sources"
+          }
+        },
+        "detail.parentFeature": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "detail.parentFeature"
+          }
+        },
+        "detail.part": {
+          "source": "overlay",
+          "locator": {
+            "externalKey": "everythingpath/unchained-monk-fast-movement-9",
+            "kind": "schedule",
+            "target": "detail.part"
+          }
+        }
+      },
+      "attributionFrom": "pf1/CK5L0YJDENqBxLqv"
+    }
+  ]
+}
