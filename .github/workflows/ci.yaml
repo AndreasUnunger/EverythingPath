@@ -1,0 +1,292 @@
+name: CI
+
+on:
+  # Every branch, gate/** included: a gate/<label> push runs remote-checks instead of checks.
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    if: ${{ !startsWith(github.ref, 'refs/heads/gate/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check artifact budgets
+        run: node scripts/check-artifacts.mjs --ci
+
+      - name: Test artifact guard
+        run: |
+          mkdir -p "$RUNNER_TEMP/everythingpath-artifacts"
+          TMPDIR="$RUNNER_TEMP/everythingpath-artifacts" node --test scripts/check-artifacts.test.mjs
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify committed Convex generated files
+        run: pnpm check:convex-generated
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Install Chromium for geometry support tests
+        run: pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Test
+        run: pnpm test && pnpm test:build
+
+      - name: Build web application without backend credentials
+        run: pnpm build && pnpm build:web
+        env:
+          NEXT_PUBLIC_CONVEX_URL: https://e2e-build-placeholder.convex.cloud
+
+  # Heavy checks for a frozen landing candidate pushed as gate/<label> (owner D1, 2026-11-01):
+  # remote_ci.py runs the argv remote_checks.py pins and the assemble job writes remote-heavy-checks-v1
+  # last; root publishes the artifact with remote-fetch.sh and names it in gate.json remoteChecks.
+  # gate/<label> holds gate-push.sh's tree-only commit (owner 2026-11-02): no history, its
+  # trailers naming the reviewed commit, base and tree, which the manifest records.
+  # The catalog audits in scripts/orchestration/host-audits.json skip here (no gate-host sources);
+  # the gate host runs them (owner 2026-11-02).
+  # Sharded on GitHub's free runners (owner 2026-11-06, speed-ci-shards): N remote-shard jobs run
+  # `--shard=i/N` of the suite, remote-static runs install, typecheck and lint, and remote-checks
+  # (the assemble job) merges the shards' blob reports into the one suite report and writes the
+  # manifest. Each job uploads its part even on failure; the assemble job records every part as it
+  # came, so a missing, failed or mismatched part is refused by the verifier, never dropped.
+  # N appears three times (the matrix and both --total); remote-ci.test.py holds them equal.
+  remote-shard:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/gate/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      # Every shard runs to the end, so one failure still leaves the others' evidence.
+      fail-fast: false
+      matrix:
+        index: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      # The gate host's effective zone (its TZ is unset and /etc/localtime resolves to this);
+      # the verifier binds it. An empty value leaves TZ unset here (the runner's UTC).
+      GATE_TZ: Europe/Stockholm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The pushed commit alone: it is parentless, and tests that need history are host audits.
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Gate commit
+        id: probe
+        # The commit, its tree and its Gate-Reviewed, Gate-Base and Gate-Tree trailers; anything
+        # but a gate-push.sh commit stops the job here.
+        run: |
+          python3 -B scripts/orchestration/remote_ci.py probe > "$RUNNER_TEMP/gate-commit.json"
+          { echo '### Gate commit'; echo '```json'; cat "$RUNNER_TEMP/gate-commit.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Fill the pnpm store for the offline install
+        # The same HOME, PATH and PNPM_HOME remote_ci.py gives its commands, so both see one store.
+        run: env -i HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm fetch
+
+      - name: Runner hardware
+        id: runner
+        # Benchmark data, log only (the manifest has no field for it), for tuning N.
+        # The label repeats this job's runs-on (the test holds them equal); RUNNER_NAME is the machine.
+        run: |
+          echo "runner label: ubuntu-latest"
+          echo "runner $RUNNER_NAME, image ${ImageOS:-?} ${ImageVersion:-?}, $RUNNER_OS/$RUNNER_ARCH"
+          echo "nproc $(nproc)"
+          lscpu
+          free -g
+
+      - name: Install Chromium for geometry support tests
+        # Provision from the fetched, integrity-checked lockfile packages; the shard records the
+        # installed lock, which the verifier requires to equal the other jobs' and the gate host's.
+        run: |
+          env -i CI=true HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm install --offline --frozen-lockfile
+          pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Suite shard
+        id: shard
+        run: >-
+          python3 -B scripts/orchestration/remote_ci.py shard --index ${{ matrix.index }} --total 8
+          --tz "$GATE_TZ" --out "$RUNNER_TEMP/part"
+
+      - name: Upload the shard's part
+        id: upload
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-shard-${{ matrix.index }}
+          path: ${{ runner.temp }}/part
+          if-no-files-found: warn
+          # A re-run replaces its part; the assemble job copies it into remote-checks-<runId>.
+          overwrite: true
+          retention-days: 3
+
+  remote-static:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/gate/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      GATE_TZ: Europe/Stockholm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Gate commit
+        id: probe
+        run: |
+          python3 -B scripts/orchestration/remote_ci.py probe > "$RUNNER_TEMP/gate-commit.json"
+          { echo '### Gate commit'; echo '```json'; cat "$RUNNER_TEMP/gate-commit.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Fill the pnpm store for the offline install
+        run: env -i HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm fetch
+
+      - name: Runner hardware
+        id: runner
+        run: |
+          echo "runner label: ubuntu-latest"
+          echo "runner $RUNNER_NAME, image ${ImageOS:-?} ${ImageVersion:-?}, $RUNNER_OS/$RUNNER_ARCH"
+          echo "nproc $(nproc)"
+          lscpu
+          free -g
+
+      - name: Install, typecheck and lint
+        id: static
+        run: python3 -B scripts/orchestration/remote_ci.py static --tz "$GATE_TZ" --out "$RUNNER_TEMP/part"
+
+      - name: Upload the static part
+        id: upload
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-static
+          path: ${{ runner.temp }}/part
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 3
+
+  remote-checks:
+    needs: [remote-shard, remote-static]
+    # always(): a failed or cancelled part still yields a manifest, which the verifier refuses.
+    if: ${{ always() && github.event_name == 'push' && startsWith(github.ref, 'refs/heads/gate/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # The gate host's EP_ORCH: the manifest names ORCH/remote-checks/<runId> as its directory.
+      GATE_EP_ORCH: /home/andreas/repos/everythingpath/ep-orch
+      GATE_TZ: Europe/Stockholm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Gate commit
+        id: probe
+        run: |
+          python3 -B scripts/orchestration/remote_ci.py probe > "$RUNNER_TEMP/gate-commit.json"
+          { echo '### Gate commit'; echo '```json'; cat "$RUNNER_TEMP/gate-commit.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Fill the pnpm store for the offline install
+        run: env -i HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm fetch
+
+      - name: Runner hardware
+        id: runner
+        run: |
+          echo "runner label: ubuntu-latest"
+          echo "runner $RUNNER_NAME, image ${ImageOS:-?} ${ImageVersion:-?}, $RUNNER_OS/$RUNNER_ARCH"
+          echo "nproc $(nproc)"
+          lscpu
+          free -g
+
+      - name: Install for the merge
+        # Vitest merges the blobs; the installed lock is recorded and must equal every part's.
+        run: env -i CI=true HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm install --offline --frozen-lockfile
+
+      - name: Download the shard parts
+        # A missing part is recorded as missing (the verifier refuses it), so the job goes on.
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: remote-shard-*
+          path: ${{ runner.temp }}/parts
+
+      - name: Download the static part
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: remote-static
+          path: ${{ runner.temp }}/parts/remote-static
+
+      - name: Assemble the heavy checks
+        id: assemble
+        run: >-
+          python3 -B scripts/orchestration/remote_ci.py assemble --label "${GITHUB_REF_NAME#gate/}"
+          --orch "$GATE_EP_ORCH" --tz "$GATE_TZ" --out "$RUNNER_TEMP/remote-checks"
+          --parts "$RUNNER_TEMP/parts" --total 8
+
+      - name: Record the runId
+        if: ${{ always() && steps.assemble.outputs.run-id != '' }}
+        run: echo "runId \`${{ steps.assemble.outputs.run-id }}\`; fetch with \`scripts/orchestration/remote-fetch.sh ${{ steps.assemble.outputs.run-id }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload remote-checks/<runId>
+        id: upload
+        if: ${{ always() && steps.assemble.outputs.run-id != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-checks-${{ steps.assemble.outputs.run-id }}
+          path: ${{ steps.assemble.outputs.directory }}
+          if-no-files-found: error
+          retention-days: 14
