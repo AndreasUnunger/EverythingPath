@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  # Every branch, gate/** included: a gate/<label> push runs remote-checks instead of checks.
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    if: ${{ !startsWith(github.ref, 'refs/heads/gate/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check artifact budgets
+        run: node scripts/check-artifacts.mjs --ci
+
+      - name: Test artifact guard
+        run: |
+          mkdir -p "$RUNNER_TEMP/everythingpath-artifacts"
+          TMPDIR="$RUNNER_TEMP/everythingpath-artifacts" node --test scripts/check-artifacts.test.mjs
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify committed Convex generated files
+        run: pnpm check:convex-generated
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Install Chromium for geometry support tests
+        run: pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Test
+        run: pnpm test && pnpm test:build
+
+      - name: Build web application without backend credentials
+        run: pnpm build && pnpm build:web
+        env:
+          NEXT_PUBLIC_CONVEX_URL: https://e2e-build-placeholder.convex.cloud
+
+  # Heavy checks for a frozen landing candidate pushed as gate/<label> (owner D1, 2026-11-01):
+  # remote_ci.py runs the argv remote_checks.py pins and writes remote-heavy-checks-v1 last;
+  # root publishes the artifact with remote-fetch.sh and names it in gate.json remoteChecks.
+  # gate/<label> holds gate-push.sh's tree-only commit (owner 2026-11-02): no history, its
+  # trailers naming the reviewed commit, base and tree, which the manifest records.
+  # The catalog audits in scripts/orchestration/host-audits.json skip here (no gate-host sources);
+  # the gate host runs them (owner 2026-11-02).
+  # Blacksmith runner (root 2026-11-03): GitHub's image on faster cores. 4 vCPU because Vitest is
+  # pinned to 2 workers; the Blacksmith app must be installed for this repo or the job never starts.
+  remote-checks:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/gate/') }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    env:
+      # The gate host's EP_ORCH: the manifest names ORCH/remote-checks/<runId> as its directory.
+      GATE_EP_ORCH: /home/andreas/repos/everythingpath/ep-orch
+      # The gate host's effective zone (its TZ is unset and /etc/localtime resolves to this);
+      # the verifier binds it. An empty value leaves TZ unset here (the runner's UTC).
+      GATE_TZ: Europe/Stockholm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The pushed commit alone: it is parentless, and tests that need history are host audits.
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Gate commit
+        id: probe
+        # The commit, its tree and its Gate-Reviewed, Gate-Base and Gate-Tree trailers; anything
+        # but a gate-push.sh commit stops the job here.
+        run: |
+          python3 -B scripts/orchestration/remote_ci.py probe > "$RUNNER_TEMP/gate-commit.json"
+          { echo '### Gate commit'; echo '```json'; cat "$RUNNER_TEMP/gate-commit.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Fill the pnpm store for the offline install
+        # The same HOME, PATH and PNPM_HOME remote_ci.py gives its commands, so both see one store.
+        run: env -i HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm fetch
+
+      - name: Runner hardware
+        id: runner
+        # Benchmark data, log only (the manifest has no field for it): Blacksmith may upgrade the size.
+        # The label repeats this job's runs-on (the test holds them equal); RUNNER_NAME is the machine.
+        run: |
+          echo "runner label: blacksmith-4vcpu-ubuntu-2404"
+          echo "runner $RUNNER_NAME, image ${ImageOS:-?} ${ImageVersion:-?}, $RUNNER_OS/$RUNNER_ARCH"
+          echo "nproc $(nproc)"
+          lscpu
+          free -g
+
+      - name: Install Chromium for geometry support tests
+        # Provision from the fetched, integrity-checked lockfile packages. The driver repeats
+        # the frozen install to record its own receipt; both use the same store and HOME.
+        run: |
+          env -i CI=true HOME="$HOME" PATH="$PATH" ${PNPM_HOME:+PNPM_HOME="$PNPM_HOME"} pnpm install --offline --frozen-lockfile
+          pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Heavy checks
+        id: heavy
+        run: >-
+          python3 -B scripts/orchestration/remote_ci.py --label "${GITHUB_REF_NAME#gate/}"
+          --orch "$GATE_EP_ORCH" --tz "$GATE_TZ" --out "$RUNNER_TEMP/remote-checks"
+
+      - name: Record the runId
+        if: ${{ always() && steps.heavy.outputs.run-id != '' }}
+        run: echo "runId \`${{ steps.heavy.outputs.run-id }}\`; fetch with \`scripts/orchestration/remote-fetch.sh ${{ steps.heavy.outputs.run-id }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload remote-checks/<runId>
+        if: ${{ always() && steps.heavy.outputs.run-id != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-checks-${{ steps.heavy.outputs.run-id }}
+          path: ${{ steps.heavy.outputs.directory }}
+          if-no-files-found: error
+          retention-days: 14
